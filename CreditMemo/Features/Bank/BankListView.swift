@@ -9,6 +9,8 @@ struct BankListView: View {
     @State private var showAddSheet    = false
     @State private var deleteTarget: E8bank?
     @State private var showDeleteAlert = false
+    /// 左スワイプ「状況」で開く口座。設定されると引き落とし状況画面へ push する。
+    @State private var statusBank: E8bank?
 
     var body: some View {
         List {
@@ -45,6 +47,18 @@ struct BankListView: View {
                         Label("button.delete", systemImage: "trash")
                     }
                 }
+                // 「状況」は削除と隣接させない（誤タップ防止）ため、左スワイプ側に分離して配置する
+                // 背景セル色 + アイコンのみ。テキストは system が白色強制してしまうため省略。
+                // ロングスワイプで即時実行。
+                .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                    Button {
+                        statusBank = bank
+                    } label: {
+                        Label("", image: "AppIconBadge")
+                    }
+                    .tint(Color(uiColor: .systemBackground))
+                    .accessibilityLabel(Text("card.action.status"))
+                }
             }
             .onMove(perform: move)
         }
@@ -56,6 +70,10 @@ struct BankListView: View {
         }
         .sheet(isPresented: $showAddSheet) {
             NavigationStack { BankEditView(bank: nil) }
+        }
+        // 状況スワイプから引き落とし状況画面（初期絞り込み付き）へ push
+        .navigationDestination(item: $statusBank) { bank in
+            PaymentListView(initialBankFilter: bank)
         }
         // 特大フォント・長文でも全文が見える独自ダイアログを使用
         .deleteConfirmation(

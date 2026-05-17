@@ -18,6 +18,8 @@ struct BankEditView: View {
     @State private var hasInitialized = false
     @State private var initialDraft: DraftState?
     @State private var showPresetDialog = false
+    /// 上部「引き落とし状況」ボタンで push する口座。既存口座のみ有効。
+    @State private var statusBank: E8bank?
 
     private var isNew:   Bool { bank == nil }
     private var trimmedName: String {
@@ -53,6 +55,27 @@ struct BankEditView: View {
 
     var body: some View {
         Form {
+            // 既存口座のみ「引き落とし状況」へ遷移するショートカットを最上段に置く
+            if let bank, !isNew {
+                Section {
+                    Button {
+                        statusBank = bank
+                    } label: {
+                        HStack(spacing: 12) {
+                            AppIconBadge(size: 26)
+                            Text("payment.list.title")
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.tertiary)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
             Section {
                 TextField("bank.field.name", text: $zName)
                     .autocorrectionDisabled()
@@ -132,6 +155,10 @@ struct BankEditView: View {
                     DispatchQueue.main.async { focusName = true }
                 }
             }
+        }
+        // 状況ボタンから引き落とし状況画面（口座絞り込み付き）へ push
+        .navigationDestination(item: $statusBank) { bank in
+            PaymentListView(initialBankFilter: bank)
         }
         .confirmationDialog("card.preset.quote", isPresented: $showPresetDialog) {
             // 候補を選ぶと口座名へ反映する

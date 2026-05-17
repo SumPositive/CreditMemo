@@ -28,11 +28,16 @@ struct PaymentListView: View {
     @State private var showCardPicker = false
 
     /// 外部から起動時の絞り込みを指定するためのイニシャライザ。
-    /// 例：決済手段一覧の右スワイプ「状況」から渡された決済手段で絞り込んだ状態で開く。
-    init(initialCardFilter: E1card? = nil) {
+    /// 例：決済手段一覧／口座一覧の「状況」スワイプ／ボタンから渡された値で絞り込んだ状態で開く。
+    /// card と bank が同時指定された場合は card を優先する。
+    init(initialCardFilter: E1card? = nil, initialBankFilter: E8bank? = nil) {
         if let card = initialCardFilter {
             _selectedCard = State(initialValue: card)
             _filterMode   = State(initialValue: .card)
+            _groupMode    = State(initialValue: .date)
+        } else if let bank = initialBankFilter {
+            _selectedBank = State(initialValue: bank)
+            _filterMode   = State(initialValue: .bank)
             _groupMode    = State(initialValue: .date)
         }
     }

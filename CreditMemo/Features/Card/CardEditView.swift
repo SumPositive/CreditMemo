@@ -30,6 +30,8 @@ struct CardEditView: View {
     @State private var rebuildCompletedCount = 0
     @State private var rebuildTargetCount = 0
     @State private var rebuildError: String?
+    /// 上部「引き落とし状況」ボタンで push する決済手段。既存決済手段のみ有効。
+    @State private var statusCard: E1card?
     @FocusState private var focusName: Bool
     @AppStorage(AppStorageKey.userLevel) private var userLevel: UserLevel = .beginner
 
@@ -89,6 +91,27 @@ struct CardEditView: View {
 
     var body: some View {
         Form {
+            // 既存決済手段のみ「引き落とし状況」へ遷移するショートカットを最上段に置く
+            if let card, !isNew {
+                Section {
+                    Button {
+                        statusCard = card
+                    } label: {
+                        HStack(spacing: 12) {
+                            AppIconBadge(size: 26)
+                            Text("payment.list.title")
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.tertiary)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
             // 先頭はプリセット操作のみ
             if isNew {
                 Section {
@@ -261,6 +284,10 @@ struct CardEditView: View {
         }
         .sheet(isPresented: $showBankAddSheet, onDismiss: applyAddedBankIfNeeded) {
             NavigationStack { BankEditView(bank: nil) }
+        }
+        // 状況ボタンから引き落とし状況画面（決済手段絞り込み付き）へ push
+        .navigationDestination(item: $statusCard) { card in
+            PaymentListView(initialCardFilter: card)
         }
         .confirmationDialog("card.preset.quote", isPresented: $showPresetDialog) {
             // 候補を選ぶと日付設定と名称を反映する

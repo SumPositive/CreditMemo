@@ -49,13 +49,16 @@ struct CardListView: View {
                     }
                 }
                 // 「状況」は削除と隣接させない（誤タップ防止）ため、左スワイプ側に分離して配置する
-                .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                // Label + 青背景で「状況」文字が白で読める通常スタイル。
+                // ロングスワイプで即時実行。
+                .swipeActions(edge: .leading, allowsFullSwipe: true) {
                     Button {
                         statusCard = card
                     } label: {
-                        Label("card.action.status", systemImage: "list.clipboard")
+                        Label("card.action.status", image: "AppIconBadge")
                     }
-                    .tint(.orange)
+                    .tint(Color(uiColor: .systemBackground))
+                    .accessibilityLabel(Text("card.action.status"))
                 }
             }
             .onMove(perform: move)

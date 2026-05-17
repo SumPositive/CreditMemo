@@ -66,8 +66,7 @@ struct TopMenuView: View {
             Section {
                 NavigationLink(value: AppDestination.paymentList) {
                     HStack {
-                        Image(systemName: "list.clipboard")
-                            .foregroundStyle(.orange)
+                        AppIconBadge(size: 28)
                             .frame(width: 28)
                         // タイトルと直近計が1行に収まらない場合は2行目に表示する
                         ViewThatFits(in: .horizontal) {
