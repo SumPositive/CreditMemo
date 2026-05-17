@@ -57,15 +57,15 @@ struct BankListView: View {
         .sheet(isPresented: $showAddSheet) {
             NavigationStack { BankEditView(bank: nil) }
         }
-        .alert("alert.deleteConfirm.title", isPresented: $showDeleteAlert) {
-            Button("button.delete", role: .destructive) {
-                if let b = deleteTarget {
-                    try? BankService.delete(b, context: context)
-                }
+        // 特大フォント・長文でも全文が見える独自ダイアログを使用
+        .deleteConfirmation(
+            isPresented: $showDeleteAlert,
+            title: "alert.deleteConfirm.title",
+            message: "alert.deleteConfirm.bank.message"
+        ) {
+            if let b = deleteTarget {
+                try? BankService.delete(b, context: context)
             }
-            Button("button.cancel", role: .cancel) {}
-        } message: {
-            Text("alert.deleteConfirm.bank.message")
         }
     }
 

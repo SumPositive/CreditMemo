@@ -373,15 +373,15 @@ struct RecordEditView: View {
                     .padding(.top, 8)
             }
         }
-        .alert("alert.deleteConfirm.title", isPresented: $showDeleteAlert) {
-            Button("button.delete", role: .destructive) {
-                // 削除確認から実処理へ進んだことをログへ残す
-                appLog(.debug, "削除確認が確定されました")
-                deleteCurrentRecord()
-            }
-            Button("button.cancel", role: .cancel) {}
-        } message: {
-            Text("alert.deleteConfirm.message")
+        // 特大フォント・長文でも全文が見える独自ダイアログを使用
+        .deleteConfirmation(
+            isPresented: $showDeleteAlert,
+            title: "alert.deleteConfirm.title",
+            message: "alert.deleteConfirm.message"
+        ) {
+            // 削除確認から実処理へ進んだことをログへ残す
+            appLog(.debug, "削除確認が確定されました")
+            deleteCurrentRecord()
         }
         .animation(.spring(duration: 0.3), value: savedBanner)
         // 自動時はシステム設定をそのまま使い、手動時のみ固定サイズを適用する

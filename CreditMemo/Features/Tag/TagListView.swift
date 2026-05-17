@@ -60,13 +60,13 @@ struct TagListView: View {
         .sheet(isPresented: $showAddSheet) {
             NavigationStack { TagEditView(tag: nil) }
         }
-        .alert("alert.deleteConfirm.title", isPresented: $showDeleteAlert) {
-            Button("button.delete", role: .destructive) {
-                if let t = deleteTarget { context.delete(t) }
-            }
-            Button("button.cancel", role: .cancel) {}
-        } message: {
-            Text("alert.deleteConfirm.message")
+        // 特大フォント・長文でも全文が見える独自ダイアログを使用
+        .deleteConfirmation(
+            isPresented: $showDeleteAlert,
+            title: "alert.deleteConfirm.title",
+            message: "alert.deleteConfirm.message"
+        ) {
+            if let t = deleteTarget { context.delete(t) }
         }
     }
 }

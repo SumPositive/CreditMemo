@@ -73,15 +73,15 @@ struct CardListView: View {
         .navigationDestination(item: $statusCard) { card in
             PaymentListView(initialCardFilter: card)
         }
-        .alert("alert.deleteConfirm.title", isPresented: $showDeleteAlert) {
-            Button("button.delete", role: .destructive) {
-                if let c = deleteTarget {
-                    try? CardService.delete(c, context: context)
-                }
+        // 特大フォント・長文でも全文が見える独自ダイアログを使用
+        .deleteConfirmation(
+            isPresented: $showDeleteAlert,
+            title: "alert.deleteConfirm.title",
+            message: "alert.deleteConfirm.message"
+        ) {
+            if let c = deleteTarget {
+                try? CardService.delete(c, context: context)
             }
-            Button("button.cancel", role: .cancel) {}
-        } message: {
-            Text("alert.deleteConfirm.message")
         }
     }
 
