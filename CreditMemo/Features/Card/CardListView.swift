@@ -9,6 +9,8 @@ struct CardListView: View {
     @State private var showAddSheet    = false
     @State private var deleteTarget: E1card?
     @State private var showDeleteAlert = false
+    /// 右スワイプ「状況」で開く決済手段。設定されると引き落とし状況画面へ push する。
+    @State private var statusCard: E1card?
 
     var body: some View {
         List {
@@ -46,6 +48,15 @@ struct CardListView: View {
                         Label("button.delete", systemImage: "trash")
                     }
                 }
+                // 「状況」は削除と隣接させない（誤タップ防止）ため、左スワイプ側に分離して配置する
+                .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                    Button {
+                        statusCard = card
+                    } label: {
+                        Label("card.action.status", systemImage: "list.clipboard")
+                    }
+                    .tint(.orange)
+                }
             }
             .onMove(perform: move)
         }
@@ -57,6 +68,10 @@ struct CardListView: View {
         }
         .sheet(isPresented: $showAddSheet) {
             NavigationStack { CardEditView(card: nil) }
+        }
+        // 状況スワイプから引き落とし状況画面（初期絞り込み付き）へ push
+        .navigationDestination(item: $statusCard) { card in
+            PaymentListView(initialCardFilter: card)
         }
         .alert("alert.deleteConfirm.title", isPresented: $showDeleteAlert) {
             Button("button.delete", role: .destructive) {

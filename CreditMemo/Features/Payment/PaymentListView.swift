@@ -26,6 +26,16 @@ struct PaymentListView: View {
     @State private var selectedCard: E1card?
     @State private var showBankPicker = false
     @State private var showCardPicker = false
+
+    /// 外部から起動時の絞り込みを指定するためのイニシャライザ。
+    /// 例：決済手段一覧の右スワイプ「状況」から渡された決済手段で絞り込んだ状態で開く。
+    init(initialCardFilter: E1card? = nil) {
+        if let card = initialCardFilter {
+            _selectedCard = State(initialValue: card)
+            _filterMode   = State(initialValue: .card)
+            _groupMode    = State(initialValue: .date)
+        }
+    }
     @State private var togglingPaymentIDs: Set<String> = []
     /// false のとき自動スクロールをスキップする
     @State private var autoScrollEnabled = true

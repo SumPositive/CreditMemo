@@ -583,6 +583,23 @@
         }
       }
     },
+    "card.action.status" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Status"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "状況"
+          }
+        }
+      }
+    },
     "card.beginner.line1" : {
       "extractionState" : "manual",
       "localizations" : {

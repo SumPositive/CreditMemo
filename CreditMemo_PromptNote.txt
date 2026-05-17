@@ -1014,3 +1014,9 @@ private var overdueItems: [PaymentDisplayItem]  { buildDisplayItems(...) }
 private var paidItems: [PaymentDisplayItem]     { buildDisplayItems(...) }
 これらが、body 評価のたびに再構築 + animation(_:value:) の値判定で map(\.id) の Array 生成も発生。@State で保持し、upcomingUnpaidPayments 等が変わった時だけ更新するほうが軽量＆安定（特に scrollPositionKey でも再評価されるため、現在は同一フレーム内で何度も呼ばれている可能性大）するように思うがどうだろうか
 
+------------------------------------------------
+
+決済手段一覧の右スワイプメニューに「(アプリアイコン)状況」を配置、タップすると引き落とし状況画面を開き決済手段を絞り込んだ状態で表示したい
+
+
+
