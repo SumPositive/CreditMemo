@@ -635,6 +635,8 @@ private struct PaymentGroupSegmentedControl: View {
 }
 
 private struct PaymentFilterStatusBar: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     let title: String
     let isFiltered: Bool
     let onSelectAll: () -> Void
@@ -642,11 +644,17 @@ private struct PaymentFilterStatusBar: View {
     let onSelectCard: () -> Void
     let onClear: () -> Void
     @State private var showFilterMenu = false
+    @State private var showFilterSheet = false
 
     var body: some View {
         HStack(spacing: 8) {
             Button {
-                showFilterMenu = true
+                // 特大文字では吹き出しが切れやすいため、スクロールできるシートへ切り替える
+                if dynamicTypeSize.isAccessibilitySize {
+                    showFilterSheet = true
+                } else {
+                    showFilterMenu = true
+                }
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "line.3.horizontal.decrease.circle")
@@ -700,6 +708,57 @@ private struct PaymentFilterStatusBar: View {
                 onSelectBank()
             }
             Button("button.cancel", role: .cancel) {}
+        }
+        .sheet(isPresented: $showFilterSheet) {
+            PaymentFilterMenuSheet(
+                onSelectAll: onSelectAll,
+                onSelectBank: onSelectBank,
+                onSelectCard: onSelectCard
+            )
+        }
+    }
+}
+
+private struct PaymentFilterMenuSheet: View {
+    let onSelectAll: () -> Void
+    let onSelectBank: () -> Void
+    let onSelectCard: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                filterButton("label.all") {
+                    onSelectAll()
+                }
+                filterButton("payment.filter.card") {
+                    onSelectCard()
+                }
+                filterButton("payment.filter.bank") {
+                    onSelectBank()
+                }
+            }
+            .navigationTitle("payment.filter.title")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("button.cancel") { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+
+    private func filterButton(_ title: LocalizedStringKey, action: @escaping () -> Void) -> some View {
+        Button {
+            dismiss()
+            action()
+        } label: {
+            Text(title)
+                .foregroundStyle(.primary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
         }
     }
 }
