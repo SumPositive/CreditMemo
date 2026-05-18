@@ -99,6 +99,15 @@ struct RecordListView: View {
     @State private var sortedCache: [E3record] = []
 
     private let pageSize = 100
+
+    init(initialTag: E5tag? = nil) {
+        // タグ側から開いた時は、履歴をそのタグで絞り込んだ状態にする
+        if let initialTag {
+            _filterKind = State(initialValue: .tag)
+            _selectedTags = State(initialValue: [initialTag])
+        }
+    }
+
     private var filtered: [E3record] {
         records
     }

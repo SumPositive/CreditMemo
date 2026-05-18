@@ -9,6 +9,7 @@ struct TagListView: View {
 
     @State private var showAddSheet  = false
     @State private var deleteTarget: E5tag?
+    @State private var historyTarget: E5tag?
     @State private var showDeleteAlert = false
 
     private var sortMode: SortMode { SortMode(rawValue: sortModeRaw) ?? .recent }
@@ -38,6 +39,16 @@ struct TagListView: View {
                         Label("button.delete", systemImage: "trash")
                     }
                 }
+                // 履歴は削除と離し、左側スワイプでロングスワイプ実行できるようにする
+                .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                    Button {
+                        historyTarget = tag
+                    } label: {
+                        Label("tag.action.recordList", systemImage: "list.bullet.rectangle")
+                    }
+                    .tint(.blue)
+                    .accessibilityLabel(Text("tag.action.recordList"))
+                }
             }
         }
         .scalableNavigationTitle("tag.list.title")
@@ -59,6 +70,10 @@ struct TagListView: View {
         }
         .sheet(isPresented: $showAddSheet) {
             NavigationStack { TagEditView(tag: nil) }
+        }
+        .navigationDestination(item: $historyTarget) { tag in
+            // タグ一覧のスワイプから、該当タグで絞り込んだ履歴へ遷移する
+            RecordListView(initialTag: tag)
         }
         // 特大フォント・長文でも全文が見える独自ダイアログを使用
         .deleteConfirmation(

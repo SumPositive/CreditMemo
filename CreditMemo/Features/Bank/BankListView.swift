@@ -25,6 +25,11 @@ struct BankListView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
+                        // 状況スワイプは削除スワイプより前に説明する
+                        Text("bank.beginner.statusSwipe")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
                         Text("bank.beginner.line3")
                             .font(.caption)
                             .foregroundStyle(.secondary)

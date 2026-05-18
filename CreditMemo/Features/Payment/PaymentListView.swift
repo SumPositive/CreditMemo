@@ -696,18 +696,23 @@ private struct PaymentFilterStatusBar: View {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(Color(uiColor: .tertiarySystemFill))
         )
-        // 選択肢だけ見せたいので、フィルター吹き出しのタイトルは非表示にする。
-        .confirmationDialog("payment.filter.title", isPresented: $showFilterMenu, titleVisibility: .hidden) {
-            Button("label.all") {
+        .popover(
+            isPresented: $showFilterMenu,
+            attachmentAnchor: .rect(.bounds),
+            arrowEdge: .top
+        ) {
+            PaymentFilterPopover {
                 onSelectAll()
-            }
-            Button("payment.filter.card") {
+                showFilterMenu = false
+            } onCard: {
                 onSelectCard()
-            }
-            Button("payment.filter.bank") {
+                showFilterMenu = false
+            } onBank: {
                 onSelectBank()
+                showFilterMenu = false
             }
-            Button("button.cancel", role: .cancel) {}
+            .presentationCompactAdaptation(.popover)
+            .presentationBackground(Color(.systemBackground))
         }
         .sheet(isPresented: $showFilterSheet) {
             PaymentFilterMenuSheet(
@@ -716,6 +721,42 @@ private struct PaymentFilterStatusBar: View {
                 onSelectCard: onSelectCard
             )
         }
+    }
+}
+
+private struct PaymentFilterPopover: View {
+    let onAll: () -> Void
+    let onCard: () -> Void
+    let onBank: () -> Void
+
+    var body: some View {
+        VStack(spacing: 10) {
+            filterButton("label.all", action: onAll)
+            filterButton("payment.filter.card", action: onCard)
+            filterButton("payment.filter.bank", action: onBank)
+        }
+        .padding(18)
+        // 決済一覧フィルターと同じく、不透過かつ内容に応じた高さで欠けを防ぐ
+        .frame(minWidth: 240, idealWidth: 280, maxWidth: 340)
+        .fixedSize(horizontal: false, vertical: true)
+        .background(Color(.systemBackground))
+    }
+
+    private func filterButton(_ titleKey: LocalizedStringKey, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(titleKey)
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(Color(.label))
+                .lineLimit(1)
+                .minimumScaleFactor(0.55)
+                .allowsTightening(true)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 13)
+                .background(Color(.secondarySystemBackground))
+                .clipShape(Capsule())
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .buttonStyle(.plain)
     }
 }
 

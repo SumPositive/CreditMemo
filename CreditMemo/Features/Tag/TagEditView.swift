@@ -8,7 +8,6 @@ struct TagEditView: View {
     @Environment(\.dismiss)         private var dismiss
     @Environment(AppEditingState.self) private var editingState
     @Query private var allTags: [E5tag]
-    @Query(sort: \E3record.dateUse, order: .reverse) private var records: [E3record]
     @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
 
     @State private var zName = ""
@@ -16,10 +15,9 @@ struct TagEditView: View {
     @FocusState private var focusName: Bool
     @State private var hasInitialized = false
     @State private var initialDraft: DraftState?
-    @State private var editRecord: E3record?
     @State private var isSaving = false
-    // 関連明細の表示用キャッシュ（毎描画での全件走査を避ける）
-    @State private var linkedRecordsCache: [E3record] = []
+    /// 上部「履歴」ボタンで push するタグ。既存タグのみ有効。
+    @State private var historyTag: E5tag?
 
     private var isNew:   Bool { tag == nil }
     private var trimmedName: String {
@@ -45,10 +43,33 @@ struct TagEditView: View {
         guard let initialDraft else { return false }
         return currentDraft() != initialDraft
     }
-    private var linkedRecords: [E3record] { linkedRecordsCache }
 
     var body: some View {
         Form {
+            // 既存タグのみ、タグで絞り込んだ履歴へ遷移するショートカットを最上段に置く
+            if let tag, !isNew {
+                Section {
+                    Button {
+                        historyTag = tag
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "list.bullet.rectangle")
+                                .font(.title3.weight(.semibold))
+                                .foregroundStyle(.blue)
+                                .frame(width: 26, height: 26)
+                            Text("tag.action.recordList")
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.tertiary)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
             Section {
                 TextField("tag.field.name", text: $zName)
                     .autocorrectionDisabled()
@@ -78,24 +99,6 @@ struct TagEditView: View {
                         .trimmingTrailingNewlines($zNote)
                 }
             }
-            if !isNew {
-                Section("record.list.title") {
-                    if linkedRecords.isEmpty {
-                        Text("label.empty")
-                            .foregroundStyle(.secondary)
-                    } else {
-                        ForEach(linkedRecords) { record in
-                            Button {
-                                // 明細セルタップで明細編集シートを開く
-                                editRecord = record
-                            } label: {
-                                RecordSummaryRow(record: record)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                }
-            }
         }
         .scrollDismissesKeyboard(.interactively)
         .navigationTitle(isNew ? "tag.edit.title.add" : "tag.edit.title.edit")
@@ -123,7 +126,6 @@ struct TagEditView: View {
         .onAppear {
             if !hasInitialized {
                 loadFields()
-                refreshLinkedRecordsCache()
                 initialDraft = currentDraft()
                 hasInitialized = true
                 // 新規追加時は最初の入力欄へフォーカスする
@@ -132,14 +134,9 @@ struct TagEditView: View {
                 }
             }
         }
-        .onChange(of: records.map(\.id)) { _, _ in
-            // 関連レコードが変わったときだけ再計算する
-            refreshLinkedRecordsCache()
-        }
-        .sheet(item: $editRecord) { record in
-            NavigationStack {
-                RecordEditView(mode: .edit(record))
-            }
+        // 履歴ボタンからタグ絞り込み済みの履歴画面へ push
+        .navigationDestination(item: $historyTag) { tag in
+            RecordListView(initialTag: tag)
         }
     }
 
@@ -180,16 +177,6 @@ struct TagEditView: View {
             zName: zName,
             zNote: zNote
         )
-    }
-
-    private func refreshLinkedRecordsCache() {
-        guard let tag else {
-            linkedRecordsCache = []
-            return
-        }
-        linkedRecordsCache = records.filter { record in
-            record.e5tags.contains(where: { $0.id == tag.id })
-        }
     }
 
     /// メモ量に応じて高さを広げ、内容が欠けないようにする

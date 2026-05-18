@@ -25,6 +25,11 @@ struct CardListView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
+                        // 状況スワイプは削除スワイプより前に説明する
+                        Text("card.beginner.statusSwipe")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
                         Text("card.beginner.line3")
                             .font(.caption)
                             .foregroundStyle(.secondary)

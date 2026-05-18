@@ -294,6 +294,23 @@
         }
       }
     },
+    "bank.beginner.statusSwipe" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Swipe a row right to reveal the Status button. Tap it to show the debit status for that account only."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "明細行を右へスワイプすると状況ボタンが現れます。タップすればその口座だけの引き落とし状況が表示されます。"
+          }
+        }
+      }
+    },
     "bank.edit.beginner.help" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -647,6 +664,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "明細行を左へスワイプすると削除ボタンが現れます。"
+          }
+        }
+      }
+    },
+    "card.beginner.statusSwipe" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Swipe a row right to reveal the Status button. Tap it to show the debit status for that payment method only."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "明細行を右へスワイプすると状況ボタンが現れます。タップすればその決済手段だけの引き落とし状況が表示されます。"
           }
         }
       }
@@ -2989,13 +3023,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "History"
+            "value" : "Payment List"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "履歴"
+            "value" : "決済一覧"
           }
         }
       }
@@ -5005,6 +5039,23 @@
         }
       }
     },
+    "tag.action.recordList" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Payment List"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "決済一覧"
+          }
+        }
+      }
+    },
     "tag.list.title" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5350,14 +5401,14 @@
       "localizations" : {
         "en" : {
           "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "History"
+            "state" : "translated",
+            "value" : "Payment List"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "履歴"
+            "value" : "決済一覧"
           }
         }
       }
