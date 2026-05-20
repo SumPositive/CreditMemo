@@ -33,7 +33,9 @@ struct CardEditView: View {
     /// 上部「引き落とし状況」ボタンで push する決済手段。既存決済手段のみ有効。
     @State private var statusCard: E1card?
     @FocusState private var focusName: Bool
+    @FocusState private var focusNote: Bool
     @AppStorage(AppStorageKey.userLevel) private var userLevel: UserLevel = .beginner
+    private let noteAnchorID = "card-note-anchor"
 
     private var isNew:   Bool { card == nil }
     private var trimmedName: String {
@@ -90,7 +92,8 @@ struct CardEditView: View {
     }
 
     var body: some View {
-        Form {
+        ScrollViewReader { proxy in
+            Form {
             // 既存決済手段のみ「引き落とし状況」へ遷移するショートカットを最上段に置く
             if let card, !isNew {
                 Section {
@@ -220,21 +223,20 @@ struct CardEditView: View {
 
             // メモ
             Section {
-                // メモは複数行入力できる TextEditor を使う
-                ZStack(alignment: .topLeading) {
-                    if zNote.isEmpty {
-                        Text("card.field.note")
-                            .foregroundStyle(.tertiary)
-                            .padding(.top, 8)
-                            .padding(.leading, 5)
-                    }
-                    TextEditor(text: $zNote)
-                        // メモ量に応じて高さを広げ、全文を見やすくする
-                        .frame(height: editorHeight(for: zNote, minHeight: 72, maxHeight: 260))
-                        .scrollContentBackground(.hidden)
-                        .background(Color.clear)
-                        .autocorrectionDisabled()
-                        .trimmingTrailingNewlines($zNote)
+                MemoEditor(placeholder: "card.field.note", text: $zNote, isFocused: $focusNote)
+                    .id(noteAnchorID)
+            }
+            }
+            .onChange(of: zNote) { _, _ in
+                scrollNoteIntoView(proxy)
+            }
+            .onChange(of: focusNote) { _, isFocused in
+                if isFocused { scrollNoteIntoView(proxy) }
+            }
+            .safeAreaInset(edge: .bottom) {
+                if focusNote {
+                    // 決済手段は上部項目が多いため、メモ最終行をキーボード上へ逃がす余白を広めに取る
+                    Color.clear.frame(height: 180)
                 }
             }
         }
@@ -364,22 +366,10 @@ struct CardEditView: View {
         return Double(rebuildCompletedCount) / Double(rebuildTargetCount)
     }
 
-    /// メモ量に応じて高さを広げ、内容が欠けないようにする
-    private func editorHeight(
-        for text: String,
-        minHeight: CGFloat,
-        maxHeight: CGFloat
-    ) -> CGFloat {
-        let explicitLines = max(1, text.components(separatedBy: "\n").count)
-        let wrappedLines = max(1, text.count / 18 + 1)
-        let lineCount = max(explicitLines, wrappedLines)
-        let estimated = CGFloat(lineCount) * 24 + 24
-        return min(maxHeight, max(minHeight, estimated))
-    }
-
     private func save() async {
         let name = trimmedName
         guard !name.isEmpty && !hasDuplicateName else { return }
+        let note = zNote.trimmedNoteEdges
         let closingDay = usesAfterDays ? Int16(0) : effectiveClosingDay
         let savingPayDay: Int16 = usesAfterDays ? effectiveDaysLater : payDay
         let savingPayMonth: Int16 = usesAfterDays ? 0 : payMonth
@@ -391,7 +381,7 @@ struct CardEditView: View {
                 card.nPayDay != savingPayDay ||
                 card.nPayMonth != savingPayMonth
             card.zName       = name
-            card.zNote       = zNote
+            card.zNote       = note
             card.nClosingDay = closingDay
             card.nPayDay     = savingPayDay
             card.nPayMonth   = savingPayMonth
@@ -407,7 +397,7 @@ struct CardEditView: View {
             // 新規追加は一覧先頭へ出すため、最小rowよりさらに小さい値を採用する
             let row = Int32((allCards.map { Int($0.nRow) }.min() ?? 1) - 1)
             let c = E1card(
-                zName: name, zNote: zNote, nRow: row,
+                zName: name, zNote: note, nRow: row,
                 nClosingDay: closingDay, nPayDay: savingPayDay, nPayMonth: savingPayMonth,
                 nBonus1: 0, nBonus2: 0,
                 dateUpdate: Date()
@@ -419,6 +409,19 @@ struct CardEditView: View {
             try? context.save()
         }
         dismiss()
+    }
+
+    private func scrollNoteIntoView(_ proxy: ScrollViewProxy) {
+        // キーボード表示中もメモ欄の入力行が隠れないよう、少し遅らせて下端へ寄せる
+        guard focusNote else { return }
+        for delay in [0.05, 0.22] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                guard focusNote else { return }
+                withAnimation(.easeInOut(duration: 0.18)) {
+                    proxy.scrollTo(noteAnchorID, anchor: .bottom)
+                }
+            }
+        }
     }
 
     @MainActor

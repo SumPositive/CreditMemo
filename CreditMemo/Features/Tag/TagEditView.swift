@@ -8,16 +8,17 @@ struct TagEditView: View {
     @Environment(\.dismiss)         private var dismiss
     @Environment(AppEditingState.self) private var editingState
     @Query private var allTags: [E5tag]
-    @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
 
     @State private var zName = ""
     @State private var zNote = ""
     @FocusState private var focusName: Bool
+    @FocusState private var focusNote: Bool
     @State private var hasInitialized = false
     @State private var initialDraft: DraftState?
     @State private var isSaving = false
     /// 上部「履歴」ボタンで push するタグ。既存タグのみ有効。
     @State private var historyTag: E5tag?
+    private let noteAnchorID = "tag-note-anchor"
 
     private var isNew:   Bool { tag == nil }
     private var trimmedName: String {
@@ -45,7 +46,8 @@ struct TagEditView: View {
     }
 
     var body: some View {
-        Form {
+        ScrollViewReader { proxy in
+            Form {
             // 既存タグのみ、タグで絞り込んだ履歴へ遷移するショートカットを最上段に置く
             if let tag, !isNew {
                 Section {
@@ -82,21 +84,20 @@ struct TagEditView: View {
                 }
             }
             Section {
-                // メモは複数行入力にし、内容が欠けない高さへ広げる
-                ZStack(alignment: .topLeading) {
-                    if zNote.isEmpty {
-                        Text("label.note")
-                            .foregroundStyle(.tertiary)
-                            .padding(.top, 8)
-                            .padding(.leading, 5)
-                    }
-                    TextEditor(text: $zNote)
-                        .frame(height: editorHeight(for: zNote, minHeight: 40, maxHeight: 320))
-                        .scrollDisabled(true)
-                        .scrollContentBackground(.hidden)
-                        .background(Color.clear)
-                        .autocorrectionDisabled()
-                        .trimmingTrailingNewlines($zNote)
+                MemoEditor(placeholder: "label.note", text: $zNote, isFocused: $focusNote)
+                    .id(noteAnchorID)
+            }
+            }
+            .onChange(of: zNote) { _, _ in
+                scrollNoteIntoView(proxy)
+            }
+            .onChange(of: focusNote) { _, isFocused in
+                if isFocused { scrollNoteIntoView(proxy) }
+            }
+            .safeAreaInset(edge: .bottom) {
+                if focusNote {
+                    // キーボード上へメモ入力行を逃がすため、フォーカス中だけ下端余白を追加する
+                    Color.clear.frame(height: 180)
                 }
             }
         }
@@ -149,19 +150,33 @@ struct TagEditView: View {
     private func save() {
         let name = trimmedName
         guard !name.isEmpty && !hasDuplicateName else { return }
+        let note = zNote.trimmedNoteEdges
         isSaving = true
         if let tag {
             tag.zName    = name
-            tag.zNote    = zNote
+            tag.zNote    = note
             tag.sortName = name
         } else {
             // 新規追加は「最近順」で先頭表示されるよう作成日時を入れる
-            let t = E5tag(zName: name, zNote: zNote, sortDate: Date(), sortName: name)
+            let t = E5tag(zName: name, zNote: note, sortDate: Date(), sortName: name)
             context.insert(t)
         }
         // 新規追加直後に一覧側へ確実に反映させる
         try? context.save()
         dismiss()
+    }
+
+    private func scrollNoteIntoView(_ proxy: ScrollViewProxy) {
+        // キーボード表示中もメモ欄の入力行が隠れないよう、少し遅らせて下端へ寄せる
+        guard focusNote else { return }
+        for delay in [0.05, 0.22] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                guard focusNote else { return }
+                withAnimation(.easeInOut(duration: 0.18)) {
+                    proxy.scrollTo(noteAnchorID, anchor: .bottom)
+                }
+            }
+        }
     }
 
     // MARK: - Draft Diff
@@ -179,16 +194,4 @@ struct TagEditView: View {
         )
     }
 
-    /// メモ量に応じて高さを広げ、内容が欠けないようにする
-    private func editorHeight(
-        for text: String,
-        minHeight: CGFloat,
-        maxHeight: CGFloat
-    ) -> CGFloat {
-        let explicitLines = max(1, text.components(separatedBy: "\n").count)
-        let wrappedLines = max(1, text.count / 18 + 1)
-        let lineCount = max(explicitLines, wrappedLines)
-        let estimated = (CGFloat(lineCount) * 24 + 24) * fontScale.uiScale
-        return min(maxHeight * fontScale.uiScale, max(minHeight * fontScale.uiScale, estimated))
-    }
 }

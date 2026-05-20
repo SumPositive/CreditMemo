@@ -9,17 +9,18 @@ struct BankEditView: View {
     @Environment(AppEditingState.self) private var editingState
     @Query(sort: \E8bank.nRow)      private var allBanks: [E8bank]
     @Query private var banks: [E8bank]
-    @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
 
     @AppStorage(AppStorageKey.userLevel) private var userLevel: UserLevel = .beginner
     @State private var zName = ""
     @State private var zNote = ""
     @FocusState private var focusName: Bool
+    @FocusState private var focusNote: Bool
     @State private var hasInitialized = false
     @State private var initialDraft: DraftState?
     @State private var showPresetDialog = false
     /// 上部「引き落とし状況」ボタンで push する口座。既存口座のみ有効。
     @State private var statusBank: E8bank?
+    private let noteAnchorID = "bank-note-anchor"
 
     private var isNew:   Bool { bank == nil }
     private var trimmedName: String {
@@ -54,7 +55,8 @@ struct BankEditView: View {
     }
 
     var body: some View {
-        Form {
+        ScrollViewReader { proxy in
+            Form {
             // 既存口座のみ「引き落とし状況」へ遷移するショートカットを最上段に置く
             if let bank, !isNew {
                 Section {
@@ -104,21 +106,20 @@ struct BankEditView: View {
                 }
             }
             Section {
-                // メモは複数行入力できる TextEditor を使う
-                ZStack(alignment: .topLeading) {
-                    if zNote.isEmpty {
-                        Text("label.note")
-                            .foregroundStyle(.tertiary)
-                            .padding(.top, 8)
-                            .padding(.leading, 5)
-                    }
-                    TextEditor(text: $zNote)
-                        .frame(height: editorHeight(for: zNote, minHeight: 40, maxHeight: 320))
-                        .scrollDisabled(true)
-                        .scrollContentBackground(.hidden)
-                        .background(Color.clear)
-                        .autocorrectionDisabled()
-                        .trimmingTrailingNewlines($zNote)
+                MemoEditor(placeholder: "label.note", text: $zNote, isFocused: $focusNote)
+                    .id(noteAnchorID)
+            }
+            }
+            .onChange(of: zNote) { _, _ in
+                scrollNoteIntoView(proxy)
+            }
+            .onChange(of: focusNote) { _, isFocused in
+                if isFocused { scrollNoteIntoView(proxy) }
+            }
+            .safeAreaInset(edge: .bottom) {
+                if focusNote {
+                    // キーボード上へメモ入力行を逃がすため、フォーカス中だけ下端余白を追加する
+                    Color.clear.frame(height: 180)
                 }
             }
         }
@@ -180,15 +181,29 @@ struct BankEditView: View {
     private func save() {
         let name = trimmedName
         guard !name.isEmpty && !hasDuplicateName else { return }
+        let note = zNote.trimmedNoteEdges
         if let bank {
             bank.zName = name
-            bank.zNote = zNote
+            bank.zNote = note
         } else {
             // 新規追加は一覧先頭へ出すため、最小rowよりさらに小さい値を採用する
             let row = Int32((allBanks.map { Int($0.nRow) }.min() ?? 1) - 1)
-            context.insert(E8bank(zName: name, zNote: zNote, nRow: row))
+            context.insert(E8bank(zName: name, zNote: note, nRow: row))
         }
         dismiss()
+    }
+
+    private func scrollNoteIntoView(_ proxy: ScrollViewProxy) {
+        // キーボード表示中もメモ欄の入力行が隠れないよう、少し遅らせて下端へ寄せる
+        guard focusNote else { return }
+        for delay in [0.05, 0.22] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                guard focusNote else { return }
+                withAnimation(.easeInOut(duration: 0.18)) {
+                    proxy.scrollTo(noteAnchorID, anchor: .bottom)
+                }
+            }
+        }
     }
 
     // MARK: - Draft Diff
@@ -206,16 +221,4 @@ struct BankEditView: View {
         )
     }
 
-    /// メモ量に応じて高さを広げ、内容が欠けないようにする
-    private func editorHeight(
-        for text: String,
-        minHeight: CGFloat,
-        maxHeight: CGFloat
-    ) -> CGFloat {
-        let explicitLines = max(1, text.components(separatedBy: "\n").count)
-        let wrappedLines = max(1, text.count / 18 + 1)
-        let lineCount = max(explicitLines, wrappedLines)
-        let estimated = (CGFloat(lineCount) * 24 + 24) * fontScale.uiScale
-        return min(maxHeight * fontScale.uiScale, max(minHeight * fontScale.uiScale, estimated))
-    }
 }

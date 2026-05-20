@@ -71,8 +71,10 @@ struct RecordEditView: View {
     @State private var scrollToTopRequest = 0
     @State private var isSimilarExpanded = true
     @FocusState private var isUsePointFocused: Bool
+    @FocusState private var focusNote: Bool
     private let similarRecordLimit = 10
     private let formTopAnchorID = "record-form-top"
+    private let noteAnchorID = "record-note-anchor"
 
     private var isNew: Bool {
         if case .addNew = mode { return true }
@@ -181,6 +183,18 @@ struct RecordEditView: View {
             .onChange(of: scrollToTopRequest) { _, _ in
                 withAnimation(.easeInOut(duration: 0.22)) {
                     proxy.scrollTo(formTopAnchorID, anchor: .top)
+                }
+            }
+            .onChange(of: zNote) { _, _ in
+                scrollNoteIntoView(proxy)
+            }
+            .onChange(of: focusNote) { _, isFocused in
+                if isFocused { scrollNoteIntoView(proxy) }
+            }
+            .safeAreaInset(edge: .bottom) {
+                if focusNote {
+                    // キーボード上へメモ入力行を逃がすため、フォーカス中だけ下端余白を追加する
+                    Color.clear.frame(height: 180)
                 }
             }
             .simultaneousGesture(
@@ -597,22 +611,8 @@ struct RecordEditView: View {
             }
 
             // メモ
-            ZStack(alignment: .topLeading) {
-                // 入力前はプレースホルダーだけ表示する
-                if zNote.isEmpty {
-                    Text("record.field.note")
-                        .foregroundStyle(.tertiary)
-                        .padding(.top, 8)
-                        .padding(.leading, 5)
-                }
-                // メモは改行を許可し、全文を表示する
-                TextEditor(text: $zNote)
-                    .frame(height: editorHeight(for: zNote, minHeight: 40, maxHeight: 180))
-                    .scrollContentBackground(.hidden)
-                    .background(Color.clear)
-                    .autocorrectionDisabled()
-                    .trimmingTrailingNewlines($zNote)
-            }
+            MemoEditor(placeholder: "record.field.note", text: $zNote, isFocused: $focusNote)
+                .id(noteAnchorID)
         } header: {
             privacyHeader
         }
@@ -758,6 +758,7 @@ struct RecordEditView: View {
     private func save() {
         guard nAmount != 0 else { return }
         let usePoint = zName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let note = zNote.trimmedNoteEdges
         let previousBankID = selectedCard?.e8bank?.id
         let bankChanged = initialDraft?.bankID != selectedBankForCard?.id
         let billingChanged = initialDraft?.dateUse != dateUse
@@ -769,7 +770,7 @@ struct RecordEditView: View {
         case .addNew:
             // 保存直前にだけマスタへ口座変更を反映する
             selectedCard?.e8bank = selectedBankForCard
-            let r = E3record(dateUse: dateUse, zName: usePoint, zNote: zNote,
+            let r = E3record(dateUse: dateUse, zName: usePoint, zNote: note,
                              nAmount: nAmount, nPayType: PayType.lumpSum.rawValue, nRepeat: nRepeat)
             r.e1card = selectedCard
             r.e5tags = selectedCategories
@@ -802,7 +803,7 @@ struct RecordEditView: View {
         case .edit(let r):
             // 保存直前にだけマスタへ口座変更を反映する
             selectedCard?.e8bank = selectedBankForCard
-            r.dateUse = dateUse; r.zName = usePoint; r.zNote = zNote
+            r.dateUse = dateUse; r.zName = usePoint; r.zNote = note
             r.nAmount = nAmount; r.nPayType = payType.rawValue; r.nRepeat = nRepeat
             r.e1card = selectedCard
             r.e5tags = selectedCategories
@@ -932,6 +933,19 @@ struct RecordEditView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) { savedBanner = false }
     }
 
+    private func scrollNoteIntoView(_ proxy: ScrollViewProxy) {
+        // キーボード表示中もメモ欄の入力行が隠れないよう、少し遅らせて下端へ寄せる
+        guard focusNote else { return }
+        for delay in [0.05, 0.22] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                guard focusNote else { return }
+                withAnimation(.easeInOut(duration: 0.18)) {
+                    proxy.scrollTo(noteAnchorID, anchor: .bottom)
+                }
+            }
+        }
+    }
+
     // MARK: - Draft
 
     private struct DraftState: Equatable {
@@ -1031,20 +1045,6 @@ struct RecordEditView: View {
             }
         }
         .contentShape(Rectangle())
-    }
-
-    /// 入力文字量に応じたエディタ高さを返す
-    private func editorHeight(
-        for text: String,
-        minHeight: CGFloat,
-        maxHeight: CGFloat
-    ) -> CGFloat {
-        // 改行数と文字数から概算行数を求めて高さを決める
-        let explicitLines = max(1, text.components(separatedBy: "\n").count)
-        let wrappedLines = max(1, text.count / 18 + 1)
-        let lineCount = max(explicitLines, wrappedLines)
-        let estimated = (CGFloat(lineCount) * 22 + 14) * fontScale.uiScale
-        return min(maxHeight * fontScale.uiScale, max(minHeight * fontScale.uiScale, estimated))
     }
 
     // MARK: - Similar Records
