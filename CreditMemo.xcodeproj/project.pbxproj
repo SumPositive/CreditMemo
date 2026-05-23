@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		06CE2D98750923E3AD033A00 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75ECBB517883FD08C1A38217 /* SettingsView.swift */; };
+		0A1A2B3C4D5E6F708192A3B4 /* AZPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A1A2B3C4D5E6F708192A3B3 /* AZPicker.swift */; };
 		158FFDA181FBC568F5DBFAAB /* NumericKeypadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB4F7EAA70EE49D23DA0441 /* NumericKeypadView.swift */; };
 		162A501B71D24A57A57D4D01 /* Log.swift in Sources */ = {isa = PBXBuildFile; fileRef = 162A501A71D24A57A57D4D01 /* Log.swift */; };
 		1698067491EBDA300104D152 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 461FBECA42994F0A6C9BEA37 /* Assets.xcassets */; };
@@ -78,6 +79,7 @@
 
 /* Begin PBXFileReference section */
 		0864042EF421461DBA308F5E /* AppMain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppMain.swift; sourceTree = "<group>"; };
+		0A1A2B3C4D5E6F708192A3B3 /* AZPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AZPicker.swift; sourceTree = "<group>"; };
 		162A501A71D24A57A57D4D01 /* Log.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Log.swift; sourceTree = "<group>"; };
 		17B4815A12B4099B3F8C2A8D /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		20DFCCAE92513D9BAEE0F5EF /* CreditMemoUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreditMemoUITests.swift; sourceTree = "<group>"; };
@@ -312,6 +314,7 @@
 		CA48F8A77A8B19FCECEE71F0 /* Components */ = {
 			isa = PBXGroup;
 			children = (
+				0A1A2B3C4D5E6F708192A3B3 /* AZPicker.swift */,
 				FDB4F7EAA70EE49D23DA0441 /* NumericKeypadView.swift */,
 				2D70AB90C9F44E59B12E7D10 /* StackedDateView.swift */,
 				2D70AB92C9F44E59B12E7D12 /* DeleteConfirmationDialog.swift */,
@@ -584,6 +587,7 @@
 				6B962B07029AF00C00FE072C /* SeedData.swift in Sources */,
 				06CE2D98750923E3AD033A00 /* SettingsView.swift in Sources */,
 				490F8CBDAB27E8464CFC9A8C /* SplitPayListView.swift in Sources */,
+				0A1A2B3C4D5E6F708192A3B4 /* AZPicker.swift in Sources */,
 				C03BB2AEED264F9C4A50EAB7 /* TopMenuView.swift in Sources */,
 				4531D860CDB0FDF2415DD421 /* View+ScalableTitle.swift in Sources */,
 				260F3E001BE44EBABDFC9258 /* View+TextTrimming.swift in Sources */,

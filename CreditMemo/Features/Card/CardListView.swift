@@ -7,8 +7,10 @@ struct CardListView: View {
     @AppStorage(AppStorageKey.userLevel) private var userLevel: UserLevel = .beginner
 
     @State private var showAddSheet    = false
-    /// 右スワイプ「状況」で開く決済手段。設定されると引き落とし状況画面へ push する。
+    /// スワイプ「状況」で開く決済手段。設定されると引き落とし状況画面へ push する。
     @State private var statusCard: E1card?
+    /// スワイプ「新しい決済」で開くシートに渡すプリセット決済手段。
+    @State private var newPaymentCard: E1card?
 
     var body: some View {
         List {
@@ -39,16 +41,25 @@ struct CardListView: View {
                 } label: {
                     CardRow(card: card)
                 }
-                // 「状況」は編集と分離し、左スワイプ側に配置する。
-                // ロングスワイプで即時実行。
-                .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                // 右スワイプメニュー：状況（先頭＝フルスワイプ実行）＋ 新しい決済。
+                // ラベルテキストは省略しアイコンのみで配置する。
+                // 新しい決済のアイコン・色はメインメニューと統一（plus.circle.fill / blue）。
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                     Button {
                         statusCard = card
                     } label: {
-                        Label("card.action.status", image: "AppIconBadge")
+                        Label("", image: "AppIconBadge")
                     }
                     .tint(Color(uiColor: .systemBackground))
                     .accessibilityLabel(Text("card.action.status"))
+
+                    Button {
+                        newPaymentCard = card
+                    } label: {
+                        Label("", systemImage: "plus.circle.fill")
+                    }
+                    .tint(.blue)
+                    .accessibilityLabel(Text("record.edit.title.add"))
                 }
             }
             .onMove(perform: move)
@@ -65,6 +76,13 @@ struct CardListView: View {
         // 状況スワイプから引き落とし状況画面（初期絞り込み付き）へ push
         .navigationDestination(item: $statusCard) { card in
             PaymentListView(initialCardFilter: card)
+        }
+        // 「新しい決済」スワイプから、決済手段プリセット済みの新規追加シートを開く。
+        // 金額未入力（nAmount == 0）のため、自動的にテンキーが表示される。
+        .sheet(item: $newPaymentCard) { card in
+            NavigationStack {
+                RecordEditView(mode: .addNew, presetCard: card)
+            }
         }
     }
 

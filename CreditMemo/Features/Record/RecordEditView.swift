@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UIKit
 
 // MARK: - Mode
 
@@ -26,6 +27,9 @@ extension RecordEditMode: Equatable {
 struct RecordEditView: View {
     let mode: RecordEditMode
     var onSaved: ((Bool) -> Void)? = nil
+    /// `.addNew` のとき、開いた時点で初期選択しておきたい決済手段
+    /// 決済手段一覧の右スワイプ「新しい決済」から開く場合などに使う
+    var presetCard: E1card? = nil
 
     @Environment(\.modelContext)    private var context
     @Environment(\.dismiss)         private var dismiss
@@ -61,6 +65,7 @@ struct RecordEditView: View {
     @State private var showBankPicker     = false
     @State private var showCategoryPicker = false
     @State private var showDeleteAlert    = false
+    @State private var isRepeatDropdownExpanded = false
     @State private var savedBanner        = false
     @State private var hasInitialized     = false
     @State private var initialDraft: DraftState?
@@ -147,16 +152,39 @@ struct RecordEditView: View {
         return Array(scored.prefix(similarRecordLimit))
     }
 
-    private let repeatOptions: [(label: String, value: Int16)] = [
-        ("repeat.none", 0), ("repeat.nextMonth", 1),
-        ("repeat.2months", 2), ("repeat.12months", 12)
+    private let repeatOptions: [RepeatOption] = [
+        RepeatOption(label: "repeat.none", value: 0),
+        RepeatOption(label: "repeat.nextMonth", value: 1),
+        RepeatOption(label: "repeat.2months", value: 2),
+        RepeatOption(label: "repeat.12months", value: 12)
     ]
-    private var repeatLabelText: String {
-        if let option = repeatOptions.first(where: { $0.value == nRepeat }) {
-            return NSLocalizedString(option.label, comment: "")
-        }
-        return NSLocalizedString("repeat.none", comment: "")
+    private var repeatSelectionBinding: Binding<RepeatOption> {
+        Binding(
+            get: {
+                repeatOptions.first(where: { $0.value == nRepeat }) ?? repeatOptions[0]
+            },
+            set: { option in
+                nRepeat = option.value
+            }
+        )
     }
+    private var repeatDropdownDynamicTypeSize: DynamicTypeSize? {
+        fontScale.followsSystem ? nil : fontScale.dynamicTypeSize
+    }
+
+    @ViewBuilder
+    private func repeatOptionLabel(_ option: RepeatOption) -> some View {
+        HStack(spacing: 6) {
+            if option.value == 0 {
+                Text(LocalizedStringKey(option.label))
+            } else {
+                Image(systemName: "repeat")
+                    .foregroundStyle(Color.accentColor)
+                Text(LocalizedStringKey(option.label))
+            }
+        }
+    }
+
     private var categoryValueText: String {
         if selectedCategories.isEmpty {
             return NSLocalizedString("label.noSelection", comment: "")
@@ -618,25 +646,16 @@ struct RecordEditView: View {
                         Text("record.field.repeat")
                             .foregroundStyle(.secondary)
                         Spacer(minLength: 8)
-                        // 繰り返しは同じ行のメニューピッカーで選択する
-                        Picker("record.field.repeat", selection: $nRepeat) {
-                            ForEach(repeatOptions, id: \.value) { option in
-                                if option.value == 0 {
-                                    Text(LocalizedStringKey(option.label))
-                                        .tag(option.value)
-                                } else {
-                                    // 繰り返しありの選択肢だけアイコンを付ける
-                                    Label(
-                                        title: { Text(LocalizedStringKey(option.label)) },
-                                        icon: { Image(systemName: "repeat") }
-                                    )
-                                    .tag(option.value)
-                                }
-                            }
+                        // 設定画面と同じカスタムプルダウンで文字サイズに対応する
+                        AZDropdownPicker(
+                            options: repeatOptions,
+                            selection: repeatSelectionBinding,
+                            isExpanded: $isRepeatDropdownExpanded,
+                            minWidth: 150,
+                            popoverDynamicTypeSize: repeatDropdownDynamicTypeSize
+                        ) { option in
+                            repeatOptionLabel(option)
                         }
-                        .pickerStyle(.menu)
-                        .labelsHidden()
-                        .tint(.accentColor)
                     }
                 }
             }
@@ -764,10 +783,10 @@ struct RecordEditView: View {
     private func loadFields() {
         switch mode {
         case .addNew:
-            // 新規時の決済手段は未選択を初期値にする
-            selectedCard = nil
-            selectedBankForCard = nil
-            keepBankPickerRowVisible = false
+            // 新規時の決済手段は基本未選択。ただし呼び出し側から preset 指定があればそれを使う
+            selectedCard = presetCard
+            selectedBankForCard = presetCard?.e8bank
+            keepBankPickerRowVisible = selectedCard != nil && selectedBankForCard == nil
             // 新規作成は一括払いのみを許可する
             payType = .lumpSum
             draftDateUse = dateUse
@@ -1368,6 +1387,12 @@ private struct ConditionalDynamicTypeModifier: ViewModifier {
             content.dynamicTypeSize(fontScale.dynamicTypeSize)
         }
     }
+}
+
+private struct RepeatOption: Hashable, Identifiable {
+    let label: String
+    let value: Int16
+    var id: Int16 { value }
 }
 
 private struct BeginnerRecordHelpBlock: View {

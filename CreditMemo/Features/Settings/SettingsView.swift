@@ -29,13 +29,28 @@ struct SettingsView: View {
     @State private var showAdSheet = false
     @State private var showAdThanks = false
     @State private var showPruneOldRecordsConfirm = false
+    @State private var expandedDropdown: SettingsDropdownKind?
     @State private var alertItem: SettingsAlertItem?
     @State private var isWorking = false
     @State private var progressMessage = ""
     @State private var progressHint = ""
 
+    private let paymentWindowOptions: [PaymentWindowOption] =
+        (1...20).map { PaymentWindowOption(days: $0) } + [PaymentWindowOption(days: 30)]
+
     private var exportFormat: JSONExport.OutputStyle {
         JSONExport.OutputStyle(rawValue: exportFormatRaw) ?? .compact
+    }
+
+    private var exportFormatBinding: Binding<JSONExport.OutputStyle> {
+        Binding(
+            get: { exportFormat },
+            set: { exportFormatRaw = $0.rawValue }
+        )
+    }
+
+    private var dropdownDynamicTypeSize: DynamicTypeSize? {
+        fontScale.followsSystem ? nil : fontScale.dynamicTypeSize
     }
 
     private var versionBuildText: String {
@@ -51,15 +66,15 @@ struct SettingsView: View {
         List {
             Section("settings.panel.display") {
                 VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 8) {
+                    AZAdaptiveRadioRow(
+                        options: UserLevel.allCases,
+                        selection: $userLevel,
+                        minOptionWidth: 82
+                    ) {
                         Text("settings.userLevel")
                             .font(.subheadline)
-                        Picker("settings.userLevel", selection: $userLevel) {
-                            ForEach(UserLevel.allCases) { level in
-                                Text(LocalizedStringKey(level.localizedKey)).tag(level)
-                            }
-                        }
-                        .pickerStyle(.segmented)
+                    } label: { level in
+                        Text(LocalizedStringKey(level.localizedKey))
                     }
                     if userLevel == .beginner {
                         Text("settings.help.userLevel")
@@ -69,27 +84,28 @@ struct SettingsView: View {
                     }
                 }
 
-                HStack(spacing: 8) {
+                AZAdaptiveRadioRow(
+                    options: AppearanceMode.allCases,
+                    selection: $appearanceMode,
+                    minOptionWidth: 82
+                ) {
                     Text("settings.appearance")
                         .font(.subheadline)
-                    Picker("settings.appearance", selection: $appearanceMode) {
-                        ForEach(AppearanceMode.allCases) { mode in
-                            Text(LocalizedStringKey(mode.localizedKey)).tag(mode)
-                        }
-                    }
-                    .pickerStyle(.segmented)
+                } label: { mode in
+                    Text(LocalizedStringKey(mode.localizedKey))
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 8) {
+                    AZAdaptiveRadioRow(
+                        options: FontScale.allCases,
+                        selection: $fontScale,
+                        minOptionWidth: 72,
+                        horizontalPadding: 8
+                    ) {
                         Text("settings.fontScale")
                             .font(.subheadline)
-                        Picker("settings.fontScale", selection: $fontScale) {
-                            ForEach(FontScale.allCases) { scale in
-                                Text(LocalizedStringKey(scale.localizedKey)).tag(scale)
-                            }
-                        }
-                        .pickerStyle(.segmented)
+                    } label: { scale in
+                        Text(LocalizedStringKey(scale.localizedKey))
                     }
                     if userLevel == .beginner {
                         Text("settings.help.fontScale")
@@ -114,20 +130,22 @@ struct SettingsView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 8) {
+                    AZAdaptiveControlRow {
                         Text("settings.afterSave")
                             .font(.subheadline)
                             .fixedSize(horizontal: false, vertical: true)
-                        Picker("settings.afterSave", selection: $afterSaveAction) {
-                            ForEach(AfterSaveAction.allCases) { action in
-                                Text(LocalizedStringKey(action.localizedKey)).tag(action)
-                            }
+                    } control: {
+                        AZDropdownPicker(
+                            options: AfterSaveAction.allCases,
+                            selection: $afterSaveAction,
+                            isExpanded: dropdownBinding(.afterSave),
+                            minWidth: 210,
+                            popoverDynamicTypeSize: dropdownDynamicTypeSize
+                        ) { action in
+                            Text(LocalizedStringKey(action.localizedKey))
                         }
-                        .pickerStyle(.menu)
-                        .labelsHidden()
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                        .tint(.accentColor)
                     }
+                    .zIndex(expandedDropdown == .afterSave ? 60 : 0)
                     if userLevel == .beginner {
                         Text("settings.help.afterSave")
                             .font(.caption)
@@ -137,26 +155,25 @@ struct SettingsView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 8) {
+                    AZAdaptiveControlRow {
                         Text("settings.paymentWindow")
                             .font(.subheadline)
                             // 見出しはできるだけ1行を優先する
                             .lineLimit(1)
                             .minimumScaleFactor(0.85)
                             .layoutPriority(1)
-                        Picker("settings.paymentWindow", selection: $paymentWindowDays) {
-                            ForEach(Array(1...20), id: \.self) { day in
-                                Text(windowLabel(day)).tag(day)
-                            }
-                            Text(windowLabel(30)).tag(30)
+                    } control: {
+                        AZDropdownPicker(
+                            options: paymentWindowOptions,
+                            selection: paymentWindowBinding,
+                            isExpanded: dropdownBinding(.paymentWindow),
+                            minWidth: 150,
+                            popoverDynamicTypeSize: dropdownDynamicTypeSize
+                        ) { option in
+                            Text(windowLabel(option.days))
                         }
-                        .pickerStyle(.menu)
-                        .labelsHidden()
-                        // 選択値は必要幅だけ使い、見出しを圧迫しない
-                        .fixedSize()
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                        .tint(.accentColor)
                     }
+                    .zIndex(expandedDropdown == .paymentWindow ? 60 : 0)
                     if userLevel == .beginner {
                         Text("settings.help.paymentWindow")
                             .font(.caption)
@@ -176,16 +193,15 @@ struct SettingsView: View {
                     .disabled(isWorking)
 
                     if userLevel != .beginner {
-                        HStack(spacing: 8) {
-                            Spacer(minLength: 40)
+                        AZAdaptiveRadioRow(
+                            options: JSONExport.OutputStyle.allCases,
+                            selection: exportFormatBinding,
+                            minOptionWidth: 88
+                        ) {
                             Text("settings.exportFormat.title")
                                 .font(.subheadline)
-                            Picker("settings.exportFormat.title", selection: $exportFormatRaw) {
-                                ForEach(JSONExport.OutputStyle.allCases) { style in
-                                    Text(LocalizedStringKey(style.localizedKey)).tag(style.rawValue)
-                                }
-                            }
-                            .pickerStyle(.segmented)
+                        } label: { style in
+                            Text(LocalizedStringKey(style.localizedKey))
                         }
                     }
 
@@ -350,6 +366,27 @@ struct SettingsView: View {
         .foregroundStyle(.tertiary)
         .frame(maxWidth: .infinity, alignment: .center)
         .padding(.top, 4)
+    }
+
+    private var paymentWindowBinding: Binding<PaymentWindowOption> {
+        Binding(
+            get: { PaymentWindowOption(days: paymentWindowDays) },
+            set: { paymentWindowDays = $0.days }
+        )
+    }
+
+    private func dropdownBinding(_ kind: SettingsDropdownKind) -> Binding<Bool> {
+        Binding(
+            get: { expandedDropdown == kind },
+            set: { isExpanded in
+                // 同時に開くプルダウンは1つだけにする
+                if isExpanded {
+                    expandedDropdown = kind
+                } else if expandedDropdown == kind {
+                    expandedDropdown = nil
+                }
+            }
+        )
     }
 
     /// 設定画面のアラート表示モデル
@@ -583,6 +620,16 @@ struct SettingsView: View {
     private var pruneOldRecordsDoneMessage: String {
         NSLocalizedString("retention.result.done", comment: "")
     }
+}
+
+private enum SettingsDropdownKind {
+    case afterSave
+    case paymentWindow
+}
+
+private struct PaymentWindowOption: Hashable, Identifiable {
+    let days: Int
+    var id: Int { days }
 }
 
 // MARK: - 開発者応援（StoreKit / AdMob）

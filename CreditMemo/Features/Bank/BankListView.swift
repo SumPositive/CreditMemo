@@ -38,9 +38,8 @@ struct BankListView: View {
                 } label: {
                     BankRow(bank: bank)
                 }
-                // 「状況」は編集と分離し、左スワイプ側に配置する。
-                // ロングスワイプで即時実行。
-                .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                // 右スワイプメニュー「状況」。ロングスワイプで即時実行。
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                     Button {
                         statusBank = bank
                     } label: {

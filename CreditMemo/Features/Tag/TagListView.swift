@@ -29,14 +29,16 @@ struct TagListView: View {
                 } label: {
                     TagRow(tag: tag)
                 }
-                // 「履歴」へ遷移するショートカット。ロングスワイプで即実行。
-                .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                // 右スワイプメニュー「履歴」。ロングスワイプで即時実行。
+                // ラベルテキストは省略しアイコンのみで配置する。
+                // アイコン・色はメインメニューの「履歴」と統一（list.bullet / indigo）。
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                     Button {
                         historyTarget = tag
                     } label: {
-                        Label("tag.action.recordList", systemImage: "list.bullet.rectangle")
+                        Label("", systemImage: "list.bullet")
                     }
-                    .tint(.blue)
+                    .tint(.indigo)
                     .accessibilityLabel(Text("tag.action.recordList"))
                 }
             }

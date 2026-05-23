@@ -192,7 +192,9 @@ struct RecordListView: View {
                                 Capsule()
                                     .fill(isFilterActive ? Color.accentColor : Color.accentColor.opacity(0.10))
                             )
-                            // 行全体でフィルターを開けるよう、当たり判定をカプセル全体に広げる。
+                            // フィルター表示は大きすぎる文字で操作帯を崩さない
+                            .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                            // 行全体でフィルターを開けるよう、当たり判定をカプセル全体に広げる
                             .contentShape(Capsule())
                         }
                         .frame(maxWidth: .infinity)
@@ -358,7 +360,7 @@ struct RecordListView: View {
     @ViewBuilder
     private func sortButton(titleKey: LocalizedStringKey, target: SortTarget) -> some View {
         Button {
-            // 同じ条件を押した時だけ昇順/降順を切り替える。
+            // 同じ条件を押した時だけ昇順/降順を切り替える
             if sortTarget == target {
                 sortDirection = sortDirection == .descending ? .ascending : .descending
             } else {
@@ -374,7 +376,7 @@ struct RecordListView: View {
                 if sortTarget == target {
                     Image(systemName: sortDirection.symbolName)
                         .font(.caption.weight(.bold))
-                        // 昇順は降順アイコンを上下反転して、同じ記号体系に揃える。
+                        // 昇順は降順アイコンを上下反転して、同じ記号体系に揃える
                         .scaleEffect(x: 1, y: sortDirection.yScale)
                 }
             }
@@ -386,6 +388,8 @@ struct RecordListView: View {
             .background(sortTarget == target ? Color.accentColor : Color.accentColor.opacity(0.12))
             .clipShape(Capsule())
             .fixedSize(horizontal: false, vertical: true)
+            // ソート表示は大きすぎる文字で操作帯を崩さない
+            .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
         }
         .buttonStyle(.plain)
     }

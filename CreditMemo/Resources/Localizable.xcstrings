@@ -300,13 +300,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Swipe a row right to reveal the Status button. Tap it to show the debit status for that account only."
+            "value" : "Swipe a row left to reveal the Status button. Tap it to show the debit status for that account only."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "明細行を右へスワイプすると状況ボタンが現れます。タップすればその口座だけの引き落とし状況が表示されます。"
+            "value" : "明細行を左へスワイプすると状況ボタンが現れます。タップすればその口座だけの引き落とし状況が表示されます。"
           }
         }
       }
@@ -674,13 +674,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Swipe a row right to reveal the Status button. Tap it to show the debit status for that payment method only."
+            "value" : "Swipe a row left to reveal Status and New Payment buttons. Status shows only this method’s debits; New Payment starts a record with this method preselected."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "明細行を右へスワイプすると状況ボタンが現れます。タップすればその決済手段だけの引き落とし状況が表示されます。"
+            "value" : "明細行を左へスワイプすると「状況」と「新しい決済」が現れます。「状況」はこの決済手段だけの引き落とし状況を表示し、「新しい決済」は決済手段をセットした入力シートを開きます。"
           }
         }
       }
