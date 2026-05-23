@@ -32,6 +32,8 @@ struct CardEditView: View {
     @State private var rebuildError: String?
     /// 上部「引き落とし状況」ボタンで push する決済手段。既存決済手段のみ有効。
     @State private var statusCard: E1card?
+    /// 削除確認ダイアログの表示制御
+    @State private var showDeleteAlert = false
     @FocusState private var focusName: Bool
     @FocusState private var focusNote: Bool
     @AppStorage(AppStorageKey.userLevel) private var userLevel: UserLevel = .beginner
@@ -226,6 +228,25 @@ struct CardEditView: View {
                 MemoEditor(placeholder: "card.field.note", text: $zNote, isFocused: $focusNote)
                     .id(noteAnchorID)
             }
+
+            // 削除（既存決済手段のみ。スワイプ削除はやめてここに集約する）
+            if !isNew {
+                Section {
+                    Button {
+                        showDeleteAlert = true
+                    } label: {
+                        HStack {
+                            Spacer()
+                            Text("card.delete.action")
+                                .foregroundStyle(.red)
+                            Spacer()
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isRebuildingBilling)
+                }
+            }
             }
             .onChange(of: zNote) { _, _ in
                 scrollNoteIntoView(proxy)
@@ -290,6 +311,14 @@ struct CardEditView: View {
         // 状況ボタンから引き落とし状況画面（決済手段絞り込み付き）へ push
         .navigationDestination(item: $statusCard) { card in
             PaymentListView(initialCardFilter: card)
+        }
+        // 特大フォント・長文でも全文が見える独自ダイアログを使用
+        .deleteConfirmation(
+            isPresented: $showDeleteAlert,
+            title: "alert.deleteConfirm.title",
+            message: "alert.deleteConfirm.message"
+        ) {
+            deleteCurrentCard()
         }
         .confirmationDialog("card.preset.quote", isPresented: $showPresetDialog) {
             // 候補を選ぶと日付設定と名称を反映する
@@ -409,6 +438,17 @@ struct CardEditView: View {
             try? context.save()
         }
         dismiss()
+    }
+
+    /// 削除確認後に呼ぶ。`CardService.delete` で関連 invoice/payment まで掃除する。
+    private func deleteCurrentCard() {
+        guard let card else { return }
+        do {
+            try CardService.delete(card, context: context)
+            dismiss()
+        } catch {
+            appLog(.error, "決済手段の削除に失敗しました: \(error)")
+        }
     }
 
     private func scrollNoteIntoView(_ proxy: ScrollViewProxy) {

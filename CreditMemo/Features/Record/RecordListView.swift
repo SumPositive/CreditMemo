@@ -90,6 +90,8 @@ struct RecordListView: View {
     @State private var hasMoreRecords = true
     @State private var isLoadingRecords = false
     @State private var editTarget: E3record?
+    /// 左スワイプ「新しい決済」で開く、コピー元のレコード
+    @State private var copySource: E3record?
     @State private var showFilterPopover = false
     @State private var showCardPicker = false
     @State private var showBankPicker = false
@@ -255,6 +257,15 @@ struct RecordListView: View {
                     RecordSummaryRow(record: record)
                 }
                 .buttonStyle(.plain)
+                // 右スワイプ（指は左方向）で「日付以外をコピーした新しい決済」シートを開く
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                    Button {
+                        copySource = record
+                    } label: {
+                        Label("record.edit.title.add", systemImage: "doc.on.doc")
+                    }
+                    .tint(.indigo)
+                }
             }
 
             if hasMoreRecords {
@@ -276,6 +287,14 @@ struct RecordListView: View {
         }) { record in
             NavigationStack {
                 RecordEditView(mode: .edit(record))
+            }
+        }
+        // 左スワイプ「新しい決済」のコピー元から、日付以外を引き継いだ新規追加シートを開く
+        .sheet(item: $copySource, onDismiss: {
+            resetAndLoadRecords()
+        }) { source in
+            NavigationStack {
+                RecordEditView(mode: .addCopy(source))
             }
         }
         .onAppear {

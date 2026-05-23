@@ -7,8 +7,6 @@ struct CardListView: View {
     @AppStorage(AppStorageKey.userLevel) private var userLevel: UserLevel = .beginner
 
     @State private var showAddSheet    = false
-    @State private var deleteTarget: E1card?
-    @State private var showDeleteAlert = false
     /// 右スワイプ「状況」で開く決済手段。設定されると引き落とし状況画面へ push する。
     @State private var statusCard: E1card?
 
@@ -25,12 +23,8 @@ struct CardListView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
-                        // 状況スワイプは削除スワイプより前に説明する
+                        // 「状況」スワイプの案内
                         Text("card.beginner.statusSwipe")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                        Text("card.beginner.line3")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -45,16 +39,7 @@ struct CardListView: View {
                 } label: {
                     CardRow(card: card)
                 }
-                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                    Button(role: .destructive) {
-                        deleteTarget    = card
-                        showDeleteAlert = true
-                    } label: {
-                        Label("button.delete", systemImage: "trash")
-                    }
-                }
-                // 「状況」は削除と隣接させない（誤タップ防止）ため、左スワイプ側に分離して配置する
-                // Label + 青背景で「状況」文字が白で読める通常スタイル。
+                // 「状況」は編集と分離し、左スワイプ側に配置する。
                 // ロングスワイプで即時実行。
                 .swipeActions(edge: .leading, allowsFullSwipe: true) {
                     Button {
@@ -80,16 +65,6 @@ struct CardListView: View {
         // 状況スワイプから引き落とし状況画面（初期絞り込み付き）へ push
         .navigationDestination(item: $statusCard) { card in
             PaymentListView(initialCardFilter: card)
-        }
-        // 特大フォント・長文でも全文が見える独自ダイアログを使用
-        .deleteConfirmation(
-            isPresented: $showDeleteAlert,
-            title: "alert.deleteConfirm.title",
-            message: "alert.deleteConfirm.message"
-        ) {
-            if let c = deleteTarget {
-                try? CardService.delete(c, context: context)
-            }
         }
     }
 

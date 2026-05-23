@@ -20,6 +20,8 @@ struct BankEditView: View {
     @State private var showPresetDialog = false
     /// 上部「引き落とし状況」ボタンで push する口座。既存口座のみ有効。
     @State private var statusBank: E8bank?
+    /// 削除確認ダイアログの表示制御
+    @State private var showDeleteAlert = false
     private let noteAnchorID = "bank-note-anchor"
 
     private var isNew:   Bool { bank == nil }
@@ -109,6 +111,24 @@ struct BankEditView: View {
                 MemoEditor(placeholder: "label.note", text: $zNote, isFocused: $focusNote)
                     .id(noteAnchorID)
             }
+
+            // 削除（既存口座のみ。スワイプ削除はやめてここに集約する）
+            if !isNew {
+                Section {
+                    Button {
+                        showDeleteAlert = true
+                    } label: {
+                        HStack {
+                            Spacer()
+                            Text("bank.delete.action")
+                                .foregroundStyle(.red)
+                            Spacer()
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
             }
             .onChange(of: zNote) { _, _ in
                 scrollNoteIntoView(proxy)
@@ -161,6 +181,14 @@ struct BankEditView: View {
         .navigationDestination(item: $statusBank) { bank in
             PaymentListView(initialBankFilter: bank)
         }
+        // 特大フォント・長文でも全文が見える独自ダイアログを使用
+        .deleteConfirmation(
+            isPresented: $showDeleteAlert,
+            title: "alert.deleteConfirm.title",
+            message: "alert.deleteConfirm.bank.message"
+        ) {
+            deleteCurrentBank()
+        }
         .confirmationDialog("card.preset.quote", isPresented: $showPresetDialog) {
             // 候補を選ぶと口座名へ反映する
             ForEach(presetTemplates, id: \.name) { preset in
@@ -191,6 +219,17 @@ struct BankEditView: View {
             context.insert(E8bank(zName: name, zNote: note, nRow: row))
         }
         dismiss()
+    }
+
+    /// 削除確認後に呼ぶ。`BankService.delete` で関連 payment まで掃除する。
+    private func deleteCurrentBank() {
+        guard let bank else { return }
+        do {
+            try BankService.delete(bank, context: context)
+            dismiss()
+        } catch {
+            appLog(.error, "口座の削除に失敗しました: \(error)")
+        }
     }
 
     private func scrollNoteIntoView(_ proxy: ScrollViewProxy) {

@@ -8,9 +8,7 @@ struct TagListView: View {
     @AppStorage(AppStorageKey.tagSortMode) private var sortModeRaw: Int = SortMode.recent.rawValue
 
     @State private var showAddSheet  = false
-    @State private var deleteTarget: E5tag?
     @State private var historyTarget: E5tag?
-    @State private var showDeleteAlert = false
 
     private var sortMode: SortMode { SortMode(rawValue: sortModeRaw) ?? .recent }
 
@@ -31,15 +29,7 @@ struct TagListView: View {
                 } label: {
                     TagRow(tag: tag)
                 }
-                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                    Button(role: .destructive) {
-                        deleteTarget    = tag
-                        showDeleteAlert = true
-                    } label: {
-                        Label("button.delete", systemImage: "trash")
-                    }
-                }
-                // 履歴は削除と離し、左側スワイプでロングスワイプ実行できるようにする
+                // 「履歴」へ遷移するショートカット。ロングスワイプで即実行。
                 .swipeActions(edge: .leading, allowsFullSwipe: true) {
                     Button {
                         historyTarget = tag
@@ -74,14 +64,6 @@ struct TagListView: View {
         .navigationDestination(item: $historyTarget) { tag in
             // タグ一覧のスワイプから、該当タグで絞り込んだ履歴へ遷移する
             RecordListView(initialTag: tag)
-        }
-        // 特大フォント・長文でも全文が見える独自ダイアログを使用
-        .deleteConfirmation(
-            isPresented: $showDeleteAlert,
-            title: "alert.deleteConfirm.title",
-            message: "alert.deleteConfirm.message"
-        ) {
-            if let t = deleteTarget { context.delete(t) }
         }
     }
 }

@@ -7,8 +7,6 @@ struct BankListView: View {
     @AppStorage(AppStorageKey.userLevel) private var userLevel: UserLevel = .beginner
 
     @State private var showAddSheet    = false
-    @State private var deleteTarget: E8bank?
-    @State private var showDeleteAlert = false
     /// 左スワイプ「状況」で開く口座。設定されると引き落とし状況画面へ push する。
     @State private var statusBank: E8bank?
 
@@ -25,12 +23,8 @@ struct BankListView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
-                        // 状況スワイプは削除スワイプより前に説明する
+                        // 「状況」スワイプの案内
                         Text("bank.beginner.statusSwipe")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                        Text("bank.beginner.line3")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -44,16 +38,7 @@ struct BankListView: View {
                 } label: {
                     BankRow(bank: bank)
                 }
-                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                    Button(role: .destructive) {
-                        deleteTarget    = bank
-                        showDeleteAlert = true
-                    } label: {
-                        Label("button.delete", systemImage: "trash")
-                    }
-                }
-                // 「状況」は削除と隣接させない（誤タップ防止）ため、左スワイプ側に分離して配置する
-                // 背景セル色 + アイコンのみ。テキストは system が白色強制してしまうため省略。
+                // 「状況」は編集と分離し、左スワイプ側に配置する。
                 // ロングスワイプで即時実行。
                 .swipeActions(edge: .leading, allowsFullSwipe: true) {
                     Button {
@@ -79,16 +64,6 @@ struct BankListView: View {
         // 状況スワイプから引き落とし状況画面（初期絞り込み付き）へ push
         .navigationDestination(item: $statusBank) { bank in
             PaymentListView(initialBankFilter: bank)
-        }
-        // 特大フォント・長文でも全文が見える独自ダイアログを使用
-        .deleteConfirmation(
-            isPresented: $showDeleteAlert,
-            title: "alert.deleteConfirm.title",
-            message: "alert.deleteConfirm.bank.message"
-        ) {
-            if let b = deleteTarget {
-                try? BankService.delete(b, context: context)
-            }
         }
     }
 

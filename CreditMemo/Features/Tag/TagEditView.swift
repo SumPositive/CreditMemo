@@ -18,6 +18,8 @@ struct TagEditView: View {
     @State private var isSaving = false
     /// 上部「履歴」ボタンで push するタグ。既存タグのみ有効。
     @State private var historyTag: E5tag?
+    /// 削除確認ダイアログの表示制御
+    @State private var showDeleteAlert = false
     private let noteAnchorID = "tag-note-anchor"
 
     private var isNew:   Bool { tag == nil }
@@ -87,6 +89,24 @@ struct TagEditView: View {
                 MemoEditor(placeholder: "label.note", text: $zNote, isFocused: $focusNote)
                     .id(noteAnchorID)
             }
+
+            // 削除（既存タグのみ。スワイプ削除はやめてここに集約する）
+            if !isNew {
+                Section {
+                    Button {
+                        showDeleteAlert = true
+                    } label: {
+                        HStack {
+                            Spacer()
+                            Text("tag.delete.action")
+                                .foregroundStyle(.red)
+                            Spacer()
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
             }
             .onChange(of: zNote) { _, _ in
                 scrollNoteIntoView(proxy)
@@ -139,6 +159,24 @@ struct TagEditView: View {
         .navigationDestination(item: $historyTag) { tag in
             RecordListView(initialTag: tag)
         }
+        // 特大フォント・長文でも全文が見える独自ダイアログを使用
+        .deleteConfirmation(
+            isPresented: $showDeleteAlert,
+            title: "alert.deleteConfirm.title",
+            message: "alert.deleteConfirm.message"
+        ) {
+            deleteCurrentTag()
+        }
+    }
+
+    /// 削除確認後に呼ぶ。
+    private func deleteCurrentTag() {
+        guard let tag else { return }
+        context.delete(tag)
+        if context.hasChanges {
+            try? context.save()
+        }
+        dismiss()
     }
 
     private func loadFields() {

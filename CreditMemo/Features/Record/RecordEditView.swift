@@ -5,6 +5,8 @@ import SwiftData
 
 enum RecordEditMode {
     case addNew
+    /// 既存レコードから日付以外をコピーして新規追加する
+    case addCopy(E3record)
     case edit(E3record)
 }
 
@@ -12,6 +14,7 @@ extension RecordEditMode: Equatable {
     static func == (lhs: RecordEditMode, rhs: RecordEditMode) -> Bool {
         switch (lhs, rhs) {
         case (.addNew, .addNew): true
+        case (.addCopy(let a), .addCopy(let b)): a.id == b.id
         case (.edit(let a), .edit(let b)): a.id == b.id
         default: false
         }
@@ -77,8 +80,10 @@ struct RecordEditView: View {
     private let noteAnchorID = "record-note-anchor"
 
     private var isNew: Bool {
-        if case .addNew = mode { return true }
-        return false
+        switch mode {
+        case .addNew, .addCopy: return true
+        case .edit: return false
+        }
     }
     private var isValid:    Bool { nAmount != 0 }
     private var usePointCandidates: [String] { cachedUsePointCandidates }
@@ -169,12 +174,20 @@ struct RecordEditView: View {
         }
     }
 
+    /// 履歴から引用セクションを出すかどうか。コピー新規時は元データが既に入っているため隠す。
+    private var showsSimilarSection: Bool {
+        if case .addCopy = mode { return false }
+        return true
+    }
+
     var body: some View {
         ScrollViewReader { proxy in
             Form {
                 beginnerSection
                 requiredSection
-                similarSection
+                if showsSimilarSection {
+                    similarSection
+                }
                 optionalSection
                 partPaymentSection
                 deleteSection
@@ -206,7 +219,13 @@ struct RecordEditView: View {
         }
         .navigationTitle(isNew ? "record.edit.title.add" : "record.edit.title.edit")
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(isNew ? hasChanges : true)
+        .navigationBarBackButtonHidden({
+            switch mode {
+            case .addNew:  return hasChanges
+            case .addCopy: return true     // コピー新規は常にキャンセルで閉じる
+            case .edit:    return true
+            }
+        }())
         .onChange(of: hasChanges) { _, newValue in
             if newValue { editingState.isEditingInProgress = true }
         }
@@ -215,11 +234,15 @@ struct RecordEditView: View {
         }
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
-                if isNew {
+                switch mode {
+                case .addNew:
                     if hasChanges {
                         Button("button.cancel") { dismiss() }
                     }
-                } else {
+                case .addCopy:
+                    // コピー新規は、変更有無に関係なく必ずキャンセルを出す
+                    Button("button.cancel") { dismiss() }
+                case .edit:
                     if hasChanges {
                         // 編集中に変更がある場合は「キャンセル」を表示する
                         Button("button.cancel") { dismiss() }
@@ -233,10 +256,16 @@ struct RecordEditView: View {
                 }
             }
             ToolbarItem(placement: .navigationBarTrailing) {
+                // コピー新規はシートを開いた時点で意味のある新規データが揃っているため、
+                // 変更がなくても保存ボタンを強調表示してすぐ保存できるようにする。
+                let emphasizeSave: Bool = {
+                    if case .addCopy = mode { return true }
+                    return hasChanges
+                }()
                 Button("button.save") { save() }
                     .disabled(!isValid)
-                    .fontWeight(hasChanges ? .semibold : .regular)
-                    .foregroundStyle(hasChanges ? .blue : .secondary)
+                    .fontWeight(emphasizeSave ? .semibold : .regular)
+                    .foregroundStyle(emphasizeSave ? .blue : .secondary)
             }
         }
         .onAppear {
@@ -246,7 +275,9 @@ struct RecordEditView: View {
                 loadFields()
                 initialDraft = currentDraft()
                 hasInitialized = true
-                if isNew {
+                // 新規追加で金額が未入力のときだけテンキーを自動表示する。
+                // コピー新規（.addCopy）は金額がコピー済みなので自動表示しない。
+                if isNew && nAmount == 0 {
                     DispatchQueue.main.async { showAmountPad = true }
                 }
             }
@@ -731,7 +762,8 @@ struct RecordEditView: View {
     // MARK: - Load / Save
 
     private func loadFields() {
-        if case .addNew = mode {
+        switch mode {
+        case .addNew:
             // 新規時の決済手段は未選択を初期値にする
             selectedCard = nil
             selectedBankForCard = nil
@@ -739,20 +771,32 @@ struct RecordEditView: View {
             // 新規作成は一括払いのみを許可する
             payType = .lumpSum
             draftDateUse = dateUse
-            return
+        case .addCopy(let source):
+            // 日付は今日のまま、それ以外は元レコードからコピーする
+            draftDateUse = dateUse
+            zName        = source.zName
+            zNote        = source.zNote
+            nAmount      = source.nAmount
+            // 新規作成は一括払いのみを許可するため、payType は強制的に lumpSum
+            payType      = .lumpSum
+            nRepeat      = source.nRepeat
+            selectedCard = source.e1card
+            selectedBankForCard = source.e1card?.e8bank
+            keepBankPickerRowVisible = selectedCard != nil && selectedBankForCard == nil
+            selectedCategories = source.e5tags
+        case .edit(let r):
+            dateUse            = r.dateUse
+            draftDateUse       = r.dateUse
+            zName              = r.zName
+            zNote              = r.zNote
+            nAmount            = r.nAmount
+            payType            = r.payType
+            nRepeat            = r.nRepeat
+            selectedCard       = r.e1card
+            selectedBankForCard = r.e1card?.e8bank
+            keepBankPickerRowVisible = selectedCard != nil && selectedBankForCard == nil
+            selectedCategories = r.e5tags
         }
-        guard case .edit(let r) = mode else { return }
-        dateUse            = r.dateUse
-        draftDateUse       = r.dateUse
-        zName              = r.zName
-        zNote              = r.zNote
-        nAmount            = r.nAmount
-        payType            = r.payType
-        nRepeat            = r.nRepeat
-        selectedCard       = r.e1card
-        selectedBankForCard = r.e1card?.e8bank
-        keepBankPickerRowVisible = selectedCard != nil && selectedBankForCard == nil
-        selectedCategories = r.e5tags
     }
 
     private func save() {
@@ -767,7 +811,7 @@ struct RecordEditView: View {
             || initialDraft?.cardID != selectedCard?.id
             || bankChanged
         switch mode {
-        case .addNew:
+        case .addNew, .addCopy:
             // 保存直前にだけマスタへ口座変更を反映する
             selectedCard?.e8bank = selectedBankForCard
             let r = E3record(dateUse: dateUse, zName: usePoint, zNote: note,

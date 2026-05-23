@@ -13,6 +13,8 @@ struct InvoiceListView: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage(AppStorageKey.userLevel) private var userLevel: UserLevel = .beginner
     @State private var editRecord: E3record?
+    /// 右スワイプ「新しい決済」で開く、コピー元のレコード
+    @State private var copySource: E3record?
 
     init(payment: E7payment) {
         self.payment = payment
@@ -184,6 +186,17 @@ struct InvoiceListView: View {
                                 }
                             }
                         )
+                        // 右スワイプ（指は左方向）で「日付以外をコピーした新しい決済」シートを開く
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            if let record = part.e3record {
+                                Button {
+                                    copySource = record
+                                } label: {
+                                    Label("record.edit.title.add", systemImage: "doc.on.doc")
+                                }
+                                .tint(.indigo)
+                            }
+                        }
                     }
 
                     // 明細が複数行のときのみ小計を表示する
@@ -211,6 +224,12 @@ struct InvoiceListView: View {
                         dismiss()
                     }
                 }
+            }
+        }
+        // 右スワイプ「新しい決済」のコピー元から、日付以外を引き継いだ新規追加シートを開く
+        .sheet(item: $copySource) { source in
+            NavigationStack {
+                RecordEditView(mode: .addCopy(source))
             }
         }
     }
