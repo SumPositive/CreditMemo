@@ -3,11 +3,37 @@ import SwiftData
 
 struct InvoiceListView: View {
     private let payment: E7payment?
-    private let invoices: [E2invoice]
+    /// `init(displayItem:)` 経由で渡される請求書スナップショット。
+    /// `init(payment:)` の場合は nil で、ライブの `payment.e2invoices` を参照する。
+    private let staticInvoices: [E2invoice]?
     private let displayDate: Date
     private let displayAmount: Decimal
     private let displayIsPaid: Bool
     private let showsBankHeader: Bool
+
+    /// 表示対象の請求書。`reloadKey` で `.id()` リセットされたタイミングで、
+    /// context から再フェッチして最新を取り直す。
+    ///
+    /// payment 経由・displayItem 経由を問わず、`displayDate` 当日の同じ状態の請求書を拾う。
+    /// 別の決済手段や別口座を選んで追加した場合でも、その新しい請求書がここで表示されるようにする。
+    private var invoices: [E2invoice] {
+        let dayStart = Calendar.current.startOfDay(for: displayDate)
+        guard let nextDay = Calendar.current.date(byAdding: .day, value: 1, to: dayStart) else {
+            return payment?.e2invoices ?? staticInvoices ?? []
+        }
+        let descriptor = FetchDescriptor<E2invoice>(
+            predicate: #Predicate<E2invoice> { dayStart <= $0.date && $0.date < nextDay }
+        )
+        let fetched = (try? context.fetch(descriptor)) ?? []
+        let sameStateInvoices = fetched.filter { $0.isPaid == displayIsPaid }
+        return sameStateInvoices.isEmpty ? (staticInvoices ?? payment?.e2invoices ?? []) : sameStateInvoices
+    }
+
+    private var currentDisplayAmount: Decimal {
+        // 保存後に同日同状態の追加分も合計へ反映する
+        let currentAmount = invoices.reduce(Decimal.zero) { $0 + $1.sumAmount }
+        return currentAmount == .zero ? displayAmount : currentAmount
+    }
 
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
@@ -16,10 +42,18 @@ struct InvoiceListView: View {
     @State private var editRecord: E3record?
     /// 右スワイプ「新しい決済」で開く、コピー元のレコード
     @State private var copySource: E3record?
+    /// 引き落とし日見出し横の「新しい決済」ボタンで開くシートのトリガー
+    @State private var showNewPaymentSheet = false
+    /// 決済手段セクション見出しの「新しい決済」ボタンで開くシートのプリセット決済手段
+    @State private var newPaymentCard: E1card?
+    /// 明細追加・編集を保存したとき、画面を「開き直す」ためのトリガー。
+    /// 値を変えると `.id()` 経由でフォーム本体が破棄→再構築され、最新の SwiftData 状態が読み直される。
+    @State private var reloadKey = UUID()
 
     init(payment: E7payment) {
         self.payment = payment
-        self.invoices = payment.e2invoices
+        // payment 経由ではライブな e2invoices を参照するため、スナップショットは保持しない
+        self.staticInvoices = nil
         self.displayDate = payment.date
         self.displayAmount = payment.sumAmount
         self.displayIsPaid = payment.isPaid
@@ -28,11 +62,42 @@ struct InvoiceListView: View {
 
     init(displayItem: PaymentDisplayItem) {
         self.payment = displayItem.detailPayment
-        self.invoices = displayItem.invoices
+        self.staticInvoices = displayItem.invoices
         self.displayDate = displayItem.date
         self.displayAmount = displayItem.amount
         self.displayIsPaid = displayItem.isPaid
         self.showsBankHeader = false
+    }
+
+    // MARK: New Payment Button
+
+    /// 「新しい決済」ボタン。文字は出さず、アイコンだけで表示する。
+    @ViewBuilder
+    private func newPaymentButton(action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: "plus.circle.fill")
+                .foregroundStyle(.blue)
+                .imageScale(.large)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text("record.edit.title.add"))
+    }
+
+    private func invoiceHelpIcon(isPaid: Bool) -> some View {
+        // ヘルプ内の状態アイコンは追加アイコンと同じサイズに揃える
+        Image(systemName: isPaid ? "arrow.up.circle.fill" : "arrow.down.circle.fill")
+            .foregroundStyle(isPaid ? COLOR_PAID : COLOR_UNPAID)
+            .font(.caption.weight(.semibold))
+            .frame(width: 16, alignment: .center)
+    }
+
+    private var addPaymentHelpIcon: some View {
+        // ヘルプ内の追加アイコンは状態アイコンと同じサイズに揃える
+        Image(systemName: "plus.circle.fill")
+            .foregroundStyle(.blue)
+            .font(.caption.weight(.semibold))
+            .frame(width: 16, alignment: .center)
     }
 
     // MARK: Check Toggle
@@ -73,11 +138,13 @@ struct InvoiceListView: View {
     private var cardSections: [InvoiceCardSection] {
         var buckets: [String: [E6part]] = [:]
         var titles: [String: String] = [:]
+        var cards: [String: E1card?] = [:]
 
         for invoice in invoices {
             let cardID = invoice.e1card?.id ?? "__no_card__"
             let cardName = invoice.e1card?.zName ?? "—"
             titles[cardID] = cardName
+            cards[cardID] = invoice.e1card
             buckets[cardID, default: []].append(contentsOf: invoice.e6parts)
         }
 
@@ -85,6 +152,7 @@ struct InvoiceListView: View {
             InvoiceCardSection(
                 id: cardID,
                 title: titles[cardID] ?? "—",
+                card: cards[cardID] ?? nil,
                 parts: parts.sorted { lhs, rhs in
                     let leftDate = lhs.e3record?.dateUse ?? .distantPast
                     let rightDate = rhs.e3record?.dateUse ?? .distantPast
@@ -116,8 +184,7 @@ struct InvoiceListView: View {
                             .fixedSize(horizontal: false, vertical: true)
                         if displayIsPaid {
                             HStack(alignment: .firstTextBaseline, spacing: 6) {
-                                InvoiceStatusIcon(isPaid: true)
-                                    .scaleEffect(0.52)
+                                invoiceHelpIcon(isPaid: true)
                                 Text("invoice.beginner.line2")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
@@ -125,13 +192,20 @@ struct InvoiceListView: View {
                             }
                         } else {
                             HStack(alignment: .firstTextBaseline, spacing: 6) {
-                                InvoiceStatusIcon(isPaid: false)
-                                    .scaleEffect(0.52)
+                                invoiceHelpIcon(isPaid: false)
                                 Text("invoice.beginner.line1")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
+                        }
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            // 追加アイコンの用途を初心者ヘルプに明示する
+                            addPaymentHelpIcon
+                            Text("invoice.beginner.addPayment")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
                     }
                     .padding(.vertical, 2)
@@ -148,16 +222,21 @@ struct InvoiceListView: View {
                             .lineLimit(1)
                             .minimumScaleFactor(0.7)
                     }
-                    Text(statementTitleText)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                    // 「...に引き落とし」見出しの右に「新しい決済」ボタンを置く
+                    HStack(spacing: 8) {
+                        Text(statementTitleText)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        Spacer(minLength: 8)
+                        newPaymentButton(action: { showNewPaymentSheet = true })
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 HStack {
                     HStack {
                         Text("label.total")
                         Spacer()
-                        Text(displayAmount.currencyString())
+                        Text(currentDisplayAmount.currencyString())
                             .font(.headline.monospacedDigit())
                             .foregroundStyle(displayIsPaid ? COLOR_PAID : COLOR_UNPAID)
                     }
@@ -210,12 +289,20 @@ struct InvoiceListView: View {
                         }
                     }
                 } header: {
-                    HStack {
+                    HStack(spacing: 8) {
                         Text(section.title)
+                        Spacer(minLength: 8)
+                        // 決済手段セクション見出しの右端に「新しい決済」ボタン（その手段をプリセット）
+                        if let card = section.card {
+                            newPaymentButton(action: { newPaymentCard = card })
+                        }
                     }
                 }
             }
         }
+        // 保存後に reloadKey を更新すると、ここで識別が変わり List 全体が破棄→再構築される。
+        // 結果として `cardSections`/`invoices` の計算が走り直し、追加された明細が見える。
+        .id(reloadKey)
         .scalableNavigationTitle("invoice.statement.title")
         .sheet(item: $editRecord) { record in
             NavigationStack {
@@ -231,14 +318,46 @@ struct InvoiceListView: View {
             // 編集シートの背面を透かさない
             .presentationBackground(Color(uiColor: .systemBackground))
         }
-        // 右スワイプ「新しい決済」のコピー元から、日付以外を引き継いだ新規追加シートを開く
+        // 右スワイプ「新しい決済」のコピー元から、日付以外を引き継いだ新規追加シートを開く。
+        // 保存されたら reloadKey を更新し、この明細画面を「開き直し」相当に再構築する
         .sheet(item: $copySource) { source in
             NavigationStack {
-                RecordEditView(mode: .addCopy(source))
+                RecordEditView(
+                    mode: .addCopy(source),
+                    onSaved: { _ in reloadKey = UUID() },
+                    presetIsPaid: displayIsPaid
+                )
             }
-            // シートにもアプリ内文字サイズ設定を明示適用する
             .appFontScale(fontScale)
-            // コピー新規シートの背面を透かさない
+            .presentationBackground(Color(uiColor: .systemBackground))
+        }
+        // 「...に引き落とし」見出し横の「新しい決済」ボタンから、決済手段未選択の新規シートを開く。
+        // この明細画面の引き落とし日を強制指定として渡す。保存されたら明細画面を再構築する
+        .sheet(isPresented: $showNewPaymentSheet) {
+            NavigationStack {
+                RecordEditView(
+                    mode: .addNew,
+                    onSaved: { _ in reloadKey = UUID() },
+                    presetDueDate: displayDate,
+                    presetIsPaid: displayIsPaid
+                )
+            }
+            .appFontScale(fontScale)
+            .presentationBackground(Color(uiColor: .systemBackground))
+        }
+        // 決済手段セクション見出しの「新しい決済」ボタンから、決済手段＋引き落とし日固定の新規シートを開く。
+        // 保存されたら明細画面を再構築する
+        .sheet(item: $newPaymentCard) { card in
+            NavigationStack {
+                RecordEditView(
+                    mode: .addNew,
+                    onSaved: { _ in reloadKey = UUID() },
+                    presetCard: card,
+                    presetDueDate: displayDate,
+                    presetIsPaid: displayIsPaid
+                )
+            }
+            .appFontScale(fontScale)
             .presentationBackground(Color(uiColor: .systemBackground))
         }
     }
@@ -247,6 +366,7 @@ struct InvoiceListView: View {
 private struct InvoiceCardSection: Identifiable {
     let id: String
     let title: String
+    let card: E1card?
     let parts: [E6part]
 
     var sumAmount: Decimal {

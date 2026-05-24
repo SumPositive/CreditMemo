@@ -1490,13 +1490,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mark only this item as paid."
+            "value" : "Mark only this item as paid"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "この明細だけを済みにできます。"
+            "value" : "この明細だけを済みにできます"
           }
         }
       }
@@ -1507,13 +1507,30 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Move only this item back to unpaid."
+            "value" : "Move only this item back to unpaid"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "この明細だけを未払に戻せます。"
+            "value" : "この明細だけを未払に戻せます"
+          }
+        }
+      }
+    },
+    "invoice.beginner.addPayment" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a new payment with these conditions"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この条件で新しい決済を追加できます"
           }
         }
       }

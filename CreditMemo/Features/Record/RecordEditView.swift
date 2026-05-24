@@ -30,6 +30,12 @@ struct RecordEditView: View {
     /// `.addNew` のとき、開いた時点で初期選択しておきたい決済手段
     /// 決済手段一覧の右スワイプ「新しい決済」から開く場合などに使う
     var presetCard: E1card? = nil
+    /// `.addNew` / `.addCopy` のとき、引き落とし日を強制指定する
+    /// - 締日/支払日型カード：保存時に override 機構で強制
+    /// - N日後型カード：加えて利用日を引き落とし日から逆算する
+    var presetDueDate: Date? = nil
+    /// 済み側の引き落とし明細から追加する場合、保存直後に済みへ移す
+    var presetIsPaid = false
 
     @Environment(\.modelContext)    private var context
     @Environment(\.dismiss)         private var dismiss
@@ -90,7 +96,12 @@ struct RecordEditView: View {
         case .edit: return false
         }
     }
-    private var isValid:    Bool { nAmount != 0 }
+    private var isValid: Bool {
+        if nAmount == 0 { return false }
+        // 引き落とし日固定モードでは、決済手段未選択だと請求が作られず明細画面に出ないため、必須にする
+        if presetDueDate != nil && selectedCard == nil { return false }
+        return true
+    }
     private var usePointCandidates: [String] { cachedUsePointCandidates }
     private var hasChanges: Bool {
         guard let initialDraft else { return false }
@@ -211,6 +222,7 @@ struct RecordEditView: View {
     var body: some View {
         ScrollViewReader { proxy in
             Form {
+                lockedDueDateBanner
                 beginnerSection
                 requiredSection
                 if showsSimilarSection {
@@ -315,6 +327,11 @@ struct RecordEditView: View {
             selectedBankForCard = selectedCard?.e8bank
             // 口座未設定で表示開始した行は、この編集セッション中は保持する
             keepBankPickerRowVisible = selectedCard != nil && selectedBankForCard == nil
+            // 引き落とし日が固定指定されている場合、N日後型は利用日を再計算する
+            if let presetDueDate {
+                dateUse = dateUse(forDueDate: presetDueDate, card: selectedCard)
+                draftDateUse = dateUse
+            }
         }
         .onChange(of: pastRecords.map(\.id)) { _, _ in
             // レコード集合が変わったときだけ再計算する
@@ -470,6 +487,54 @@ struct RecordEditView: View {
     }
 
     // MARK: - Form Sections
+
+    /// 引き落とし日が固定指定されている場合に最上段へ出す案内バナー
+    @ViewBuilder private var lockedDueDateBanner: some View {
+        if let presetDueDate {
+            Section {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "lock.fill")
+                            .foregroundStyle(.orange)
+                        Text(lockedDueDateBannerText(presetDueDate))
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.primary)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.7)
+                        Spacer(minLength: 0)
+                    }
+                    if selectedCard == nil {
+                        // 固定モードでは決済手段必須。未選択だと保存できない旨を伝える
+                        Text(cardRequiredHintText)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
+                }
+            }
+        }
+    }
+
+    /// 引き落とし日固定モードでの決済手段必須案内
+    private var cardRequiredHintText: String {
+        let isJapanese = Locale.current.language.languageCode?.identifier == "ja"
+        return isJapanese
+            ? "決済手段を選択してください"
+            : "Please select a payment method"
+    }
+
+    /// バナー本文「引き落とし日（支払日）を yyyy年m月d日に固定中」をロケールに合わせて返す
+    private func lockedDueDateBannerText(_ date: Date) -> String {
+        let isJapanese = Locale.current.language.languageCode?.identifier == "ja"
+        let formatter = DateFormatter()
+        if isJapanese {
+            formatter.locale = Locale(identifier: "ja_JP")
+            formatter.dateFormat = "yyyy年M月d日"
+            return "引き落とし日（支払日）を \(formatter.string(from: date)) に固定中"
+        }
+        formatter.locale = .autoupdatingCurrent
+        formatter.dateFormat = "MMM d, yyyy"
+        return "Debit (payment) date locked to \(formatter.string(from: date))"
+    }
 
     @ViewBuilder private var beginnerSection: some View {
         if userLevel == .beginner {
@@ -786,6 +851,22 @@ struct RecordEditView: View {
         }
     }
 
+    // MARK: - Locked Due Date
+
+    /// 引き落とし日を固定指定されたケースで、決済手段に応じた利用日を算出する。
+    /// - N日後型（`nClosingDay == 0`）：`dueDate - nPayDay` 日
+    /// - 締日/支払日型：逆算が一意ではないため `dueDate` をそのまま返し、保存時の override で着地させる
+    private func dateUse(forDueDate dueDate: Date, card: E1card?) -> Date {
+        guard let card, card.nClosingDay == 0 else {
+            return dueDate
+        }
+        return Calendar.current.date(
+            byAdding: .day,
+            value: -Int(card.nPayDay),
+            to: dueDate
+        ) ?? dueDate
+    }
+
     // MARK: - Load / Save
 
     private func loadFields() {
@@ -797,6 +878,12 @@ struct RecordEditView: View {
             keepBankPickerRowVisible = selectedCard != nil && selectedBankForCard == nil
             // 新規作成は一括払いのみを許可する
             payType = .lumpSum
+            // 引き落とし日が固定指定されている場合は、決済手段に応じて初期利用日を決める
+            // - N日後型カード: 利用日 = 引き落とし日 - N 日（逆算）
+            // - 締日/支払日型: 逆算が一意ではないため、利用日は引き落とし日と同値にし、保存時の override で強制
+            if let presetDueDate {
+                dateUse = dateUse(forDueDate: presetDueDate, card: presetCard)
+            }
             draftDateUse = dateUse
         case .addCopy(let source):
             // 日付は今日のまま、それ以外は元レコードからコピーする
@@ -847,16 +934,31 @@ struct RecordEditView: View {
             r.e5tags = selectedCategories
             context.insert(r)
             do {
-                try RecordService.save(r, context: context)
+                if let presetDueDate {
+                    // 引き落とし日固定指定：override 機構で BillingService の計算結果を上書きする
+                    // 一括払い（lumpSum）は part が1つ（nPartNo == 1）なので、その part に強制適用する
+                    try RecordService.save(
+                        r,
+                        partDueDateOverridesByPartNo: [1: presetDueDate],
+                        context: context
+                    )
+                } else {
+                    try RecordService.save(r, context: context)
+                }
             } catch {
                 appLog(.error, "新規保存に失敗しました: \(error)")
                 // context に乗った未保存の変更（insert・請求再構築・口座変更）を破棄する
                 context.rollback()
                 return
             }
+            if !markNewRecordPaidIfNeeded(r) {
+                return
+            }
             applyCardBankChangeIfNeeded(savedRecord: r, previousBankID: previousBankID)
             switch afterSaveAction {
             case .goBack:
+                // 呼び出し側が引き落とし明細などの場合、保存通知で親画面を閉じ直してもらう
+                onSaved?(bankChanged)
                 dismiss()
             case .continuous:
                 resetForm(keepDateAndCard: false)
@@ -902,6 +1004,23 @@ struct RecordEditView: View {
             applyCardBankChangeIfNeeded(savedRecord: r, previousBankID: previousBankID)
             onSaved?(bankChanged)
             dismiss()
+        }
+    }
+
+    private func markNewRecordPaidIfNeeded(_ record: E3record) -> Bool {
+        // 済み側からの追加でなければ通常どおり未払で保存する
+        if !presetIsPaid {
+            return true
+        }
+        do {
+            for part in record.e6parts {
+                try RecordService.setPartPaid(part, isPaid: true, context: context)
+            }
+            return true
+        } catch {
+            appLog(.error, "新規明細の済み反映に失敗しました: \(error)")
+            context.rollback()
+            return false
         }
     }
 
