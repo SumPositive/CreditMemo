@@ -2233,6 +2233,23 @@
         }
       }
     },
+    "payment.list.title.short" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Debit Status"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "引落し状況"
+          }
+        }
+      }
+    },
     "payment.markPaid" : {
       "extractionState" : "manual",
       "localizations" : {

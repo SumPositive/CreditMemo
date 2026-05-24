@@ -147,17 +147,66 @@ struct CardEditView: View {
     var body: some View {
         ScrollViewReader { proxy in
             Form {
-            // 既存決済手段のみ、上部に「新しい決済」と「引き落とし状況」のショートカット2つを並べる
-            // 1行に収めるため、文字サイズの上限は「大」までに制限する
+            // 既存決済手段のみ、上部に「新しい決済」と「引き落とし状況」を1セル内に並べる。
+            // 口座編集画面の「引き落とし状況」セルと同じフォーム標準セルを使い、中央に Divider を挟む。
             if let card, !isNew {
                 Section {
-                    CardEditShortcutRow(
-                        card: card,
-                        onNewPayment: { newPaymentCard = $0 },
-                        onStatus: { statusCard = $0 }
-                    )
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
+                    // 区切り線を中央より少し左へ寄せて、右の「引落し状況」に余裕を持たせる
+                    GeometryReader { geo in
+                        let dividerArea: CGFloat = 17   // 横パディング 8pt × 2 + 線 1pt
+                        let contentWidth = max(geo.size.width - dividerArea, 0)
+                        let leftWidth = contentWidth * 0.42
+                        let rightWidth = contentWidth - leftWidth
+
+                        HStack(spacing: 0) {
+                            // 左：新しい決済（モーダルシートで開く）
+                            Button {
+                                newPaymentCard = card
+                            } label: {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "plus.circle.fill")
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(width: 26, height: 26)
+                                        .foregroundStyle(.blue)
+                                    Text("record.edit.title.add")
+                                        .foregroundStyle(.primary)
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.7)
+                                }
+                                .frame(width: leftWidth, alignment: .leading)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+
+                            Divider()
+                                .padding(.vertical, 2)
+                                .padding(.horizontal, 8)
+
+                            // 右：引き落とし状況（NavigationStack push）
+                            Button {
+                                statusCard = card
+                            } label: {
+                                HStack(spacing: 8) {
+                                    AppIconBadge(size: 26)
+                                    // 文字が欠けやすい狭幅セル向けに短い表記を使う
+                                    Text("payment.list.title.short")
+                                        .foregroundStyle(.primary)
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.7)
+                                    Spacer(minLength: 4)
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(.tertiary)
+                                }
+                                .frame(width: rightWidth, alignment: .leading)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    // GeometryReader は親が高さを与えないと潰れるため、最小高さを確保する
+                    .frame(minHeight: 44)
                 }
             }
 
@@ -818,161 +867,3 @@ private struct AdaptiveValueRow<ValueView: View>: View {
     }
 }
 
-// MARK: - Shortcut Buttons
-
-private struct CardEditShortcutRow: View {
-    let card: E1card
-    let onNewPayment: (E1card) -> Void
-    let onStatus: (E1card) -> Void
-
-    @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
-    @ScaledMetric(relativeTo: .title3) private var systemBadgeSize: CGFloat = 30
-    private let spacing: CGFloat = 10
-    private var badgeSize: CGFloat {
-        let largeSize = 30 * FontScale.large.uiScale
-        // 自動の時だけiOSのシステム文字サイズを参照する
-        if fontScale.followsSystem {
-            return min(systemBadgeSize, largeSize)
-        }
-        return min(30 * fontScale.uiScale, largeSize)
-    }
-
-    var body: some View {
-        // ボタン内容の自然幅比を保ちながら、パネルと同じ行幅を使う
-        ProportionalWidthHStack(spacing: spacing) {
-            newPaymentButton
-            statusButton
-        }
-        .frame(maxWidth: .infinity, minHeight: 40)
-        // ショートカット行だけは「大」を上限にして1行表示を維持する
-        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
-        // 部品単体でもアプリ内文字サイズ設定を反映する
-        .appFontScale(fontScale)
-    }
-
-    /// 上部「新しい決済」ボタン。アイコンと文字は同じ Dynamic Type 上限で拡縮する
-    private var newPaymentButton: some View {
-        Button {
-            onNewPayment(card)
-        } label: {
-            HStack(spacing: 6) {
-                Image(systemName: "plus.circle.fill")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: badgeSize, height: badgeSize)
-                    .foregroundStyle(.blue)
-                Text("record.edit.title.add")
-                    .font(.title3)
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.82)
-            }
-            .floatingCardStyle()
-        }
-        .buttonStyle(.plain)
-    }
-
-    /// 上部「引き落とし状況」ボタン。遷移を示すシェブロンも文字サイズに連動させる
-    private var statusButton: some View {
-        Button {
-            onStatus(card)
-        } label: {
-            HStack(spacing: 6) {
-                AppIconBadge(size: badgeSize)
-                Text("payment.list.title")
-                    .font(.title3)
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.82)
-                Image(systemName: "chevron.right")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: badgeSize * 0.45,
-                           height: badgeSize * 0.45)
-                    .foregroundStyle(.tertiary)
-            }
-            .floatingCardStyle()
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-private struct ProportionalWidthHStack: Layout {
-    let spacing: CGFloat
-
-    init(spacing: CGFloat) {
-        self.spacing = spacing
-    }
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let sizes = idealSizes(for: subviews)
-        let width = proposal.width ?? totalIdealWidth(for: sizes, count: subviews.count)
-        let height = sizes.map(\.height).max() ?? 0
-        return CGSize(width: width, height: height)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let sizes = idealSizes(for: subviews)
-        let spacingTotal = spacing * CGFloat(max(subviews.count - 1, 0))
-        let contentWidth = max(bounds.width - spacingTotal, 0)
-        let idealWidth = sizes.map(\.width).reduce(0, +)
-        var x = bounds.minX
-
-        for index in subviews.indices {
-            // 自然幅が取れない時だけ等分し、通常は内容幅の比率で割り当てる
-            let childWidth: CGFloat
-            if idealWidth <= 0 {
-                childWidth = evenlyDividedWidth(contentWidth, count: subviews.count)
-            } else {
-                childWidth = contentWidth * sizes[index].width / idealWidth
-            }
-            subviews[index].place(
-                at: CGPoint(x: x, y: bounds.midY),
-                anchor: .leading,
-                proposal: ProposedViewSize(width: childWidth, height: proposal.height)
-            )
-            x += childWidth + spacing
-        }
-    }
-
-    private func idealSizes(for subviews: Subviews) -> [CGSize] {
-        subviews.map {
-            let size = $0.sizeThatFits(ProposedViewSize(width: nil, height: nil))
-            // 柔軟な frame が無限幅を返した場合は比率計算が崩れない値へ丸める
-            let width = (0 < size.width && size.width.isFinite) ? size.width : 1
-            return CGSize(width: width, height: size.height)
-        }
-    }
-
-    private func totalIdealWidth(for sizes: [CGSize], count: Int) -> CGFloat {
-        sizes.map(\.width).reduce(0, +) + spacing * CGFloat(max(count - 1, 0))
-    }
-
-    private func evenlyDividedWidth(_ width: CGFloat, count: Int) -> CGFloat {
-        if count <= 0 {
-            return 0
-        }
-        return width / CGFloat(count)
-    }
-}
-
-// MARK: - Floating Card Button Style
-
-private extension View {
-    /// セル背景に同化せず、薄い輪郭と影で浮き上がったボタン外観を与える共通モディファイア
-    func floatingCardStyle() -> some View {
-        self
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .frame(maxWidth: .infinity, minHeight: 40)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color(uiColor: .systemBackground))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(Color(uiColor: .separator), lineWidth: 0.5)
-            )
-            .shadow(color: Color.black.opacity(0.06), radius: 3, x: 0, y: 1)
-    }
-}
