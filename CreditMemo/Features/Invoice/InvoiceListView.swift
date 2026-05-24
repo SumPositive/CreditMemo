@@ -266,15 +266,16 @@ struct InvoiceListView: View {
                                 }
                             }
                         )
-                        // 右スワイプ（指は左方向）で「日付以外をコピーした新しい決済」シートを開く
-                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        // 右スワイプは、決済手段一覧と同じ新しい決済アイコンにする
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                             if let record = part.e3record {
                                 Button {
                                     copySource = record
                                 } label: {
-                                    Label("record.edit.title.add", systemImage: "doc.on.doc")
+                                    Label("", image: "AddRecordIcon")
                                 }
-                                .tint(.indigo)
+                                .tint(Color(uiColor: .systemBackground))
+                                .accessibilityLabel(Text("record.edit.title.add"))
                             }
                         }
                     }

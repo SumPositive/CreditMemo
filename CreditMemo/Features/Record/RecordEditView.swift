@@ -27,6 +27,10 @@ extension RecordEditMode: Equatable {
 struct RecordEditView: View {
     let mode: RecordEditMode
     var onSaved: ((Bool) -> Void)? = nil
+    /// 上部ショートカットのコピー新規保存を親の一覧へ伝える
+    var onShortcutCopySaved: (() -> Void)? = nil
+    /// 親画面からコピー新規を開いた時、保存後に親まで戻す
+    var forceDismissOnNewSave = false
     /// `.addNew` のとき、開いた時点で初期選択しておきたい決済手段
     /// 決済手段一覧の右スワイプ「新しい決済」から開く場合などに使う
     var presetCard: E1card? = nil
@@ -70,6 +74,7 @@ struct RecordEditView: View {
     @State private var showCardPicker     = false
     @State private var showBankPicker     = false
     @State private var showCategoryPicker = false
+    @State private var shortcutCopySource: E3record?
     @State private var showDeleteAlert    = false
     @State private var isRepeatDropdownExpanded = false
     @State private var savedBanner        = false
@@ -222,6 +227,7 @@ struct RecordEditView: View {
     var body: some View {
         ScrollViewReader { proxy in
             Form {
+                addRecordShortcutSection
                 lockedDueDateBanner
                 beginnerSection
                 requiredSection
@@ -232,6 +238,10 @@ struct RecordEditView: View {
                 partPaymentSection
                 deleteSection
             }
+            // 上部ショートカット周辺のセクション間隔を詰める
+            .listSectionSpacing(.custom(16))
+            // Form先頭の自動余白を抑えて、上ボタンをタイトル側へ寄せる
+            .contentMargins(.top, 16, for: .scrollContent)
             .scrollDismissesKeyboard(.interactively)
             .onChange(of: scrollToTopRequest) { _, _ in
                 withAnimation(.easeInOut(duration: 0.22)) {
@@ -464,6 +474,21 @@ struct RecordEditView: View {
             // タグ選択シートは背面を透かさず、候補一覧を読みやすくする
             .presentationBackground(Color(uiColor: .systemBackground))
         }
+        .sheet(item: $shortcutCopySource) { source in
+            NavigationStack {
+                RecordEditView(
+                    mode: .addCopy(source),
+                    onSaved: { _ in
+                        onShortcutCopySaved?()
+                        dismiss()
+                    },
+                    forceDismissOnNewSave: true
+                )
+            }
+            // コピー新規シートにもアプリ内文字サイズ設定を明示適用する
+            .modifier(ConditionalDynamicTypeModifier(fontScale: fontScale))
+            .presentationBackground(Color(uiColor: .systemBackground))
+        }
         .overlay(alignment: .top) {
             if savedBanner {
                 SavedBanner()
@@ -487,6 +512,30 @@ struct RecordEditView: View {
     }
 
     // MARK: - Form Sections
+
+    /// 編集画面上部に新しい決済へのショートカットを置く
+    @ViewBuilder private var addRecordShortcutSection: some View {
+        if case .edit(let source) = mode {
+            Section {
+                HStack(spacing: 0) {
+                    EditShortcutCapsuleButton(
+                        title: "record.edit.title.add",
+                        showsTitle: userLevel == .beginner,
+                        showsChevron: false,
+                        action: { shortcutCopySource = source }
+                    ) {
+                        Image(systemName: "plus.circle.fill")
+                            .resizable()
+                            .scaledToFit()
+                            .foregroundStyle(.blue)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets(top: 2, leading: 0, bottom: 2, trailing: 0))
+            }
+        }
+    }
 
     /// 引き落とし日が固定指定されている場合に最上段へ出す案内バナー
     @ViewBuilder private var lockedDueDateBanner: some View {
@@ -955,6 +1004,12 @@ struct RecordEditView: View {
                 return
             }
             applyCardBankChangeIfNeeded(savedRecord: r, previousBankID: previousBankID)
+            if forceDismissOnNewSave {
+                // 上部ショートカット経由のコピー新規は、保存後に一覧まで戻す
+                onSaved?(bankChanged)
+                dismiss()
+                return
+            }
             switch afterSaveAction {
             case .goBack:
                 // 呼び出し側が引き落とし明細などの場合、保存通知で親画面を閉じ直してもらう

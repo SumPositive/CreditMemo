@@ -3,7 +3,7 @@ import SwiftData
 
 struct RecordListView: View {
     /// 履歴の絞り込み種別
-    private enum FilterKind: Hashable {
+    fileprivate enum FilterKind: Hashable {
         case all
         case incomplete
         case card(String)
@@ -12,7 +12,7 @@ struct RecordListView: View {
     }
 
     /// 履歴の対象期間
-    private enum RecordPeriod: String, CaseIterable, Identifiable {
+    fileprivate enum RecordPeriod: String, CaseIterable, Identifiable {
         case oneMonth
         case twoMonths
         case threeMonths
@@ -53,7 +53,7 @@ struct RecordListView: View {
     }
 
     /// 履歴のソート対象
-    private enum SortTarget: Hashable, Identifiable {
+    fileprivate enum SortTarget: Hashable, Identifiable {
         case edit    // 編集日（dateUpdate ?? dateUse）
         case date    // 利用日（dateUse）
         case amount
@@ -70,7 +70,7 @@ struct RecordListView: View {
     }
 
     /// ソート方向
-    private enum SortDirection: Hashable {
+    fileprivate enum SortDirection: Hashable {
         case descending
         case ascending
 
@@ -84,6 +84,20 @@ struct RecordListView: View {
             case .ascending:  return -1
             }
         }
+    }
+
+    /// 一覧の絞り込み・並び順をアプリ起動中だけ保持するシングルトン。
+    /// 永続化はせず、画面を行き来しても直前の条件を引き継げるようにする。
+    @Observable
+    fileprivate final class SavedConditions {
+        // SwiftUI のメインスレッドからのみ参照するため、並行性チェックは無効化する
+        nonisolated(unsafe) static let shared = SavedConditions()
+        fileprivate var filterKind: FilterKind = .all
+        fileprivate var period: RecordPeriod = .oneYear
+        fileprivate var selectedTags: [E5tag] = []
+        fileprivate var sortTarget: SortTarget = .edit
+        fileprivate var sortDirection: SortDirection = .descending
+        fileprivate init() {}
     }
 
     /// 履歴フィルターのプルダウン選択肢
@@ -124,11 +138,13 @@ struct RecordListView: View {
     @AppStorage(AppStorageKey.userLevel) private var userLevel: UserLevel = .beginner
     @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
 
-    @State private var filterKind: FilterKind = .all
-    @State private var period: RecordPeriod = .oneYear
-    @State private var selectedTags: [E5tag] = []
-    @State private var sortTarget: SortTarget = .edit
-    @State private var sortDirection: SortDirection = .descending
+    // 一覧の絞り込み・並び順は、シングルトン経由でアプリ起動中だけ保持する。
+    // （永続化は行わず、メモリ上で前回値を引き継ぐ）
+    @State private var filterKind: FilterKind = SavedConditions.shared.filterKind
+    @State private var period: RecordPeriod = SavedConditions.shared.period
+    @State private var selectedTags: [E5tag] = SavedConditions.shared.selectedTags
+    @State private var sortTarget: SortTarget = SavedConditions.shared.sortTarget
+    @State private var sortDirection: SortDirection = SavedConditions.shared.sortDirection
     @State private var records: [E3record] = []
     @State private var recordPage = 0
     @State private var hasMoreRecords = true
@@ -323,14 +339,17 @@ struct RecordListView: View {
                     RecordSummaryRow(record: record)
                 }
                 .buttonStyle(.plain)
-                // 右スワイプ（指は左方向）で「日付以外をコピーした新しい決済」シートを開く
-                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                // 右スワイプ（指は左方向）で「日付以外をコピーした新しい決済」シートを開く。
+                // 決済手段一覧の「新しい決済」スワイプとアイコン・背景を統一し、テキストは省略する。
+                // ロングスワイプの即時実行は無効にする（誤操作防止）。
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                     Button {
                         copySource = record
                     } label: {
-                        Label("record.edit.title.add", systemImage: "doc.on.doc")
+                        Label("", image: "AddRecordIcon")
                     }
-                    .tint(.indigo)
+                    .tint(Color(uiColor: .systemBackground))
+                    .accessibilityLabel(Text("record.edit.title.add"))
                 }
             }
 
@@ -376,19 +395,24 @@ struct RecordListView: View {
                 resetAndLoadRecords()
             }
         }
-        .onChange(of: period) { _, _ in
+        .onChange(of: period) { _, newValue in
+            SavedConditions.shared.period = newValue
             resetAndLoadRecords()
         }
-        .onChange(of: filterKind) { _, _ in
+        .onChange(of: filterKind) { _, newValue in
+            SavedConditions.shared.filterKind = newValue
             resetAndLoadRecords()
         }
         .onChange(of: selectedTagIDs) { _, _ in
+            SavedConditions.shared.selectedTags = selectedTags
             resetAndLoadRecords()
         }
-        .onChange(of: sortTarget) { _, _ in
+        .onChange(of: sortTarget) { _, newValue in
+            SavedConditions.shared.sortTarget = newValue
             resetAndLoadRecords()
         }
-        .onChange(of: sortDirection) { _, _ in
+        .onChange(of: sortDirection) { _, newValue in
+            SavedConditions.shared.sortDirection = newValue
             resetAndLoadRecords()
         }
         .sheet(isPresented: $showCardPicker) {
