@@ -438,6 +438,8 @@ struct RecordEditView: View {
                 selectedCategories: $selectedCategories
             )
             .modifier(ConditionalDynamicTypeModifier(fontScale: fontScale))
+            // タグ選択シートは背面を透かさず、候補一覧を読みやすくする
+            .presentationBackground(Color(uiColor: .systemBackground))
         }
         .overlay(alignment: .top) {
             if savedBanner {
@@ -1554,6 +1556,7 @@ private struct CategoryMultiPickerSheet: View {
     @Query private var allCategories: [E5tag]
     @AppStorage(AppStorageKey.tagSortMode) private var sortModeRaw: Int = SortMode.recent.rawValue
     @State private var showAdd = false
+    @State private var showSortPicker = false
     @State private var displayOrder: [E5tag] = []
     @State private var itemIDsBeforeAdd: [String] = []
     private let maxSelection = 10
@@ -1587,6 +1590,9 @@ private struct CategoryMultiPickerSheet: View {
                     }
                 }
             }
+            // シート内の一覧背景も不透過に揃える
+            .scrollContentBackground(.hidden)
+            .background(Color(uiColor: .systemBackground))
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -1594,14 +1600,20 @@ private struct CategoryMultiPickerSheet: View {
                     Button("button.cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Menu {
-                        Picker("shop.field.sortMode", selection: $sortModeRaw) {
-                            ForEach(SortMode.allCases) { mode in
-                                Text(LocalizedStringKey(mode.localizedKey)).tag(mode.rawValue)
-                            }
-                        }
+                    Button {
+                        showSortPicker = true
                     } label: {
                         Image(systemName: "arrow.up.arrow.down")
+                    }
+                    .popover(
+                        isPresented: $showSortPicker,
+                        attachmentAnchor: .rect(.bounds),
+                        arrowEdge: .top
+                    ) {
+                        CategorySortPopover(
+                            selection: $sortModeRaw,
+                            isPresented: $showSortPicker
+                        )
                     }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -1661,6 +1673,54 @@ private struct CategoryMultiPickerSheet: View {
         let unselected = items.filter { !prioritizedIDSet.contains($0.id) && !selectedIDs.contains($0.id) }
         // 新規追加分を最上段、その次に選択済み、その後に未選択を並べる
         displayOrder = prioritized + selected + unselected
+    }
+}
+
+private struct CategorySortPopover: View {
+    @Binding var selection: Int
+    @Binding var isPresented: Bool
+
+    private var popoverWidth: CGFloat {
+        min(UIScreen.main.bounds.width - 48, 420)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(SortMode.allCases) { mode in
+                Button {
+                    selection = mode.rawValue
+                    isPresented = false
+                } label: {
+                    HStack(spacing: 12) {
+                        Group {
+                            if selection == mode.rawValue {
+                                Image(systemName: "checkmark")
+                            } else {
+                                Color.clear
+                            }
+                        }
+                        .font(.body.weight(.semibold))
+                        .frame(width: 18)
+                        Text(LocalizedStringKey(mode.localizedKey))
+                            .font(.body.weight(.semibold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.88)
+                        Spacer(minLength: 0)
+                    }
+                    .foregroundStyle(.primary)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .frame(width: popoverWidth, alignment: .leading)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(10)
+        // ソート候補は背面を透かさず、長い説明も1行で読める幅にする
+        .background(Color(uiColor: .systemBackground))
+        .presentationBackground(Color(uiColor: .systemBackground))
+        .presentationCompactAdaptation(.popover)
     }
 }
 

@@ -1074,7 +1074,9 @@ private var paidItems: [PaymentDisplayItem]     { buildDisplayItems(...) }
 設定にあるカスタムラジオボタンとカスタムプルダウンメニューを次のように共用パーツにしたい
 
 AZDropdownPicker と AZRadioPicker　のデザインを変更したい。提案して
-
+決済一覧の条件設定を　AZDropdownPicker と AZRadioPicker　に置き換えたい
+ここのAZRadioPickerは、左右一杯に配置し、必ず1行に収めたい、文字サイズを縮小しても良い
+ここのAZDropdownPickerは、左右一杯に配置したい
 
 
 

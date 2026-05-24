@@ -12,13 +12,15 @@ struct RecordListView: View {
     }
 
     /// 履歴の対象期間
-    private enum RecordPeriod: String, CaseIterable {
+    private enum RecordPeriod: String, CaseIterable, Identifiable {
         case oneMonth
         case twoMonths
         case threeMonths
         case oneYear
         case threeYears
         case all
+
+        var id: Self { self }
 
         var localizedKey: LocalizedStringKey {
             switch self {
@@ -51,10 +53,20 @@ struct RecordListView: View {
     }
 
     /// 履歴のソート対象
-    private enum SortTarget: Hashable {
+    private enum SortTarget: Hashable, Identifiable {
         case edit    // 編集日（dateUpdate ?? dateUse）
         case date    // 利用日（dateUse）
         case amount
+
+        var id: Self { self }
+
+        var localizedKey: LocalizedStringKey {
+            switch self {
+            case .edit:   "record.sort.edit"
+            case .date:   "record.sort.date"
+            case .amount: "record.sort.amount"
+            }
+        }
     }
 
     /// ソート方向
@@ -70,6 +82,37 @@ struct RecordListView: View {
             switch self {
             case .descending: return 1
             case .ascending:  return -1
+            }
+        }
+    }
+
+    /// 履歴フィルターのプルダウン選択肢
+    private enum FilterOption: Hashable, Identifiable {
+        case all
+        case incomplete
+        case card
+        case bank
+        case tag
+
+        var id: Self { self }
+
+        var localizedKey: LocalizedStringKey {
+            switch self {
+            case .all:        "label.all"
+            case .incomplete: "record.filter.incomplete"
+            case .card:       "payment.filter.card"
+            case .bank:       "payment.filter.bank"
+            case .tag:        "record.field.tag"
+            }
+        }
+
+        var iconName: String {
+            switch self {
+            case .all:        "line.3.horizontal.decrease.circle"
+            case .incomplete: "exclamationmark.circle"
+            case .card:       "creditcard"
+            case .bank:       "building.columns"
+            case .tag:        "tag"
             }
         }
     }
@@ -101,6 +144,8 @@ struct RecordListView: View {
     @State private var sortedCache: [E3record] = []
 
     private let pageSize = 100
+    private let filterOptions: [FilterOption] = [.all, .incomplete, .card, .bank, .tag]
+    private let sortOptions: [SortTarget] = [.edit, .date, .amount]
 
     init(initialTag: E5tag? = nil) {
         // タグ側から開いた時は、履歴をそのタグで絞り込んだ状態にする
@@ -136,6 +181,49 @@ struct RecordListView: View {
             return String(format: NSLocalizedString("record.filter.tagCount", comment: ""), selectedTags.count)
         }
     }
+    private var filterSelectionBinding: Binding<FilterOption> {
+        Binding(
+            get: {
+                switch filterKind {
+                case .all:        .all
+                case .incomplete: .incomplete
+                case .card:       .card
+                case .bank:       .bank
+                case .tag:        .tag
+                }
+            },
+            set: { option in
+                // マスター選択が必要な条件は、プルダウン確定後に専用シートへ進める
+                switch option {
+                case .all:
+                    clearFilter()
+                case .incomplete:
+                    selectedTags = []
+                    filterKind = .incomplete
+                case .card:
+                    presentCardFilter()
+                case .bank:
+                    presentBankFilter()
+                case .tag:
+                    presentTagFilter()
+                }
+            }
+        )
+    }
+    private var sortSelectionBinding: Binding<SortTarget> {
+        Binding(
+            get: { sortTarget },
+            set: { target in
+                // 同じ条件を押した時だけ昇順/降順を切り替える
+                if sortTarget == target {
+                    sortDirection = sortDirection == .descending ? .ascending : .descending
+                } else {
+                    sortTarget = target
+                    sortDirection = .descending
+                }
+            }
+        )
+    }
 
     var body: some View {
         List {
@@ -159,68 +247,38 @@ struct RecordListView: View {
             }
             Section {
                 VStack(spacing: 8) {
-                    Picker("record.period.title", selection: $period) {
-                        ForEach(RecordPeriod.allCases, id: \.self) { period in
-                            Text(period.localizedKey)
-                                .tag(period)
-                        }
+                    // 対象期間はDynamic Typeに追従するラジオPickerで選ぶ
+                    AZRadioPicker(
+                        options: RecordPeriod.allCases,
+                        selection: $period,
+                        minOptionWidth: 0,
+                        maxOptionWidth: 120,
+                        horizontalPadding: 4,
+                        optionSpacing: 4,
+                        groupPadding: 5,
+                        wrapsOptions: false,
+                        fillsWidth: true
+                    ) { period in
+                        Text(period.localizedKey)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.50)
                     }
-                    .pickerStyle(.segmented)
+                    .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                    .frame(maxWidth: .infinity)
 
                     HStack(spacing: 8) {
-                        Button {
-                            showFilterPopover = true
-                        } label: {
-                            HStack(spacing: 8) {
-                                Image(systemName: "line.3.horizontal.decrease.circle")
-                                    .imageScale(.medium)
-                                Text(filterSummaryText)
-                                    .lineLimit(1)
-                                    .minimumScaleFactor(0.6)
-                                    .allowsTightening(true)
-                                Spacer(minLength: 8)
-                                Image(systemName: "chevron.down")
-                                    .font(.caption2.weight(.semibold))
-                                    .foregroundStyle(.secondary)
-                            }
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(isFilterActive ? Color.white : Color.accentColor)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(
-                                Capsule()
-                                    .fill(isFilterActive ? Color.accentColor : Color.accentColor.opacity(0.10))
-                            )
-                            // フィルター表示は大きすぎる文字で操作帯を崩さない
-                            .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
-                            // 行全体でフィルターを開けるよう、当たり判定をカプセル全体に広げる
-                            .contentShape(Capsule())
+                        // 絞り込み条件は設定画面と同じプルダウンPickerで選ぶ
+                        AZDropdownPicker(
+                            options: filterOptions,
+                            selection: filterSelectionBinding,
+                            isExpanded: $showFilterPopover,
+                            minWidth: 0,
+                            fillsWidth: true
+                        ) { option in
+                            filterLabel(option)
                         }
+                        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                         .frame(maxWidth: .infinity)
-                        .buttonStyle(.plain)
-                        .popover(
-                            isPresented: $showFilterPopover,
-                            attachmentAnchor: .rect(.bounds),
-                            arrowEdge: .top
-                        ) {
-                            RecordFilterPopover {
-                                clearFilter()
-                                showFilterPopover = false
-                            } onIncomplete: {
-                                selectedTags = []
-                                filterKind = .incomplete
-                                showFilterPopover = false
-                            } onCard: {
-                                presentCardFilter()
-                            } onBank: {
-                                presentBankFilter()
-                            } onTag: {
-                                presentTagFilter()
-                            }
-                            .presentationCompactAdaptation(.popover)
-                            .presentationBackground(Color(.systemBackground))
-                        }
 
                         if isFilterActive {
                             Button {
@@ -235,19 +293,24 @@ struct RecordListView: View {
                             .accessibilityLabel(Text("label.all"))
                         }
                     }
-                    .padding(2)
-                    .background(
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .fill(Color(uiColor: .tertiarySystemFill))
-                    )
                     .fixedSize(horizontal: false, vertical: true)
 
-                    // 「並び順」見出しは外し、ボタンを横幅いっぱいに広げて欠けを防ぐ。
-                    HStack(spacing: 8) {
-                        sortButton(titleKey: "record.sort.edit", target: .edit)
-                        sortButton(titleKey: "record.sort.date", target: .date)
-                        sortButton(titleKey: "record.sort.amount", target: .amount)
+                    // 並び順は同一項目の再タップで昇順/降順を切り替える
+                    AZRadioPicker(
+                        options: sortOptions,
+                        selection: sortSelectionBinding,
+                        minOptionWidth: 0,
+                        maxOptionWidth: 180,
+                        horizontalPadding: 4,
+                        optionSpacing: 4,
+                        groupPadding: 5,
+                        wrapsOptions: false,
+                        fillsWidth: true
+                    ) { target in
+                        sortLabel(target)
                     }
+                    .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                    .frame(maxWidth: .infinity)
                 }
                 .padding(.vertical, 2)
             }
@@ -357,41 +420,37 @@ struct RecordListView: View {
         }
     }
 
-    @ViewBuilder
-    private func sortButton(titleKey: LocalizedStringKey, target: SortTarget) -> some View {
-        Button {
-            // 同じ条件を押した時だけ昇順/降順を切り替える
-            if sortTarget == target {
-                sortDirection = sortDirection == .descending ? .ascending : .descending
-            } else {
-                sortTarget = target
-                sortDirection = .descending
-            }
-        } label: {
-            HStack(spacing: 5) {
-                Text(titleKey)
+    private func filterLabel(_ option: FilterOption) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: option.iconName)
+                .imageScale(.medium)
+            if option == filterSelectionBinding.wrappedValue {
+                Text(filterSummaryText)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.7)
+                    .minimumScaleFactor(0.70)
                     .allowsTightening(true)
-                if sortTarget == target {
-                    Image(systemName: sortDirection.symbolName)
-                        .font(.caption.weight(.bold))
-                        // 昇順は降順アイコンを上下反転して、同じ記号体系に揃える
-                        .scaleEffect(x: 1, y: sortDirection.yScale)
-                }
+            } else {
+                Text(option.localizedKey)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.70)
+                    .allowsTightening(true)
             }
-            .font(.subheadline.weight(.semibold))
-            .foregroundStyle(sortTarget == target ? Color.white : Color.accentColor)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 7)
-            .frame(maxWidth: .infinity)
-            .background(sortTarget == target ? Color.accentColor : Color.accentColor.opacity(0.12))
-            .clipShape(Capsule())
-            .fixedSize(horizontal: false, vertical: true)
-            // ソート表示は大きすぎる文字で操作帯を崩さない
-            .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
         }
-        .buttonStyle(.plain)
+    }
+
+    private func sortLabel(_ target: SortTarget) -> some View {
+        HStack(spacing: 5) {
+            Text(target.localizedKey)
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+                .allowsTightening(true)
+            if sortTarget == target {
+                Image(systemName: sortDirection.symbolName)
+                    .font(.caption.weight(.bold))
+                    // 昇順は降順アイコンを上下反転して、同じ記号体系に揃える
+                    .scaleEffect(x: 1, y: sortDirection.yScale)
+            }
+        }
     }
 
     private func presentCardFilter() {
@@ -536,47 +595,6 @@ struct RecordListView: View {
 }
 
 // MARK: - Record Filter Sheets
-
-/// 履歴フィルター用の不透過ポップオーバー
-private struct RecordFilterPopover: View {
-    let onAll: () -> Void
-    let onIncomplete: () -> Void
-    let onCard: () -> Void
-    let onBank: () -> Void
-    let onTag: () -> Void
-
-    var body: some View {
-        VStack(spacing: 10) {
-            filterButton("label.all", action: onAll)
-            filterButton("record.filter.incomplete", action: onIncomplete)
-            filterButton("payment.filter.card", action: onCard)
-            filterButton("payment.filter.bank", action: onBank)
-            filterButton("record.field.tag", action: onTag)
-        }
-        .padding(18)
-        // 内容に応じて幅を広げ、画面内に収まらない場合だけ文字を縮小する。
-        .frame(minWidth: 240, idealWidth: 280, maxWidth: 340)
-        .fixedSize(horizontal: false, vertical: true)
-        .background(Color(.systemBackground))
-    }
-
-    private func filterButton(_ titleKey: LocalizedStringKey, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(titleKey)
-                .font(.headline.weight(.semibold))
-                .foregroundStyle(Color(.label))
-                .lineLimit(1)
-                .minimumScaleFactor(0.55)
-                .allowsTightening(true)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 13)
-                .background(Color(.secondarySystemBackground))
-                .clipShape(Capsule())
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .buttonStyle(.plain)
-    }
-}
 
 /// 履歴フィルター用の単一選択シート
 private struct RecordSingleFilterPickerSheet<Item: Identifiable>: View {
