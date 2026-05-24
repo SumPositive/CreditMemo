@@ -46,6 +46,9 @@ struct PaymentListView: View {
     /// false のとき自動スクロールをスキップする
     @State private var autoScrollEnabled = true
     @State private var boundaryScrollRequest = 0
+    /// スクロール位置が決まる前のチラ見せ・アイテムアニメーションが見えないように、
+    /// 一覧をフェードで切り替える。初期表示は 0（隠した状態）から開始。
+    @State private var contentOpacity: Double = 0
     private let paymentMoveAnimation = Animation.easeInOut(duration: 0.55)
     private let pageSize = 100
     private let overduePageSize = 100
@@ -169,8 +172,12 @@ struct PaymentListView: View {
                             }
                             .padding(.horizontal, 16)
                             .padding(.vertical, 10)
+                            // 配置決定までは見えないようにして、内部アニメーションのチラつきを隠す
+                            .opacity(contentOpacity)
                         }
-                        .task(id: scrollPositionKey) {
+                        // ユーザー操作（初期表示・絞り込み・集計軸変更）起点でだけ
+                        // フェード+再配置をする。データ更新（トグル等）の連続発火は無視。
+                        .task(id: boundaryScrollRequest) {
                             await scrollToInitialPosition(proxy: proxy)
                         }
                     }
@@ -255,17 +262,35 @@ struct PaymentListView: View {
         // 詳細から戻ったときなど、スクロール OFF のときはスキップして次回のために ON へ戻す
         guard autoScrollEnabled else {
             autoScrollEnabled = true
+            // 詳細復帰時は途中で hide 状態にしないよう、表示はそのまま戻す
+            await MainActor.run {
+                if contentOpacity < 1 {
+                    withAnimation(.easeOut(duration: 0.18)) {
+                        contentOpacity = 1
+                    }
+                }
+            }
             return
         }
-        // フィルター変更後は高さが変わるため、レイアウト確定を待って境界を中央へ寄せる。
-        try? await Task.sleep(nanoseconds: 120_000_000)
+        // 1) リストを隠して、内部のアイテムアニメーションや空状態のチラ見せを覆い隠す
         await MainActor.run {
-            withAnimation(.easeInOut(duration: 0.2)) {
-                if shouldCenterBoundaryOnScroll {
-                    proxy.scrollTo(paymentBoundaryAnchorID, anchor: .center)
-                } else {
-                    proxy.scrollTo(paymentTopAnchorID, anchor: .top)
-                }
+            contentOpacity = 0
+        }
+        // 2) レイアウト確定を待つ
+        try? await Task.sleep(nanoseconds: 120_000_000)
+        // 3) アニメーションなしで一瞬で目的位置へジャンプする（ユーザーに動きを見せない）
+        await MainActor.run {
+            if shouldCenterBoundaryOnScroll {
+                proxy.scrollTo(paymentBoundaryAnchorID, anchor: .center)
+            } else {
+                proxy.scrollTo(paymentTopAnchorID, anchor: .top)
+            }
+        }
+        // 4) スクロール反映を1tick待ってからフェードインで見せる
+        try? await Task.sleep(nanoseconds: 60_000_000)
+        await MainActor.run {
+            withAnimation(.easeOut(duration: 0.22)) {
+                contentOpacity = 1
             }
         }
     }
@@ -273,6 +298,8 @@ struct PaymentListView: View {
     private func requestBoundaryScroll() {
         // 条件変更後は必ず未払/済みの境界へ戻す。
         autoScrollEnabled = true
+        // 直後の body 再評価で新項目が一瞬見えないよう、先にリストを隠す
+        contentOpacity = 0
         boundaryScrollRequest += 1
     }
 
@@ -1052,9 +1079,10 @@ private struct PaymentCombinedCard: View {
         )
         .coordinateSpace(name: "paymentCombinedCard")
         // 行が未払/済みの間を移る変化を自然に見せる
-        .animation(.easeInOut(duration: 0.55), value: upcomingItemIDs)
-        .animation(.easeInOut(duration: 0.55), value: overdueItemIDs)
-        .animation(.easeInOut(duration: 0.55), value: paidItemIDs)
+        // 行の出入りはフェードと競合しないよう短めにする（旧 0.55s）
+        .animation(.easeInOut(duration: 0.22), value: upcomingItemIDs)
+        .animation(.easeInOut(duration: 0.22), value: overdueItemIDs)
+        .animation(.easeInOut(duration: 0.22), value: paidItemIDs)
         .onPreferenceChange(PaymentBoundaryMidYPreferenceKey.self) { y in
             if 0 < y {
                 boundaryMidY = y
