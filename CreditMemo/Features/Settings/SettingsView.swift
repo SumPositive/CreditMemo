@@ -266,6 +266,8 @@ struct SettingsView: View {
         }
         .sheet(isPresented: $showTipSheet) {
             TipSheetView()
+                // シートにもアプリ内文字サイズ設定を明示適用する
+                .appFontScale(fontScale)
                 // チップ案内シートの背面を透かさない
                 .presentationBackground(Color(uiColor: .systemBackground))
         }
@@ -273,6 +275,8 @@ struct SettingsView: View {
             AdSupportSheet {
                 showAdThanks = true
             }
+            // シートにもアプリ内文字サイズ設定を明示適用する
+            .appFontScale(fontScale)
             // 広告応援シートの背面を透かさない
             .presentationBackground(Color(uiColor: .systemBackground))
         }

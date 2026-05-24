@@ -96,6 +96,26 @@ enum FontScale: String, CaseIterable, Identifiable {
     }
 }
 
+/// アプリ内文字サイズ設定をシートにも明示適用する
+struct AppFontScaleModifier: ViewModifier {
+    let fontScale: FontScale
+
+    func body(content: Content) -> some View {
+        if fontScale.followsSystem {
+            content
+        } else {
+            content.dynamicTypeSize(fontScale.dynamicTypeSize)
+        }
+    }
+}
+
+extension View {
+    /// アプリ内文字サイズ設定を適用する
+    func appFontScale(_ fontScale: FontScale) -> some View {
+        modifier(AppFontScaleModifier(fontScale: fontScale))
+    }
+}
+
 /// 新しい決済入力後の動作
 enum AfterSaveAction: String, CaseIterable, Identifiable {
     case goBack      = "goBack"

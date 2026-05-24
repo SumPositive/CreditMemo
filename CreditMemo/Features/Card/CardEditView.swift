@@ -17,6 +17,12 @@ struct CardEditView: View {
     @State private var bankSelection: BankSelection = .none
     @State private var previousBankSelection: BankSelection = .none
     @State private var showBankAddSheet = false
+    @State private var isBankDropdownExpanded = false
+    @State private var isBillingModeDropdownExpanded = false
+    @State private var isClosingDayDropdownExpanded = false
+    @State private var isPayMonthDropdownExpanded = false
+    @State private var isPayDayDropdownExpanded = false
+    @State private var isDaysLaterDropdownExpanded = false
     @State private var bankCountBeforeAdd = 0
     @State private var closingDaySelection: Int16 = 27
     @State private var payDay:     Int16 = 27
@@ -39,6 +45,7 @@ struct CardEditView: View {
     @FocusState private var focusName: Bool
     @FocusState private var focusNote: Bool
     @AppStorage(AppStorageKey.userLevel) private var userLevel: UserLevel = .beginner
+    @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
     private let noteAnchorID = "card-note-anchor"
 
     private var isNew:   Bool { card == nil }
@@ -94,6 +101,48 @@ struct CardEditView: View {
     private var billingModeTitleText: LocalizedStringKey {
         isEnglishLocale ? "Billing Type" : "請求方式"
     }
+    private var bankOptions: [BankSelection] {
+        [.none, .addNew] + banks.map { .existing($0.id) }
+    }
+    private var billingModeSelection: Binding<BillingModeSelection> {
+        Binding(
+            get: { usesAfterDays ? .afterDays : .cycle },
+            set: { usesAfterDays = $0 == .afterDays }
+        )
+    }
+    private var daysLaterOptions: [DaysLaterSelection] {
+        (0...120).map { DaysLaterSelection(value: Int16($0)) }
+    }
+    private var billingDayOptions: [BillingDaySelection] {
+        (1...28).map { BillingDaySelection(value: Int16($0)) } + [BillingDaySelection(value: 29)]
+    }
+    private var payMonthOptions: [PayMonthSelection] {
+        (0...2).map { PayMonthSelection(value: Int16($0)) }
+    }
+    private var closingDayDropdownSelection: Binding<BillingDaySelection> {
+        Binding(
+            get: { BillingDaySelection(value: closingDaySelection) },
+            set: { closingDaySelection = $0.value }
+        )
+    }
+    private var payMonthDropdownSelection: Binding<PayMonthSelection> {
+        Binding(
+            get: { PayMonthSelection(value: payMonth) },
+            set: { payMonth = $0.value }
+        )
+    }
+    private var payDayDropdownSelection: Binding<BillingDaySelection> {
+        Binding(
+            get: { BillingDaySelection(value: payDay) },
+            set: { payDay = $0.value }
+        )
+    }
+    private var daysLaterSelection: Binding<DaysLaterSelection> {
+        Binding(
+            get: { DaysLaterSelection(value: daysLater) },
+            set: { daysLater = $0.value }
+        )
+    }
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -107,7 +156,6 @@ struct CardEditView: View {
                         onNewPayment: { newPaymentCard = $0 },
                         onStatus: { statusCard = $0 }
                     )
-                    .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                     .listRowBackground(Color.clear)
                     .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
                 }
@@ -147,74 +195,80 @@ struct CardEditView: View {
                 }
 
                 AdaptiveValueRow(titleKey: "card.field.bank") {
-                    Picker("", selection: $bankSelection) {
-                        Text("label.noSelection").tag(BankSelection.none)
-                        // 口座追加導線を目立たせる
-                        Text("card.bank.addNew").tag(BankSelection.addNew)
-                        ForEach(banks) { b in
-                            Text(b.zName).tag(BankSelection.existing(b.id))
-                        }
+                    // 口座選択は文字サイズに追従するカスタムプルダウンにする
+                    AZDropdownPicker(
+                        options: bankOptions,
+                        selection: $bankSelection,
+                        isExpanded: $isBankDropdownExpanded,
+                        minWidth: 180
+                    ) { selection in
+                        bankSelectionLabel(selection)
                     }
-                    .pickerStyle(.menu)
-                    .labelsHidden()
                 }
 
             }
 
             // 締日〜支払設定を1パネルにまとめる
             Section {
-                // Form ネイティブ行（ラベル左・選択値右）で1行表示を確保する
-                Picker(billingModeTitleText, selection: $usesAfterDays) {
-                    Text(billingModeCycleText).tag(false)
-                    Text(billingModeAfterDaysText).tag(true)
+                AdaptiveValueRow(titleKey: billingModeTitleText) {
+                    // 請求方式も口座と同じカスタムプルダウンにする
+                    AZDropdownPicker(
+                        options: BillingModeSelection.allCases,
+                        selection: billingModeSelection,
+                        isExpanded: $isBillingModeDropdownExpanded,
+                        minWidth: 180
+                    ) { mode in
+                        Text(mode == .cycle ? billingModeCycleText : billingModeAfterDaysText)
+                    }
                 }
-                .pickerStyle(.menu)
 
                 if !usesAfterDays {
                     AdaptiveValueRow(titleKey: "card.field.closingDay") {
-                        Picker("", selection: $closingDaySelection) {
-                            ForEach(Array(1...28), id: \.self) { d in
-                                Text("\(d)").tag(Int16(d))
-                            }
-                            Text("card.closingDay.end").tag(Int16(29))
+                        // 締日の選択もカスタムプルダウンへ統一する
+                        AZDropdownPicker(
+                            options: billingDayOptions,
+                            selection: closingDayDropdownSelection,
+                            isExpanded: $isClosingDayDropdownExpanded,
+                            minWidth: 120
+                        ) { option in
+                            billingDayLabel(option)
                         }
-                        .pickerStyle(.menu)
-                        .labelsHidden()
                     }
                     AdaptiveValueRow(titleKey: "card.field.payMonth") {
-                        Picker("", selection: $payMonth) {
-                            Text("card.payMonth.current").tag(Int16(0))
-                            Text("card.payMonth.next").tag(Int16(1))
-                            Text("card.payMonth.twoMonths").tag(Int16(2))
+                        // 支払月の選択もカスタムプルダウンへ統一する
+                        AZDropdownPicker(
+                            options: payMonthOptions,
+                            selection: payMonthDropdownSelection,
+                            isExpanded: $isPayMonthDropdownExpanded,
+                            minWidth: 150
+                        ) { option in
+                            payMonthLabel(option)
                         }
-                        .pickerStyle(.menu)
-                        .labelsHidden()
                     }
                     AdaptiveValueRow(titleKey: "card.field.payDay") {
-                        Picker("", selection: $payDay) {
-                            ForEach(Array(1...28), id: \.self) { d in
-                                Text("\(d)").tag(Int16(d))
-                            }
-                            Text("card.closingDay.end").tag(Int16(29))
+                        // 支払日の選択もカスタムプルダウンへ統一する
+                        AZDropdownPicker(
+                            options: billingDayOptions,
+                            selection: payDayDropdownSelection,
+                            isExpanded: $isPayDayDropdownExpanded,
+                            minWidth: 120
+                        ) { option in
+                            billingDayLabel(option)
                         }
-                        .pickerStyle(.menu)
-                        .labelsHidden()
                     }
                 } else {
                     // N日後型は見出しを出さず、値選択のみ表示する
                     HStack(spacing: 0) {
                         Spacer(minLength: 0)
-                        Picker("", selection: $daysLater) {
-                            ForEach(Array(0...120), id: \.self) { day in
-                                if day == 0 {
-                                    Text(isEnglishLocale ? "0 Days (Use Date)" : "0日後（利用日払）").tag(Int16(day))
-                                } else {
-                                    Text(isEnglishLocale ? "\(day) Days Later" : "\(day)日後").tag(Int16(day))
-                                }
-                            }
+                        // N日後の選択も文字サイズに追従するカスタムプルダウンにする
+                        AZDropdownPicker(
+                            options: daysLaterOptions,
+                            selection: daysLaterSelection,
+                            isExpanded: $isDaysLaterDropdownExpanded,
+                            minWidth: 220
+                        ) { option in
+                            daysLaterLabel(option)
                         }
-                        .pickerStyle(.menu)
-                        .labelsHidden()
                     }
                 }
             }
@@ -303,6 +357,8 @@ struct CardEditView: View {
         }
         .sheet(isPresented: $showBankAddSheet, onDismiss: applyAddedBankIfNeeded) {
             NavigationStack { BankEditView(bank: nil) }
+                // シートにもアプリ内文字サイズ設定を明示適用する
+                .appFontScale(fontScale)
                 // 口座追加シートの背面を透かさない
                 .presentationBackground(Color(uiColor: .systemBackground))
         }
@@ -316,6 +372,8 @@ struct CardEditView: View {
             NavigationStack {
                 RecordEditView(mode: .addNew, presetCard: card)
             }
+            // シートにもアプリ内文字サイズ設定を明示適用する
+            .appFontScale(fontScale)
             // 新規決済シートの背面を透かさない
             .presentationBackground(Color(uiColor: .systemBackground))
         }
@@ -547,10 +605,51 @@ struct CardEditView: View {
     // MARK: - Bank Picker
 
     /// 口座選択用の疑似項目（未設定 / 追加 / 既存）
-    private enum BankSelection: Hashable {
+    private enum BankSelection: Hashable, Identifiable {
         case none
         case addNew
         case existing(String)
+
+        var id: String {
+            // 既存口座と固定項目が重ならないIDにする
+            switch self {
+            case .none:
+                "__none__"
+            case .addNew:
+                "__add_new__"
+            case .existing(let id):
+                "existing-\(id)"
+            }
+        }
+    }
+
+    /// 請求方式プルダウン用の選択肢
+    private enum BillingModeSelection: Hashable, Identifiable, CaseIterable {
+        case cycle
+        case afterDays
+
+        var id: Self { self }
+    }
+
+    /// N日後型の日数プルダウン用の選択肢
+    private struct DaysLaterSelection: Hashable, Identifiable {
+        let value: Int16
+
+        var id: Int16 { value }
+    }
+
+    /// 締日・支払日プルダウン用の選択肢
+    private struct BillingDaySelection: Hashable, Identifiable {
+        let value: Int16
+
+        var id: Int16 { value }
+    }
+
+    /// 支払月プルダウン用の選択肢
+    private struct PayMonthSelection: Hashable, Identifiable {
+        let value: Int16
+
+        var id: Int16 { value }
     }
 
     private func selectionFromBank(_ bank: E8bank?) -> BankSelection {
@@ -565,6 +664,52 @@ struct CardEditView: View {
             return banks.first { $0.id == id }
         }
         return nil
+    }
+
+    @ViewBuilder
+    private func bankSelectionLabel(_ selection: BankSelection) -> some View {
+        // 追加項目と既存口座を同じプルダウン内で表示する
+        switch selection {
+        case .none:
+            Text("label.noSelection")
+        case .addNew:
+            Text("card.bank.addNew")
+        case .existing(let id):
+            Text(banks.first { $0.id == id }?.zName ?? "")
+        }
+    }
+
+    @ViewBuilder
+    private func daysLaterLabel(_ selection: DaysLaterSelection) -> some View {
+        // 0日は利用日払いとして表示する
+        if selection.value == 0 {
+            Text(isEnglishLocale ? "0 Days (Use Date)" : "0日後（利用日払）")
+        } else {
+            Text(isEnglishLocale ? "\(selection.value) Days Later" : "\(selection.value)日後")
+        }
+    }
+
+    @ViewBuilder
+    private func billingDayLabel(_ selection: BillingDaySelection) -> some View {
+        // 29は月末として表示する
+        if selection.value == 29 {
+            Text("card.closingDay.end")
+        } else {
+            Text("\(selection.value)")
+        }
+    }
+
+    @ViewBuilder
+    private func payMonthLabel(_ selection: PayMonthSelection) -> some View {
+        // 内部値と表示文言を1か所に集約する
+        switch selection.value {
+        case 0:
+            Text("card.payMonth.current")
+        case 1:
+            Text("card.payMonth.next")
+        default:
+            Text("card.payMonth.twoMonths")
+        }
     }
 
     private func handleBankSelectionChange(_ newValue: BankSelection) {
@@ -680,8 +825,17 @@ private struct CardEditShortcutRow: View {
     let onNewPayment: (E1card) -> Void
     let onStatus: (E1card) -> Void
 
-    @ScaledMetric(relativeTo: .title3) private var badgeSize: CGFloat = 30
+    @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
+    @ScaledMetric(relativeTo: .title3) private var systemBadgeSize: CGFloat = 30
     private let spacing: CGFloat = 10
+    private var badgeSize: CGFloat {
+        let largeSize = 30 * FontScale.large.uiScale
+        // 自動の時だけiOSのシステム文字サイズを参照する
+        if fontScale.followsSystem {
+            return min(systemBadgeSize, largeSize)
+        }
+        return min(30 * fontScale.uiScale, largeSize)
+    }
 
     var body: some View {
         // ボタン内容の自然幅比を保ちながら、パネルと同じ行幅を使う
@@ -690,7 +844,10 @@ private struct CardEditShortcutRow: View {
             statusButton
         }
         .frame(maxWidth: .infinity, minHeight: 40)
+        // ショートカット行だけは「大」を上限にして1行表示を維持する
         .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+        // 部品単体でもアプリ内文字サイズ設定を反映する
+        .appFontScale(fontScale)
     }
 
     /// 上部「新しい決済」ボタン。アイコンと文字は同じ Dynamic Type 上限で拡縮する

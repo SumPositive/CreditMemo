@@ -122,6 +122,7 @@ struct RecordListView: View {
     @Query(sort: \E5tag.sortName)                    private var tags: [E5tag]
     @Environment(\.modelContext) private var context
     @AppStorage(AppStorageKey.userLevel) private var userLevel: UserLevel = .beginner
+    @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
 
     @State private var filterKind: FilterKind = .all
     @State private var period: RecordPeriod = .oneYear
@@ -353,6 +354,8 @@ struct RecordListView: View {
             NavigationStack {
                 RecordEditView(mode: .edit(record))
             }
+            // シートにもアプリ内文字サイズ設定を明示適用する
+            .appFontScale(fontScale)
             // 編集シートの背面を透かさない
             .presentationBackground(Color(uiColor: .systemBackground))
         }
@@ -363,6 +366,8 @@ struct RecordListView: View {
             NavigationStack {
                 RecordEditView(mode: .addCopy(source))
             }
+            // シートにもアプリ内文字サイズ設定を明示適用する
+            .appFontScale(fontScale)
             // コピー新規シートの背面を透かさない
             .presentationBackground(Color(uiColor: .systemBackground))
         }
@@ -396,6 +401,8 @@ struct RecordListView: View {
                     filterKind = .card(card.id)
                 }
             )
+            // シートにもアプリ内文字サイズ設定を明示適用する
+            .appFontScale(fontScale)
             // 選択シートは中段から開き、ハンドルで拡大できるようにする。
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
@@ -412,6 +419,8 @@ struct RecordListView: View {
                     filterKind = .bank(bank.id)
                 }
             )
+            // シートにもアプリ内文字サイズ設定を明示適用する
+            .appFontScale(fontScale)
             // 選択シートは中段から開き、ハンドルで拡大できるようにする。
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
@@ -422,6 +431,8 @@ struct RecordListView: View {
             RecordTagFilterSheet(tags: tags, selectedTags: $selectedTags) {
                 filterKind = selectedTags.isEmpty ? .all : .tag
             }
+            // シートにもアプリ内文字サイズ設定を明示適用する
+            .appFontScale(fontScale)
             // 選択シートは中段から開き、ハンドルで拡大できるようにする。
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)

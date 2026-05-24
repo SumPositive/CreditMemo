@@ -1,6 +1,77 @@
 import SwiftUI
 import UIKit
 
+private extension DynamicTypeSize {
+    /// UIKitの文字サイズ設定をSwiftUIのDynamicTypeSizeへ変換する
+    init(uiContentSizeCategory category: UIContentSizeCategory) {
+        switch category {
+        case .extraSmall:
+            self = .xSmall
+        case .small:
+            self = .small
+        case .medium:
+            self = .medium
+        case .large:
+            self = .large
+        case .extraLarge:
+            self = .xLarge
+        case .extraExtraLarge:
+            self = .xxLarge
+        case .extraExtraExtraLarge:
+            self = .xxxLarge
+        case .accessibilityMedium:
+            self = .accessibility1
+        case .accessibilityLarge:
+            self = .accessibility2
+        case .accessibilityExtraLarge:
+            self = .accessibility3
+        case .accessibilityExtraExtraLarge:
+            self = .accessibility4
+        case .accessibilityExtraExtraExtraLarge:
+            self = .accessibility5
+        default:
+            self = .large
+        }
+    }
+}
+
+/// 幅不足時のテキスト処理
+enum AZPickerTextFitMode {
+    /// 文字サイズを維持して複数行にする
+    case wrap
+    /// 1行表示を優先し、収まらない時だけ縮小する
+    case scale(minimumScaleFactor: CGFloat = 0.50)
+}
+
+/// `AZDropdownPicker` のボタン右端に出すインジケータ
+enum AZDropdownIndicator {
+    /// インジケータを表示しない（デフォルト）
+    case none
+    /// 山型 chevron（展開で chevron.up、収納で chevron.down）
+    case chevron
+}
+
+private extension View {
+    /// Picker内テキストの幅不足時処理を適用する
+    @ViewBuilder
+    func azPickerTextFit(_ mode: AZPickerTextFitMode, alignment: TextAlignment) -> some View {
+        switch mode {
+        case .wrap:
+            self
+                .lineLimit(nil)
+                .multilineTextAlignment(alignment)
+                .fixedSize(horizontal: false, vertical: true)
+        case .scale(let minimumScaleFactor):
+            self
+                .lineLimit(1)
+                .minimumScaleFactor(minimumScaleFactor)
+                .allowsTightening(true)
+                .multilineTextAlignment(alignment)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
 /// AZPicker共通の見た目設定
 struct AZPickerStyle {
     /// 選択ボタン・候補枠・ラジオ項目の角丸
@@ -43,13 +114,27 @@ struct AZPickerStyle {
     var dropdownOptionHorizontalPadding: CGFloat = 16
     /// ドロップダウン各候補枠内の上下余白
     var dropdownOptionVerticalPadding: CGFloat = 10
+    /// ドロップダウン候補一覧だけに適用する文字サイズ範囲
+    var dropdownPopoverDynamicTypeRange: ClosedRange<DynamicTypeSize> = DynamicTypeSize.xSmall...DynamicTypeSize.accessibility5
+    /// ドロップダウン選択中表示と候補一覧の幅不足時処理
+    var dropdownTextFitMode: AZPickerTextFitMode = .wrap
+    /// 選択ボタン右端のインジケータ。デフォルトは非表示
+    var dropdownIndicator: AZDropdownIndicator = .none
 
     /// 標準のフォーム向けスタイル
     static let form = AZPickerStyle()
+
+    /// ドロップダウンの幅不足時処理だけを差し替える
+    func dropdownTextFitMode(_ mode: AZPickerTextFitMode) -> AZPickerStyle {
+        var copy = self
+        copy.dropdownTextFitMode = mode
+        return copy
+    }
 }
 
 /// SPM化を見据えた、Dynamic Type対応のプルダウンPicker
 struct AZDropdownPicker<Option: Hashable & Identifiable, Label: View>: View {
+    @AppStorage(AppStorageKey.fontScale) private var fontScaleRaw: String = FontScale.system.rawValue
     @State private var buttonFrame: CGRect = .zero
     let options: [Option]
     @Binding var selection: Option
@@ -96,7 +181,25 @@ struct AZDropdownPicker<Option: Hashable & Identifiable, Label: View>: View {
                 .dynamicTypeSize(popoverDynamicTypeSize)
         } else {
             expandedOptions
+                // 呼び出し側の上限制限を候補一覧へ引き継がず、実際のシステム文字サイズを使う
+                .dynamicTypeSize(unrestrictedPopoverDynamicTypeSize)
         }
+    }
+
+    private var unrestrictedPopoverDynamicTypeSize: DynamicTypeSize {
+        let fontScale = FontScale(rawValue: fontScaleRaw) ?? .system
+        // iOSのシステム文字サイズは、アプリ設定が自動の時だけ参照する
+        let baseSize = fontScale.followsSystem
+            ? DynamicTypeSize(uiContentSizeCategory: UIApplication.shared.preferredContentSizeCategory)
+            : fontScale.dynamicTypeSize
+        let range = style.dropdownPopoverDynamicTypeRange
+        if baseSize < range.lowerBound {
+            return range.lowerBound
+        }
+        if range.upperBound < baseSize {
+            return range.upperBound
+        }
+        return baseSize
     }
 
     private var popupOpensUpward: Bool {
@@ -128,10 +231,7 @@ struct AZDropdownPicker<Option: Hashable & Identifiable, Label: View>: View {
         } label: {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 selectedLabel
-
-                Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color.accentColor)
+                indicatorView
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
@@ -158,11 +258,22 @@ struct AZDropdownPicker<Option: Hashable & Identifiable, Label: View>: View {
 
     private var selectedLabel: some View {
         label(selection)
-            .font(.subheadline.weight(.semibold))
+            .font(.subheadline)
             .foregroundStyle(Color.primary)
-            .lineLimit(nil)
-            .multilineTextAlignment(.center)
-            .fixedSize(horizontal: false, vertical: true)
+            .azPickerTextFit(style.dropdownTextFitMode, alignment: .center)
+    }
+
+    /// 選択ボタン右端のインジケータ。スタイル設定で非表示／chevron を切り替える。
+    @ViewBuilder
+    private var indicatorView: some View {
+        switch style.dropdownIndicator {
+        case .none:
+            EmptyView()
+        case .chevron:
+            Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Color.accentColor)
+        }
     }
 
     private var expandedOptions: some View {
@@ -211,9 +322,7 @@ struct AZDropdownPicker<Option: Hashable & Identifiable, Label: View>: View {
         label(option)
             .font(.subheadline.weight(isSelected ? .semibold : .regular))
             .foregroundStyle(isSelected ? Color.accentColor : Color.primary)
-            .lineLimit(nil)
-            .multilineTextAlignment(style.dropdownOptionTextAlignment)
-            .fixedSize(horizontal: false, vertical: true)
+            .azPickerTextFit(style.dropdownTextFitMode, alignment: style.dropdownOptionTextAlignment)
             .padding(.horizontal, style.dropdownOptionHorizontalPadding)
             .padding(.vertical, style.dropdownOptionVerticalPadding)
             .frame(minWidth: optionPanelWidth, maxWidth: .infinity, alignment: style.dropdownOptionAlignment)

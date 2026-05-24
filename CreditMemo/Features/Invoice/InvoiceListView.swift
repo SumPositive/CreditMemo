@@ -12,6 +12,7 @@ struct InvoiceListView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
     @AppStorage(AppStorageKey.userLevel) private var userLevel: UserLevel = .beginner
+    @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
     @State private var editRecord: E3record?
     /// 右スワイプ「新しい決済」で開く、コピー元のレコード
     @State private var copySource: E3record?
@@ -225,6 +226,8 @@ struct InvoiceListView: View {
                     }
                 }
             }
+            // シートにもアプリ内文字サイズ設定を明示適用する
+            .appFontScale(fontScale)
             // 編集シートの背面を透かさない
             .presentationBackground(Color(uiColor: .systemBackground))
         }
@@ -233,6 +236,8 @@ struct InvoiceListView: View {
             NavigationStack {
                 RecordEditView(mode: .addCopy(source))
             }
+            // シートにもアプリ内文字サイズ設定を明示適用する
+            .appFontScale(fontScale)
             // コピー新規シートの背面を透かさない
             .presentationBackground(Color(uiColor: .systemBackground))
         }

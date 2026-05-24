@@ -5,6 +5,7 @@ struct CardListView: View {
     @Query(sort: \E1card.nRow) private var cards: [E1card]
     @Environment(\.modelContext) private var context
     @AppStorage(AppStorageKey.userLevel) private var userLevel: UserLevel = .beginner
+    @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
 
     @State private var showAddSheet    = false
     /// スワイプ「状況」で開く決済手段。設定されると引き落とし状況画面へ push する。
@@ -72,6 +73,8 @@ struct CardListView: View {
         }
         .sheet(isPresented: $showAddSheet) {
             NavigationStack { CardEditView(card: nil) }
+                // シートにもアプリ内文字サイズ設定を明示適用する
+                .appFontScale(fontScale)
                 // 決済手段追加シートの背面を透かさない
                 .presentationBackground(Color(uiColor: .systemBackground))
         }
@@ -85,6 +88,8 @@ struct CardListView: View {
             NavigationStack {
                 RecordEditView(mode: .addNew, presetCard: card)
             }
+            // シートにもアプリ内文字サイズ設定を明示適用する
+            .appFontScale(fontScale)
             // 新規決済シートの背面を透かさない
             .presentationBackground(Color(uiColor: .systemBackground))
         }

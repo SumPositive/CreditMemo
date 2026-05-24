@@ -5,6 +5,7 @@ struct BankListView: View {
     @Query(sort: \E8bank.nRow) private var banks: [E8bank]
     @Environment(\.modelContext) private var context
     @AppStorage(AppStorageKey.userLevel) private var userLevel: UserLevel = .beginner
+    @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
 
     @State private var showAddSheet    = false
     /// 左スワイプ「状況」で開く口座。設定されると引き落とし状況画面へ push する。
@@ -59,6 +60,8 @@ struct BankListView: View {
         }
         .sheet(isPresented: $showAddSheet) {
             NavigationStack { BankEditView(bank: nil) }
+                // シートにもアプリ内文字サイズ設定を明示適用する
+                .appFontScale(fontScale)
                 // 口座追加シートの背面を透かさない
                 .presentationBackground(Color(uiColor: .systemBackground))
         }

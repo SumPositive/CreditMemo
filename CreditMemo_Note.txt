@@ -1081,6 +1081,7 @@ AZDropdownPicker と AZRadioPicker　のデザインを変更したい。提案�
 
 引落し状況の条件設定を　AZDropdownPicker と AZRadioPicker　に置き換えたい。決済一覧と同様に幅一杯に配置したい
 
+タグのソート指定を AZDropdownPicker にして一覧の上部に配置したい。タグシートも同様にしたい
 
 
 

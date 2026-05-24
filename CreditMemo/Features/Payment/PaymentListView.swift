@@ -7,6 +7,7 @@ struct PaymentListView: View {
     @Query(sort: \E8bank.nRow) private var banks: [E8bank]
     @Query(sort: \E1card.nRow) private var cards: [E1card]
     @AppStorage(AppStorageKey.userLevel) private var userLevel: UserLevel = .beginner
+    @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
     @AppStorage(AppStorageKey.paymentWindowDays) private var paymentWindowDays = 15
     @State private var upcomingUnpaidPayments: [E7payment] = []
     @State private var overdueUnpaidPayments: [E7payment] = []
@@ -196,6 +197,8 @@ struct PaymentListView: View {
                 label: { $0.zName },
                 noSelectionTitle: "label.all"
             )
+            // シートにもアプリ内文字サイズ設定を明示適用する
+            .appFontScale(fontScale)
             // 口座フィルターシートの背面を透かさない
             .presentationBackground(Color(uiColor: .systemBackground))
             .onDisappear {
@@ -215,6 +218,8 @@ struct PaymentListView: View {
                 label: { $0.zName },
                 noSelectionTitle: "label.all"
             )
+            // シートにもアプリ内文字サイズ設定を明示適用する
+            .appFontScale(fontScale)
             // 決済手段フィルターシートの背面を透かさない
             .presentationBackground(Color(uiColor: .systemBackground))
             .onDisappear {

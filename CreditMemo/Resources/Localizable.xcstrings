@@ -4643,7 +4643,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "金額（累計が多いタグ）"
+            "value" : "金額（累計が多い順）"
           }
         }
       }
@@ -4660,7 +4660,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "回数（よく使うタグ）"
+            "value" : "回数（よく使う順）"
           }
         }
       }
@@ -4694,7 +4694,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "最近（最近使ったタグ）"
+            "value" : "最近（最近使った順）"
           }
         }
       }
