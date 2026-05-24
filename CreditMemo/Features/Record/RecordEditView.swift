@@ -335,6 +335,8 @@ struct RecordEditView: View {
                 // 金額確定後はフォーカスを外して類似決済を見やすくする
                 DispatchQueue.main.async { isUsePointFocused = false }
             }
+            // 金額入力シートの背面を透かさない
+            .presentationBackground(Color(uiColor: .systemGroupedBackground))
         }
         .sheet(isPresented: $showDatePicker) {
             NavigationStack {
@@ -420,6 +422,8 @@ struct RecordEditView: View {
                 addContent: { AnyView(NavigationStack { CardEditView() }) }
             )
             .modifier(ConditionalDynamicTypeModifier(fontScale: fontScale))
+            // 決済手段選択シートの背面を透かさない
+            .presentationBackground(Color(uiColor: .systemBackground))
         }
         .sheet(isPresented: $showBankPicker) {
             PickerSheet(
@@ -431,6 +435,8 @@ struct RecordEditView: View {
                 addContent: { AnyView(NavigationStack { BankEditView(bank: nil) }) }
             )
             .modifier(ConditionalDynamicTypeModifier(fontScale: fontScale))
+            // 口座選択シートの背面を透かさない
+            .presentationBackground(Color(uiColor: .systemBackground))
         }
         .sheet(isPresented: $showCategoryPicker) {
             CategoryMultiPickerSheet(
@@ -1539,10 +1545,15 @@ private struct PickerSheet<T: Identifiable>: View where T.ID: Equatable {
                     selected = newItem
                 }
             }) {
-                addContent?()
+                if let addContent {
+                    addContent()
+                        // 追加シートの背面を透かさない
+                        .presentationBackground(Color(uiColor: .systemBackground))
+                }
             }
         }
         .presentationDetents([.medium, .large])
+        .presentationBackground(Color(uiColor: .systemBackground))
     }
 }
 
@@ -1637,9 +1648,12 @@ private struct CategoryMultiPickerSheet: View {
                 rebuildDisplayOrder(prioritizedIDs: newItems.map(\.id))
             }) {
                 NavigationStack { TagEditView() }
+                    // タグ追加シートの背面を透かさない
+                    .presentationBackground(Color(uiColor: .systemBackground))
             }
         }
         .presentationDetents([.medium, .large])
+        .presentationBackground(Color(uiColor: .systemBackground))
         .onAppear {
             rebuildDisplayOrder()
         }

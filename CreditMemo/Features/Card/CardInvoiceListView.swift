@@ -52,6 +52,8 @@ struct CardInvoiceListView: View {
                 CardEditView(card: card)
             }
             .modifier(CardInvoiceDynamicTypeModifier(fontScale: fontScale))
+            // 決済手段編集シートの背面を透かさない
+            .presentationBackground(Color(uiColor: .systemBackground))
         }
         // 表示のたびに再ロード（InvoiceListView から戻ったときも含む）
         .onAppear(perform: loadData)

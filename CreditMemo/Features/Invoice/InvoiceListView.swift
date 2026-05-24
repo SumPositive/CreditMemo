@@ -225,12 +225,16 @@ struct InvoiceListView: View {
                     }
                 }
             }
+            // 編集シートの背面を透かさない
+            .presentationBackground(Color(uiColor: .systemBackground))
         }
         // 右スワイプ「新しい決済」のコピー元から、日付以外を引き継いだ新規追加シートを開く
         .sheet(item: $copySource) { source in
             NavigationStack {
                 RecordEditView(mode: .addCopy(source))
             }
+            // コピー新規シートの背面を透かさない
+            .presentationBackground(Color(uiColor: .systemBackground))
         }
     }
 }

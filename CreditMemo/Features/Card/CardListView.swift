@@ -72,6 +72,8 @@ struct CardListView: View {
         }
         .sheet(isPresented: $showAddSheet) {
             NavigationStack { CardEditView(card: nil) }
+                // 決済手段追加シートの背面を透かさない
+                .presentationBackground(Color(uiColor: .systemBackground))
         }
         // 状況スワイプから引き落とし状況画面（初期絞り込み付き）へ push
         .navigationDestination(item: $statusCard) { card in
@@ -83,6 +85,8 @@ struct CardListView: View {
             NavigationStack {
                 RecordEditView(mode: .addNew, presetCard: card)
             }
+            // 新規決済シートの背面を透かさない
+            .presentationBackground(Color(uiColor: .systemBackground))
         }
     }
 

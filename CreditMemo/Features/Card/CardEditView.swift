@@ -303,6 +303,8 @@ struct CardEditView: View {
         }
         .sheet(isPresented: $showBankAddSheet, onDismiss: applyAddedBankIfNeeded) {
             NavigationStack { BankEditView(bank: nil) }
+                // 口座追加シートの背面を透かさない
+                .presentationBackground(Color(uiColor: .systemBackground))
         }
         // 状況ボタンから引き落とし状況画面（決済手段絞り込み付き）へ push
         .navigationDestination(item: $statusCard) { card in
@@ -314,6 +316,8 @@ struct CardEditView: View {
             NavigationStack {
                 RecordEditView(mode: .addNew, presetCard: card)
             }
+            // 新規決済シートの背面を透かさない
+            .presentationBackground(Color(uiColor: .systemBackground))
         }
         // 特大フォント・長文でも全文が見える独自ダイアログを使用
         .deleteConfirmation(

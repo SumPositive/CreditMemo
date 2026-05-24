@@ -62,6 +62,8 @@ struct TagListView: View {
         }
         .sheet(isPresented: $showAddSheet) {
             NavigationStack { TagEditView(tag: nil) }
+                // タグ追加シートの背面を透かさない
+                .presentationBackground(Color(uiColor: .systemBackground))
         }
         .navigationDestination(item: $historyTarget) { tag in
             // タグ一覧のスワイプから、該当タグで絞り込んだ履歴へ遷移する

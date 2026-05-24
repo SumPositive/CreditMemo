@@ -59,6 +59,8 @@ struct BankListView: View {
         }
         .sheet(isPresented: $showAddSheet) {
             NavigationStack { BankEditView(bank: nil) }
+                // 口座追加シートの背面を透かさない
+                .presentationBackground(Color(uiColor: .systemBackground))
         }
         // 状況スワイプから引き落とし状況画面（初期絞り込み付き）へ push
         .navigationDestination(item: $statusBank) { bank in

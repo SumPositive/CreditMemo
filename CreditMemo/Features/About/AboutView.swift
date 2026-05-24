@@ -42,6 +42,8 @@ struct AboutView: View {
         .sheet(isPresented: $showSafari) {
             SafariView(url: helpDocURL())
                 .ignoresSafeArea()
+                // Safariシートの背面を透かさない
+                .presentationBackground(Color(uiColor: .systemBackground))
         }
     }
 }

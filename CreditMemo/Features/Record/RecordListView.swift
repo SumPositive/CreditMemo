@@ -353,6 +353,8 @@ struct RecordListView: View {
             NavigationStack {
                 RecordEditView(mode: .edit(record))
             }
+            // 編集シートの背面を透かさない
+            .presentationBackground(Color(uiColor: .systemBackground))
         }
         // 左スワイプ「新しい決済」のコピー元から、日付以外を引き継いだ新規追加シートを開く
         .sheet(item: $copySource, onDismiss: {
@@ -361,6 +363,8 @@ struct RecordListView: View {
             NavigationStack {
                 RecordEditView(mode: .addCopy(source))
             }
+            // コピー新規シートの背面を透かさない
+            .presentationBackground(Color(uiColor: .systemBackground))
         }
         .onAppear {
             if records.isEmpty {
@@ -395,6 +399,8 @@ struct RecordListView: View {
             // 選択シートは中段から開き、ハンドルで拡大できるようにする。
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
+            // 決済手段フィルターシートの背面を透かさない
+            .presentationBackground(Color(uiColor: .systemBackground))
         }
         .sheet(isPresented: $showBankPicker) {
             RecordSingleFilterPickerSheet(
@@ -409,6 +415,8 @@ struct RecordListView: View {
             // 選択シートは中段から開き、ハンドルで拡大できるようにする。
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
+            // 口座フィルターシートの背面を透かさない
+            .presentationBackground(Color(uiColor: .systemBackground))
         }
         .sheet(isPresented: $showTagPicker) {
             RecordTagFilterSheet(tags: tags, selectedTags: $selectedTags) {
@@ -417,6 +425,8 @@ struct RecordListView: View {
             // 選択シートは中段から開き、ハンドルで拡大できるようにする。
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
+            // タグフィルターシートの背面を透かさない
+            .presentationBackground(Color(uiColor: .systemBackground))
         }
     }
 

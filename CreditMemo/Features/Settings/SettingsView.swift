@@ -266,21 +266,29 @@ struct SettingsView: View {
         }
         .sheet(isPresented: $showTipSheet) {
             TipSheetView()
+                // チップ案内シートの背面を透かさない
+                .presentationBackground(Color(uiColor: .systemBackground))
         }
         .sheet(isPresented: $showAdSheet) {
             AdSupportSheet {
                 showAdThanks = true
             }
+            // 広告応援シートの背面を透かさない
+            .presentationBackground(Color(uiColor: .systemBackground))
         }
         .scalableNavigationTitle("top.settings")
         .sheet(isPresented: $showDocsSheet) {
             SafariView(url: helpDocURL())
                 .ignoresSafeArea()
+                // ヘルプシートの背面を透かさない
+                .presentationBackground(Color(uiColor: .systemBackground))
         }
         .sheet(isPresented: $showShareSheet) {
             if let url = exportedURL {
                 ExportShareSheet(url: url)
                     .ignoresSafeArea()
+                    // 共有シートの背面を透かさない
+                    .presentationBackground(Color(uiColor: .systemBackground))
             }
         }
         .fileImporter(

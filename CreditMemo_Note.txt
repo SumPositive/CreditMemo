@@ -1077,6 +1077,10 @@ AZDropdownPicker と AZRadioPicker　のデザインを変更したい。提案�
 決済一覧の条件設定を　AZDropdownPicker と AZRadioPicker　に置き換えたい
 ここのAZRadioPickerは、左右一杯に配置し、必ず1行に収めたい、文字サイズを縮小しても良い
 ここのAZDropdownPickerは、左右一杯に配置したい
+シートやポップオーバーを全て不透明にしたい
+
+引落し状況の条件設定を　AZDropdownPicker と AZRadioPicker　に置き換えたい。決済一覧と同様に幅一杯に配置したい
+
 
 
 
