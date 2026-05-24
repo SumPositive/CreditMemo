@@ -31,16 +31,16 @@ struct TagListView: View {
                 } label: {
                     TagRow(tag: tag)
                 }
-                // 右スワイプメニュー「履歴」。ロングスワイプで即時実行。
+                // 右スワイプメニュー「履歴」。ロングスワイプの即時実行は使わない
                 // ラベルテキストは省略しアイコンのみで配置する。
-                // アイコン・色はメインメニューの「履歴」と統一（list.bullet / indigo）。
-                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                // アイコン・色はメインメニューの「履歴」と統一し、背景は白にする
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                     Button {
                         historyTarget = tag
                     } label: {
-                        Label("", systemImage: "list.bullet")
+                        Label("", image: "RecordListIconSwipe")
                     }
-                    .tint(.indigo)
+                    .tint(Color(uiColor: .systemBackground))
                     .accessibilityLabel(Text("tag.action.recordList"))
                 }
             }

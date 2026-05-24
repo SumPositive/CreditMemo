@@ -62,9 +62,10 @@ struct TagEditView: View {
                             showsChevron: true,
                             action: { historyTag = tag }
                         ) {
-                            Image(systemName: "list.bullet.rectangle")
+                            // 決済一覧アイコンはメインメニューと同じ形にする
+                            Image(systemName: "list.bullet")
                                 .font(.title3.weight(.semibold))
-                                .foregroundStyle(.blue)
+                                .foregroundStyle(.indigo)
                         }
                     }
                     .listRowBackground(Color.clear)

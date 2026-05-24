@@ -39,12 +39,12 @@ struct BankListView: View {
                 } label: {
                     BankRow(bank: bank)
                 }
-                // 右スワイプメニュー「状況」。ロングスワイプで即時実行。
-                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                // 右スワイプメニュー「状況」。ロングスワイプの即時実行は使わない
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                     Button {
                         statusBank = bank
                     } label: {
-                        Label("", image: "AppIconBadge")
+                        Label("", image: "AppIconBadgeSwipe")
                     }
                     .tint(Color(uiColor: .systemBackground))
                     .accessibilityLabel(Text("card.action.status"))

@@ -42,14 +42,14 @@ struct CardListView: View {
                 } label: {
                     CardRow(card: card)
                 }
-                // 右スワイプメニュー：状況（先頭＝フルスワイプ実行）＋ 新しい決済。
+                // 右スワイプメニュー：ロングスワイプの即時実行は使わない
                 // ラベルテキストは省略しアイコンのみで配置する。
-                // 新しい決済のアイコン・色はメインメニューと統一（plus.circle.fill / blue）。
-                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                // 新しい決済のアイコンはメインメニューと統一し、背景は白にする
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                     Button {
                         statusCard = card
                     } label: {
-                        Label("", image: "AppIconBadge")
+                        Label("", image: "AppIconBadgeSwipe")
                     }
                     .tint(Color(uiColor: .systemBackground))
                     .accessibilityLabel(Text("card.action.status"))
@@ -57,9 +57,9 @@ struct CardListView: View {
                     Button {
                         newPaymentCard = card
                     } label: {
-                        Label("", systemImage: "plus.circle.fill")
+                        Label("", image: "AddRecordIcon")
                     }
-                    .tint(.blue)
+                    .tint(Color(uiColor: .systemBackground))
                     .accessibilityLabel(Text("record.edit.title.add"))
                 }
             }
