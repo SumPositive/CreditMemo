@@ -277,16 +277,28 @@ struct AZDropdownPicker<Option: Hashable & Identifiable, Label: View>: View {
     }
 
     private var expandedOptions: some View {
-        ScrollView {
-            VStack(alignment: style.dropdownOptionStackAlignment, spacing: 4) {
-                ForEach(options) { option in
-                    optionButton(option)
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(alignment: style.dropdownOptionStackAlignment, spacing: 4) {
+                    ForEach(options) { option in
+                        optionButton(option)
+                            // 選択中行へスクロールできるよう、各オプションに id を付与する
+                            .id(option.id)
+                    }
+                }
+                .frame(minWidth: optionPanelWidth, alignment: style.dropdownOptionAlignment)
+            }
+            .scrollIndicators(.hidden)
+            .frame(maxHeight: popupMaxHeight)
+            // ポップオーバーが描画された直後に、選択中の行を中央に表示するようスクロールする
+            .onAppear {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    withAnimation(.easeInOut(duration: 0.18)) {
+                        proxy.scrollTo(selection.id, anchor: .center)
+                    }
                 }
             }
-            .frame(minWidth: optionPanelWidth, alignment: style.dropdownOptionAlignment)
         }
-        .scrollIndicators(.hidden)
-        .frame(maxHeight: popupMaxHeight)
         .padding(style.dropdownPopoverPadding)
         .background(
             RoundedRectangle(cornerRadius: style.popoverCornerRadius, style: .continuous)
