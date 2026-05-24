@@ -68,9 +68,9 @@ struct TopMenuView: View {
                     HStack {
                         AppIconBadge(size: 28)
                             .frame(width: 28)
-                        // タイトルと直近計が1行に収まらない場合は2行目に表示する
+                        // タイトル / 直近計 / 金額 を、入る範囲で 1段→2段→3段 と段を増やして表示する
                         ViewThatFits(in: .horizontal) {
-                            // 1行版: 各テキストを自然幅で固定して収まるか試す
+                            // 1行版: タイトル + 直近計 + 金額をすべて1行に
                             HStack(alignment: .firstTextBaseline, spacing: 8) {
                                 Text("top.paymentList")
                                     .fixedSize(horizontal: true, vertical: false)
@@ -89,7 +89,7 @@ struct TopMenuView: View {
                                         .fixedSize(horizontal: true, vertical: false)
                                 }
                             }
-                            // 2行版: 収まらない場合は直近計を2行目に右寄せで表示
+                            // 2行版: タイトル / 直近計+金額（右寄せ1行）
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("top.paymentList")
                                 HStack(alignment: .firstTextBaseline, spacing: 4) {
@@ -101,6 +101,25 @@ struct TopMenuView: View {
                                         .minimumScaleFactor(0.5)
                                         .allowsTightening(true)
                                         .fixedSize(horizontal: true, vertical: false)
+                                    Text(recentUnpaidTotal.currencyString())
+                                        .font(.callout.weight(.semibold))
+                                        .foregroundStyle(COLOR_UNPAID)
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.6)
+                                        .fixedSize(horizontal: true, vertical: false)
+                                }
+                            }
+                            // 3行版: タイトル / 直近計 / 金額（金額は右寄せ）
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("top.paymentList")
+                                Text(recentWindowLabel)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.6)
+                                    .allowsTightening(true)
+                                HStack {
+                                    Spacer(minLength: 0)
                                     Text(recentUnpaidTotal.currencyString())
                                         .font(.callout.weight(.semibold))
                                         .foregroundStyle(COLOR_UNPAID)
