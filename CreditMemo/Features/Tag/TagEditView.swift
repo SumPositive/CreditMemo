@@ -9,6 +9,7 @@ struct TagEditView: View {
     @Environment(AppEditingState.self) private var editingState
     @Query private var allTags: [E5tag]
 
+    @AppStorage(AppStorageKey.userLevel) private var userLevel: UserLevel = .beginner
     @State private var zName = ""
     @State private var zNote = ""
     @FocusState private var focusName: Bool
@@ -50,27 +51,24 @@ struct TagEditView: View {
     var body: some View {
         ScrollViewReader { proxy in
             Form {
-            // 既存タグのみ、タグで絞り込んだ履歴へ遷移するショートカットを最上段に置く
+            // 既存タグのみ、タグで絞り込んだ履歴へ遷移するカプセル型ショートカットを右寄せで置く
             if let tag, !isNew {
                 Section {
-                    Button {
-                        historyTag = tag
-                    } label: {
-                        HStack(spacing: 12) {
+                    HStack(spacing: 0) {
+                        Spacer(minLength: 0)
+                        EditShortcutCapsuleButton(
+                            title: "tag.action.recordList",
+                            showsTitle: userLevel == .beginner,
+                            showsChevron: true,
+                            action: { historyTag = tag }
+                        ) {
                             Image(systemName: "list.bullet.rectangle")
                                 .font(.title3.weight(.semibold))
                                 .foregroundStyle(.blue)
-                                .frame(width: 26, height: 26)
-                            Text("tag.action.recordList")
-                                .foregroundStyle(.primary)
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.tertiary)
                         }
-                        .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 2, leading: 0, bottom: 2, trailing: 0))
                 }
             }
 
@@ -108,6 +106,10 @@ struct TagEditView: View {
                 }
             }
             }
+            // 上部ショートカット周辺のセクション間隔を詰める
+            .listSectionSpacing(.custom(16))
+            // Form先頭の自動余白を抑えて、上ボタンをタイトル側へ寄せる
+            .contentMargins(.top, 16, for: .scrollContent)
             .onChange(of: zNote) { _, _ in
                 scrollNoteIntoView(proxy)
             }

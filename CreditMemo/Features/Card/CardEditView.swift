@@ -147,66 +147,41 @@ struct CardEditView: View {
     var body: some View {
         ScrollViewReader { proxy in
             Form {
-            // 既存決済手段のみ、上部に「新しい決済」と「引き落とし状況」を1セル内に並べる。
-            // 口座編集画面の「引き落とし状況」セルと同じフォーム標準セルを使い、中央に Divider を挟む。
+            // 既存決済手段のみ、上部にカプセル型ショートカットを左右に分けて置く
             if let card, !isNew {
                 Section {
-                    // 区切り線を中央より少し左へ寄せて、右の「引落し状況」に余裕を持たせる
-                    GeometryReader { geo in
-                        let dividerArea: CGFloat = 17   // 横パディング 8pt × 2 + 線 1pt
-                        let contentWidth = max(geo.size.width - dividerArea, 0)
-                        let leftWidth = contentWidth * 0.42
-                        let rightWidth = contentWidth - leftWidth
-
-                        HStack(spacing: 0) {
-                            // 左：新しい決済（モーダルシートで開く）
-                            Button {
-                                newPaymentCard = card
-                            } label: {
-                                HStack(spacing: 8) {
-                                    Image(systemName: "plus.circle.fill")
-                                        .resizable()
-                                        .scaledToFit()
-                                        .frame(width: 26, height: 26)
-                                        .foregroundStyle(.blue)
-                                    Text("record.edit.title.add")
-                                        .foregroundStyle(.primary)
-                                        .lineLimit(1)
-                                        .minimumScaleFactor(0.7)
-                                }
-                                .frame(width: leftWidth, alignment: .leading)
-                                .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-
-                            Divider()
-                                .padding(.vertical, 2)
-                                .padding(.horizontal, 8)
-
-                            // 右：引き落とし状況（NavigationStack push）
-                            Button {
-                                statusCard = card
-                            } label: {
-                                HStack(spacing: 8) {
-                                    AppIconBadge(size: 26)
-                                    // 文字が欠けやすい狭幅セル向けに短い表記を使う
-                                    Text("payment.list.title.short")
-                                        .foregroundStyle(.primary)
-                                        .lineLimit(1)
-                                        .minimumScaleFactor(0.7)
-                                    Spacer(minLength: 4)
-                                    Image(systemName: "chevron.right")
-                                        .font(.caption.weight(.semibold))
-                                        .foregroundStyle(.tertiary)
-                                }
-                                .frame(width: rightWidth, alignment: .leading)
-                                .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
+                    HStack(spacing: 8) {
+                        // 左：新しい決済（モーダルシートで開く）
+                        EditShortcutCapsuleButton(
+                            title: "record.edit.title.add",
+                            showsTitle: userLevel == .beginner,
+                            showsChevron: false,
+                            fillsAvailableWidth: userLevel == .beginner,
+                            action: { newPaymentCard = card }
+                        ) {
+                            Image(systemName: "plus.circle.fill")
+                                .resizable()
+                                .scaledToFit()
+                                .foregroundStyle(.blue)
                         }
+                        .frame(maxWidth: userLevel == .beginner ? .infinity : nil, alignment: .leading)
+                        if userLevel != .beginner {
+                            Spacer(minLength: 8)
+                        }
+                        // 右：引き落とし状況（NavigationStack push）
+                        EditShortcutCapsuleButton(
+                            title: "payment.list.title.short",
+                            showsTitle: userLevel == .beginner,
+                            showsChevron: true,
+                            fillsAvailableWidth: userLevel == .beginner,
+                            action: { statusCard = card }
+                        ) {
+                            AppIconBadge(size: 26)
+                        }
+                        .frame(maxWidth: userLevel == .beginner ? .infinity : nil, alignment: .trailing)
                     }
-                    // GeometryReader は親が高さを与えないと潰れるため、最小高さを確保する
-                    .frame(minHeight: 44)
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 2, leading: 0, bottom: 2, trailing: 0))
                 }
             }
 
@@ -347,6 +322,10 @@ struct CardEditView: View {
                 }
             }
             }
+            // 上部ショートカット周辺のセクション間隔を詰める
+            .listSectionSpacing(.custom(16))
+            // Form先頭の自動余白を抑えて、上ボタンをタイトル側へ寄せる
+            .contentMargins(.top, 16, for: .scrollContent)
             .onChange(of: zNote) { _, _ in
                 scrollNoteIntoView(proxy)
             }
@@ -866,4 +845,3 @@ private struct AdaptiveValueRow<ValueView: View>: View {
         .frame(maxWidth: .infinity, minHeight: 44)
     }
 }
-
