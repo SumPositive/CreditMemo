@@ -155,8 +155,9 @@ struct AZDropdownPicker<Option: Hashable & Identifiable, Label: View>: View {
             ) {
                 popoverContent
                     .presentationCompactAdaptation(.popover)
-                    .presentationBackground(Color(.systemBackground))
-                    .padding(2)
+                    .presentationBackground(style.optionBackground)
+                    // popoverの不透明背景を使い、内側パネルの角欠けを避ける
+                    .padding(6)
             }
             .background {
                 GeometryReader { proxy in
@@ -300,15 +301,7 @@ struct AZDropdownPicker<Option: Hashable & Identifiable, Label: View>: View {
             }
         }
         .padding(style.dropdownPopoverPadding)
-        .background(
-            RoundedRectangle(cornerRadius: style.popoverCornerRadius, style: .continuous)
-                .fill(style.optionBackground)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: style.popoverCornerRadius, style: .continuous)
-                .strokeBorder(Color.secondary.opacity(style.panelBorderOpacity), lineWidth: 1)
-        )
-        // 背面の文字や枠線が透けないよう、候補パネルは不透過にする
+        // 内部パネルの塗りと枠線は描かず、popover背景と候補枠だけを使う
         .shadow(
             color: Color.black.opacity(style.popoverShadowOpacity),
             radius: style.popoverShadowRadius,
