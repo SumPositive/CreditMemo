@@ -196,6 +196,8 @@ struct PaymentListView: View {
                 label: { $0.zName },
                 noSelectionTitle: "label.all"
             )
+            // 口座フィルターシートの背面を透かさない
+            .presentationBackground(Color(uiColor: .systemBackground))
             .onDisappear {
                 filterMode = selectedBank == nil ? .all : .bank
                 if selectedBank != nil {
@@ -213,6 +215,8 @@ struct PaymentListView: View {
                 label: { $0.zName },
                 noSelectionTitle: "label.all"
             )
+            // 決済手段フィルターシートの背面を透かさない
+            .presentationBackground(Color(uiColor: .systemBackground))
             .onDisappear {
                 filterMode = selectedCard == nil ? .all : .card
                 if selectedCard != nil {
@@ -518,12 +522,14 @@ struct PaymentListView: View {
     }
 }
 
-private enum PaymentGroupMode: String, CaseIterable {
+private enum PaymentGroupMode: String, CaseIterable, Identifiable {
     case date
     case bank
     case card
 
     static let displayOrder: [PaymentGroupMode] = [.date, .card, .bank]
+
+    var id: Self { self }
 
     var localizedKey: LocalizedStringKey {
         switch self {
@@ -534,16 +540,28 @@ private enum PaymentGroupMode: String, CaseIterable {
     }
 }
 
-private enum PaymentFilterMode: String, CaseIterable {
+private enum PaymentFilterMode: String, CaseIterable, Identifiable {
     case all
     case bank
     case card
+
+    var id: Self { self }
+
+    static let displayOrder: [PaymentFilterMode] = [.all, .card, .bank]
 
     var localizedKey: LocalizedStringKey {
         switch self {
         case .all: "label.all"
         case .bank: "payment.filter.bank"
         case .card: "payment.filter.card"
+        }
+    }
+
+    var iconName: String {
+        switch self {
+        case .all: "line.3.horizontal.decrease.circle"
+        case .bank: "building.columns"
+        case .card: "creditcard"
         }
     }
 }
@@ -587,8 +605,9 @@ private struct PaymentDisplayControlBar: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            PaymentGroupSegmentedControl(selection: $groupMode)
+            PaymentGroupRadioPicker(selection: $groupMode)
             PaymentFilterStatusBar(
+                filterMode: $filterMode,
                 title: filterTitle,
                 isFiltered: filterMode != .all,
                 onSelectAll: onClearFilter,
@@ -600,43 +619,33 @@ private struct PaymentDisplayControlBar: View {
     }
 }
 
-private struct PaymentGroupSegmentedControl: View {
+private struct PaymentGroupRadioPicker: View {
     @Binding var selection: PaymentGroupMode
 
     var body: some View {
-        HStack(spacing: 0) {
-            // 集計は「日付、手段、口座」の順で表示する。
-            ForEach(PaymentGroupMode.displayOrder, id: \.self) { mode in
-                Button {
-                    selection = mode
-                } label: {
-                    Text(mode.localizedKey)
-                        .font(.caption.weight(.semibold))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 7)
-                        .foregroundStyle(selection == mode ? Color.primary : Color.secondary)
-                        .background(
-                            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                .fill(selection == mode ? Color(uiColor: .systemBackground) : Color.clear)
-                                .shadow(color: selection == mode ? Color.black.opacity(0.10) : .clear, radius: 1, x: 0, y: 1)
-                        )
-                }
-                .buttonStyle(.plain)
-            }
+        // 集計軸は横幅いっぱいの1行ラジオで表示する
+        AZRadioPicker(
+            options: PaymentGroupMode.displayOrder,
+            selection: $selection,
+            minOptionWidth: 0,
+            maxOptionWidth: 180,
+            horizontalPadding: 4,
+            optionSpacing: 4,
+            groupPadding: 5,
+            wrapsOptions: false,
+            fillsWidth: true
+        ) { mode in
+            Text(mode.localizedKey)
+                .lineLimit(1)
+                .minimumScaleFactor(0.50)
         }
-        .padding(2)
-        .background(
-            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .fill(Color(uiColor: .tertiarySystemFill))
-        )
+        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+        .frame(maxWidth: .infinity)
     }
 }
 
 private struct PaymentFilterStatusBar: View {
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-
+    @Binding var filterMode: PaymentFilterMode
     let title: String
     let isFiltered: Bool
     let onSelectAll: () -> Void
@@ -644,41 +653,38 @@ private struct PaymentFilterStatusBar: View {
     let onSelectCard: () -> Void
     let onClear: () -> Void
     @State private var showFilterMenu = false
-    @State private var showFilterSheet = false
+
+    private var filterSelection: Binding<PaymentFilterMode> {
+        Binding(
+            get: { filterMode },
+            set: { mode in
+                // マスター選択が必要な条件は、選択後に専用シートへ進める
+                switch mode {
+                case .all:
+                    onSelectAll()
+                case .bank:
+                    onSelectBank()
+                case .card:
+                    onSelectCard()
+                }
+            }
+        )
+    }
 
     var body: some View {
         HStack(spacing: 8) {
-            Button {
-                // 特大文字では吹き出しが切れやすいため、スクロールできるシートへ切り替える
-                if dynamicTypeSize.isAccessibilitySize {
-                    showFilterSheet = true
-                } else {
-                    showFilterMenu = true
-                }
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "line.3.horizontal.decrease.circle")
-                        .imageScale(.medium)
-                    Text(title)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.6)
-                        .allowsTightening(true)
-                    Spacer(minLength: 6)
-                    Image(systemName: "chevron.down")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                }
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(isFiltered ? Color.white : Color.accentColor)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(
-                    Capsule()
-                        .fill(isFiltered ? Color.accentColor : Color.accentColor.opacity(0.10))
-                )
+            // 絞り込み条件は横幅いっぱいのプルダウンで選ぶ
+            AZDropdownPicker(
+                options: PaymentFilterMode.displayOrder,
+                selection: filterSelection,
+                isExpanded: $showFilterMenu,
+                minWidth: 0,
+                fillsWidth: true
+            ) { mode in
+                filterLabel(mode)
             }
-            .buttonStyle(.plain)
+            .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+            .frame(maxWidth: .infinity)
 
             if isFiltered {
                 Button(action: onClear) {
@@ -691,115 +697,24 @@ private struct PaymentFilterStatusBar: View {
                 .accessibilityLabel(Text("label.all"))
             }
         }
-        .padding(2)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color(uiColor: .tertiarySystemFill))
-        )
-        .popover(
-            isPresented: $showFilterMenu,
-            attachmentAnchor: .rect(.bounds),
-            arrowEdge: .top
-        ) {
-            PaymentFilterPopover {
-                onSelectAll()
-                showFilterMenu = false
-            } onCard: {
-                onSelectCard()
-                showFilterMenu = false
-            } onBank: {
-                onSelectBank()
-                showFilterMenu = false
-            }
-            .presentationCompactAdaptation(.popover)
-            .presentationBackground(Color(.systemBackground))
-        }
-        .sheet(isPresented: $showFilterSheet) {
-            PaymentFilterMenuSheet(
-                onSelectAll: onSelectAll,
-                onSelectBank: onSelectBank,
-                onSelectCard: onSelectCard
-            )
-        }
-    }
-}
-
-private struct PaymentFilterPopover: View {
-    let onAll: () -> Void
-    let onCard: () -> Void
-    let onBank: () -> Void
-
-    var body: some View {
-        VStack(spacing: 10) {
-            filterButton("label.all", action: onAll)
-            filterButton("payment.filter.card", action: onCard)
-            filterButton("payment.filter.bank", action: onBank)
-        }
-        .padding(18)
-        // 決済一覧フィルターと同じく、不透過かつ内容に応じた高さで欠けを防ぐ
-        .frame(minWidth: 240, idealWidth: 280, maxWidth: 340)
         .fixedSize(horizontal: false, vertical: true)
-        .background(Color(.systemBackground))
     }
 
-    private func filterButton(_ titleKey: LocalizedStringKey, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(titleKey)
-                .font(.headline.weight(.semibold))
-                .foregroundStyle(Color(.label))
-                .lineLimit(1)
-                .minimumScaleFactor(0.55)
-                .allowsTightening(true)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 13)
-                .background(Color(.secondarySystemBackground))
-                .clipShape(Capsule())
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-private struct PaymentFilterMenuSheet: View {
-    let onSelectAll: () -> Void
-    let onSelectBank: () -> Void
-    let onSelectCard: () -> Void
-
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            List {
-                filterButton("label.all") {
-                    onSelectAll()
-                }
-                filterButton("payment.filter.card") {
-                    onSelectCard()
-                }
-                filterButton("payment.filter.bank") {
-                    onSelectBank()
-                }
+    private func filterLabel(_ mode: PaymentFilterMode) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: mode.iconName)
+                .imageScale(.medium)
+            if mode == filterMode {
+                Text(title)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.70)
+                    .allowsTightening(true)
+            } else {
+                Text(mode.localizedKey)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.70)
+                    .allowsTightening(true)
             }
-            .navigationTitle("payment.filter.title")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("button.cancel") { dismiss() }
-                }
-            }
-        }
-        .presentationDetents([.medium, .large])
-    }
-
-    private func filterButton(_ title: LocalizedStringKey, action: @escaping () -> Void) -> some View {
-        Button {
-            dismiss()
-            action()
-        } label: {
-            Text(title)
-                .foregroundStyle(.primary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
         }
     }
 }
