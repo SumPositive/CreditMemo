@@ -66,8 +66,15 @@ private struct DeleteConfirmationOverlay: View {
     let cancelLabel:  LocalizedStringKey
     let onConfirm: () -> Void
     let onCancel:  () -> Void
+    // fullScreenCover は親の環境を継承しないため、アプリ内文字サイズ設定をここで再適用する
+    @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
 
     var body: some View {
+        overlayBody
+            .appFontScale(fontScale)
+    }
+
+    private var overlayBody: some View {
         ZStack {
             // 背景の暗幕。タップでキャンセル相当の動作にする。
             Color.black.opacity(0.4)
