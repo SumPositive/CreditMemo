@@ -3798,6 +3798,23 @@
         }
       }
     },
+    "settings.autoOpenAmountPad" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auto-open Keypad in New Payment"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新しい決済で自動的にテンキーを開く"
+          }
+        }
+      }
+    },
     "settings.appearance" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4151,6 +4168,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "新しい決済を保存した後の画面遷移を選べます。連続して入力するなら「連続入力」が便利です。"
+          }
+        }
+      }
+    },
+    "settings.help.autoOpenAmountPad" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens the keypad automatically when the amount is 0. Closing it without entering an amount also closes the new payment screen."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新しい決済の金額が0ならばテンキーが自動的に開きます。0のままテンキーを閉じると新しい決済画面も閉じます。"
           }
         }
       }

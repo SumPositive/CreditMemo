@@ -54,6 +54,7 @@ struct RecordEditView: View {
     @AppStorage(AppStorageKey.afterSaveAction)   private var afterSaveAction: AfterSaveAction = .goBack
     @AppStorage(AppStorageKey.userLevel)         private var userLevel: UserLevel = .beginner
     @AppStorage(AppStorageKey.fontScale)         private var fontScale: FontScale = .system
+    @AppStorage(AppStorageKey.autoOpenAmountPad) private var autoOpenAmountPad = true
 
     @State private var dateUse:    Date     = Date()
     @State private var zName:      String   = ""
@@ -333,9 +334,9 @@ struct RecordEditView: View {
                 loadFields()
                 initialDraft = currentDraft()
                 hasInitialized = true
-                // 新規追加で金額が未入力のときだけテンキーを自動表示する。
+                // 新規追加で金額が未入力かつ設定ONのときだけテンキーを自動表示する。
                 // コピー新規（.addCopy）は金額がコピー済みなので自動表示しない。
-                if isNew && nAmount == 0 {
+                if isNew && nAmount == 0 && autoOpenAmountPad {
                     DispatchQueue.main.async { showAmountPad = true }
                 }
             }
@@ -356,8 +357,8 @@ struct RecordEditView: View {
             refreshDerivedCaches()
         }
         .sheet(isPresented: $showAmountPad, onDismiss: {
-            // テンキーを閉じた時に金額が未入力のままなら新規入力画面ごと閉じる
-            if isNew && nAmount == 0 {
+            // 自動表示ONの時だけ、金額未入力のままテンキーを閉じると新規入力画面ごと閉じる
+            if isNew && nAmount == 0 && autoOpenAmountPad {
                 dismiss()
             }
         }) {

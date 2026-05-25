@@ -9,6 +9,7 @@ enum AppStorageKey {
     static let tagSortMode       = "setting.tagSortMode"
     static let afterSaveAction   = "setting.afterSaveAction"
     static let openAddOnActive   = "setting.openAddOnActive"
+    static let autoOpenAmountPad = "setting.autoOpenAmountPad"
     static let paymentWindowDays = "setting.paymentWindowDays"
     static let exportFormat          = "setting.exportFormat"
     static let showCurrencySymbol    = "setting.showCurrencySymbol"

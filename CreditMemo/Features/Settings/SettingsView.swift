@@ -16,6 +16,7 @@ struct SettingsView: View {
     @AppStorage(AppStorageKey.fontScale)         private var fontScale: FontScale = .system
     @AppStorage(AppStorageKey.afterSaveAction)   private var afterSaveAction: AfterSaveAction = .goBack
     @AppStorage(AppStorageKey.openAddOnActive)   private var openAddOnActive = false
+    @AppStorage(AppStorageKey.autoOpenAmountPad) private var autoOpenAmountPad = true
     @AppStorage(AppStorageKey.paymentWindowDays) private var paymentWindowDays = 15
     @AppStorage(AppStorageKey.exportFormat)        private var exportFormatRaw = JSONExport.OutputStyle.compact.rawValue
     @AppStorage(AppStorageKey.showCurrencySymbol)  private var showCurrencySymbol = true
@@ -123,6 +124,16 @@ struct SettingsView: View {
                     Toggle("settings.openAddOnActive", isOn: $openAddOnActive)
                     if userLevel == .beginner {
                         Text("settings.help.openAddOnActive")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Toggle("settings.autoOpenAmountPad", isOn: $autoOpenAmountPad)
+                    if userLevel == .beginner {
+                        Text("settings.help.autoOpenAmountPad")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
