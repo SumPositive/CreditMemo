@@ -591,7 +591,7 @@ private enum PaymentFilterMode: String, CaseIterable, Identifiable {
 
     var iconName: String {
         switch self {
-        case .all: "line.3.horizontal.decrease.circle"
+        case .all: "infinity"
         case .bank: "building.columns"
         case .card: "creditcard"
         }

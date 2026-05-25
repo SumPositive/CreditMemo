@@ -122,7 +122,7 @@ struct RecordListView: View {
 
         var iconName: String {
             switch self {
-            case .all:        "line.3.horizontal.decrease.circle"
+            case .all:        "infinity"
             case .incomplete: "exclamationmark.circle"
             case .card:       "creditcard"
             case .bank:       "building.columns"
