@@ -1083,6 +1083,17 @@ private struct AdMobRewardedSheet: View {
     }
 }
 
+/// Non-personalized ads（NPA）を強制した広告リクエストを生成する。
+/// IDFA を使わず、ユーザー属性に依存しない一般広告のみ配信される。
+/// これにより ATT（AppTrackingTransparency）プロンプトを表示せずに済む。
+private func makeNonPersonalizedAdRequest() -> Request {
+    let request = Request()
+    let extras = Extras()
+    extras.additionalParameters = ["npa": "1"]
+    request.register(extras)
+    return request
+}
+
 private struct AdMobBannerView: View {
     let adUnitID: String
     let size: CGSize
@@ -1157,7 +1168,7 @@ private struct AdMobBannerRepresentable: UIViewControllerRepresentable {
         ])
 
         context.coordinator.bannerView = bannerView
-        bannerView.load(Request())
+        bannerView.load(makeNonPersonalizedAdRequest())
         return viewController
     }
 
@@ -1206,7 +1217,8 @@ private final class RewardedAdLoader: NSObject, ObservableObject, FullScreenCont
         isLoading = true
         isReady = false
         errorMessage = nil
-        let request = Request()
+        // パーソナライズ広告を行わない（npa=1）。ATT プロンプトも不要にする。
+        let request = makeNonPersonalizedAdRequest()
 
         RewardedAd.load(with: adUnitID, request: request) { [weak self] ad, error in
             guard let self else { return }

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+        トラッキングはしない（IDFA を使った広告パーソナライズも行わない）。
+        AdMob は npa=1（non-personalized ads）で呼び出している。
+    -->
+    <key>NSPrivacyTracking</key>
+    <false/>
+
+    <!-- トラッキング目的の通信先ドメインは無し -->
+    <key>NSPrivacyTrackingDomains</key>
+    <array/>
+
+    <!--
+        本アプリは決済情報を端末内 SwiftData にのみ保存する。
+        サーバ送信・第三者提供は無いため、収集データは無し。
+    -->
+    <key>NSPrivacyCollectedDataTypes</key>
+    <array/>
+
+    <!--
+        Apple が定める Required Reason APIs の利用宣言。
+        本アプリで該当するのは UserDefaults（@AppStorage 経由のユーザ設定）のみ。
+        - File timestamp / Disk space / System boot time / Active keyboard などは未使用。
+    -->
+    <key>NSPrivacyAccessedAPITypes</key>
+    <array>
+        <dict>
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <!-- CA92.1: 同一アプリ内で使う設定値の保存・取得 -->
+                <string>CA92.1</string>
+            </array>
+        </dict>
+    </array>
+</dict>
+</plist>

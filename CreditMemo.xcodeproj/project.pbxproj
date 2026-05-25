@@ -41,6 +41,7 @@
 		96CCBCA225154F1A89A67910 /* JSONImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96CCBCA125154F1A89A67910 /* JSONImport.swift */; };
 		97904E45ADF1EC29C7E38838 /* E5tag.swift in Sources */ = {isa = PBXBuildFile; fileRef = 483AE700971FC77C80FC3F80 /* E5tag.swift */; };
 		9A3B7A6325157E0900A17A10 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 9A3B7A6225157E0900A17A10 /* InfoPlist.strings */; };
+		3E1A55B3CA0F4B0D8D3C9F11 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 3E1A55B3CA0F4B0D8D3C9F10 /* PrivacyInfo.xcprivacy */; };
 		A0404AAC7B624DF4CFF89D0F /* CardEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DEDEA1DAEEECF14059168DE /* CardEditView.swift */; };
 		A44EB7108F1EDB045B7358CE /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC4455D455525FC6393BF598 /* AppSettings.swift */; };
 		A8E87A041745100730C43504 /* E6part.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACAC65A5428E245996B921E5 /* E6part.swift */; };
@@ -133,6 +134,7 @@
 		F79355C01D775C52E0C34B50 /* DatabaseErrorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseErrorView.swift; sourceTree = "<group>"; };
 		F97721A91036068831138735 /* SplitPayListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplitPayListView.swift; sourceTree = "<group>"; };
 		FA5C86233C4FE3247A2D008B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		3E1A55B3CA0F4B0D8D3C9F10 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		FDB4F7EAA70EE49D23DA0441 /* NumericKeypadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumericKeypadView.swift; sourceTree = "<group>"; };
 		FFE96F1625157DEB00A17A10 /* ja */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ja; path = ja.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -235,6 +237,7 @@
 				FA5C86233C4FE3247A2D008B /* Info.plist */,
 				9A3B7A6225157E0900A17A10 /* InfoPlist.strings */,
 				17B4815A12B4099B3F8C2A8D /* Localizable.xcstrings */,
+				3E1A55B3CA0F4B0D8D3C9F10 /* PrivacyInfo.xcprivacy */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -523,6 +526,7 @@
 				1698067491EBDA300104D152 /* Assets.xcassets in Resources */,
 				F7929AD07E62756D8EE69469 /* Localizable.xcstrings in Resources */,
 				9A3B7A6325157E0900A17A10 /* InfoPlist.strings in Resources */,
+				3E1A55B3CA0F4B0D8D3C9F11 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
