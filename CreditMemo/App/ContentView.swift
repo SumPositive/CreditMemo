@@ -186,7 +186,7 @@ struct AppDestinationView: View {
     var body: some View {
         switch destination {
         case .addRecord:
-            RecordEditView(mode: .addNew, onSaved: { _ in selectedDestination = .recordList })
+            RecordEditView(mode: .addNew, onSaved: { _ in selectedDestination = .recordList }, isFromMainMenu: true)
                 .id(addRecordRefreshID)
         case .recordList:    RecordListView()
         case .paymentList:   PaymentListView()

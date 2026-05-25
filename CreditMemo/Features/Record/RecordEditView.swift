@@ -40,6 +40,8 @@ struct RecordEditView: View {
     var presetDueDate: Date? = nil
     /// 済み側の引き落とし明細から追加する場合、保存直後に済みへ移す
     var presetIsPaid = false
+    /// メインメニューの「新しい決済」から開いた場合のみ true。決済一覧からコピーセクションの表示に使う
+    var isFromMainMenu: Bool = false
 
     @Environment(\.modelContext)    private var context
     @Environment(\.dismiss)         private var dismiss
@@ -91,7 +93,6 @@ struct RecordEditView: View {
     @State private var isSimilarExpanded = true
     @FocusState private var isUsePointFocused: Bool
     @FocusState private var focusNote: Bool
-    private let similarRecordLimit = 10
     private let formTopAnchorID = "record-form-top"
     private let noteAnchorID = "record-note-anchor"
 
@@ -140,32 +141,38 @@ struct RecordEditView: View {
         }
         return Array(filtered.prefix(10))
     }
-    private var similarCandidates: [SimilarCandidate] {
-        // 過去18ヶ月の履歴を対象に、条件が変わるたび緩くスコアリングする
-        let sinceDate = Calendar.current.date(byAdding: .month, value: -18, to: Date()) ?? .distantPast
-        var scored: [SimilarCandidate] = []
-
-        for record in pastRecords {
-            if record.dateUse < sinceDate {
-                continue
-            }
-            // 編集時は自分自身を候補から除外する
-            if case .edit(let editingRecord) = mode, editingRecord.id == record.id {
-                continue
-            }
-            let score = similarityScore(for: record)
-            if 0 < score {
-                scored.append(SimilarCandidate(record: record, score: score))
-            }
+    private var similarCandidates: [E3record] {
+        // 編集日（dateUpdate）降順でソートする。dateUpdate が nil のものは古いものとして扱う
+        let byEditDate = pastRecords.sorted {
+            ($0.dateUpdate ?? .distantPast) > ($1.dateUpdate ?? .distantPast)
         }
 
-        scored.sort { lhs, rhs in
-            if lhs.score == rhs.score {
-                return rhs.record.dateUse < lhs.record.dateUse
-            }
-            return rhs.score < lhs.score
+        // 編集中の自分自身を除外する
+        var base: [E3record]
+        if case .edit(let editingRecord) = mode {
+            base = byEditDate.filter { $0.id != editingRecord.id }
+        } else {
+            base = byEditDate
         }
-        return Array(scored.prefix(similarRecordLimit))
+
+        // 3. 決済手段が選択済みなら、1・2ともその手段に絞り込む
+        if let card = selectedCard {
+            base = base.filter { $0.e1card?.id == card.id }
+        }
+
+        // 1. 金額が一致して編集日が最近の2件
+        let amountMatched: [E3record]
+        if nAmount != 0 {
+            amountMatched = Array(base.filter { $0.nAmount == nAmount }.prefix(2))
+        } else {
+            amountMatched = []
+        }
+
+        // 2. 1を除き編集日が最近の10件
+        let amountMatchedIDs = Set(amountMatched.map(\.id))
+        let recent = Array(base.filter { !amountMatchedIDs.contains($0.id) }.prefix(10))
+
+        return amountMatched + recent
     }
 
     private let repeatOptions: [RepeatOption] = [
@@ -218,8 +225,9 @@ struct RecordEditView: View {
         }
     }
 
-    /// 履歴から引用セクションを出すかどうか。コピー新規時は元データが既に入っているため隠す。
+    /// 決済一覧からコピーセクションを出すかどうか。メインメニューから開いた新規追加時のみ表示する。
     private var showsSimilarSection: Bool {
+        guard isFromMainMenu else { return false }
         if case .addCopy = mode { return false }
         return true
     }
@@ -840,23 +848,19 @@ struct RecordEditView: View {
         if isNew {
             Section {
                 if isSimilarExpanded {
-                    if nAmount == 0 {
-                        Text(similarGuideText)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    } else if similarCandidates.isEmpty {
+                    if similarCandidates.isEmpty {
                         Text(similarEmptyText)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     } else {
-                        ForEach(similarCandidates, id: \.record.id) { candidate in
+                        ForEach(similarCandidates, id: \.id) { record in
                             Button {
-                                applySimilarRecord(candidate.record)
+                                applySimilarRecord(record)
                                 withAnimation(.easeInOut(duration: 0.2)) {
                                     isSimilarExpanded = false
                                 }
                             } label: {
-                                RecordSummaryRow(record: candidate.record, showsStatus: false)
+                                RecordSummaryRow(record: record, showsStatus: false)
                             }
                             .buttonStyle(.plain)
                         }
@@ -1299,130 +1303,12 @@ struct RecordEditView: View {
         "record.similar.section.title"
     }
 
-    /// 金額未入力時のガイド文
-    private var similarGuideText: LocalizedStringKey {
-        "record.similar.guide"
-    }
-
     /// 候補が見つからない場合の文言
     private var similarEmptyText: LocalizedStringKey {
         "record.similar.empty"
     }
 
-    /// 入力条件に対する類似スコアを計算する
-    private func similarityScore(for record: E3record) -> Int {
-        var score = 0
-
-        // 金額: 完全一致を最優先、差分が大きいほど減点する（符号が異なる候補はスコアなし）
-        if nAmount != 0 && (nAmount < 0) == (record.nAmount < 0) {
-            if record.nAmount == nAmount {
-                score += 80
-            } else {
-                let ratio = amountDiffRatio(input: nAmount, candidate: record.nAmount)
-                if ratio <= 0.05 {
-                    score += 55
-                } else if ratio <= 0.15 {
-                    score += 40
-                } else if ratio <= 0.30 {
-                    score += 26
-                } else if ratio <= 0.50 {
-                    score += 14
-                } else if ratio <= 1.00 {
-                    score += 4
-                }
-            }
-        }
-
-        // 決済手段: 一致を強く優遇する
-        if let selectedCardID = selectedCard?.id {
-            if record.e1card?.id == selectedCardID {
-                score += 34
-            } else {
-                score += 2
-            }
-        } else if record.e1card != nil {
-            score += 16
-        }
-
-        // 決済ラベル: 前方一致・部分一致を優遇する
-        let inputLabel = zName.trimmingCharacters(in: .whitespacesAndNewlines)
-        let recordLabel = record.zName.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !inputLabel.isEmpty && !recordLabel.isEmpty {
-            if recordLabel == inputLabel {
-                score += 30
-            } else if recordLabel.localizedCaseInsensitiveContains(inputLabel) {
-                score += 18
-            }
-        } else if !recordLabel.isEmpty {
-            score += 16
-        }
-
-        // 候補品質: 決済手段/決済ラベルが埋まっている候補を優先する
-        if record.e1card != nil {
-            score += 10
-        }
-        if !recordLabel.isEmpty {
-            score += 10
-        }
-
-        // 時刻情報があれば時刻近接を優先、なければ曜日一致にフォールバックする
-        let cal = Calendar.current
-        let midnight = cal.startOfDay(for: dateUse)
-        let recordMidnight = cal.startOfDay(for: record.dateUse)
-        let inputHasTime  = !cal.isDate(dateUse,        equalTo: midnight,       toGranularity: .minute)
-        let recordHasTime = !cal.isDate(record.dateUse, equalTo: recordMidnight, toGranularity: .minute)
-
-        if inputHasTime && recordHasTime {
-            let inputMin  = cal.component(.hour, from: dateUse)        * 60 + cal.component(.minute, from: dateUse)
-            let recordMin = cal.component(.hour, from: record.dateUse) * 60 + cal.component(.minute, from: record.dateUse)
-            let diff = abs(inputMin - recordMin)
-            if diff <= 30 {
-                score += 20
-            } else if diff <= 60 {
-                score += 15
-            } else if diff <= 120 {
-                score += 10
-            } else if diff <= 240 {
-                score += 6
-            }
-        } else {
-            // 時刻情報なし：曜日一致を軽く優遇する
-            if cal.component(.weekday, from: record.dateUse) == cal.component(.weekday, from: dateUse) {
-                score += 12
-            }
-        }
-
-        // 分類タグ重複を軽く優遇する
-        let selectedCategoryIDs = Set(selectedCategories.map(\.id))
-        if !selectedCategoryIDs.isEmpty {
-            let overlapCount = record.e5tags.filter { selectedCategoryIDs.contains($0.id) }.count
-            if 0 < overlapCount {
-                score += min(overlapCount * 6, 18)
-            }
-        }
-
-        // 新しい記録を少し優遇する（0〜12点）
-        let dayDistance = abs(Calendar.current.dateComponents([.day], from: record.dateUse, to: Date()).day ?? 0)
-        if dayDistance <= 30 {
-            score += 12
-        } else if dayDistance <= 90 {
-            score += 8
-        } else if dayDistance <= 180 {
-            score += 4
-        }
-
-        return score
-    }
-
-    /// 金額差分の比率（0〜∞）を返す
-    private func amountDiffRatio(input: Decimal, candidate: Decimal) -> Double {
-        let inputValue = max(1.0, NSDecimalNumber(decimal: input).doubleValue)
-        let candidateValue = NSDecimalNumber(decimal: candidate).doubleValue
-        let diff = abs(inputValue - candidateValue)
-        return diff / inputValue
-    }
-
-    /// 類似候補を現在のフォームへ反映する
+    /// 選択した決済の未入力項目を現在のフォームへ補塡する
     private func applySimilarRecord(_ record: E3record) {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         // 金額と日付は常に維持し、未入力の項目だけ候補から補う
@@ -1646,12 +1532,6 @@ private struct PartDueDateRow: View {
 }
 
 // MARK: - Similar Record Row
-
-
-private struct SimilarCandidate {
-    let record: E3record
-    let score: Int
-}
 
 // MARK: - Generic Single-Select Picker Sheet
 

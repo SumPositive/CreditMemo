@@ -3329,13 +3329,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Quote from History"
+            "value" : "Copy from List"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "履歴から引用"
+            "value" : "決済一覧からコピー"
           }
         }
       }
