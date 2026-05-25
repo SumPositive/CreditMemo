@@ -59,7 +59,7 @@ struct TopMenuView: View {
             // 明細
             Section {
                 row(.addRecord, icon: "plus.circle.fill", color: .blue, key: "top.addRecord")
-                row(.recordList, icon: "list.bullet.circle.fill", color: .purple, key: "top.recordList")
+                row(.recordList, icon: "list.bullet.circle.fill", color: .cyan, key: "top.recordList")
             }
 
             // 集計
@@ -67,7 +67,7 @@ struct TopMenuView: View {
                 NavigationLink(value: AppDestination.paymentList) {
                     HStack {
                         ScaledMenuBadge()
-                            .dynamicTypeSize(...DynamicTypeSize.large)
+                            .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                         // タイトル / 直近計 / 金額 を、入る範囲で 1段→2段→3段 と段を増やして表示する
                         ViewThatFits(in: .horizontal) {
                             // 1行版: タイトル + 直近計 + 金額をすべて1行に
@@ -173,7 +173,7 @@ struct TopMenuView: View {
         NavigationLink(value: dest) {
             HStack(alignment: .top, spacing: 12) {
                 ScaledMenuIcon(systemName: icon, color: color)
-                    .dynamicTypeSize(...DynamicTypeSize.large)
+                    .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                 Text(key)
             }
         }
@@ -190,7 +190,7 @@ struct TopMenuView: View {
 }
 
 /// メニューの SF Symbol アイコン。文字サイズに連動して拡縮する
-/// 呼び出し側で `.dynamicTypeSize(...DynamicTypeSize.large)` を付けて
+/// 呼び出し側で `.dynamicTypeSize(...DynamicTypeSize.xxxLarge)` を付けて
 /// 「大」を上限にクランプする運用
 private struct ScaledMenuIcon: View {
     let systemName: String
@@ -198,7 +198,7 @@ private struct ScaledMenuIcon: View {
     @ScaledMetric(relativeTo: .body) private var size: CGFloat = 20
 
     var body: some View {
-        Image(systemName: systemName).dynamicTypeSize(...DynamicTypeSize.large)
+        Image(systemName: systemName).dynamicTypeSize(...DynamicTypeSize.xxxLarge)
             .font(.system(size: size))
             .foregroundStyle(color)
             .frame(width: size)

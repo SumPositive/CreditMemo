@@ -13,7 +13,7 @@ struct AboutView: View {
                     HStack {
                         Label("about.docs", systemImage: "book.pages")
                         Spacer()
-                        Image(systemName: "arrow.up.right.square").dynamicTypeSize(...DynamicTypeSize.large)
+                        Image(systemName: "arrow.up.right.square").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                             .foregroundStyle(.secondary)
                     }
                 }

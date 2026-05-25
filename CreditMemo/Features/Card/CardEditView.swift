@@ -11,6 +11,8 @@ struct CardEditView: View {
     @Query private var cards: [E1card]
     @Query(sort: \E8bank.nRow)   private var banks: [E8bank]
 
+    /// バッジアイコンを文字サイズに連動させる。上限はカプセル側のキャップに揃う
+    @ScaledMetric(relativeTo: .body) private var badgeIconSize: CGFloat = 20
     @State private var zName       = ""
     @State private var zNote       = ""
     @State private var selectedBank: E8bank?
@@ -163,7 +165,7 @@ struct CardEditView: View {
                                 .resizable()
                                 .scaledToFit()
                                 .foregroundStyle(Color.blue)
-                                .dynamicTypeSize(...DynamicTypeSize.large)
+                                .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                         }
                         .frame(maxWidth: userLevel == .beginner ? .infinity : nil, alignment: .leading)
                         if userLevel != .beginner {
@@ -177,7 +179,7 @@ struct CardEditView: View {
                             fillsAvailableWidth: userLevel == .beginner,
                             action: { statusCard = card }
                         ) {
-                            AppIconBadge(size: 20)
+                            AppIconBadge(size: badgeIconSize)
                         }
                         .frame(maxWidth: userLevel == .beginner ? .infinity : nil, alignment: .trailing)
                     }

@@ -7,7 +7,7 @@ struct DatabaseErrorView: View {
 
     var body: some View {
         VStack(spacing: 24) {
-            Image(systemName: "exclamationmark.triangle.fill").dynamicTypeSize(...DynamicTypeSize.large)
+            Image(systemName: "exclamationmark.triangle.fill").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                 .font(.system(size: warningIconSize))
                 .foregroundStyle(.orange)
 

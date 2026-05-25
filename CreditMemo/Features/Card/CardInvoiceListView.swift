@@ -241,7 +241,7 @@ private struct CardGroupRow: View {
         HStack(spacing: 12) {
             // PAID/UNPAID バッジ（タップで状態切り替え）
             Button(action: onToggle) {
-                Image(systemName: isPaid ? "arrow.up.circle.fill" : "arrow.down.circle.fill").dynamicTypeSize(...DynamicTypeSize.large)
+                Image(systemName: isPaid ? "arrow.up.circle.fill" : "arrow.down.circle.fill").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                     .font(.title2.weight(.bold))
                     .foregroundStyle(isPaid ? COLOR_PAID : COLOR_UNPAID)
                     .frame(minWidth: 34, minHeight: 34)

@@ -61,7 +61,7 @@ struct TagListView: View {
         .scalableNavigationTitle("tag.list.title")
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button { showAddSheet = true } label: { Image(systemName: "plus").dynamicTypeSize(...DynamicTypeSize.large) }
+                Button { showAddSheet = true } label: { Image(systemName: "plus").dynamicTypeSize(...DynamicTypeSize.xxxLarge) }
             }
         }
         .sheet(isPresented: $showAddSheet) {
@@ -99,7 +99,7 @@ struct TagSortModeDropdown: View {
             fillsWidth: true
         ) { mode in
             HStack(spacing: 8) {
-                Image(systemName: "line.3.horizontal.decrease").dynamicTypeSize(...DynamicTypeSize.large)
+                Image(systemName: "line.3.horizontal.decrease").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                     .imageScale(.medium)
                 Text(LocalizedStringKey(mode.localizedKey))
                     .allowsTightening(true)

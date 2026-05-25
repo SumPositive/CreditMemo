@@ -703,7 +703,7 @@ private struct PaymentGroupRadioPicker: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.50)
             } icon: {
-                Image(systemName: mode.iconName).dynamicTypeSize(...DynamicTypeSize.large)
+                Image(systemName: mode.iconName).dynamicTypeSize(...DynamicTypeSize.xxxLarge)
             }
         }
         .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
@@ -755,7 +755,7 @@ private struct PaymentFilterStatusBar: View {
 
             if isFiltered {
                 Button(action: onClear) {
-                    Image(systemName: "xmark.circle.fill").dynamicTypeSize(...DynamicTypeSize.large)
+                    Image(systemName: "xmark.circle.fill").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                         .font(.title3)
                         .foregroundStyle(.secondary)
                         .frame(width: 34, height: 34)
@@ -769,7 +769,7 @@ private struct PaymentFilterStatusBar: View {
 
     private func filterLabel(_ mode: PaymentFilterMode) -> some View {
         HStack(spacing: 8) {
-            Image(systemName: mode.iconName).dynamicTypeSize(...DynamicTypeSize.large)
+            Image(systemName: mode.iconName).dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                 .imageScale(.medium)
             if mode == filterMode {
                 Text(title)
@@ -830,7 +830,7 @@ private struct PaymentFilterPickerSheet<T: Identifiable>: View where T.ID: Equat
                 .foregroundStyle(.primary)
             Spacer()
             if isSelected {
-                Image(systemName: "checkmark").dynamicTypeSize(...DynamicTypeSize.large)
+                Image(systemName: "checkmark").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                     .foregroundStyle(.blue)
             }
         }
@@ -918,7 +918,7 @@ private struct PaymentStatusPill: View {
 
     var body: some View {
         // セル内の先頭は大きい矢印アイコンのみで状態を示す
-        Image(systemName: isPaid ? "arrow.up.circle.fill" : "arrow.down.circle.fill").dynamicTypeSize(...DynamicTypeSize.large)
+        Image(systemName: isPaid ? "arrow.up.circle.fill" : "arrow.down.circle.fill").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
             .font(.title2.weight(.bold))
             .foregroundStyle(isPaid ? COLOR_PAID : COLOR_UNPAID)
             .frame(minWidth: 34, minHeight: 34)

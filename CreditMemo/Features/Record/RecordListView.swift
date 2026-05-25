@@ -301,7 +301,7 @@ struct RecordListView: View {
                             Button {
                                 clearFilter()
                             } label: {
-                                Image(systemName: "xmark.circle.fill").dynamicTypeSize(...DynamicTypeSize.large)
+                                Image(systemName: "xmark.circle.fill").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                                     .font(.title3)
                                     .foregroundStyle(.secondary)
                                     .frame(width: 34, height: 34)
@@ -467,7 +467,7 @@ struct RecordListView: View {
 
     private func filterLabel(_ option: FilterOption) -> some View {
         HStack(spacing: 8) {
-            Image(systemName: option.iconName).dynamicTypeSize(...DynamicTypeSize.large)
+            Image(systemName: option.iconName).dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                 .imageScale(.medium)
             if option == filterSelectionBinding.wrappedValue {
                 Text(filterSummaryText)
@@ -490,7 +490,7 @@ struct RecordListView: View {
                 .minimumScaleFactor(0.78)
                 .allowsTightening(true)
             if sortTarget == target {
-                Image(systemName: sortDirection.symbolName).dynamicTypeSize(...DynamicTypeSize.large)
+                Image(systemName: sortDirection.symbolName).dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                     .font(.caption.weight(.bold))
                     // 昇順は降順アイコンを上下反転して、同じ記号体系に揃える
                     .scaleEffect(x: 1, y: sortDirection.yScale)
@@ -694,7 +694,7 @@ private struct RecordTagFilterSheet: View {
                             .foregroundStyle(Color(.label))
                         Spacer()
                         if selectedIDs.contains(tag.id) {
-                            Image(systemName: "checkmark").dynamicTypeSize(...DynamicTypeSize.large)
+                            Image(systemName: "checkmark").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                                 .foregroundStyle(Color.accentColor)
                         }
                     }
@@ -801,7 +801,7 @@ struct RecordSummaryRow: View {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     if showsStatus {
                         // 状態アイコンは控えめに表示する
-                        Image(systemName: isUnpaid ? "arrow.down.circle.fill" : "arrow.up.circle.fill").dynamicTypeSize(...DynamicTypeSize.large)
+                        Image(systemName: isUnpaid ? "arrow.down.circle.fill" : "arrow.up.circle.fill").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(statusTextColor)
                             .opacity(0.5)
@@ -809,7 +809,7 @@ struct RecordSummaryRow: View {
                     }
                     if showsRepeatIcon {
                         // 繰り返し予定の印（showsStatus に関わらず表示する）
-                        Image(systemName: "repeat").dynamicTypeSize(...DynamicTypeSize.large)
+                        Image(systemName: "repeat").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                             .font(.system(size: 14, weight: .regular))
                             .foregroundStyle(.secondary)
                             .opacity(0.65)

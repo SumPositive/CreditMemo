@@ -66,8 +66,8 @@ struct TagEditView: View {
                             Image(systemName: "list.bullet.circle.fill")
                                 .resizable()
                                 .scaledToFit()
-                                .foregroundStyle(Color.purple)
-                                .dynamicTypeSize(...DynamicTypeSize.large)
+                                .foregroundStyle(Color.cyan)
+                                .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                         }
                     }
                     .listRowBackground(Color.clear)

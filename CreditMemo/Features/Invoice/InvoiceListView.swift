@@ -78,7 +78,7 @@ struct InvoiceListView: View {
             Image(systemName: "plus.circle.fill")
                 .foregroundStyle(.blue)
                 .contentShape(Rectangle())
-                .dynamicTypeSize(...DynamicTypeSize.large)
+                .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text("record.edit.title.add"))
@@ -86,7 +86,7 @@ struct InvoiceListView: View {
 
     private func invoiceHelpIcon(isPaid: Bool) -> some View {
         // ヘルプ内の状態アイコンは追加アイコンと同じサイズに揃える
-        Image(systemName: isPaid ? "arrow.up.circle.fill" : "arrow.down.circle.fill").dynamicTypeSize(...DynamicTypeSize.large)
+        Image(systemName: isPaid ? "arrow.up.circle.fill" : "arrow.down.circle.fill").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
             .foregroundStyle(isPaid ? COLOR_PAID : COLOR_UNPAID)
             .font(.caption.weight(.semibold))
             .frame(width: 16, alignment: .center)
@@ -94,7 +94,7 @@ struct InvoiceListView: View {
 
     private var addPaymentHelpIcon: some View {
         // ヘルプ内の追加アイコンは状態アイコンと同じサイズに揃える
-        Image(systemName: "plus.circle.fill").dynamicTypeSize(...DynamicTypeSize.large)
+        Image(systemName: "plus.circle.fill").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
             .foregroundStyle(.blue)
             .font(.caption.weight(.semibold))
             .frame(width: 16, alignment: .center)
@@ -380,7 +380,7 @@ private struct InvoiceStatusIcon: View {
 
     var body: some View {
         // 引き落とし状況と同じ矢印アイコンを使う
-        Image(systemName: isPaid ? "arrow.up.circle.fill" : "arrow.down.circle.fill").dynamicTypeSize(...DynamicTypeSize.large)
+        Image(systemName: isPaid ? "arrow.up.circle.fill" : "arrow.down.circle.fill").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
             .font(.title2.weight(.bold))
             .foregroundStyle(isPaid ? COLOR_PAID : COLOR_UNPAID)
             .frame(minWidth: 34, minHeight: 34)
@@ -395,10 +395,10 @@ private struct PartLockIcon: View {
             Image(systemName: isLocked ? "lock.fill" : "lock.open.fill")
                 .foregroundStyle(isLocked ? Color(.systemGreen) : Color(.systemGray3))
                 .imageScale(.large)
-                .dynamicTypeSize(...DynamicTypeSize.large)
+                .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
             if isLocked {
                 // 旧確認チェックを示すため、施錠時だけ鍵の矩形中央にチェックを重ねる
-                Image(systemName: "checkmark").dynamicTypeSize(...DynamicTypeSize.large)
+                Image(systemName: "checkmark").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                     .font(.system(size: 9, weight: .black))
                     .foregroundStyle(.white)
                     .offset(y: 5)
@@ -440,7 +440,7 @@ private struct PartRow: View {
             HStack(spacing: 10) {
                 Button(action: onTogglePaid) {
                     // 先頭に未払/済み切替ボタンを置く
-                    Image(systemName: isPaid ? "arrow.up.circle.fill" : "arrow.down.circle.fill").dynamicTypeSize(...DynamicTypeSize.large)
+                    Image(systemName: isPaid ? "arrow.up.circle.fill" : "arrow.down.circle.fill").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                         .font(.title2.weight(.bold))
                         .foregroundStyle(isPaid ? COLOR_PAID : COLOR_UNPAID)
                         .frame(minWidth: 34, minHeight: 34)

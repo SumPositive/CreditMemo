@@ -116,7 +116,7 @@ struct ContentView: View {
                 } else {
                     // iPad 初期表示
                     VStack(spacing: 16) {
-                        Image(systemName: "creditcard").dynamicTypeSize(...DynamicTypeSize.large)
+                        Image(systemName: "creditcard").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                             .font(.system(size: emptyIconSize))
                             .foregroundStyle(.secondary)
                         Text("app.selectMenu")

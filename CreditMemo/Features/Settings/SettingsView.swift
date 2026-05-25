@@ -789,10 +789,10 @@ private struct TipSheetView: View {
             Circle()
                 .stroke(.teal.opacity(0.22), lineWidth: 1.5)
                 .frame(width: 108, height: 108)
-            Image(systemName: "person.fill").dynamicTypeSize(...DynamicTypeSize.large)
+            Image(systemName: "person.fill").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                 .font(.system(size: 50))
                 .foregroundStyle(.teal)
-            Image(systemName: "heart.fill").dynamicTypeSize(...DynamicTypeSize.large)
+            Image(systemName: "heart.fill").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                 .font(.system(size: 18))
                 .foregroundStyle(.pink)
                 .offset(x: 24, y: -24)
@@ -1063,7 +1063,7 @@ private struct AdMobRewardedSheet: View {
                         Text(String(localized: "support.ad.soundWarning"))
                             .font(.footnote.weight(.semibold))
                     } icon: {
-                        Image(systemName: "exclamationmark.triangle.fill").dynamicTypeSize(...DynamicTypeSize.large)
+                        Image(systemName: "exclamationmark.triangle.fill").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                     }
                     .foregroundStyle(.red)
                 }

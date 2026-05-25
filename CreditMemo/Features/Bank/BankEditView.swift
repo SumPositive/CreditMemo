@@ -11,6 +11,8 @@ struct BankEditView: View {
     @Query private var banks: [E8bank]
 
     @AppStorage(AppStorageKey.userLevel) private var userLevel: UserLevel = .beginner
+    /// バッジアイコンを文字サイズに連動させる。上限はカプセル側のキャップに揃う
+    @ScaledMetric(relativeTo: .body) private var badgeIconSize: CGFloat = 20
     @State private var zName = ""
     @State private var zNote = ""
     @FocusState private var focusName: Bool
@@ -70,7 +72,7 @@ struct BankEditView: View {
                             showsChevron: true,
                             action: { statusBank = bank }
                         ) {
-                            AppIconBadge(size: 20)
+                            AppIconBadge(size: badgeIconSize)
                         }
                     }
                     .listRowBackground(Color.clear)

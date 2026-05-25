@@ -55,7 +55,7 @@ struct BankListView: View {
         .scalableNavigationTitle("bank.list.title")
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button { showAddSheet = true } label: { Image(systemName: "plus").dynamicTypeSize(...DynamicTypeSize.large) }
+                Button { showAddSheet = true } label: { Image(systemName: "plus").dynamicTypeSize(...DynamicTypeSize.xxxLarge) }
             }
         }
         .sheet(isPresented: $showAddSheet) {

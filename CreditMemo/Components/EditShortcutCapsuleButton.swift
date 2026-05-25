@@ -8,6 +8,8 @@ struct EditShortcutCapsuleButton<Icon: View>: View {
     let fillsAvailableWidth: Bool
     let action: () -> Void
     @ViewBuilder let icon: () -> Icon
+    /// アイコンのサイズも文字サイズに連動させる。上限は xxxLarge（アプリ表示の「大」相当）
+    @ScaledMetric(relativeTo: .body) private var iconSize: CGFloat = 20
 
     init(
         title: LocalizedStringKey,
@@ -29,20 +31,20 @@ struct EditShortcutCapsuleButton<Icon: View>: View {
         Button(action: action) {
             HStack(spacing: 8) {
                 icon()
-                    .frame(width: 20, height: 20)
-                    .dynamicTypeSize(...DynamicTypeSize.large)
+                    .frame(width: iconSize, height: iconSize)
+                    .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                 if showsTitle {
                     Text(title)
                         .foregroundStyle(.primary)
                         .lineLimit(1)
                         .allowsTightening(true)
                         .minimumScaleFactor(0.55)
-                        .dynamicTypeSize(...DynamicTypeSize.large)
+                        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                     if showsChevron {
-                        Image(systemName: "chevron.right").dynamicTypeSize(...DynamicTypeSize.large)
+                        Image(systemName: "chevron.right").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.tertiary)
-                            .dynamicTypeSize(...DynamicTypeSize.large)
+                            .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                     }
                 }
             }
