@@ -276,18 +276,31 @@ struct PaymentListView: View {
         await MainActor.run {
             contentOpacity = 0
         }
-        // 2) レイアウト確定を待つ
-        try? await Task.sleep(nanoseconds: 120_000_000)
-        // 3) アニメーションなしで一瞬で目的位置へジャンプする（ユーザーに動きを見せない）
+        // 2) 旧 offset が新しいコンテンツ高を超えていると LazyVStack が境界アンカーを
+        //    遅延描画範囲外として扱い、scrollTo が無効になるため、まず最上段に強制的に戻す
         await MainActor.run {
-            if shouldCenterBoundaryOnScroll {
-                proxy.scrollTo(paymentBoundaryAnchorID, anchor: .center)
-            } else {
+            var tx = Transaction()
+            tx.disablesAnimations = true
+            withTransaction(tx) {
                 proxy.scrollTo(paymentTopAnchorID, anchor: .top)
             }
         }
-        // 4) スクロール反映を1tick待ってからフェードインで見せる
-        try? await Task.sleep(nanoseconds: 60_000_000)
+        // 3) 最上段固定後にレイアウトが落ち着くのを待つ
+        try? await Task.sleep(nanoseconds: 80_000_000)
+        // 4) アニメーションなしで境界中央（または最上段）へジャンプ
+        await MainActor.run {
+            var tx = Transaction()
+            tx.disablesAnimations = true
+            withTransaction(tx) {
+                if shouldCenterBoundaryOnScroll {
+                    proxy.scrollTo(paymentBoundaryAnchorID, anchor: .center)
+                } else {
+                    proxy.scrollTo(paymentTopAnchorID, anchor: .top)
+                }
+            }
+        }
+        // 5) スクロール反映を1tick待ってからフェードインで見せる
+        try? await Task.sleep(nanoseconds: 80_000_000)
         await MainActor.run {
             withAnimation(.easeOut(duration: 0.22)) {
                 contentOpacity = 1
@@ -305,7 +318,13 @@ struct PaymentListView: View {
 
     private func refreshDisplayItemsAndScroll() {
         // 集計軸や絞り込みが変わった時だけ表示用モデルを作り直す
-        rebuildDisplayItems()
+        // 直後にフェード+再配置するので、行のスライド/フェードアニメーションは抑止して
+        // レイアウトを即時確定させる（スクロール先がアニメ途中でズレるのを防ぐ）
+        var tx = Transaction()
+        tx.disablesAnimations = true
+        withTransaction(tx) {
+            rebuildDisplayItems()
+        }
         requestBoundaryScroll()
     }
 
