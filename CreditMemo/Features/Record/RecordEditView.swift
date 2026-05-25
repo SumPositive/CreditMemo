@@ -352,9 +352,10 @@ struct RecordEditView: View {
             selectedBankForCard = selectedCard?.e8bank
             // 口座未設定で表示開始した行は、この編集セッション中は保持する
             keepBankPickerRowVisible = selectedCard != nil && selectedBankForCard == nil
-            // 引き落とし日が固定指定されている場合、N日後型は利用日を再計算する
-            if let presetDueDate {
-                dateUse = dateUse(forDueDate: presetDueDate, card: selectedCard)
+            // 引き落とし日が固定指定されている場合、N日後型だけ利用日を再計算する
+            // 締日/支払日型は利用日を当日のまま据え置く
+            if let presetDueDate, let card = selectedCard, card.nClosingDay == 0 {
+                dateUse = dateUse(forDueDate: presetDueDate, card: card)
                 draftDateUse = dateUse
             }
         }
@@ -941,8 +942,8 @@ struct RecordEditView: View {
             payType = .lumpSum
             // 引き落とし日が固定指定されている場合は、決済手段に応じて初期利用日を決める
             // - N日後型カード: 利用日 = 引き落とし日 - N 日（逆算）
-            // - 締日/支払日型: 逆算が一意ではないため、利用日は引き落とし日と同値にし、保存時の override で強制
-            if let presetDueDate {
+            // - 締日/支払日型: 利用日は当日
+            if let presetDueDate, let presetCard, presetCard.nClosingDay == 0 {
                 dateUse = dateUse(forDueDate: presetDueDate, card: presetCard)
             }
             draftDateUse = dateUse
