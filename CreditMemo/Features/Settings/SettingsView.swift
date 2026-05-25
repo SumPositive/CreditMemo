@@ -291,7 +291,10 @@ struct SettingsView: View {
             // 広告応援シートの背面を透かさない
             .presentationBackground(Color(uiColor: .systemBackground))
         }
-        .scalableNavigationTitle("top.settings")
+        .scalableNavigationTitle("top.settings") {
+            Image(systemName: "gearshape")
+                .foregroundStyle(Color.gray)
+        }
         .sheet(isPresented: $showDocsSheet) {
             SafariView(url: helpDocURL())
                 .ignoresSafeArea()

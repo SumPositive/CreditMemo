@@ -276,8 +276,15 @@ struct RecordEditView: View {
                 }
             )
         }
-        .navigationTitle(isNew ? "record.edit.title.add" : "record.edit.title.edit")
-        .navigationBarTitleDisplayMode(.inline)
+        .scalableNavigationTitle(isNew ? "record.edit.title.add" : "record.edit.title.edit") {
+            if isNew {
+                Image(systemName: "plus.circle.fill")
+                    .foregroundStyle(Color.blue)
+            } else {
+                Image(systemName: "square.and.pencil")
+                    .foregroundStyle(Color.orange)
+            }
+        }
         .navigationBarBackButtonHidden({
             switch mode {
             case .addNew:  return hasChanges

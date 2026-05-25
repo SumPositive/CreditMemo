@@ -84,9 +84,12 @@ struct PaymentListView: View {
     }
 
     var body: some View {
-        Group {
+        // 分岐で View 構造を入れ替えると principal ToolbarItem の登録がリセットされ
+        // タイトル表示が一瞬遅延するため、常に同じ VStack を保ち中身だけ差し替える
+        VStack(spacing: 0) {
             if !hasAnyPayments {
                 ContentUnavailableView("label.empty", systemImage: "calendar.badge.clock")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 VStack(spacing: 0) {
                     PaymentDisplayControlBar(
@@ -186,9 +189,16 @@ struct PaymentListView: View {
                 }
             }
         }
-        .scalableNavigationTitle("payment.list.title")
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .scalableNavigationTitle("payment.list.title") {
+            AppIconBadge(size: 22)
+        }
         .onAppear {
-            loadInitialPayments()
+            // 重い SwiftData クエリ群を次の runloop に逃がし、
+            // ナビゲーションタイトル（principal ToolbarItem）の描画を遅延させない
+            DispatchQueue.main.async {
+                loadInitialPayments()
+            }
             // 詳細から戻ったとき（autoScrollEnabled が OFF）は復元タスクを立てる。
             // タスクが発火すれば scrollToInitialPosition 内で ON へ戻るため、タイムアウトは保険
             if !autoScrollEnabled {

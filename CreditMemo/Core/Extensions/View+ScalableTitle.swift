@@ -29,4 +29,28 @@ extension View {
                 }
             }
     }
+
+    /// 左にアイコンを添えたタイトル（メインメニュー由来の画面用）
+    /// - Parameters:
+    ///   - key: ローカライズキー
+    ///   - icon: アイコンを返す ViewBuilder（SF Symbol でも AppIconBadge でも可）
+    func scalableNavigationTitle<Icon: View>(
+        _ key: LocalizedStringKey,
+        @ViewBuilder icon: @escaping () -> Icon
+    ) -> some View {
+        self
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    HStack(spacing: 6) {
+                        icon()
+                        Text(key)
+                            .font(.title3.bold())
+                            .minimumScaleFactor(0.55)
+                            .lineLimit(1)
+                    }
+                    .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                }
+            }
+    }
 }

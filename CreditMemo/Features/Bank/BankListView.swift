@@ -52,7 +52,10 @@ struct BankListView: View {
             }
             .onMove(perform: move)
         }
-        .scalableNavigationTitle("bank.list.title")
+        .scalableNavigationTitle("bank.list.title") {
+            Image(systemName: "building.columns")
+                .foregroundStyle(Color.teal)
+        }
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button { showAddSheet = true } label: { Image(systemName: "plus").dynamicTypeSize(...DynamicTypeSize.xxxLarge) }

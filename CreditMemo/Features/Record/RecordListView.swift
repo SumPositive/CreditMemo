@@ -365,7 +365,10 @@ struct RecordListView: View {
                 }
             }
         }
-        .scalableNavigationTitle("record.list.title")
+        .scalableNavigationTitle("record.list.title") {
+            Image(systemName: "list.bullet.circle.fill")
+                .foregroundStyle(Color.cyan)
+        }
         .sheet(item: $editTarget, onDismiss: {
             // 編集反映後は先頭ページから再読込する
             resetAndLoadRecords()

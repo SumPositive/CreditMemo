@@ -65,7 +65,10 @@ struct CardListView: View {
             }
             .onMove(perform: move)
         }
-        .scalableNavigationTitle("card.list.title")
+        .scalableNavigationTitle("card.list.title") {
+            Image(systemName: "creditcard")
+                .foregroundStyle(Color.green)
+        }
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button { showAddSheet = true } label: { Image(systemName: "plus").dynamicTypeSize(...DynamicTypeSize.xxxLarge) }

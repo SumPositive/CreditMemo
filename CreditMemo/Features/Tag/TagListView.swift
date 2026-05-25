@@ -58,7 +58,10 @@ struct TagListView: View {
             .padding(.bottom, 8)
             .background(Color(uiColor: .systemGroupedBackground))
         }
-        .scalableNavigationTitle("tag.list.title")
+        .scalableNavigationTitle("tag.list.title") {
+            Image(systemName: "tag")
+                .foregroundStyle(Color.pink)
+        }
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button { showAddSheet = true } label: { Image(systemName: "plus").dynamicTypeSize(...DynamicTypeSize.xxxLarge) }
