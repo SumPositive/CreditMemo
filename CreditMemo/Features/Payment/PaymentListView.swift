@@ -35,11 +35,13 @@ struct PaymentListView: View {
         if let card = initialCardFilter {
             _selectedCard = State(initialValue: card)
             _filterMode   = State(initialValue: .card)
-            _groupMode    = State(initialValue: .date)
+            // 決済手段から開いたときは集計軸も「手段」に合わせる
+            _groupMode    = State(initialValue: .card)
         } else if let bank = initialBankFilter {
             _selectedBank = State(initialValue: bank)
             _filterMode   = State(initialValue: .bank)
-            _groupMode    = State(initialValue: .date)
+            // 口座から開いたときは集計軸も「口座」に合わせる
+            _groupMode    = State(initialValue: .bank)
         }
     }
     @State private var togglingPaymentIDs: Set<String> = []
