@@ -271,7 +271,7 @@ struct AZDropdownPicker<Option: Hashable & Identifiable, Label: View>: View {
         case .none:
             EmptyView()
         case .chevron:
-            Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+            Image(systemName: isExpanded ? "chevron.up" : "chevron.down").dynamicTypeSize(...DynamicTypeSize.large)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(Color.accentColor)
         }

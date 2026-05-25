@@ -59,15 +59,15 @@ struct TopMenuView: View {
             // 明細
             Section {
                 row(.addRecord, icon: "plus.circle.fill", color: .blue, key: "top.addRecord")
-                row(.recordList, icon: "list.bullet", color: .indigo, key: "top.recordList")
+                row(.recordList, icon: "list.bullet.circle.fill", color: .purple, key: "top.recordList")
             }
 
             // 集計
             Section {
                 NavigationLink(value: AppDestination.paymentList) {
                     HStack {
-                        AppIconBadge(size: 28)
-                            .frame(width: 28)
+                        ScaledMenuBadge()
+                            .dynamicTypeSize(...DynamicTypeSize.large)
                         // タイトル / 直近計 / 金額 を、入る範囲で 1段→2段→3段 と段を増やして表示する
                         ViewThatFits(in: .horizontal) {
                             // 1行版: タイトル + 直近計 + 金額をすべて1行に
@@ -172,9 +172,8 @@ struct TopMenuView: View {
     ) -> some View {
         NavigationLink(value: dest) {
             HStack(alignment: .top, spacing: 12) {
-                Image(systemName: icon)
-                    .foregroundStyle(color)
-                    .frame(width: 20)
+                ScaledMenuIcon(systemName: icon, color: color)
+                    .dynamicTypeSize(...DynamicTypeSize.large)
                 Text(key)
             }
         }
@@ -187,6 +186,32 @@ struct TopMenuView: View {
             return isJapanese ? "1ヶ月" : "1 Month"
         }
         return isJapanese ? "\(days)日" : "\(days) Days"
+    }
+}
+
+/// メニューの SF Symbol アイコン。文字サイズに連動して拡縮する
+/// 呼び出し側で `.dynamicTypeSize(...DynamicTypeSize.large)` を付けて
+/// 「大」を上限にクランプする運用
+private struct ScaledMenuIcon: View {
+    let systemName: String
+    let color: Color
+    @ScaledMetric(relativeTo: .body) private var size: CGFloat = 20
+
+    var body: some View {
+        Image(systemName: systemName).dynamicTypeSize(...DynamicTypeSize.large)
+            .font(.system(size: size))
+            .foregroundStyle(color)
+            .frame(width: size)
+    }
+}
+
+/// 引き落とし状況用のアプリバッジ。同じくサイズを文字サイズに連動させる
+private struct ScaledMenuBadge: View {
+    @ScaledMetric(relativeTo: .body) private var size: CGFloat = 20
+
+    var body: some View {
+        AppIconBadge(size: size)
+            .frame(width: size)
     }
 }
 

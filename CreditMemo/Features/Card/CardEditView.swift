@@ -162,7 +162,8 @@ struct CardEditView: View {
                             Image(systemName: "plus.circle.fill")
                                 .resizable()
                                 .scaledToFit()
-                                .foregroundStyle(.blue)
+                                .foregroundStyle(Color.blue)
+                                .dynamicTypeSize(...DynamicTypeSize.large)
                         }
                         .frame(maxWidth: userLevel == .beginner ? .infinity : nil, alignment: .leading)
                         if userLevel != .beginner {
@@ -176,7 +177,7 @@ struct CardEditView: View {
                             fillsAvailableWidth: userLevel == .beginner,
                             action: { statusCard = card }
                         ) {
-                            AppIconBadge(size: 26)
+                            AppIconBadge(size: 20)
                         }
                         .frame(maxWidth: userLevel == .beginner ? .infinity : nil, alignment: .trailing)
                     }

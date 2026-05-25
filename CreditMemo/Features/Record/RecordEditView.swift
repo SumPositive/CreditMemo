@@ -202,7 +202,7 @@ struct RecordEditView: View {
             if option.value == 0 {
                 Text(LocalizedStringKey(option.label))
             } else {
-                Image(systemName: "repeat")
+                Image(systemName: "repeat").dynamicTypeSize(...DynamicTypeSize.large)
                     .foregroundStyle(Color.accentColor)
                 Text(LocalizedStringKey(option.label))
             }
@@ -310,6 +310,7 @@ struct RecordEditView: View {
                             Image(systemName: "chevron.down")
                                 .imageScale(.large)
                                 .symbolRenderingMode(.hierarchical)
+                                .dynamicTypeSize(...DynamicTypeSize.large)
                         }
                     }
                 }
@@ -536,7 +537,8 @@ struct RecordEditView: View {
                         Image(systemName: "plus.circle.fill")
                             .resizable()
                             .scaledToFit()
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(Color.blue)
+                            .dynamicTypeSize(...DynamicTypeSize.large)
                     }
                     Spacer(minLength: 0)
                 }
@@ -552,7 +554,7 @@ struct RecordEditView: View {
             Section {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 8) {
-                        Image(systemName: "lock.fill")
+                        Image(systemName: "lock.fill").dynamicTypeSize(...DynamicTypeSize.large)
                             .foregroundStyle(.orange)
                         Text(lockedDueDateBannerText(presetDueDate))
                             .font(.subheadline.weight(.semibold))
@@ -735,7 +737,7 @@ struct RecordEditView: View {
                                 .lineLimit(1)
                                 .truncationMode(.tail)
                                 .fixedSize(horizontal: true, vertical: false)
-                            Image(systemName: "chevron.right")
+                            Image(systemName: "chevron.right").dynamicTypeSize(...DynamicTypeSize.large)
                                 .font(.caption)
                                 .foregroundStyle(.tertiary)
                                 .fixedSize(horizontal: true, vertical: false)
@@ -758,7 +760,7 @@ struct RecordEditView: View {
                                     .multilineTextAlignment(.trailing)
                                     .lineLimit(nil)
                                     .fixedSize(horizontal: false, vertical: true)
-                                Image(systemName: "chevron.right")
+                                Image(systemName: "chevron.right").dynamicTypeSize(...DynamicTypeSize.large)
                                     .font(.caption)
                                     .foregroundStyle(.tertiary)
                                     .padding(.top, 2)
@@ -871,7 +873,7 @@ struct RecordEditView: View {
                 HStack {
                     Text(similarSectionHeaderText)
                     Spacer()
-                    Image(systemName: isSimilarExpanded ? "chevron.up" : "chevron.down")
+                    Image(systemName: isSimilarExpanded ? "chevron.up" : "chevron.down").dynamicTypeSize(...DynamicTypeSize.large)
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
@@ -1262,7 +1264,7 @@ struct RecordEditView: View {
                     .truncationMode(.tail)
                     .fixedSize(horizontal: true, vertical: false)
                 if showsChevron {
-                    Image(systemName: "chevron.right")
+                    Image(systemName: "chevron.right").dynamicTypeSize(...DynamicTypeSize.large)
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                         .fixedSize(horizontal: true, vertical: false)
@@ -1287,7 +1289,7 @@ struct RecordEditView: View {
                         .lineLimit(1)
                         .truncationMode(.tail)
                     if showsChevron {
-                        Image(systemName: "chevron.right")
+                        Image(systemName: "chevron.right").dynamicTypeSize(...DynamicTypeSize.large)
                             .font(.caption)
                             .foregroundStyle(.tertiary)
                     }
@@ -1505,7 +1507,7 @@ private struct PartDueDateRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: isPaid ? "arrow.up.circle.fill" : "arrow.down.circle.fill")
+            Image(systemName: isPaid ? "arrow.up.circle.fill" : "arrow.down.circle.fill").dynamicTypeSize(...DynamicTypeSize.large)
                 .font(.title3)
                 .foregroundStyle(statusColor)
                 .frame(width: 26)
@@ -1558,7 +1560,7 @@ private struct PickerSheet<T: Identifiable>: View where T.ID: Equatable {
                         HStack {
                             Text("label.noSelection").foregroundStyle(.secondary)
                             Spacer()
-                            if selected == nil { Image(systemName: "checkmark").foregroundStyle(.blue) }
+                            if selected == nil { Image(systemName: "checkmark").dynamicTypeSize(...DynamicTypeSize.large).foregroundStyle(.blue) }
                         }
                         .contentShape(Rectangle())
                     }
@@ -1571,7 +1573,7 @@ private struct PickerSheet<T: Identifiable>: View where T.ID: Equatable {
                             Text(label(item)).foregroundStyle(.primary)
                             Spacer()
                             if selected?.id == item.id {
-                                Image(systemName: "checkmark").foregroundStyle(.blue)
+                                Image(systemName: "checkmark").dynamicTypeSize(...DynamicTypeSize.large).foregroundStyle(.blue)
                             }
                         }
                         .contentShape(Rectangle())
@@ -1590,7 +1592,7 @@ private struct PickerSheet<T: Identifiable>: View where T.ID: Equatable {
                             itemIDsBeforeAdd = items.map(\.id)
                             showAdd = true
                         } label: {
-                            Image(systemName: "plus")
+                            Image(systemName: "plus").dynamicTypeSize(...DynamicTypeSize.large)
                         }
                     }
                 }
@@ -1649,7 +1651,7 @@ private struct CategoryMultiPickerSheet: View {
                             Text(item.zName).foregroundStyle(.primary)
                             Spacer()
                             if selectedCategories.contains(where: { $0.id == item.id }) {
-                                Image(systemName: "checkmark").foregroundStyle(.blue)
+                                Image(systemName: "checkmark").dynamicTypeSize(...DynamicTypeSize.large).foregroundStyle(.blue)
                             }
                         }
                         .contentShape(Rectangle())
@@ -1683,7 +1685,7 @@ private struct CategoryMultiPickerSheet: View {
                         itemIDsBeforeAdd = items.map(\.id)
                         showAdd = true
                     } label: {
-                        Image(systemName: "plus")
+                        Image(systemName: "plus").dynamicTypeSize(...DynamicTypeSize.large)
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
@@ -1746,7 +1748,7 @@ private struct CategoryMultiPickerSheet: View {
 private struct SavedBanner: View {
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+            Image(systemName: "checkmark.circle.fill").dynamicTypeSize(...DynamicTypeSize.large).foregroundStyle(.green)
             Text("alert.saved").font(.subheadline.weight(.medium))
         }
         .padding(.horizontal, 16).padding(.vertical, 10)

@@ -70,7 +70,7 @@ struct BankEditView: View {
                             showsChevron: true,
                             action: { statusBank = bank }
                         ) {
-                            AppIconBadge(size: 26)
+                            AppIconBadge(size: 20)
                         }
                     }
                     .listRowBackground(Color.clear)

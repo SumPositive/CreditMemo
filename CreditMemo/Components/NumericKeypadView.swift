@@ -106,7 +106,7 @@ struct NumericKeypadSheet: View {
                 ToolbarItem(placement: .cancellationAction) {
                     // 閉じるボタンは左端に固定する
                     Button { dismiss() } label: {
-                        Image(systemName: "chevron.down")
+                        Image(systemName: "chevron.down").dynamicTypeSize(...DynamicTypeSize.large)
                             .font(.title3)
                             .symbolRenderingMode(.hierarchical)
                     }
@@ -116,7 +116,7 @@ struct NumericKeypadSheet: View {
                     Button {
                         isNegative.toggle()
                     } label: {
-                        Image(systemName: "minus.forwardslash.plus")
+                        Image(systemName: "minus.forwardslash.plus").dynamicTypeSize(...DynamicTypeSize.large)
                             .font(.body.weight(.semibold))
                             .foregroundColor(isNegative ? .red : .accentColor)
                     }
@@ -251,7 +251,7 @@ private struct KeypadDeleteButton: View {
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: "delete.left")
+            Image(systemName: "delete.left").dynamicTypeSize(...DynamicTypeSize.large)
                 .font(font)
                 .frame(maxWidth: .infinity, minHeight: minHeight)
                 .background(Color(.tertiarySystemGroupedBackground))

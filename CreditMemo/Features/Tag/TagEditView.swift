@@ -63,9 +63,11 @@ struct TagEditView: View {
                             action: { historyTag = tag }
                         ) {
                             // 決済一覧アイコンはメインメニューと同じ形にする
-                            Image(systemName: "list.bullet")
-                                .font(.title3.weight(.semibold))
-                                .foregroundStyle(.indigo)
+                            Image(systemName: "list.bullet.circle.fill")
+                                .resizable()
+                                .scaledToFit()
+                                .foregroundStyle(Color.purple)
+                                .dynamicTypeSize(...DynamicTypeSize.large)
                         }
                     }
                     .listRowBackground(Color.clear)

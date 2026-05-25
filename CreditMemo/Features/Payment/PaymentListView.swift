@@ -210,10 +210,6 @@ struct PaymentListView: View {
             .presentationBackground(Color(uiColor: .systemBackground))
             .onDisappear {
                 filterMode = selectedBank == nil ? .all : .bank
-                if selectedBank != nil {
-                    // 口座で絞り込む時は、まず日付別で見せる。
-                    groupMode = .date
-                }
                 refreshDisplayItemsAndScroll()
             }
         }
@@ -231,17 +227,23 @@ struct PaymentListView: View {
             .presentationBackground(Color(uiColor: .systemBackground))
             .onDisappear {
                 filterMode = selectedCard == nil ? .all : .card
-                if selectedCard != nil {
-                    // 手段で絞り込む時は、まず日付別で見せる。
-                    groupMode = .date
-                }
                 refreshDisplayItemsAndScroll()
             }
         }
         .onChange(of: groupMode) { _, _ in
             refreshDisplayItemsAndScroll()
         }
-        .onChange(of: filterMode) { _, _ in
+        .onChange(of: filterMode) { _, newValue in
+            // フィルターに連動して上段の集計軸も切り替える
+            // 手段→手段、口座→口座、すべて→日付
+            switch newValue {
+            case .all:
+                if groupMode != .date { groupMode = .date }
+            case .card:
+                if groupMode != .card { groupMode = .card }
+            case .bank:
+                if groupMode != .bank { groupMode = .bank }
+            }
             refreshDisplayItemsAndScroll()
         }
         .onChange(of: paymentWindowDays) { _, _ in
@@ -699,7 +701,7 @@ private struct PaymentGroupRadioPicker: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.50)
             } icon: {
-                Image(systemName: mode.iconName)
+                Image(systemName: mode.iconName).dynamicTypeSize(...DynamicTypeSize.large)
             }
         }
         .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
@@ -751,7 +753,7 @@ private struct PaymentFilterStatusBar: View {
 
             if isFiltered {
                 Button(action: onClear) {
-                    Image(systemName: "xmark.circle.fill")
+                    Image(systemName: "xmark.circle.fill").dynamicTypeSize(...DynamicTypeSize.large)
                         .font(.title3)
                         .foregroundStyle(.secondary)
                         .frame(width: 34, height: 34)
@@ -765,7 +767,7 @@ private struct PaymentFilterStatusBar: View {
 
     private func filterLabel(_ mode: PaymentFilterMode) -> some View {
         HStack(spacing: 8) {
-            Image(systemName: mode.iconName)
+            Image(systemName: mode.iconName).dynamicTypeSize(...DynamicTypeSize.large)
                 .imageScale(.medium)
             if mode == filterMode {
                 Text(title)
@@ -826,7 +828,7 @@ private struct PaymentFilterPickerSheet<T: Identifiable>: View where T.ID: Equat
                 .foregroundStyle(.primary)
             Spacer()
             if isSelected {
-                Image(systemName: "checkmark")
+                Image(systemName: "checkmark").dynamicTypeSize(...DynamicTypeSize.large)
                     .foregroundStyle(.blue)
             }
         }
@@ -914,7 +916,7 @@ private struct PaymentStatusPill: View {
 
     var body: some View {
         // セル内の先頭は大きい矢印アイコンのみで状態を示す
-        Image(systemName: isPaid ? "arrow.up.circle.fill" : "arrow.down.circle.fill")
+        Image(systemName: isPaid ? "arrow.up.circle.fill" : "arrow.down.circle.fill").dynamicTypeSize(...DynamicTypeSize.large)
             .font(.title2.weight(.bold))
             .foregroundStyle(isPaid ? COLOR_PAID : COLOR_UNPAID)
             .frame(minWidth: 34, minHeight: 34)

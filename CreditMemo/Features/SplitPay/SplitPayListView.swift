@@ -141,7 +141,7 @@ private struct PartToggleRow: View {
     var body: some View {
         Button(action: onToggle) {
             HStack(spacing: 14) {
-                Image(systemName: isChecked ? "checkmark.circle.fill" : "circle")
+                Image(systemName: isChecked ? "checkmark.circle.fill" : "circle").dynamicTypeSize(...DynamicTypeSize.large)
                     .foregroundStyle(isChecked ? Color(.systemGreen) : Color(.systemGray3))
                     .imageScale(.large)
                     .frame(width: 28)

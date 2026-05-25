@@ -29,20 +29,20 @@ struct EditShortcutCapsuleButton<Icon: View>: View {
         Button(action: action) {
             HStack(spacing: 8) {
                 icon()
-                    .frame(width: 26, height: 26)
-                    .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                    .frame(width: 20, height: 20)
+                    .dynamicTypeSize(...DynamicTypeSize.large)
                 if showsTitle {
                     Text(title)
                         .foregroundStyle(.primary)
                         .lineLimit(1)
                         .allowsTightening(true)
                         .minimumScaleFactor(0.55)
-                        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                        .dynamicTypeSize(...DynamicTypeSize.large)
                     if showsChevron {
-                        Image(systemName: "chevron.right")
+                        Image(systemName: "chevron.right").dynamicTypeSize(...DynamicTypeSize.large)
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.tertiary)
-                            .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                            .dynamicTypeSize(...DynamicTypeSize.large)
                     }
                 }
             }
