@@ -295,7 +295,12 @@ struct RecordEditView: View {
             ToolbarItem(placement: .navigationBarLeading) {
                 switch mode {
                 case .addNew:
-                    if hasChanges {
+                    // メインメニューからの push 表示は戻る矢印で閉じられるのでキャンセル不要
+                    // シート表示は戻るが無いので常時キャンセルを出す
+                    if !isFromMainMenu {
+                        Button("button.cancel") { dismiss() }
+                    } else if hasChanges {
+                        // メインメニュー経由でも変更後は戻る矢印が隠れるため、その時だけキャンセル
                         Button("button.cancel") { dismiss() }
                     }
                 case .addCopy:
