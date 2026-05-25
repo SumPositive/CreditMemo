@@ -1314,7 +1314,11 @@ struct RecordEditView: View {
     /// 選択した決済の未入力項目を現在のフォームへ補塡する
     private func applySimilarRecord(_ record: E3record) {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        // 金額と日付は常に維持し、未入力の項目だけ候補から補う
+        // 金額が未入力（0）なら、候補の金額もコピーする
+        if nAmount == 0 {
+            nAmount = record.nAmount
+        }
+        // 日付は常に維持し、未入力の項目だけ候補から補う
         if zName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             zName = record.zName
         }
