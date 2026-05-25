@@ -24,6 +24,7 @@
 		2FEDE3564704BC980B8C9B9C /* RecordService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A1B2E2DD399FBFF391B2C5 /* RecordService.swift */; };
 		38369112251625BA00E7A110 /* CardService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38369111251625BA00E7A110 /* CardService.swift */; };
 		38369114251626D100E7A110 /* BankService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38369113251626D100E7A110 /* BankService.swift */; };
+		3E1A55B3CA0F4B0D8D3C9F11 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 3E1A55B3CA0F4B0D8D3C9F10 /* PrivacyInfo.xcprivacy */; };
 		4531D860CDB0FDF2415DD421 /* View+ScalableTitle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F95EF3EE0B184C7D267B8C7 /* View+ScalableTitle.swift */; };
 		490F8CBDAB27E8464CFC9A8C /* SplitPayListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F97721A91036068831138735 /* SplitPayListView.swift */; };
 		4DDA8A04C30B6B86A07A2D68 /* E8bank.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BB8D0C0693934C17D3BFD21 /* E8bank.swift */; };
@@ -41,7 +42,6 @@
 		96CCBCA225154F1A89A67910 /* JSONImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96CCBCA125154F1A89A67910 /* JSONImport.swift */; };
 		97904E45ADF1EC29C7E38838 /* E5tag.swift in Sources */ = {isa = PBXBuildFile; fileRef = 483AE700971FC77C80FC3F80 /* E5tag.swift */; };
 		9A3B7A6325157E0900A17A10 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 9A3B7A6225157E0900A17A10 /* InfoPlist.strings */; };
-		3E1A55B3CA0F4B0D8D3C9F11 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 3E1A55B3CA0F4B0D8D3C9F10 /* PrivacyInfo.xcprivacy */; };
 		A0404AAC7B624DF4CFF89D0F /* CardEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DEDEA1DAEEECF14059168DE /* CardEditView.swift */; };
 		A44EB7108F1EDB045B7358CE /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC4455D455525FC6393BF598 /* AppSettings.swift */; };
 		A8E87A041745100730C43504 /* E6part.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACAC65A5428E245996B921E5 /* E6part.swift */; };
@@ -95,6 +95,7 @@
 		38369113251626D100E7A110 /* BankService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BankService.swift; sourceTree = "<group>"; };
 		3BB8D0C0693934C17D3BFD21 /* E8bank.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = E8bank.swift; sourceTree = "<group>"; };
 		3DEDEA1DAEEECF14059168DE /* CardEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardEditView.swift; sourceTree = "<group>"; };
+		3E1A55B3CA0F4B0D8D3C9F10 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		461FBECA42994F0A6C9BEA37 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		47A08768F8CA4739B5477E49 /* CardInvoiceListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardInvoiceListView.swift; sourceTree = "<group>"; };
 		483AE700971FC77C80FC3F80 /* E5tag.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = E5tag.swift; sourceTree = "<group>"; };
@@ -134,7 +135,6 @@
 		F79355C01D775C52E0C34B50 /* DatabaseErrorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseErrorView.swift; sourceTree = "<group>"; };
 		F97721A91036068831138735 /* SplitPayListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplitPayListView.swift; sourceTree = "<group>"; };
 		FA5C86233C4FE3247A2D008B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		3E1A55B3CA0F4B0D8D3C9F10 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		FDB4F7EAA70EE49D23DA0441 /* NumericKeypadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumericKeypadView.swift; sourceTree = "<group>"; };
 		FFE96F1625157DEB00A17A10 /* ja */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ja; path = ja.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -807,7 +807,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 2.1.3;
+				MARKETING_VERSION = 2.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.azukid.AzCreditS1;
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
@@ -831,7 +831,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 2.1.3;
+				MARKETING_VERSION = 2.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.azukid.AzCreditS1;
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
