@@ -570,6 +570,14 @@ private enum PaymentGroupMode: String, CaseIterable, Identifiable {
         case .card: "payment.group.card"
         }
     }
+
+    var iconName: String {
+        switch self {
+        case .date: "calendar"
+        case .card: "creditcard"
+        case .bank: "building.columns"
+        }
+    }
 }
 
 private enum PaymentFilterMode: String, CaseIterable, Identifiable {
@@ -667,9 +675,13 @@ private struct PaymentGroupRadioPicker: View {
             wrapsOptions: false,
             fillsWidth: true
         ) { mode in
-            Text(mode.localizedKey)
-                .lineLimit(1)
-                .minimumScaleFactor(0.50)
+            Label {
+                Text(mode.localizedKey)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.50)
+            } icon: {
+                Image(systemName: mode.iconName)
+            }
         }
         .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
         .frame(maxWidth: .infinity)
