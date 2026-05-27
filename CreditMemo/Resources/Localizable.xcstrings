@@ -1688,6 +1688,57 @@
         }
       }
     },
+    "invoice.bulkChangeDate.button" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change all"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "まとめて変更"
+          }
+        }
+      }
+    },
+    "invoice.bulkChangeDate.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change all"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "まとめて変更"
+          }
+        }
+      }
+    },
+    "invoice.bulkChangeDate.message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change the due date (payment date) for all listed items at once. Locked items are not changed. Please pick a due date."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "引き落とし日（支払日）をまとめて変更します。ロックした明細は変更しません。引き落とし日を選択してください"
+          }
+        }
+      }
+    },
     "invoice.statement.debitSuffix" : {
       "extractionState" : "manual",
       "localizations" : {

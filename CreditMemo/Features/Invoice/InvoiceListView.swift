@@ -49,6 +49,10 @@ struct InvoiceListView: View {
     /// 明細追加・編集を保存したとき、画面を「開き直す」ためのトリガー。
     /// 値を変えると `.id()` 経由でフォーム本体が破棄→再構築され、最新の SwiftData 状態が読み直される。
     @State private var reloadKey = UUID()
+    /// 「まとめて変更」シートで対象とする決済手段セクションの ID
+    @State private var bulkChangeCardID: String?
+    /// 「まとめて変更」シートで選択中の日付
+    @State private var bulkChangeDraftDate: Date = Date()
 
     init(payment: E7payment) {
         self.payment = payment
@@ -98,6 +102,32 @@ struct InvoiceListView: View {
             .foregroundStyle(.blue)
             .font(.caption.weight(.semibold))
             .frame(width: 16, alignment: .center)
+    }
+
+    // MARK: Bulk Change Due Date
+
+    /// セクション内で「まとめて変更」可能な明細（未払 + 解錠）だけを抽出する
+    private func bulkChangeMovableParts(in section: InvoiceCardSection) -> [E6part] {
+        section.parts.filter { part in
+            let isPaid = part.e2invoice?.isPaid ?? false
+            return !isPaid && !part.isChecked
+        }
+    }
+
+    /// 「まとめて変更」を確定し、対象明細すべての引き落とし日を更新する
+    private func applyBulkChangeDueDate() {
+        guard let cardID = bulkChangeCardID,
+              let section = cardSections.first(where: { $0.id == cardID }) else {
+            bulkChangeCardID = nil
+            return
+        }
+        let targets = bulkChangeMovableParts(in: section)
+        for part in targets {
+            try? RecordService.setPartDueDate(part, date: bulkChangeDraftDate, context: context)
+        }
+        bulkChangeCardID = nil
+        // 反映のため画面を再構築する
+        reloadKey = UUID()
     }
 
     // MARK: Check Toggle
@@ -282,7 +312,19 @@ struct InvoiceListView: View {
 
                     // 明細が複数行のときのみ小計を表示する
                     if 1 < section.parts.count {
-                        HStack {
+                        HStack(spacing: 8) {
+                            // 変更可能（未払 + 解錠）な明細が 2 件以上ある時だけ「まとめて変更」を出す
+                            if bulkChangeMovableParts(in: section).count > 1 {
+                                Button {
+                                    bulkChangeDraftDate = displayDate
+                                    bulkChangeCardID = section.id
+                                } label: {
+                                    Text("invoice.bulkChangeDate.button")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(Color.blue)
+                                }
+                                .buttonStyle(.plain)
+                            }
                             Spacer()
                             Text(section.sumAmount.currencyString())
                                 .font(.subheadline.monospacedDigit().bold())
@@ -317,6 +359,44 @@ struct InvoiceListView: View {
             // シートにもアプリ内文字サイズ設定を明示適用する
             .appFontScale(fontScale)
             // 編集シートの背面を透かさない
+            .presentationBackground(Color(uiColor: .systemBackground))
+        }
+        // 「まとめて変更」シート：その決済手段の未払・解錠の明細だけ引き落とし日を一括変更
+        .sheet(item: Binding(
+            get: { bulkChangeCardID.map { BulkChangeID(id: $0) } },
+            set: { bulkChangeCardID = $0?.id }
+        )) { _ in
+            NavigationStack {
+                Form {
+                    Section {
+                        Text("invoice.bulkChangeDate.message")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Section {
+                        DatePicker(
+                            "record.field.date",
+                            selection: $bulkChangeDraftDate,
+                            in: APP_MIN_DATE...APP_MAX_DATE,
+                            displayedComponents: [.date]
+                        )
+                        .datePickerStyle(.graphical)
+                    }
+                }
+                .navigationTitle("invoice.bulkChangeDate.title")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button("button.cancel") { bulkChangeCardID = nil }
+                    }
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("button.save") { applyBulkChangeDueDate() }
+                            .fontWeight(.semibold)
+                    }
+                }
+            }
+            .appFontScale(fontScale)
             .presentationBackground(Color(uiColor: .systemBackground))
         }
         // 右スワイプ「新しい決済」のコピー元から、日付以外を引き継いだ新規追加シートを開く。
@@ -362,6 +442,11 @@ struct InvoiceListView: View {
             .presentationBackground(Color(uiColor: .systemBackground))
         }
     }
+}
+
+/// 「まとめて変更」シート(sheet(item:)) 用の Identifiable ラッパー
+private struct BulkChangeID: Identifiable, Hashable {
+    let id: String
 }
 
 private struct InvoiceCardSection: Identifiable {
