@@ -7,8 +7,24 @@
 
 ![Platform](https://img.shields.io/badge/platform-iOS%2018%2B-blue)
 ![Swift](https://img.shields.io/badge/Swift-6-orange)
-![Version](https://img.shields.io/badge/version-2.1.0-brightgreen)
+![Version](https://img.shields.io/badge/version-2.2.0-brightgreen)
 [![App Store](https://img.shields.io/badge/App%20Store-Download-blue)](https://apps.apple.com/us/app/id432458298)
+
+## バージョン 2.2.0 の主な変更
+
+- **金額未定時のテンキー自動表示を ON/OFF**
+  - 設定の `新しい決済で自動的にテンキーを開く` で切り替えできます（デフォルト ON）
+  - OFF の場合、テンキーを閉じても新しい決済画面は閉じません
+- **新しい決済をコピーして作る経路を拡充**（旧アプリ相当の導線を復活）
+  - 決済一覧の **金額が一致** する明細をコピー
+  - 決済一覧の **最近編集した** 明細をコピー
+  - 決済手段一覧にある明細をコピー
+  - 引き落とし明細の **引き落とし日 + 決済手段** をコピー
+- その他、改善・不具合修正
+  - メインメニュー直下の各画面タイトルにアイコンを表示
+  - アイコンサイズを文字サイズに連動（上限は「大」）
+  - 引き落とし状況のグループ軸切替時の表示不具合を修正
+  - 締日/支払日型カードからの新規決済で利用日が当日に揃うよう修正
 
 ## バージョン 2.1.0 の主な変更
 
