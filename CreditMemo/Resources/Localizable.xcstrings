@@ -3170,6 +3170,40 @@
         }
       }
     },
+    "record.dueDate.prev" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prev cycle"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "前の支払日へ"
+          }
+        }
+      }
+    },
+    "record.dueDate.next" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next cycle"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "次の支払日へ"
+          }
+        }
+      }
+    },
     "record.dueDate.help" : {
       "extractionState" : "manual",
       "localizations" : {

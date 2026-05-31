@@ -120,13 +120,13 @@ enum BillingService {
 
     // MARK: - Japanese Holiday Shift
 
-    /// 日本ロケール・締日/支払日型のみ、設定 ON 時に土日祝なら翌営業日へ繰り下げる。
+    /// 締日/支払日型のみ、設定 ON 時に土日祝なら翌営業日へ繰り下げる。
     /// N日後型は適用外（カード会社の運用が多様なので触らない）。
+    /// 設定 UI は日本ロケールでのみ表示されるが、判定自体は設定値に従い、
+    /// ロケール文字列に依存しない（シミュレーター差異で取りこぼさないため）。
     private static func applyJapaneseHolidayShiftIfNeeded(_ date: Date, card: E1card) -> Date {
         // N日後型は対象外
         guard card.nClosingDay != 0 else { return date }
-        // 日本ロケールのみ
-        guard Locale.current.language.languageCode?.identifier == "ja" else { return date }
         // 設定キーはデフォルト ON。未設定なら true として扱う
         let key = AppStorageKey.shiftDueDateOffHoliday
         let on  = (UserDefaults.standard.object(forKey: key) as? Bool) ?? true

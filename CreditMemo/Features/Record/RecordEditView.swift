@@ -95,6 +95,9 @@ struct RecordEditView: View {
     @State private var initialDraft: DraftState?
     // 保存ボタンを押すまで、E6part.nPartNo ごとの引き落とし日変更を保持する
     @State private var partDueDateOverridesByPartNo: [Int16: Date] = [:]
+    /// 前/次の支払日ボタンで支払月をいくつシフトしたかを E6part.nPartNo 単位で保持する。
+    /// 0 のときは override を持たず、保存時の元の引き落とし日（invoice.date）に戻る
+    @State private var partDueDateCycleShiftByPartNo: [Int16: Int] = [:]
     @State private var keepBankPickerRowVisible = false
     // 過去データ由来の候補をキャッシュして、毎描画の再計算を避ける
     @State private var cachedUsePointCandidates: [String] = []
@@ -370,7 +373,12 @@ struct RecordEditView: View {
             selectedBankForCard = selectedCard?.e8bank
             // 口座未設定で表示開始した行は、この編集セッション中は保持する
             keepBankPickerRowVisible = selectedCard != nil && selectedBankForCard == nil
-            // 引き落とし日は未ロック時に computedDueDate が自動追従する
+            // 編集時、未ロックの明細は決済手段変更に応じて引き落とし日を再計算
+            recomputeEditablePartsDueDates()
+        }
+        .onChange(of: dateUse) { _, _ in
+            // 編集時、未ロックの明細は利用日変更に応じて引き落とし日を再計算
+            recomputeEditablePartsDueDates()
         }
         .onChange(of: pastRecords.map(\.id)) { _, _ in
             // レコード集合が変わったときだけ再計算する
@@ -920,7 +928,8 @@ struct RecordEditView: View {
         }
     }
 
-    /// 明細行用「日付＋ロック」行。ViewBuilder 内の多文評価で型推論が崩れないよう関数に分離する
+    /// 明細行用「日付＋ロック」行（＋未ロック時の前/次の支払日ボタン）。
+    /// ViewBuilder 内の多文評価で型推論が崩れないよう関数に分離する
     @ViewBuilder
     private func partDueDateLockRow(for part: E6part) -> some View {
         let isPaid = part.e2invoice?.isPaid ?? false
@@ -928,14 +937,85 @@ struct RecordEditView: View {
         let date = partDueDateOverridesByPartNo[part.nPartNo]
             ?? part.e2invoice?.date
             ?? Date()
-        dueDateLockRow(
-            date: date,
-            // 済み・ロック中は固定。ロック＝旧確認チェック(isChecked)
-            isLocked: !canEdit,
-            onTapDate: canEdit ? { openPartDueDatePicker(part) } : nil,
-            // 済みはロック操作不可。未払はロック(isChecked)を切り替えられる
-            onToggleLock: isPaid ? nil : { togglePartLock(part) }
+        VStack(alignment: .leading, spacing: 8) {
+            dueDateLockRow(
+                date: date,
+                // 済み・ロック中は固定。ロック＝旧確認チェック(isChecked)
+                isLocked: !canEdit,
+                onTapDate: canEdit ? { openPartDueDatePicker(part) } : nil,
+                // 済みはロック操作不可。未払はロック(isChecked)を切り替えられる
+                onToggleLock: isPaid ? nil : { togglePartLock(part) }
+            )
+            // 未ロックの時だけ、月単位で前/次の支払日へずらせるショートカット
+            if canEdit {
+                HStack {
+                    Button {
+                        shiftPartDueDateByMonth(part, months: -1, currentDate: date)
+                    } label: {
+                        Label("record.dueDate.prev", systemImage: "chevron.left")
+                            .labelStyle(.titleAndIcon)
+                            .font(.caption)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    Spacer(minLength: 8)
+                    Button {
+                        shiftPartDueDateByMonth(part, months: 1, currentDate: date)
+                    } label: {
+                        Label("record.dueDate.next", systemImage: "chevron.right")
+                            .labelStyle(.titleAndIcon)
+                            .font(.caption)
+                            // chevron.right を末尾に出す
+                            .environment(\.layoutDirection, .rightToLeft)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+            }
+        }
+    }
+
+    /// 編集モードで、未ロックの明細の引き落とし日を BillingService で再計算する。
+    /// 新しい決済時の自動追従と同じ挙動を、編集時にも提供する
+    private func recomputeEditablePartsDueDates() {
+        guard case .edit = mode else { return }
+        guard hasInitialized else { return }    // loadFields 中の初期化での誤発火を防ぐ
+        guard let card = selectedCard else { return }
+        for part in editableParts {
+            guard canEditPartDueDate(part) else { continue }
+            let computed = BillingService.billingDate(
+                useDate: dateUse,
+                card: card,
+                partOffset: Int(part.nPartNo) - 1
+            )
+            partDueDateOverridesByPartNo[part.nPartNo] = computed
+            // 利用日・決済手段の変化で基準が変わるため、前/次の累積シフトはリセット
+            partDueDateCycleShiftByPartNo.removeValue(forKey: part.nPartNo)
+        }
+    }
+
+    /// 指定明細の引き落とし日を「支払月をシフト」して再計算する。
+    /// 「前」= 支払月をデクリメント、「次」= 支払月をインクリメントして `BillingService` で計算し直す。
+    /// 土日祝シフトも `BillingService` 内で適用される。
+    /// シフトが 0 に戻ったら override を解除し、元の invoice.date を表示する
+    private func shiftPartDueDateByMonth(_ part: E6part, months: Int, currentDate: Date) {
+        let card = selectedCard ?? part.e3record?.e1card
+        guard let useDate = part.e3record?.dateUse, let card else { return }
+        let naturalOffset = Int(part.nPartNo) - 1
+        let newShift = (partDueDateCycleShiftByPartNo[part.nPartNo] ?? 0) + months
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        if newShift == 0 {
+            partDueDateCycleShiftByPartNo.removeValue(forKey: part.nPartNo)
+            partDueDateOverridesByPartNo.removeValue(forKey: part.nPartNo)
+            return
+        }
+        let computed = BillingService.billingDate(
+            useDate: useDate,
+            card: card,
+            partOffset: naturalOffset + newShift
         )
+        partDueDateCycleShiftByPartNo[part.nPartNo] = newShift
+        partDueDateOverridesByPartNo[part.nPartNo] = computed
     }
 
     /// 明細のロック（旧確認チェック isChecked）を切り替え、関連集計を更新する
@@ -1219,6 +1299,8 @@ struct RecordEditView: View {
             // 保存ボタンを押すまで、明細番号ごとの変更予定日として保持する
             partDueDateOverridesByPartNo[part.nPartNo] = selectedDate
         }
+        // 手動カレンダー選択はサイクル単位ではないため、前/次ボタンの累積はリセット
+        partDueDateCycleShiftByPartNo.removeValue(forKey: part.nPartNo)
         showPartDatePicker = false
     }
 
