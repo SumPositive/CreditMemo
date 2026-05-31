@@ -9,22 +9,25 @@ enum BillingService {
 
     /// 利用日とカード設定から n 番目の支払日を返す（partOffset=0 が 1 回目）
     static func billingDate(useDate: Date, card: E1card, partOffset: Int = 0) -> Date {
+        let raw: Date
         // nClosingDay=0 は N日後型として扱う
         if card.nClosingDay == 0 {
-            return billingDateAfterDays(
+            raw = billingDateAfterDays(
                 useDate: useDate,
                 // N日後型は nPayDay をそのまま日数として使う
                 daysLater: Int(card.nPayDay),
                 partOffset: partOffset
             )
+        } else {
+            raw = billingDate(
+                useDate: useDate,
+                closingDay: card.nClosingDay,
+                payDay: card.nPayDay,
+                payMonth: card.nPayMonth,
+                partOffset: partOffset
+            )
         }
-        return billingDate(
-            useDate: useDate,
-            closingDay: card.nClosingDay,
-            payDay: card.nPayDay,
-            payMonth: card.nPayMonth,
-            partOffset: partOffset
-        )
+        return applyJapaneseHolidayShiftIfNeeded(raw, card: card)
     }
 
     /// 決済手段未選択を含めた支払日を返す（未選択時は仮スケジュール）
@@ -113,6 +116,22 @@ enum BillingService {
         case .lumpSum:     return 1
         case .twoPayments: return 2
         }
+    }
+
+    // MARK: - Japanese Holiday Shift
+
+    /// 日本ロケール・締日/支払日型のみ、設定 ON 時に土日祝なら翌営業日へ繰り下げる。
+    /// N日後型は適用外（カード会社の運用が多様なので触らない）。
+    private static func applyJapaneseHolidayShiftIfNeeded(_ date: Date, card: E1card) -> Date {
+        // N日後型は対象外
+        guard card.nClosingDay != 0 else { return date }
+        // 日本ロケールのみ
+        guard Locale.current.language.languageCode?.identifier == "ja" else { return date }
+        // 設定キーはデフォルト ON。未設定なら true として扱う
+        let key = AppStorageKey.shiftDueDateOffHoliday
+        let on  = (UserDefaults.standard.object(forKey: key) as? Bool) ?? true
+        guard on else { return date }
+        return JapaneseHoliday.nextBusinessDay(from: date)
     }
 
     // MARK: - Private

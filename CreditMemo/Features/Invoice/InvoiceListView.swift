@@ -349,12 +349,17 @@ struct InvoiceListView: View {
         .scalableNavigationTitle("invoice.statement.title")
         .sheet(item: $editRecord) { record in
             NavigationStack {
-                RecordEditView(mode: .edit(record)) { bankChanged in
-                    // 口座変更時だけ payment 所属が変わり得るため状況一覧へ戻す
-                    if bankChanged {
-                        dismiss()
-                    }
-                }
+                RecordEditView(
+                    mode: .edit(record),
+                    onSaved: { bankChanged in
+                        // 口座変更時だけ payment 所属が変わり得るため状況一覧へ戻す
+                        if bankChanged {
+                            dismiss()
+                        }
+                    },
+                    // 引き落とし明細セルから入った編集画面の（＋）だけ、表示中の引き落とし日に固定する
+                    shortcutCopyPresetDueDate: displayDate
+                )
             }
             // シートにもアプリ内文字サイズ設定を明示適用する
             .appFontScale(fontScale)
@@ -406,6 +411,8 @@ struct InvoiceListView: View {
                 RecordEditView(
                     mode: .addCopy(source),
                     onSaved: { _ in reloadKey = UUID() },
+                    // 明細からのコピー新規は、表示中の引き落とし日に固定する
+                    presetDueDate: displayDate,
                     presetIsPaid: displayIsPaid
                 )
             }

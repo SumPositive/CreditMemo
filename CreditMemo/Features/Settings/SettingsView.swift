@@ -17,6 +17,7 @@ struct SettingsView: View {
     @AppStorage(AppStorageKey.afterSaveAction)   private var afterSaveAction: AfterSaveAction = .goBack
     @AppStorage(AppStorageKey.openAddOnActive)   private var openAddOnActive = false
     @AppStorage(AppStorageKey.autoOpenAmountPad) private var autoOpenAmountPad = true
+    @AppStorage(AppStorageKey.shiftDueDateOffHoliday) private var shiftDueDateOffHoliday = true
     @AppStorage(AppStorageKey.paymentWindowDays) private var paymentWindowDays = 15
     @AppStorage(AppStorageKey.exportFormat)        private var exportFormatRaw = JSONExport.OutputStyle.compact.rawValue
     @AppStorage(AppStorageKey.showCurrencySymbol)  private var showCurrencySymbol = true
@@ -137,6 +138,19 @@ struct SettingsView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+
+                // 日本ロケール限定の挙動。他ロケールでは設定 UI 自体を出さない
+                if Locale.current.language.languageCode?.identifier == "ja" {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Toggle("settings.shiftDueDateOffHoliday", isOn: $shiftDueDateOffHoliday)
+                        if userLevel == .beginner {
+                            Text("settings.help.shiftDueDateOffHoliday")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                     }
                 }
 

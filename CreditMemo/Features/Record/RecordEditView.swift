@@ -34,10 +34,11 @@ struct RecordEditView: View {
     /// `.addNew` のとき、開いた時点で初期選択しておきたい決済手段
     /// 決済手段一覧の右スワイプ「新しい決済」から開く場合などに使う
     var presetCard: E1card? = nil
-    /// `.addNew` / `.addCopy` のとき、引き落とし日を強制指定する
-    /// - 締日/支払日型カード：保存時に override 機構で強制
-    /// - N日後型カード：加えて利用日を引き落とし日から逆算する
+    /// `.addNew` / `.addCopy` のとき、引き落とし日を初期指定する。
+    /// 指定された場合は引き落とし日ロック状態で開き、保存時に override 機構で固定する
     var presetDueDate: Date? = nil
+    /// 編集画面上部のコピー新規だけに使う引き落とし日固定指定
+    var shortcutCopyPresetDueDate: Date? = nil
     /// 済み側の引き落とし明細から追加する場合、保存直後に済みへ移す
     var presetIsPaid = false
     /// メインメニューの「新しい決済」から開いた場合のみ true。決済一覧からコピーセクションの表示に使う
@@ -69,6 +70,15 @@ struct RecordEditView: View {
     @State private var showAmountPad      = false
     @State private var showDatePicker     = false
     @State private var draftDateUse       = Date()
+    /// 新規入力時の引き落とし日（支払日）をロックしているか。
+    /// ロック中は利用日・決済手段を変えても引き落とし日を固定したままにする
+    @State private var dueDateLocked      = false
+    /// ロック中に固定する引き落とし日
+    @State private var lockedDueDate      = Date()
+    /// 新規入力時、引き落とし日を手動選択するカレンダーの表示制御
+    @State private var showDueDatePicker  = false
+    /// 引き落とし日カレンダーの選択中の値
+    @State private var draftDueDate        = Date()
     @State private var showPartDatePicker = false
     @State private var editingPart: E6part?
     @State private var draftPartDueDate   = Date()
@@ -237,13 +247,14 @@ struct RecordEditView: View {
         ScrollViewReader { proxy in
             Form {
                 addRecordShortcutSection
-                lockedDueDateBanner
                 beginnerSection
                 requiredSection
                 if showsSimilarSection {
                     similarSection
                 }
                 optionalSection
+                // 引き落とし日（支払日）はメモの下に置く（新規・編集で共通）
+                dueDateSection
                 partPaymentSection
                 deleteSection
             }
@@ -359,12 +370,7 @@ struct RecordEditView: View {
             selectedBankForCard = selectedCard?.e8bank
             // 口座未設定で表示開始した行は、この編集セッション中は保持する
             keepBankPickerRowVisible = selectedCard != nil && selectedBankForCard == nil
-            // 引き落とし日が固定指定されている場合、N日後型だけ利用日を再計算する
-            // 締日/支払日型は利用日を当日のまま据え置く
-            if let presetDueDate, let card = selectedCard, card.nClosingDay == 0 {
-                dateUse = dateUse(forDueDate: presetDueDate, card: card)
-                draftDateUse = dateUse
-            }
+            // 引き落とし日は未ロック時に computedDueDate が自動追従する
         }
         .onChange(of: pastRecords.map(\.id)) { _, _ in
             // レコード集合が変わったときだけ再計算する
@@ -459,6 +465,40 @@ struct RecordEditView: View {
             .presentationDetents([.height(ceil(50 + datePickerCalendarHeight + 44))])
             .presentationDragIndicator(.visible)
         }
+        .sheet(isPresented: $showDueDatePicker) {
+            NavigationStack {
+                ScrollView {
+                    SingleDateCalendarView(
+                        selectedDate: $draftDueDate,
+                        availableRange: APP_MIN_DATE...APP_MAX_DATE
+                    ) { selectedDate in
+                        // 新規入力で手動選択した引き落とし日は、その日で固定（ロック）する
+                        lockedDueDate = Calendar.current.startOfDay(for: selectedDate)
+                        dueDateLocked = true
+                        showDueDatePicker = false
+                    }
+                    .frame(maxWidth: .infinity)
+                    .background(
+                        GeometryReader { geo in
+                            Color.clear.preference(
+                                key: CalendarHeightPreferenceKey.self,
+                                value: geo.size.height
+                            )
+                        }
+                    )
+                }
+                .padding(.horizontal, 16)
+                .onPreferenceChange(CalendarHeightPreferenceKey.self) { h in
+                    if 10 < h { datePickerCalendarHeight = h }
+                }
+                .navigationTitle("record.dueDate.section")
+                .navigationBarTitleDisplayMode(.inline)
+            }
+            .modifier(ConditionalDynamicTypeModifier(fontScale: fontScale))
+            .presentationBackground(Color(uiColor: .systemBackground))
+            .presentationDetents([.height(ceil(50 + datePickerCalendarHeight + 44))])
+            .presentationDragIndicator(.visible)
+        }
         .sheet(isPresented: $showCardPicker, onDismiss: {
             // カード選択/編集後、口座が変わっている可能性があるため最新値を取得する
             selectedBankForCard = selectedCard?.e8bank
@@ -505,7 +545,9 @@ struct RecordEditView: View {
                         onShortcutCopySaved?()
                         dismiss()
                     },
-                    forceDismissOnNewSave: true
+                    forceDismissOnNewSave: true,
+                    // 明細編集からのコピー新規は、元の明細日を引き落とし日に固定する
+                    presetDueDate: shortcutCopyPresetDueDate
                 )
             }
             // コピー新規シートにもアプリ内文字サイズ設定を明示適用する
@@ -561,52 +603,96 @@ struct RecordEditView: View {
         }
     }
 
-    /// 引き落とし日が固定指定されている場合に最上段へ出す案内バナー
-    @ViewBuilder private var lockedDueDateBanner: some View {
-        if let presetDueDate {
+    /// 新規入力時に表示する引き落とし日（支払日）。
+    /// - ロック中: 固定値
+    /// - 未ロック + 決済手段選択済み: 利用日＋決済手段から自動計算
+    /// - 未ロック + 決済手段未選択: 仮スケジュールを使わず利用日と同値にする
+    private var computedDueDate: Date {
+        if dueDateLocked {
+            return lockedDueDate
+        }
+        guard let card = selectedCard else {
+            return dateUse
+        }
+        return BillingService.billingDate(useDate: dateUse, card: card)
+    }
+
+    /// 引き落とし日のロックを切り替える。ロックする時は現在の計算値を固定する
+    private func toggleDueDateLock() {
+        if dueDateLocked {
+            dueDateLocked = false
+        } else {
+            lockedDueDate = computedDueDate
+            dueDateLocked = true
+        }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    /// 新規入力時の引き落とし日（支払日）セクション。
+    /// 利用日・決済手段から自動計算し、ロック解除中は日付タップで手動指定、鍵で固定できる
+    @ViewBuilder private var dueDateSection: some View {
+        if isNew {
             Section {
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "lock.fill").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
-                            .foregroundStyle(.orange)
-                        Text(lockedDueDateBannerText(presetDueDate))
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.primary)
-                            .lineLimit(2)
-                            .minimumScaleFactor(0.7)
-                        Spacer(minLength: 0)
-                    }
-                    if selectedCard == nil {
-                        // 固定モードでは決済手段必須。未選択だと保存できない旨を伝える
-                        Text(cardRequiredHintText)
+                // 日付・ヘルプ・必須案内を 1 つの行にまとめて、行間の区切り線が出ないようにする
+                VStack(alignment: .leading, spacing: 8) {
+                    dueDateLockRow(
+                        date: computedDueDate,
+                        isLocked: dueDateLocked,
+                        // ロック解除中だけ日付タップで手動選択できる（編集画面と同じ操作感）
+                        onTapDate: dueDateLocked ? nil : {
+                            draftDueDate = computedDueDate
+                            showDueDatePicker = true
+                        },
+                        onToggleLock: { toggleDueDateLock() }
+                    )
+                    if userLevel == .beginner {
+                        // 日付の真下に初心者向けヘルプを出して、ロックの意味を補足する
+                        Text("record.dueDate.help")
                             .font(.caption)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
+            } header: {
+                Text("record.dueDate.section")
             }
         }
     }
 
-    /// 引き落とし日固定モードでの決済手段必須案内
-    private var cardRequiredHintText: String {
-        let isJapanese = Locale.current.language.languageCode?.identifier == "ja"
-        return isJapanese
-            ? "決済手段を選択してください"
-            : "Please select a payment method"
-    }
+    /// 引き落とし日（支払日）の共通行：日付（タップで変更）＋ ロックアイコン。
+    /// `onTapDate` が nil の時は日付を編集不可、`onToggleLock` が nil の時は鍵を操作不可にする
+    @ViewBuilder private func dueDateLockRow(
+        date: Date,
+        isLocked: Bool,
+        onTapDate: (() -> Void)?,
+        onToggleLock: (() -> Void)?
+    ) -> some View {
+        HStack(spacing: 8) {
+            Button {
+                onTapDate?()
+            } label: {
+                Text(AppDateFormat.singleLineText(date))
+                    .font(.body)
+                    // 編集可能な時はアクセントカラー、固定時は通常色で見せる
+                    .foregroundStyle(onTapDate == nil ? Color.primary : Color.accentColor)
+            }
+            .buttonStyle(.plain)
+            .disabled(onTapDate == nil)
 
-    /// バナー本文「引き落とし日（支払日）を yyyy年m月d日に固定中」をロケールに合わせて返す
-    private func lockedDueDateBannerText(_ date: Date) -> String {
-        let isJapanese = Locale.current.language.languageCode?.identifier == "ja"
-        let formatter = DateFormatter()
-        if isJapanese {
-            formatter.locale = Locale(identifier: "ja_JP")
-            formatter.dateFormat = "yyyy年M月d日"
-            return "引き落とし日（支払日）を \(formatter.string(from: date)) に固定中"
+            Spacer(minLength: 0)
+
+            Button {
+                onToggleLock?()
+            } label: {
+                Image(systemName: isLocked ? "lock.fill" : "lock.open.fill")
+                    .foregroundStyle(isLocked ? .orange : .secondary)
+                    .imageScale(.large)
+                    .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+            }
+            .buttonStyle(.plain)
+            .disabled(onToggleLock == nil)
+            .accessibilityLabel(Text(isLocked ? "record.dueDate.locked" : "record.dueDate.unlocked"))
         }
-        formatter.locale = .autoupdatingCurrent
-        formatter.dateFormat = "MMM d, yyyy"
-        return "Debit (payment) date locked to \(formatter.string(from: date))"
     }
 
     @ViewBuilder private var beginnerSection: some View {
@@ -816,33 +902,51 @@ struct RecordEditView: View {
 
     @ViewBuilder private var partPaymentSection: some View {
         if !editableParts.isEmpty {
-            // 旧アプリ同様、1件でも支払日を確認・調整できるように表示する
+            // 新規入力と共通の「日付＋ロック」行で表示する（未払/済み・金額は出さない）
             Section {
-                ForEach(editableParts) { part in
-                    let canEdit = canEditPartDueDate(part)
-                    Button {
-                        openPartDueDatePicker(part)
-                    } label: {
-                        PartDueDateRow(
-                            part: part,
-                            overrideDate: partDueDateOverridesByPartNo[part.nPartNo],
-                            canEdit: canEdit
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(!canEdit)
+                ForEach(editableParts, id: \.id) { part in
+                    partDueDateLockRow(for: part)
                 }
             } header: {
-                Text("record.partDueDate.section")
+                Text("record.dueDate.section")
             } footer: {
                 if userLevel == .beginner {
-                    // 明細単位で支払日を動かせることを初心者向けに明示する
-                    Text("record.partDueDate.help")
+                    Text("record.dueDate.help")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
+        }
+    }
+
+    /// 明細行用「日付＋ロック」行。ViewBuilder 内の多文評価で型推論が崩れないよう関数に分離する
+    @ViewBuilder
+    private func partDueDateLockRow(for part: E6part) -> some View {
+        let isPaid = part.e2invoice?.isPaid ?? false
+        let canEdit = canEditPartDueDate(part)
+        let date = partDueDateOverridesByPartNo[part.nPartNo]
+            ?? part.e2invoice?.date
+            ?? Date()
+        dueDateLockRow(
+            date: date,
+            // 済み・ロック中は固定。ロック＝旧確認チェック(isChecked)
+            isLocked: !canEdit,
+            onTapDate: canEdit ? { openPartDueDatePicker(part) } : nil,
+            // 済みはロック操作不可。未払はロック(isChecked)を切り替えられる
+            onToggleLock: isPaid ? nil : { togglePartLock(part) }
+        )
+    }
+
+    /// 明細のロック（旧確認チェック isChecked）を切り替え、関連集計を更新する
+    private func togglePartLock(_ part: E6part) {
+        part.isChecked.toggle()
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        if let invoice = part.e2invoice {
+            if let card = invoice.e1card {
+                RecordService.recalculateCard(card)
+            }
+            invoice.e7payment?.sumNoCheck = invoice.e7payment?.e2invoices.reduce(0) { $0 + $1.sumNoCheck } ?? 0
         }
     }
 
@@ -920,22 +1024,6 @@ struct RecordEditView: View {
         }
     }
 
-    // MARK: - Locked Due Date
-
-    /// 引き落とし日を固定指定されたケースで、決済手段に応じた利用日を算出する。
-    /// - N日後型（`nClosingDay == 0`）：`dueDate - nPayDay` 日
-    /// - 締日/支払日型：逆算が一意ではないため `dueDate` をそのまま返し、保存時の override で着地させる
-    private func dateUse(forDueDate dueDate: Date, card: E1card?) -> Date {
-        guard let card, card.nClosingDay == 0 else {
-            return dueDate
-        }
-        return Calendar.current.date(
-            byAdding: .day,
-            value: -Int(card.nPayDay),
-            to: dueDate
-        ) ?? dueDate
-    }
-
     // MARK: - Load / Save
 
     private func loadFields() {
@@ -947,11 +1035,10 @@ struct RecordEditView: View {
             keepBankPickerRowVisible = selectedCard != nil && selectedBankForCard == nil
             // 新規作成は一括払いのみを許可する
             payType = .lumpSum
-            // 引き落とし日が固定指定されている場合は、決済手段に応じて初期利用日を決める
-            // - N日後型カード: 利用日 = 引き落とし日 - N 日（逆算）
-            // - 締日/支払日型: 利用日は当日
-            if let presetDueDate, let presetCard, presetCard.nClosingDay == 0 {
-                dateUse = dateUse(forDueDate: presetDueDate, card: presetCard)
+            // 引き落とし明細などから引き落とし日を指定された場合は、その日でロック状態で開始する
+            if let presetDueDate {
+                dueDateLocked = true
+                lockedDueDate = presetDueDate
             }
             draftDateUse = dateUse
         case .addCopy(let source):
@@ -967,6 +1054,11 @@ struct RecordEditView: View {
             selectedBankForCard = source.e1card?.e8bank
             keepBankPickerRowVisible = selectedCard != nil && selectedBankForCard == nil
             selectedCategories = source.e5tags
+            // 引き落とし明細からのコピー新規は、指定された引き落とし日でロック状態で開始する
+            if let presetDueDate {
+                dueDateLocked = true
+                lockedDueDate = presetDueDate
+            }
         case .edit(let r):
             dateUse            = r.dateUse
             draftDateUse       = r.dateUse
@@ -1003,12 +1095,13 @@ struct RecordEditView: View {
             r.e5tags = selectedCategories
             context.insert(r)
             do {
-                if let presetDueDate {
-                    // 引き落とし日固定指定：override 機構で BillingService の計算結果を上書きする
-                    // 一括払い（lumpSum）は part が1つ（nPartNo == 1）なので、その part に強制適用する
+                // 引き落とし日をロックしている時だけ override で計算結果を上書きする。
+                // 一括払い（lumpSum）は part が1つ（nPartNo == 1）なので、その part に強制適用する。
+                // 未ロックなら BillingService の自動計算結果をそのまま使う
+                if dueDateLocked {
                     try RecordService.save(
                         r,
-                        partDueDateOverridesByPartNo: [1: presetDueDate],
+                        partDueDateOverridesByPartNo: [1: lockedDueDate],
                         context: context
                     )
                 } else {
@@ -1503,53 +1596,6 @@ private struct BeginnerRecordHelpBlock: View {
     }
 }
 
-private struct PartDueDateRow: View {
-    let part: E6part
-    // 保存前の変更予定日があれば、実データより優先して表示する
-    let overrideDate: Date?
-    let canEdit: Bool
-
-    private var invoice: E2invoice? { part.e2invoice }
-    private var isPaid: Bool { invoice?.isPaid ?? false }
-    private var dateText: String {
-        guard let date = overrideDate ?? invoice?.date else { return "—" }
-        return AppDateFormat.singleLineText(date)
-    }
-    private var statusText: String {
-        NSLocalizedString(isPaid ? "payment.status.paidShort" : "payment.status.unpaidShort", comment: "")
-    }
-    private var statusColor: Color {
-        isPaid ? COLOR_PAID : COLOR_UNPAID
-    }
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: isPaid ? "arrow.up.circle.fill" : "arrow.down.circle.fill").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
-                .font(.title3)
-                .foregroundStyle(statusColor)
-                .frame(width: 26)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(dateText)
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(.primary)
-                Text(statusText)
-                    .font(.caption)
-                    .foregroundStyle(statusColor)
-            }
-
-            Spacer(minLength: 8)
-
-            Text(part.nAmount.currencyString())
-                .font(.body.weight(.semibold).monospacedDigit())
-                .foregroundStyle(part.nAmount < 0 ? .red : COLOR_AMOUNT_POSITIVE)
-                .lineLimit(1)
-
-        }
-        .opacity(canEdit ? 1 : 0.55)
-        .contentShape(Rectangle())
-    }
-}
 
 // MARK: - Similar Record Row
 

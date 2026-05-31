@@ -10,6 +10,8 @@ enum AppStorageKey {
     static let afterSaveAction   = "setting.afterSaveAction"
     static let openAddOnActive   = "setting.openAddOnActive"
     static let autoOpenAmountPad = "setting.autoOpenAmountPad"
+    /// 引き落とし日が土日祝なら翌営業日へ繰り下げる（日本ロケール・締日/支払日型のみ）
+    static let shiftDueDateOffHoliday = "setting.shiftDueDateOffHoliday"
     static let paymentWindowDays = "setting.paymentWindowDays"
     static let exportFormat          = "setting.exportFormat"
     static let showCurrencySymbol    = "setting.showCurrencySymbol"

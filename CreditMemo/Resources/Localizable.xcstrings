@@ -3153,6 +3153,74 @@
         }
       }
     },
+    "record.dueDate.section" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Debit Date (Payment Date)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "引き落とし日（支払日）"
+          }
+        }
+      }
+    },
+    "record.dueDate.help" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When unlocked, determined automatically from the use date and payment method. Once locked, the date stays the same even if you change the use date or payment method."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ロック解除時、利用日と決済手段の条件から自動的に決定します。ロックすると以後、利用日や決済手段を変更しても変わりません"
+          }
+        }
+      }
+    },
+    "record.dueDate.locked" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Debit date locked"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "引き落とし日を固定中"
+          }
+        }
+      }
+    },
+    "record.dueDate.unlocked" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Debit date auto-calculated"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "引き落とし日を自動計算中"
+          }
+        }
+      }
+    },
     "record.partDueDate.help" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3862,6 +3930,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "新しい決済で自動的にテンキーを開く"
+          }
+        }
+      }
+    },
+    "settings.shiftDueDateOffHoliday" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Debit Date: Shift to Next Weekday on Holidays"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "引き落とし日：土日祝日ならば翌日にする"
+          }
+        }
+      }
+    },
+    "settings.help.shiftDueDateOffHoliday" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "If the calculated debit date falls on a weekend or Japanese national holiday, it is shifted to the next business day. Applies only to closing/payment-day cards."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "引き落とし日が土日祝日に当たる場合、翌営業日へ繰り下げます。締日／支払日型の決済手段にのみ適用します"
           }
         }
       }
