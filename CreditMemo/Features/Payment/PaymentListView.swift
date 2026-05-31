@@ -83,6 +83,31 @@ struct PaymentListView: View {
         "\(boundaryScrollRequest)-\(groupMode.rawValue)-\(filterMode.rawValue)-\(selectedBank?.id ?? "")-\(selectedCard?.id ?? "")-\(upcomingItems.count)-\(overdueItems.count)-\(paidItems.count)"
     }
 
+    private var beginnerHelpDetail: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("payment.beginner.line1")
+                .font(.body)
+                .fixedSize(horizontal: false, vertical: true)
+            beginnerStatusHelpRow(isPaid: false, textKey: "payment.beginner.line2")
+            Text("payment.beginner.line3")
+                .font(.body)
+                .fixedSize(horizontal: false, vertical: true)
+            beginnerStatusHelpRow(isPaid: true, textKey: "payment.beginner.line4")
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func beginnerStatusHelpRow(isPaid: Bool, textKey: LocalizedStringKey) -> some View {
+        HStack(alignment: .center, spacing: 12) {
+            // 一覧セルと同じ状態アイコンで操作対象を示す
+            PaymentStatusPill(isPaid: isPaid)
+            Text(textKey)
+                .font(.body)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     var body: some View {
         // 分岐で View 構造を入れ替えると principal ToolbarItem の登録がリセットされ
         // タイトル表示が一瞬遅延するため、常に同じ VStack を保ち中身だけ差し替える
@@ -92,6 +117,25 @@ struct PaymentListView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 VStack(spacing: 0) {
+                    if userLevel == .beginner {
+                        // 決済手段／口座マスタの List Section と同じ見た目に揃える
+                        BeginnerHintView(
+                            hintKey: "payment.beginner.hint"
+                        ) {
+                            beginnerHelpDetail
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(Color(uiColor: .secondarySystemGroupedBackground))
+                        )
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                        .padding(.bottom, 4)
+                    }
+
                     PaymentDisplayControlBar(
                         groupMode: $groupMode,
                         filterMode: $filterMode,
@@ -115,49 +159,6 @@ struct PaymentListView: View {
                                 Color.clear
                                     .frame(height: 1)
                                     .id(paymentTopAnchorID)
-                                if userLevel == .beginner {
-                                    VStack(alignment: .center, spacing: 4) {
-                                        Text("payment.beginner.title")
-                                            .font(.subheadline.weight(.semibold))
-                                            .frame(maxWidth: .infinity, alignment: .center)
-                                        // 文とアイコン付き操作文を分け、改行位置を自然にする
-                                        VStack(alignment: .center, spacing: 1) {
-                                            Text("payment.beginner.line1")
-                                                .font(.caption)
-                                                .foregroundStyle(.secondary)
-                                                .frame(maxWidth: .infinity, alignment: .center)
-                                                .multilineTextAlignment(.center)
-                                                .fixedSize(horizontal: false, vertical: true)
-                                            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                                                PaymentStatusPill(isPaid: false)
-                                                    .scaleEffect(0.52)
-                                                Text("payment.beginner.line2")
-                                                    .font(.caption)
-                                                    .foregroundStyle(.secondary)
-                                                    .multilineTextAlignment(.center)
-                                                    .fixedSize(horizontal: false, vertical: true)
-                                            }
-                                        }
-                                        VStack(alignment: .center, spacing: 1) {
-                                            Text("payment.beginner.line3")
-                                                .font(.caption)
-                                                .foregroundStyle(.secondary)
-                                                .frame(maxWidth: .infinity, alignment: .center)
-                                                .multilineTextAlignment(.center)
-                                                .fixedSize(horizontal: false, vertical: true)
-                                            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                                                PaymentStatusPill(isPaid: true)
-                                                    .scaleEffect(0.52)
-                                                Text("payment.beginner.line4")
-                                                    .font(.caption)
-                                                    .foregroundStyle(.secondary)
-                                                    .multilineTextAlignment(.center)
-                                                    .fixedSize(horizontal: false, vertical: true)
-                                            }
-                                        }
-                                    }
-                                    .frame(maxWidth: .infinity, alignment: .center)
-                                }
                                 PaymentCombinedCard(
                                     upcomingItems: upcomingItems,
                                     overdueItems: overdueItems,

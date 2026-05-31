@@ -202,23 +202,23 @@ struct CardEditView: View {
             // 基本情報
             Section {
                 // 決済名はプレースホルダー表示にして左寄せ入力する
-                TextField("card.field.name", text: $zName)
-                    .autocorrectionDisabled()
-                    .focused($focusName)
-                    .multilineTextAlignment(.leading)
-                    .trimmingTrailingNewlines($zName)
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    TextField("card.field.name", text: $zName)
+                        .autocorrectionDisabled()
+                        .focused($focusName)
+                        .multilineTextAlignment(.leading)
+                        .trimmingTrailingNewlines($zName)
+
+                    if userLevel == .beginner {
+                        // 決済手段名のヘルプは入力欄の末尾に置く
+                        BeginnerHintView(detailMessageKey: "card.edit.beginner.help")
+                    }
+                }
 
                 if hasDuplicateName {
                     Text("card.field.name.duplicate")
                         .font(.caption)
                         .foregroundStyle(.red)
-                }
-
-                if userLevel == .beginner {
-                    Text("card.edit.beginner.help")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 AdaptiveValueRow(titleKey: "card.field.bank") {

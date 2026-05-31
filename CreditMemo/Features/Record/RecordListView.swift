@@ -246,20 +246,10 @@ struct RecordListView: View {
         List {
             if userLevel == .beginner {
                 Section {
-                    VStack(alignment: .leading, spacing: 6) {
-                        (
-                            Text("record.list.beginner.guide.leading")
-                            + Text(" ")
-                            // ヘルプ内の記号は実際のフィルターボタンと同じ丸枠付きに揃える。
-                            + Text(Image(systemName: "line.3.horizontal.decrease.circle"))
-                            + Text(" ")
-                            + Text("record.list.beginner.guide.trailing")
-                        )
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .padding(.vertical, 4)
+                    BeginnerHintView(
+                        hintKey: "record.list.beginner.hint",
+                        detailMessageKey: "record.list.beginner.guide"
+                    )
                 }
             }
             Section {

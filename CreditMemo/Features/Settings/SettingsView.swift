@@ -64,26 +64,29 @@ struct SettingsView: View {
         return "\(version).\(build)"
     }
 
+    @ViewBuilder
+    private func settingTitle(_ key: LocalizedStringKey, help helpKey: LocalizedStringKey? = nil) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Text(key)
+                .font(.subheadline)
+            if userLevel == .beginner, let helpKey {
+                // 設定項目のヘルプは項目名の末尾に置く
+                BeginnerHintView(detailMessageKey: helpKey)
+            }
+        }
+    }
+
     var body: some View {
         List {
             Section("settings.panel.display") {
-                VStack(alignment: .leading, spacing: 8) {
-                    AZAdaptiveRadioRow(
-                        options: UserLevel.allCases,
-                        selection: $userLevel,
-                        minOptionWidth: 82
-                    ) {
-                        Text("settings.userLevel")
-                            .font(.subheadline)
-                    } label: { level in
-                        Text(LocalizedStringKey(level.localizedKey))
-                    }
-                    if userLevel == .beginner {
-                        Text("settings.help.userLevel")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
+                AZAdaptiveRadioRow(
+                    options: UserLevel.allCases,
+                    selection: $userLevel,
+                    minOptionWidth: 82
+                ) {
+                    settingTitle("settings.userLevel", help: "settings.help.userLevel")
+                } label: { level in
+                    Text(LocalizedStringKey(level.localizedKey))
                 }
 
                 AZAdaptiveRadioRow(
@@ -97,67 +100,39 @@ struct SettingsView: View {
                     Text(LocalizedStringKey(mode.localizedKey))
                 }
 
-                VStack(alignment: .leading, spacing: 8) {
-                    AZAdaptiveRadioRow(
-                        options: FontScale.allCases,
-                        selection: $fontScale,
-                        minOptionWidth: 72,
-                        horizontalPadding: 8
-                    ) {
-                        Text("settings.fontScale")
-                            .font(.subheadline)
-                    } label: { scale in
-                        Text(LocalizedStringKey(scale.localizedKey))
-                    }
-                    if userLevel == .beginner {
-                        Text("settings.help.fontScale")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
+                AZAdaptiveRadioRow(
+                    options: FontScale.allCases,
+                    selection: $fontScale,
+                    minOptionWidth: 72,
+                    horizontalPadding: 8
+                ) {
+                    settingTitle("settings.fontScale", help: "settings.help.fontScale")
+                } label: { scale in
+                    Text(LocalizedStringKey(scale.localizedKey))
                 }
 
                 Toggle(showCurrencySymbolLabel, isOn: $showCurrencySymbol)
             }
 
             Section("settings.panel.payment") {
-                VStack(alignment: .leading, spacing: 8) {
-                    Toggle("settings.openAddOnActive", isOn: $openAddOnActive)
-                    if userLevel == .beginner {
-                        Text("settings.help.openAddOnActive")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
+                Toggle(isOn: $openAddOnActive) {
+                    settingTitle("settings.openAddOnActive", help: "settings.help.openAddOnActive")
                 }
 
-                VStack(alignment: .leading, spacing: 8) {
-                    Toggle("settings.autoOpenAmountPad", isOn: $autoOpenAmountPad)
-                    if userLevel == .beginner {
-                        Text("settings.help.autoOpenAmountPad")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
+                Toggle(isOn: $autoOpenAmountPad) {
+                    settingTitle("settings.autoOpenAmountPad", help: "settings.help.autoOpenAmountPad")
                 }
 
                 // 日本ロケール限定の挙動。他ロケールでは設定 UI 自体を出さない
                 if Locale.current.language.languageCode?.identifier == "ja" {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Toggle("settings.shiftDueDateOffHoliday", isOn: $shiftDueDateOffHoliday)
-                        if userLevel == .beginner {
-                            Text("settings.help.shiftDueDateOffHoliday")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
+                    Toggle(isOn: $shiftDueDateOffHoliday) {
+                        settingTitle("settings.shiftDueDateOffHoliday", help: "settings.help.shiftDueDateOffHoliday")
                     }
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
                     AZAdaptiveControlRow {
-                        Text("settings.afterSave")
-                            .font(.subheadline)
+                        settingTitle("settings.afterSave", help: "settings.help.afterSave")
                             .fixedSize(horizontal: false, vertical: true)
                     } control: {
                         AZDropdownPicker(
@@ -171,18 +146,11 @@ struct SettingsView: View {
                         }
                     }
                     .zIndex(expandedDropdown == .afterSave ? 60 : 0)
-                    if userLevel == .beginner {
-                        Text("settings.help.afterSave")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
                     AZAdaptiveControlRow {
-                        Text("settings.paymentWindow")
-                            .font(.subheadline)
+                        settingTitle("settings.paymentWindow", help: "settings.help.paymentWindow")
                             // 見出しはできるだけ1行を優先する
                             .lineLimit(1)
                             .minimumScaleFactor(0.85)
@@ -199,23 +167,24 @@ struct SettingsView: View {
                         }
                     }
                     .zIndex(expandedDropdown == .paymentWindow ? 60 : 0)
-                    if userLevel == .beginner {
-                        Text("settings.help.paymentWindow")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
                 }
             }
 
             Section("settings.panel.share") {
                 VStack(alignment: .leading, spacing: 8) {
-                    Button {
-                        exportJSON(style: exportFormat)
-                    } label: {
-                        Label("settings.jsonExport.all", systemImage: "square.and.arrow.up")
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Button {
+                            exportJSON(style: exportFormat)
+                        } label: {
+                            Label("settings.jsonExport.all", systemImage: "square.and.arrow.up")
+                        }
+                        .disabled(isWorking)
+
+                        if userLevel == .beginner {
+                            // 共有操作のヘルプは実行ボタンの外に置き、本文色の伝播を避ける
+                            BeginnerHintView(detailMessageKey: "settings.help.export")
+                        }
                     }
-                    .disabled(isWorking)
 
                     if userLevel != .beginner {
                         AZAdaptiveRadioRow(
@@ -229,44 +198,37 @@ struct SettingsView: View {
                             Text(LocalizedStringKey(style.localizedKey))
                         }
                     }
+                }
 
-                    if userLevel == .beginner {
-                        Text("settings.help.export")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Button {
+                            showImportPicker = true
+                        } label: {
+                            Label(importButtonText, systemImage: "square.and.arrow.down")
+                        }
+                        .disabled(isWorking)
+
+                        if userLevel == .beginner {
+                            // 読み込み操作のヘルプは実行ボタンの外に置き、本文色の伝播を避ける
+                            BeginnerHintView(detailMessageKey: "settings.help.import")
+                        }
                     }
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Button {
-                        showImportPicker = true
-                    } label: {
-                        Label(importButtonText, systemImage: "square.and.arrow.down")
-                    }
-                    .disabled(isWorking)
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Button {
+                            showPruneOldRecordsConfirm = true
+                        } label: {
+                            Label(pruneOldRecordsButtonText, systemImage: "trash")
+                        }
+                        .disabled(isWorking)
 
-                    if userLevel == .beginner {
-                        Text("settings.help.import")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Button {
-                        showPruneOldRecordsConfirm = true
-                    } label: {
-                        Label(pruneOldRecordsButtonText, systemImage: "trash")
-                    }
-                    .disabled(isWorking)
-
-                    if userLevel == .beginner {
-                        Text("settings.help.retention")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
+                        if userLevel == .beginner {
+                            // 履歴整理のヘルプは実行ボタンの外に置き、本文色の伝播を避ける
+                            BeginnerHintView(detailMessageKey: "settings.help.retention")
+                        }
                     }
                 }
             }

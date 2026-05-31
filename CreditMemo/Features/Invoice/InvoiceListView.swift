@@ -104,6 +104,42 @@ struct InvoiceListView: View {
             .frame(width: 16, alignment: .center)
     }
 
+    private var beginnerHelpDetail: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("invoice.beginner.line3")
+                .font(.body)
+                .fixedSize(horizontal: false, vertical: true)
+            beginnerHelpRow(icon: { invoiceHelpIcon(isPaid: false) }, textKey: "invoice.beginner.line1")
+            beginnerHelpRow(icon: { invoiceHelpIcon(isPaid: true) }, textKey: "invoice.beginner.line2")
+            beginnerHelpRow(icon: { addPaymentHelpIcon }, textKey: "invoice.beginner.addPayment")
+            beginnerHelpRow(icon: { lockHelpIcon }, textKey: "invoice.beginner.lockToggle")
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// ヘルプ内のロック切替（解錠）アイコン
+    private var lockHelpIcon: some View {
+        Image(systemName: "lock.open.fill")
+            .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+            .foregroundStyle(.secondary)
+            .font(.caption.weight(.semibold))
+            .frame(width: 16, alignment: .center)
+    }
+
+    private func beginnerHelpRow<Icon: View>(
+        @ViewBuilder icon: () -> Icon,
+        textKey: LocalizedStringKey
+    ) -> some View {
+        HStack(alignment: .center, spacing: 12) {
+            // 操作説明は実際のボタンアイコンと並べて見せる
+            icon()
+            Text(textKey)
+                .font(.body)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     // MARK: Bulk Change Due Date
 
     /// セクション内で「まとめて変更」可能な明細（未払 + 解錠）だけを抽出する
@@ -200,45 +236,11 @@ struct InvoiceListView: View {
         List {
             if userLevel == .beginner {
                 Section {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("invoice.beginner.title")
-                            .font(.subheadline.weight(.semibold))
-                        Text("invoice.beginner.line3")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                        // ロックは旧アプリの確認チェックに相当するため、初心者向けに用途を明記する
-                        Text("invoice.beginner.lockHelp")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                        if displayIsPaid {
-                            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                                invoiceHelpIcon(isPaid: true)
-                                Text("invoice.beginner.line2")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                        } else {
-                            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                                invoiceHelpIcon(isPaid: false)
-                                Text("invoice.beginner.line1")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                        }
-                        HStack(alignment: .firstTextBaseline, spacing: 6) {
-                            // 追加アイコンの用途を初心者ヘルプに明示する
-                            addPaymentHelpIcon
-                            Text("invoice.beginner.addPayment")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
+                    BeginnerHintView(
+                        hintKey: "invoice.beginner.hint"
+                    ) {
+                        beginnerHelpDetail
                     }
-                    .padding(.vertical, 2)
                 }
             }
 

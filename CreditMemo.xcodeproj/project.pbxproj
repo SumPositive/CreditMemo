@@ -21,6 +21,7 @@
 		2D70AB95C9F44E59B12E7D15 /* AppIconBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D70AB94C9F44E59B12E7D14 /* AppIconBadge.swift */; };
 		2D70AB97C9F44E59B12E7D17 /* MemoEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D70AB96C9F44E59B12E7D16 /* MemoEditor.swift */; };
 		2D70AB99C9F44E59B12E7D19 /* EditShortcutCapsuleButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D70AB98C9F44E59B12E7D18 /* EditShortcutCapsuleButton.swift */; };
+		2D70AB9BC9F44E59B12E7D1B /* BeginnerHintView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D70AB9AC9F44E59B12E7D1A /* BeginnerHintView.swift */; };
 		2FEDE3564704BC980B8C9B9C /* RecordService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A1B2E2DD399FBFF391B2C5 /* RecordService.swift */; };
 		38369112251625BA00E7A110 /* CardService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38369111251625BA00E7A110 /* CardService.swift */; };
 		38369114251626D100E7A110 /* BankService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38369113251626D100E7A110 /* BankService.swift */; };
@@ -91,6 +92,7 @@
 		2D70AB94C9F44E59B12E7D14 /* AppIconBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppIconBadge.swift; sourceTree = "<group>"; };
 		2D70AB96C9F44E59B12E7D16 /* MemoEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoEditor.swift; sourceTree = "<group>"; };
 		2D70AB98C9F44E59B12E7D18 /* EditShortcutCapsuleButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditShortcutCapsuleButton.swift; sourceTree = "<group>"; };
+		2D70AB9AC9F44E59B12E7D1A /* BeginnerHintView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeginnerHintView.swift; sourceTree = "<group>"; };
 		3733DDAFE02614F6EA7B3BC9 /* RecordEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordEditView.swift; sourceTree = "<group>"; };
 		38369111251625BA00E7A110 /* CardService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardService.swift; sourceTree = "<group>"; };
 		38369113251626D100E7A110 /* BankService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BankService.swift; sourceTree = "<group>"; };
@@ -329,6 +331,7 @@
 				2D70AB94C9F44E59B12E7D14 /* AppIconBadge.swift */,
 				2D70AB96C9F44E59B12E7D16 /* MemoEditor.swift */,
 				2D70AB98C9F44E59B12E7D18 /* EditShortcutCapsuleButton.swift */,
+				2D70AB9AC9F44E59B12E7D1A /* BeginnerHintView.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -591,6 +594,7 @@
 				2D70AB95C9F44E59B12E7D15 /* AppIconBadge.swift in Sources */,
 				2D70AB97C9F44E59B12E7D17 /* MemoEditor.swift in Sources */,
 				2D70AB99C9F44E59B12E7D19 /* EditShortcutCapsuleButton.swift in Sources */,
+				2D70AB9BC9F44E59B12E7D1B /* BeginnerHintView.swift in Sources */,
 				1EC1A3B5C7312FB9E9E97EAB /* AppMain.swift in Sources */,
 				CF1F84FA70C44A2D7D0E4EDC /* PaymentListView.swift in Sources */,
 				2921018F4FA6C238795FFF40 /* RecordEditView.swift in Sources */,

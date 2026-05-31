@@ -81,22 +81,22 @@ struct BankEditView: View {
             }
 
             Section {
-                TextField("bank.field.name", text: $zName)
-                    .autocorrectionDisabled()
-                    .focused($focusName)
-                    .trimmingTrailingNewlines($zName)
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    TextField("bank.field.name", text: $zName)
+                        .autocorrectionDisabled()
+                        .focused($focusName)
+                        .trimmingTrailingNewlines($zName)
+
+                    if userLevel == .beginner {
+                        // 口座名のヘルプは入力欄の末尾に置く
+                        BeginnerHintView(detailMessageKey: "bank.edit.beginner.help")
+                    }
+                }
 
                 if hasDuplicateName {
                     Text("bank.field.name.duplicate")
                         .font(.caption)
                         .foregroundStyle(.red)
-                }
-
-                if userLevel == .beginner {
-                    Text("bank.edit.beginner.help")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 if isNew {

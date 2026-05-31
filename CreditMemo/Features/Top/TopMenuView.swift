@@ -50,9 +50,9 @@ struct TopMenuView: View {
         List(selection: $selectedDestination) {
             if userLevel == .beginner {
                 Section {
-                    BeginnerHelpBlock(
-                        titleKey: "top.beginner.title",
-                        messageKey: "top.beginner.guide"
+                    BeginnerHintView(
+                        hintKey: "top.beginner.hint",
+                        detailMessageKey: "top.beginner.guide"
                     )
                 }
             }
@@ -212,22 +212,5 @@ private struct ScaledMenuBadge: View {
     var body: some View {
         AppIconBadge(size: size)
             .frame(width: size)
-    }
-}
-
-private struct BeginnerHelpBlock: View {
-    let titleKey: LocalizedStringKey
-    let messageKey: LocalizedStringKey
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(titleKey)
-                .font(.subheadline.weight(.semibold))
-            Text(messageKey)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(.vertical, 4)
     }
 }

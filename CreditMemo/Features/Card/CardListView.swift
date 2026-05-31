@@ -13,26 +13,48 @@ struct CardListView: View {
     /// スワイプ「新しい決済」で開くシートに渡すプリセット決済手段。
     @State private var newPaymentCard: E1card?
 
+    private var beginnerHelpDetail: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("card.beginner.line1")
+                .font(.body)
+                .fixedSize(horizontal: false, vertical: true)
+            Text("card.beginner.line2")
+                .font(.body)
+                .fixedSize(horizontal: false, vertical: true)
+            Text("card.beginner.statusSwipeIntro")
+                .font(.body)
+                .fixedSize(horizontal: false, vertical: true)
+            beginnerSwipeHelpRow(imageName: "AppIconBadgeSwipe", textKey: "card.beginner.statusSwipeText")
+            beginnerSwipeHelpRow(imageName: "AddRecordIcon", textKey: "card.beginner.addPaymentSwipeText")
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func beginnerSwipeHelpRow(imageName: String, textKey: LocalizedStringKey) -> some View {
+        HStack(alignment: .center, spacing: 12) {
+            // スワイプメニューと同じ画像で操作を説明する
+            Image(imageName)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 34, height: 34)
+            Text(textKey)
+                .font(.body)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     var body: some View {
         List {
             if userLevel == .beginner {
                 Section {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("card.beginner.line1")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                        Text("card.beginner.line2")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                        // 「状況」スワイプの案内
-                        Text("card.beginner.statusSwipe")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .padding(.vertical, 2)
+                    BeginnerHintView(
+                        hintKey: "card.beginner.hint",
+                        // 追加・並び替え・スワイプ操作の説明は詳細にまとめる
+                        detailContent: {
+                            beginnerHelpDetail
+                        }
+                    )
                 }
             }
             ForEach(cards) { card in

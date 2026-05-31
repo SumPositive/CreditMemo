@@ -7,12 +7,55 @@ struct TagListView: View {
 
     @AppStorage(AppStorageKey.tagSortMode) private var sortModeRaw: Int = SortMode.recent.rawValue
     @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
+    @AppStorage(AppStorageKey.userLevel) private var userLevel: UserLevel = .beginner
 
     @State private var showAddSheet  = false
     @State private var historyTarget: E5tag?
     @State private var showSortDropdown = false
 
     private var sortMode: SortMode { SortMode(rawValue: sortModeRaw) ?? .recent }
+
+    /// 初心者ヒントの詳細シート本文（追加・ソート・スワイプ操作の説明）
+    private var beginnerHelpDetail: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("tag.beginner.addText")
+                .font(.body)
+                .fixedSize(horizontal: false, vertical: true)
+            beginnerSymbolHelpRow(systemName: "line.3.horizontal.decrease", textKey: "tag.beginner.sortText")
+            Text("tag.beginner.swipeIntro")
+                .font(.body)
+                .fixedSize(horizontal: false, vertical: true)
+            beginnerImageHelpRow(imageName: "RecordListIconSwipe", textKey: "tag.beginner.recordListSwipeText")
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// アセット画像（スワイプ用アイコン等）と説明文を並べる
+    private func beginnerImageHelpRow(imageName: String, textKey: LocalizedStringKey) -> some View {
+        HStack(alignment: .center, spacing: 12) {
+            Image(imageName)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 34, height: 34)
+            Text(textKey)
+                .font(.body)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// SF Symbol と説明文を並べる（ソートアイコン等）
+    private func beginnerSymbolHelpRow(systemName: String, textKey: LocalizedStringKey) -> some View {
+        HStack(alignment: .center, spacing: 12) {
+            Image(systemName: systemName)
+                .font(.title3)
+                .frame(width: 34, height: 34)
+            Text(textKey)
+                .font(.body)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
 
     private var sorted: [E5tag] {
         switch sortMode {
@@ -25,6 +68,23 @@ struct TagListView: View {
 
     var body: some View {
         List {
+            // 決済手段・口座マスタと同じく、初心者ヒントを先頭 Section に置く
+            if userLevel == .beginner {
+                Section {
+                    BeginnerHintView(
+                        hintKey: "tag.beginner.hint"
+                    ) {
+                        beginnerHelpDetail
+                    }
+                }
+            }
+            // ソート条件はヒントの下、明細リストの上に置く
+            Section {
+                TagSortModeDropdown(
+                    sortModeRaw: $sortModeRaw,
+                    isExpanded: $showSortDropdown
+                )
+            }
             ForEach(sorted) { tag in
                 NavigationLink {
                     TagEditView(tag: tag)
@@ -44,19 +104,6 @@ struct TagListView: View {
                     .accessibilityLabel(Text("tag.action.recordList"))
                 }
             }
-        }
-        // 上部のソート指定との間にList既定の余白が入らないようにする
-        .contentMargins(.top, 0, for: .scrollContent)
-        .safeAreaInset(edge: .top, spacing: 0) {
-            // セクション余白を避け、タイトル直下に詰めて配置する
-            TagSortModeDropdown(
-                sortModeRaw: $sortModeRaw,
-                isExpanded: $showSortDropdown
-            )
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
-            .padding(.bottom, 8)
-            .background(Color(uiColor: .systemGroupedBackground))
         }
         .scalableNavigationTitle("tag.list.title") {
             Image(systemName: "tag")

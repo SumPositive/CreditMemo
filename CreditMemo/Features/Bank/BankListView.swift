@@ -11,26 +11,46 @@ struct BankListView: View {
     /// 左スワイプ「状況」で開く口座。設定されると引き落とし状況画面へ push する。
     @State private var statusBank: E8bank?
 
+    private var beginnerHelpDetail: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("bank.beginner.line1")
+                .font(.body)
+                .fixedSize(horizontal: false, vertical: true)
+            Text("bank.beginner.line2")
+                .font(.body)
+                .fixedSize(horizontal: false, vertical: true)
+            Text("bank.beginner.statusSwipeIntro")
+                .font(.body)
+                .fixedSize(horizontal: false, vertical: true)
+            beginnerStatusHelpRow(textKey: "bank.beginner.statusSwipeText")
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func beginnerStatusHelpRow(textKey: LocalizedStringKey) -> some View {
+        HStack(alignment: .center, spacing: 12) {
+            // スワイプメニューと同じ画像で状況表示を説明する
+            Image("AppIconBadgeSwipe")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 34, height: 34)
+            Text(textKey)
+                .font(.body)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     var body: some View {
         List {
             if userLevel == .beginner {
                 Section {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("bank.beginner.line1")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                        Text("bank.beginner.line2")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                        // 「状況」スワイプの案内
-                        Text("bank.beginner.statusSwipe")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
+                    // 追加・並び替え・状況表示の説明は詳細にまとめる
+                    BeginnerHintView(
+                        hintKey: "bank.beginner.hint"
+                    ) {
+                        beginnerHelpDetail
                     }
-                    .padding(.vertical, 2)
                 }
             }
             ForEach(banks) { bank in

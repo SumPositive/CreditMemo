@@ -641,28 +641,24 @@ struct RecordEditView: View {
     @ViewBuilder private var dueDateSection: some View {
         if isNew {
             Section {
-                // 日付・ヘルプ・必須案内を 1 つの行にまとめて、行間の区切り線が出ないようにする
-                VStack(alignment: .leading, spacing: 8) {
-                    dueDateLockRow(
-                        date: computedDueDate,
-                        isLocked: dueDateLocked,
-                        // ロック解除中だけ日付タップで手動選択できる（編集画面と同じ操作感）
-                        onTapDate: dueDateLocked ? nil : {
-                            draftDueDate = computedDueDate
-                            showDueDatePicker = true
-                        },
-                        onToggleLock: { toggleDueDateLock() }
-                    )
+                dueDateLockRow(
+                    date: computedDueDate,
+                    isLocked: dueDateLocked,
+                    // ロック解除中だけ日付タップで手動選択できる（編集画面と同じ操作感）
+                    onTapDate: dueDateLocked ? nil : {
+                        draftDueDate = computedDueDate
+                        showDueDatePicker = true
+                    },
+                    onToggleLock: { toggleDueDateLock() }
+                )
+            } header: {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text("record.dueDate.section")
                     if userLevel == .beginner {
-                        // 日付の真下に初心者向けヘルプを出して、ロックの意味を補足する
-                        Text("record.dueDate.help")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
+                        // 引き落とし日のヘルプは見出しの末尾に置く
+                        BeginnerHintView(detailMessageKey: "record.dueDate.help")
                     }
                 }
-            } header: {
-                Text("record.dueDate.section")
             }
         }
     }
@@ -704,13 +700,22 @@ struct RecordEditView: View {
     }
 
     @ViewBuilder private var beginnerSection: some View {
-        if userLevel == .beginner {
+        // 編集画面では初心者ヒントは出さない（情報過多を避ける）。新規入力時のみ表示
+        if userLevel == .beginner && isNew {
             Section {
-                BeginnerRecordHelpBlock(
-                    // 新規と編集で見出しを切り替える
-                    titleKey: isNew ? "record.beginner.title" : nil,
-                    messageKey: isNew ? "record.beginner.guide" : "record.beginner.guide.edit"
-                )
+                BeginnerHintView(hintKey: "record.beginner.hint") {
+                    VStack(alignment: .leading, spacing: 18) {
+                        Text("record.beginner.guide")
+                            .font(.body)
+                            .fixedSize(horizontal: false, vertical: true)
+                        // 末尾にプライバシー注意文を、目立つ色で添える
+                        Text("record.privacy.warning")
+                            .font(.body)
+                            .foregroundStyle(.orange)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
         }
     }
@@ -903,8 +908,6 @@ struct RecordEditView: View {
             // メモ
             MemoEditor(placeholder: "record.field.note", text: $zNote, isFocused: $focusNote)
                 .id(noteAnchorID)
-        } header: {
-            privacyHeader
         }
     }
 
@@ -916,13 +919,12 @@ struct RecordEditView: View {
                     partDueDateLockRow(for: part)
                 }
             } header: {
-                Text("record.dueDate.section")
-            } footer: {
-                if userLevel == .beginner {
-                    Text("record.dueDate.help")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text("record.dueDate.section")
+                    if userLevel == .beginner {
+                        // 明細ごとの固定ヘルプは見出しの末尾に置く
+                        BeginnerHintView(detailMessageKey: "record.dueDate.help")
+                    }
                 }
             }
         }
@@ -1027,19 +1029,6 @@ struct RecordEditView: View {
                 RecordService.recalculateCard(card)
             }
             invoice.e7payment?.sumNoCheck = invoice.e7payment?.e2invoices.reduce(0) { $0 + $1.sumNoCheck } ?? 0
-        }
-    }
-
-    /// オプション入力欄の上に注意文を1つだけ出す
-    @ViewBuilder private var privacyHeader: some View {
-        if userLevel == .beginner {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("record.privacy.warning")
-                    .font(.caption2)
-                    .foregroundStyle(.orange)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .textCase(nil)
         }
     }
 
@@ -1657,27 +1646,6 @@ private struct RepeatOption: Hashable, Identifiable {
     let value: Int16
     var id: Int16 { value }
 }
-
-private struct BeginnerRecordHelpBlock: View {
-    let titleKey: LocalizedStringKey?
-    let messageKey: LocalizedStringKey
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            // 見出しがある場合だけ表示する
-            if let titleKey {
-                Text(titleKey)
-                    .font(.subheadline.weight(.semibold))
-            }
-            Text(messageKey)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(.vertical, 4)
-    }
-}
-
 
 // MARK: - Similar Record Row
 
