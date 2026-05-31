@@ -979,7 +979,59 @@ private struct PaymentCombinedCard: View {
     }
 
     private var hasOverdue: Bool { !overdueItems.isEmpty }
+
+    /// インラインバナー広告は英語ロケールのみ表示。日本語ユーザーには出さない
+    private var shouldShowInlineAdBanner: Bool {
+        let lang = Locale.current.language.languageCode?.identifier ?? "en"
+        return lang != "ja"
+    }
     private var overdueAccentColor: Color { Color(red: 0.78, green: 0.28, blue: 0.36) }
+
+    /// 引き落とし確認待ちセクション。
+    /// body 内の式が複雑になり型推論がタイムアウトするため、サブビューに分離する
+    @ViewBuilder
+    private var overdueGroup: some View {
+        VStack(spacing: 0) {
+            PaymentOverdueHeader(tintColor: overdueAccentColor)
+            ForEach(indexedOverdueItems, id: \.element.id) { index, payment in
+                PaymentNavigationRow(
+                    item: payment,
+                    rowID: payment.id,
+                    isToggling: togglingPaymentIDs.contains(payment.id),
+                    onToggle: onToggle,
+                    onNavigateToDetail: onNavigateToDetail
+                )
+                if index + 1 < overdueItems.count {
+                    PaymentRowDivider()
+                }
+            }
+        }
+        .background(overdueBackground)
+        .overlay(overdueSideBars)
+    }
+
+    /// 確認待ちエリアの背景グラデーション
+    private var overdueBackground: some View {
+        LinearGradient(
+            colors: [overdueAccentColor.opacity(0.08), .clear, overdueAccentColor.opacity(0.06)],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    }
+
+    /// 確認待ちエリアの左右の警告色サイドバー
+    private var overdueSideBars: some View {
+        HStack(spacing: 0) {
+            Rectangle()
+                .fill(overdueAccentColor)
+                .frame(width: 3)
+            Spacer(minLength: 0)
+            Rectangle()
+                .fill(overdueAccentColor)
+                .frame(width: 3)
+        }
+        .opacity(0.82)
+    }
 
     /// 済み側の区切り線表示可否
     private func showsPaidDivider(after index: Int) -> Bool {
@@ -987,154 +1039,147 @@ private struct PaymentCombinedCard: View {
     }
 
     var body: some View {
+        cardStack
+            .background(cardBackground)
+            .overlay(cardOuterStroke)
+            .coordinateSpace(name: "paymentCombinedCard")
+            .animation(.easeInOut(duration: 0.22), value: upcomingItemIDs)
+            .animation(.easeInOut(duration: 0.22), value: overdueItemIDs)
+            .animation(.easeInOut(duration: 0.22), value: paidItemIDs)
+            .onPreferenceChange(PaymentBoundaryMidYPreferenceKey.self) { y in
+                if 0 < y {
+                    boundaryMidY = y
+                }
+            }
+            .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 1)
+    }
+
+    /// カード本体の縦並び。型推論の負荷を下げるため細かく分割
+    @ViewBuilder
+    private var cardStack: some View {
         VStack(spacing: 0) {
-            // 1. 未払(今後) — 期間別にセクション化して表示
-            let indexedSections = Array(unpaidGrouped.sections.enumerated())
-            ForEach(indexedSections, id: \.element.id) { sectionIndex, section in
-                if 0 < sectionIndex {
-                    PaymentSectionSeparator()
-                }
-                if !section.items.isEmpty {
-                    let indexedItems = Array(section.items.enumerated())
-                    ForEach(indexedItems, id: \.element.id) { index, payment in
-                        PaymentNavigationRow(
-                            item: payment,
-                            rowID: payment.id,
-                            isToggling: togglingPaymentIDs.contains(payment.id),
-                            onToggle: onToggle,
-                            onNavigateToDetail: onNavigateToDetail
-                        )
-                        if index + 1 < section.items.count {
-                            PaymentRowDivider()
-                        }
-                    }
-                }
-                // 空セクションは PaymentEmptyRow を省き、フッター（¥0）のみ表示する
-                PaymentPeriodFooter(
-                    title: section.footerTitle,
-                    amount: section.totalAmount
-                )
-            }
+            unpaidGroup
+            boundaryGroup
+            paidGroup
+        }
+    }
 
-            // 2. 未払帯と引き落とし済み帯の間に、確認待ちを挟む
-            Color.clear
-                .frame(height: 1)
-                .id(boundaryAnchorID)
-            PaymentUnpaidBoundaryBand()
-            // 確認待ちが挟まる場合は、白い境界線が上下に分かれたように見せる
-            PaymentBoundaryGlowLine(reportsBoundary: false)
-            if hasOverdue {
-                VStack(spacing: 0) {
-                    PaymentOverdueHeader(tintColor: overdueAccentColor)
-                    ForEach(indexedOverdueItems, id: \.element.id) { index, payment in
-                        PaymentNavigationRow(
-                            item: payment,
-                            rowID: payment.id,
-                            isToggling: togglingPaymentIDs.contains(payment.id),
-                            onToggle: onToggle,
-                            onNavigateToDetail: onNavigateToDetail
-                        )
-                        if index + 1 < overdueItems.count {
-                            PaymentRowDivider()
-                        }
-                    }
-                }
-                .background(
-                    // 未払色とは違う薄い警告色で、過ぎた未払エリアを区別する
-                    LinearGradient(
-                        colors: [overdueAccentColor.opacity(0.08), .clear, overdueAccentColor.opacity(0.06)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-                .overlay(
-                    HStack(spacing: 0) {
-                        Rectangle()
-                            .fill(overdueAccentColor)
-                            .frame(width: 3)
-                        Spacer(minLength: 0)
-                        Rectangle()
-                            .fill(overdueAccentColor)
-                            .frame(width: 3)
-                    }
-                    .opacity(0.82)
-                )
+    /// 1. 未払(今後) — 期間別セクション
+    @ViewBuilder
+    private var unpaidGroup: some View {
+        let indexedSections = Array(unpaidGrouped.sections.enumerated())
+        ForEach(indexedSections, id: \.element.id) { sectionIndex, section in
+            if 0 < sectionIndex {
+                PaymentSectionSeparator()
             }
-            // 未払/済みの本当の境界線は、確認待ちの下に1本だけ置く
-            PaymentBoundaryGlowLine(reportsBoundary: true)
-            PaymentPaidBoundaryBand()
+            unpaidSectionRows(section)
+            PaymentPeriodFooter(
+                title: section.footerTitle,
+                amount: section.totalAmount
+            )
+        }
+    }
 
-            // 3. 引き落とし済み
-            if !paidItems.isEmpty {
-                ForEach(indexedPaidItems, id: \.element.id) { index, payment in
-                    PaymentNavigationRow(
-                        item: payment,
-                        rowID: index == 0 ? paidFirstRowAnchorID : payment.id,
-                        isToggling: togglingPaymentIDs.contains(payment.id),
-                        onToggle: onToggle,
-                        onNavigateToDetail: onNavigateToDetail
-                    )
-                    if showsPaidDivider(after: index) {
-                        PaymentRowDivider()
-                    }
-                }
-                if hasMorePaid {
-                    HStack {
-                        Spacer()
-                        ProgressView()
-                        Spacer()
-                    }
-                    .padding(.vertical, 8)
-                    .onAppear {
-                        onLoadMorePaid()
-                    }
-                }
-            } else {
-                // 済みが空のときは空セルを表示する
-                PaymentEmptyRow()
-                    .id(paidFirstRowAnchorID)
+    @ViewBuilder
+    private func unpaidSectionRows(_ section: PaymentUnpaidGrouped.Section) -> some View {
+        let indexedItems = Array(section.items.enumerated())
+        ForEach(indexedItems, id: \.element.id) { index, payment in
+            PaymentNavigationRow(
+                item: payment,
+                rowID: payment.id,
+                isToggling: togglingPaymentIDs.contains(payment.id),
+                onToggle: onToggle,
+                onNavigateToDetail: onNavigateToDetail
+            )
+            if index + 1 < section.items.count {
+                PaymentRowDivider()
             }
         }
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(uiColor: .secondarySystemGroupedBackground).opacity(0.95))
-        )
-        .overlay(
-            GeometryReader { proxy in
-                let cardHeight = proxy.size.height
-                let unpaidPaidY = min(max(boundaryMidY, 0), cardHeight)
-                ZStack {
-                    // 境界線より上側の外枠は未払色
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(COLOR_UNPAID, lineWidth: 1.5)
-                        .mask(
-                            Rectangle()
-                                .frame(width: proxy.size.width, height: unpaidPaidY)
-                                .frame(maxHeight: .infinity, alignment: .top)
-                        )
-                    // 境界線より下側の外枠は払済み色
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(COLOR_PAID, lineWidth: 1.5)
-                        .mask(
-                            Rectangle()
-                                .frame(width: proxy.size.width, height: max(cardHeight - unpaidPaidY, 0))
-                                .frame(maxHeight: .infinity, alignment: .bottom)
-                        )
+    }
+
+    /// 2. 未払帯と引き落とし済み帯の間（確認待ち含む）
+    @ViewBuilder
+    private var boundaryGroup: some View {
+        Color.clear
+            .frame(height: 1)
+            .id(boundaryAnchorID)
+        PaymentUnpaidBoundaryBand()
+        PaymentBoundaryGlowLine(reportsBoundary: false)
+        if hasOverdue {
+            // 引き落とし確認待ちが表示される時だけ、その上に AdMob バナーを差し込む。
+            // 表示対象は英語ロケールのみ（日本語ユーザーには出さない方針）
+            if shouldShowInlineAdBanner {
+                InlineAdBanner()
+                    .padding(.vertical, 4)
+            }
+            overdueGroup
+        }
+        PaymentBoundaryGlowLine(reportsBoundary: true)
+        PaymentPaidBoundaryBand()
+    }
+
+    /// 3. 引き落とし済み
+    @ViewBuilder
+    private var paidGroup: some View {
+        if paidItems.isEmpty {
+            PaymentEmptyRow()
+                .id(paidFirstRowAnchorID)
+        } else {
+            ForEach(indexedPaidItems, id: \.element.id) { index, payment in
+                PaymentNavigationRow(
+                    item: payment,
+                    rowID: index == 0 ? paidFirstRowAnchorID : payment.id,
+                    isToggling: togglingPaymentIDs.contains(payment.id),
+                    onToggle: onToggle,
+                    onNavigateToDetail: onNavigateToDetail
+                )
+                if showsPaidDivider(after: index) {
+                    PaymentRowDivider()
                 }
             }
-        )
-        .coordinateSpace(name: "paymentCombinedCard")
-        // 行が未払/済みの間を移る変化を自然に見せる
-        // 行の出入りはフェードと競合しないよう短めにする（旧 0.55s）
-        .animation(.easeInOut(duration: 0.22), value: upcomingItemIDs)
-        .animation(.easeInOut(duration: 0.22), value: overdueItemIDs)
-        .animation(.easeInOut(duration: 0.22), value: paidItemIDs)
-        .onPreferenceChange(PaymentBoundaryMidYPreferenceKey.self) { y in
-            if 0 < y {
-                boundaryMidY = y
+            if hasMorePaid {
+                paidMoreLoader
             }
         }
-        .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 1)
+    }
+
+    private var paidMoreLoader: some View {
+        HStack {
+            Spacer()
+            ProgressView()
+            Spacer()
+        }
+        .padding(.vertical, 8)
+        .onAppear { onLoadMorePaid() }
+    }
+
+    private var cardBackground: some View {
+        RoundedRectangle(cornerRadius: 16, style: .continuous)
+            .fill(Color(uiColor: .secondarySystemGroupedBackground).opacity(0.95))
+    }
+
+    /// 未払/済みの二色枠（境界より上下で色を切り替える）
+    private var cardOuterStroke: some View {
+        GeometryReader { proxy in
+            let cardHeight = proxy.size.height
+            let unpaidPaidY = min(max(boundaryMidY, 0), cardHeight)
+            ZStack {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(COLOR_UNPAID, lineWidth: 1.5)
+                    .mask(
+                        Rectangle()
+                            .frame(width: proxy.size.width, height: unpaidPaidY)
+                            .frame(maxHeight: .infinity, alignment: .top)
+                    )
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(COLOR_PAID, lineWidth: 1.5)
+                    .mask(
+                        Rectangle()
+                            .frame(width: proxy.size.width, height: max(cardHeight - unpaidPaidY, 0))
+                            .frame(maxHeight: .infinity, alignment: .bottom)
+                    )
+            }
+        }
     }
 }
 

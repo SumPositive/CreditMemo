@@ -54,6 +54,7 @@
 		C03BB2AEED264F9C4A50EAB7 /* TopMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 899029E259E53F50A679EB0C /* TopMenuView.swift */; };
 		C1640C6CCBBC0D2F5540C977 /* CreditMemoTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A3204006A7EA7EE85CEA06C /* CreditMemoTests.swift */; };
 		C31B5A812FCBD9940090CAEC /* JapaneseHoliday.swift in Sources */ = {isa = PBXBuildFile; fileRef = C31B5A802FCBD9940090CAEC /* JapaneseHoliday.swift */; };
+		C31B5A832FCC6F390090CAEC /* InlineAdBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = C31B5A822FCC6F390090CAEC /* InlineAdBanner.swift */; };
 		C736EED40B1697AC698B6F81 /* InvoiceListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D1DFD33101839DCB19540E9 /* InvoiceListView.swift */; };
 		CE6F6CD0071085C235BAF6F4 /* JSONExport.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2D12827F146761299C2F9A /* JSONExport.swift */; };
 		CF1F84FA70C44A2D7D0E4EDC /* PaymentListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C888720898CBE1F720F736D /* PaymentListView.swift */; };
@@ -126,6 +127,7 @@
 		ACAC65A5428E245996B921E5 /* E6part.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = E6part.swift; sourceTree = "<group>"; };
 		B0AA3264A9D08B8C5FAFC814 /* Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
 		C31B5A802FCBD9940090CAEC /* JapaneseHoliday.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JapaneseHoliday.swift; sourceTree = "<group>"; };
+		C31B5A822FCC6F390090CAEC /* InlineAdBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InlineAdBanner.swift; sourceTree = "<group>"; };
 		CA97A05301775C91BB87CE6F /* BankListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BankListView.swift; sourceTree = "<group>"; };
 		D6BD6FE99BF6A7C356696B78 /* BankEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BankEditView.swift; sourceTree = "<group>"; };
 		DAE1EBD323E4A4A04B0805E8 /* E3record.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = E3record.swift; sourceTree = "<group>"; };
@@ -323,6 +325,7 @@
 		CA48F8A77A8B19FCECEE71F0 /* Components */ = {
 			isa = PBXGroup;
 			children = (
+				C31B5A822FCC6F390090CAEC /* InlineAdBanner.swift */,
 				C31B5A802FCBD9940090CAEC /* JapaneseHoliday.swift */,
 				0A1A2B3C4D5E6F708192A3B3 /* AZPicker.swift */,
 				FDB4F7EAA70EE49D23DA0441 /* NumericKeypadView.swift */,
@@ -571,6 +574,7 @@
 				8D7B62BEB4834D19FE03E024 /* CardListView.swift in Sources */,
 				5036733F44C02792D514BAB7 /* TagEditView.swift in Sources */,
 				D6B0F13565CDEA74CD5B1F1A /* TagListView.swift in Sources */,
+				C31B5A832FCC6F390090CAEC /* InlineAdBanner.swift in Sources */,
 				E50EB7AD3DB2F3CE6CAA6AAF /* Config.swift in Sources */,
 				BFCEF1FB428B8D2A4C030C0A /* ContentView.swift in Sources */,
 				6B4262F22E9995FB3C3A513D /* DatabaseErrorView.swift in Sources */,
