@@ -12,6 +12,7 @@ enum RecordService {
         var paymentPaidByKey: [String: Bool] = [:]
         var partNoCheckByPartNo: [Int16: Int16] = [:]
         var partDueDateLockedByPartNo: [Int16: Bool] = [:]
+        var partDueDateByPartNo: [Int16: Date] = [:]
     }
 
     // MARK: - Save
@@ -188,6 +189,9 @@ enum RecordService {
     ) throws {
         let records = uniqueRecords(in: invoices)
         for invoice in invoices {
+            if isPaid {
+                lockDueDates(in: invoice)
+            }
             moveInvoice(invoice, toPaid: isPaid, context: context)
         }
 
@@ -217,6 +221,9 @@ enum RecordService {
         context: ModelContext
     ) throws {
         let records = uniqueRecords(in: [invoice])
+        if isPaid {
+            lockDueDates(in: invoice)
+        }
         moveInvoice(invoice, toPaid: isPaid, context: context)
         if isPaid {
             for record in records {
@@ -286,6 +293,10 @@ enum RecordService {
 
         // 明細を移し替える
         sourceInvoice.e6parts.removeAll { $0.id == part.id }
+        if isPaid {
+            // 済みにした明細は引き落とし日を自動更新しない状態にする
+            part.isDueDateLocked = true
+        }
         part.e2invoice = targetInvoice
 
         recalculatePayment(targetPayment)
@@ -468,10 +479,16 @@ enum RecordService {
 
         let dates = BillingService.partDates(record: record, card: record.e1card)
         let amounts = BillingService.partAmounts(record: record)
+        var rebuiltDates: [Date] = []
         for (index, pair) in zip(dates.indices, zip(dates, amounts)) {
-            let billingDate = Calendar.current.startOfDay(for: pair.0)
-            let amount = pair.1
             let partNo = Int16(index + 1)
+            let lockedDate = snapshot.partDueDateLockedByPartNo[partNo] == true
+                ? snapshot.partDueDateByPartNo[partNo]
+                : nil
+            // 引き落とし日ロック済みの明細は、請求方式変更時も旧日付を維持する
+            let billingDate = Calendar.current.startOfDay(for: lockedDate ?? pair.0)
+            let amount = pair.1
+            rebuiltDates.append(billingDate)
             let bank = record.e1card?.e8bank
             let invoicePaid = snapshot.invoicePaidByKey[
                 invoiceKey(cardID: record.e1card?.id, date: billingDate, isPaid: true)
@@ -519,7 +536,7 @@ enum RecordService {
             touchedCardIDs.insert(cardID)
         }
         var touchedPaymentKeys = snapshot.touchedPaymentKeys
-        for date in dates {
+        for date in rebuiltDates {
             let day = Calendar.current.startOfDay(for: date)
             let paid = snapshot.invoicePaidByKey[
                 invoiceKey(cardID: record.e1card?.id, date: day, isPaid: true)
@@ -562,6 +579,7 @@ enum RecordService {
             snapshot.partNoCheckByPartNo[part.nPartNo] = part.nNoCheck
             snapshot.partDueDateLockedByPartNo[part.nPartNo] = part.isDueDateLocked
             if let invoice = part.e2invoice {
+                snapshot.partDueDateByPartNo[part.nPartNo] = invoice.date
                 snapshot.invoicePaidByKey[
                     invoiceKey(cardID: invoice.e1card?.id, date: invoice.date, isPaid: invoice.isPaid)
                 ] = invoice.isPaid
@@ -849,6 +867,13 @@ enum RecordService {
             return
         }
         setInvoiceCard(invoice, card: card, isPaid: isPaid)
+    }
+
+    private static func lockDueDates(in invoice: E2invoice) {
+        // 済みにした請求配下の明細は引き落とし日を自動更新しない状態にする
+        for part in invoice.e6parts {
+            part.isDueDateLocked = true
+        }
     }
 
     private static func setPaymentBank(_ payment: E7payment, bank: E8bank?, isPaid: Bool) {

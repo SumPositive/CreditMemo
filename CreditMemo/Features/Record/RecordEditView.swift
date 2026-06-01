@@ -990,8 +990,8 @@ struct RecordEditView: View {
                 date: date,
                 // ロックは自動更新禁止を示す。済みは操作不可として固定表示する
                 isLocked: isPaid || !canAutoUpdate,
-                // 明細ロック中は変更禁止状態として手動ラベルを隠す
-                showsModeLabel: !part.isChecked,
+                // 済み・明細ロック中は変更禁止状態として手動ラベルを隠す
+                showsModeLabel: !isPaid && !part.isChecked,
                 onTapDate: canManualEdit ? { openPartDueDatePicker(part) } : nil,
                 // 済み・明細ロック中はロック操作不可。未払かつ明細アンロック中だけ切り替えられる
                 onToggleLock: (isPaid || part.isChecked) ? nil : { togglePartDueDateLock(part) }
