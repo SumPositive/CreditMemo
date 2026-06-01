@@ -5,7 +5,7 @@ import SwiftData
 ///
 /// - 既存データは削除せず、id 単位で追記・更新する
 /// - 配列キーは省略可能とし、マスタのみ・一部データのみの JSON も受け入れる
-/// - 請求/支払は E6part を持たないため、record から再構築した後に状態だけを反映する
+/// - record から請求を再構築した後、part / invoice / payment の状態を反映する
 @MainActor
 enum JSONImport {
 
@@ -18,6 +18,7 @@ enum JSONImport {
         var tags: [TagData]?
         var categories: [CategoryData]?  // 旧JSON互換キー
         var records: [RecordData]?
+        var parts: [PartData]?
         var invoices: [InvoiceData]?
         var payments: [PaymentData]?
     }
@@ -104,6 +105,17 @@ enum JSONImport {
         var paymentID: String?
     }
 
+    struct PartData: Decodable {
+        var id: String?
+        var recordID: String?
+        var partNo: Int
+        var amount: String?
+        var interest: String?
+        var noCheck: Int?
+        var dueDate: Date?
+        var dueDateLocked: Bool?
+    }
+
     struct PaymentData: Decodable {
         var id: String
         var date: Date
@@ -119,6 +131,7 @@ enum JSONImport {
         case importingMasters
         case importingRecords
         case rebuildingBilling
+        case applyingParts
         case applyingStates
         case saving
 
@@ -136,6 +149,8 @@ enum JSONImport {
                 return isJapanese ? "決済履歴を取り込み中…" : "Importing records..."
             case .rebuildingBilling:
                 return isJapanese ? "請求データを再構築中…" : "Rebuilding billing..."
+            case .applyingParts:
+                return isJapanese ? "明細状態を反映中…" : "Applying part states..."
             case .applyingStates:
                 return isJapanese ? "未払/済み状態を反映中…" : "Applying paid states..."
             case .saving:
@@ -149,6 +164,7 @@ enum JSONImport {
         var cardCount: Int
         var tagCount: Int
         var recordCount: Int
+        var partStateCount: Int
         var invoiceStateCount: Int
         var paymentStateCount: Int
     }
@@ -199,11 +215,15 @@ enum JSONImport {
         )
 
         // record が入った場合や、状態 JSON を反映する場合は請求を正規状態へ作り直す
-        if 0 < importedRecordCount || payload.invoices != nil || payload.payments != nil {
+        if 0 < importedRecordCount || payload.parts != nil || payload.invoices != nil || payload.payments != nil {
             onPhase?(.rebuildingBilling)
             await Task.yield()
             RecordService.rebuildBilling(context: context)
         }
+
+        onPhase?(.applyingParts)
+        await Task.yield()
+        let appliedPartStateCount = applyPartStates(payload.parts ?? [], context: context)
 
         onPhase?(.applyingStates)
         await Task.yield()
@@ -222,6 +242,7 @@ enum JSONImport {
             cardCount: importedCardCount,
             tagCount: importedTagCount,
             recordCount: importedRecordCount,
+            partStateCount: appliedPartStateCount,
             invoiceStateCount: appliedInvoiceStateCount,
             paymentStateCount: appliedPaymentStateCount
         )
@@ -328,6 +349,40 @@ enum JSONImport {
             record.e5tags = resolvedIDs.compactMap { tagByID[$0] }
         }
         return items.count
+    }
+
+    private static func applyPartStates(
+        _ items: [PartData],
+        context: ModelContext
+    ) -> Int {
+        guard !items.isEmpty else { return 0 }
+        let parts = (try? context.fetch(FetchDescriptor<E6part>())) ?? []
+        let partByRecordAndNo = Dictionary(
+            uniqueKeysWithValues: parts.compactMap { part -> (String, E6part)? in
+                guard let recordID = part.e3record?.id else { return nil }
+                return ("\(recordID)#\(part.nPartNo)", part)
+            }
+        )
+
+        var updatedCount = 0
+        for item in items {
+            guard let recordID = item.recordID else { continue }
+            guard let part = partByRecordAndNo["\(recordID)#\(Int16(item.partNo))"] else { continue }
+
+            if let noCheck = item.noCheck {
+                part.nNoCheck = Int16(noCheck)
+            }
+
+            let shouldLockDueDate = item.dueDateLocked ?? false
+            if let dueDate = item.dueDate {
+                // 日付復元中だけ専用ロックを外し、移動後にエクスポート時の状態へ戻す
+                part.isDueDateLocked = false
+                try? RecordService.setPartDueDate(part, date: dueDate, context: context)
+            }
+            part.isDueDateLocked = shouldLockDueDate
+            updatedCount += 1
+        }
+        return updatedCount
     }
 
     private static func applyInvoiceStates(

@@ -37,6 +37,7 @@ enum JSONExport {
         var cards: [CardData]
         var tags: [TagData]
         var records: [RecordData]
+        var parts: [PartData]
         var invoices: [InvoiceData]
         var payments: [PaymentData]
     }
@@ -71,6 +72,17 @@ enum JSONExport {
         var isPaid: Bool
         var cardID: String?
         var paymentID: String?
+    }
+
+    struct PartData: Codable {
+        var id: String
+        var recordID: String?
+        var partNo: Int
+        var amount: String
+        var interest: String
+        var noCheck: Int
+        var dueDate: Date?
+        var dueDateLocked: Bool
     }
 
     struct PaymentData: Codable {
@@ -125,6 +137,7 @@ enum JSONExport {
         onPhase?(.readingRecords)
         await Task.yield()
         let records    = (try? context.fetch(FetchDescriptor<E3record>(sortBy: [SortDescriptor(\E3record.dateUse)]))) ?? []
+        let parts      = (try? context.fetch(FetchDescriptor<E6part>(sortBy: [SortDescriptor(\E6part.nPartNo)]))) ?? []
         let invoices   = (try? context.fetch(FetchDescriptor<E2invoice>(sortBy: [SortDescriptor(\E2invoice.date)]))) ?? []
         let payments   = (try? context.fetch(FetchDescriptor<E7payment>(sortBy: [SortDescriptor(\E7payment.date)]))) ?? []
 
@@ -159,6 +172,18 @@ enum JSONExport {
                 tagIDs: r.e5tags.map(\.id)
             )
         }
+        let partData = parts.map { part in
+            PartData(
+                id: part.id,
+                recordID: part.e3record?.id,
+                partNo: Int(part.nPartNo),
+                amount: "\(part.nAmount)",
+                interest: "\(part.nInterest)",
+                noCheck: Int(part.nNoCheck),
+                dueDate: part.e2invoice?.date,
+                dueDateLocked: part.isDueDateLocked
+            )
+        }
         let invoiceData  = invoices.map   { i in InvoiceData(id: i.id, date: i.date, isPaid: i.isPaid, cardID: i.e1card?.id, paymentID: i.e7payment?.id) }
         let paymentData  = payments.map   {
             PaymentData(
@@ -177,6 +202,7 @@ enum JSONExport {
             cards: cardData,
             tags: tagData,
             records: recordData,
+            parts: partData,
             invoices: invoiceData,
             payments: paymentData
         )

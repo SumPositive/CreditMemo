@@ -11,6 +11,7 @@ enum RecordService {
         var invoicePaidByKey: [String: Bool] = [:]
         var paymentPaidByKey: [String: Bool] = [:]
         var partNoCheckByPartNo: [Int16: Int16] = [:]
+        var partDueDateLockedByPartNo: [Int16: Bool] = [:]
     }
 
     // MARK: - Save
@@ -84,7 +85,7 @@ enum RecordService {
             guard let date = overridesByPartNo[part.nPartNo] else {
                 continue
             }
-            movePartDueDate(part, date: date, context: context)
+            movePartDueDate(part, date: date, ignoresDueDateLock: true, context: context)
         }
     }
 
@@ -318,20 +319,22 @@ enum RecordService {
         date: Date,
         context: ModelContext
     ) throws {
-        movePartDueDate(part, date: date, context: context)
+        // ユーザーの明示操作なので、引き落とし日ロック中でも手動変更は許可する
+        movePartDueDate(part, date: date, ignoresDueDateLock: true, context: context)
         try commit(context)
     }
 
     private static func movePartDueDate(
         _ part: E6part,
         date: Date,
+        ignoresDueDateLock: Bool = false,
         context: ModelContext
     ) {
         guard let sourceInvoice = part.e2invoice else {
             return
         }
-        // 旧アプリ同様、済み・確認済みの明細は支払日を変更しない
-        if sourceInvoice.isPaid || part.isChecked {
+        // 済み・明細ロック中・引き落とし日ロック中の明細は支払日を変更しない
+        if sourceInvoice.isPaid || part.isChecked || (part.isDueDateLocked && !ignoresDueDateLock) {
             return
         }
 
@@ -505,6 +508,7 @@ enum RecordService {
             }
             let part = E6part(nPartNo: partNo, nAmount: amount)
             part.nNoCheck = snapshot.partNoCheckByPartNo[partNo] ?? 1
+            part.isDueDateLocked = snapshot.partDueDateLockedByPartNo[partNo] ?? false
             part.e2invoice = invoice
             part.e3record = record
             context.insert(part)
@@ -556,6 +560,7 @@ enum RecordService {
         var snapshot = BillingSnapshot()
         for part in record.e6parts {
             snapshot.partNoCheckByPartNo[part.nPartNo] = part.nNoCheck
+            snapshot.partDueDateLockedByPartNo[part.nPartNo] = part.isDueDateLocked
             if let invoice = part.e2invoice {
                 snapshot.invoicePaidByKey[
                     invoiceKey(cardID: invoice.e1card?.id, date: invoice.date, isPaid: invoice.isPaid)

@@ -570,6 +570,7 @@ struct SettingsView: View {
             決済手段 \(result.cardCount) 件
             タグ \(result.tagCount) 件
             決済履歴 \(result.recordCount) 件
+            明細状態反映 \(result.partStateCount) 件
             請求状態反映 \(result.invoiceStateCount) 件
             支払状態反映 \(result.paymentStateCount) 件
             """
@@ -579,6 +580,7 @@ struct SettingsView: View {
         Payment Methods: \(result.cardCount)
         Tags: \(result.tagCount)
         Records: \(result.recordCount)
+        Part States: \(result.partStateCount)
         Invoice States: \(result.invoiceStateCount)
         Payment States: \(result.paymentStateCount)
         """

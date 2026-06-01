@@ -110,6 +110,10 @@ struct SplitPayListView: View {
                 continue
             }
             part.isChecked = nextValue
+            if nextValue {
+                // 明細ロック時は引き落とし日も自動更新しない状態にする
+                part.isDueDateLocked = true
+            }
             if let invoice = part.e2invoice {
                 touchedInvoices[invoice.id] = invoice
             }

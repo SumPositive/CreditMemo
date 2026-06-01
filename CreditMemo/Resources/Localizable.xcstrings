@@ -3115,6 +3115,74 @@
         }
       }
     },
+    "record.dueDate.help.auto" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Displayed automatically from the use date and payment method"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "利用日と決済手段から自動的に規定日が表示されます"
+          }
+        }
+      }
+    },
+    "record.dueDate.help.change" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can change it by picking a date"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "日付を指定して変更できます"
+          }
+        }
+      }
+    },
+    "record.dueDate.help.locked" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Fixed without automatic updates. Tap to unlock and update to the default date."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "手動に限り変更できます。タップで解除すれば自動的に規定日に戻されます"
+          }
+        }
+      }
+    },
+    "record.dueDate.help.unlocked" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Automatically updates to the default date. Tap to lock."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自動的に規定日に更新されます。タップでロック（手動）します"
+          }
+        }
+      }
+    },
     "record.dueDate.hint" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3145,6 +3213,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "引き落とし日を固定中"
+          }
+        }
+      }
+    },
+    "record.dueDate.mode.auto" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auto"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自動"
+          }
+        }
+      }
+    },
+    "record.dueDate.mode.manual" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manual"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "手動"
           }
         }
       }
@@ -4218,23 +4320,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "このアプリについて"
-          }
-        }
-      }
-    },
-    "settings.afterSave" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "After New Payment"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "新しい決済入力後"
           }
         }
       }

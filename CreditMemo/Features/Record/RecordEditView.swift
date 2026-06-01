@@ -625,7 +625,7 @@ struct RecordEditView: View {
         return BillingService.billingDate(useDate: dateUse, card: card)
     }
 
-    /// 引き落とし日のロックを切り替える。ロックする時は現在の計算値を固定する
+    /// 引き落とし日のロックを切り替える。解除時は規定日に戻す
     private func toggleDueDateLock() {
         if dueDateLocked {
             dueDateLocked = false
@@ -644,8 +644,8 @@ struct RecordEditView: View {
                 dueDateLockRow(
                     date: computedDueDate,
                     isLocked: dueDateLocked,
-                    // ロック解除中だけ日付タップで手動選択できる（編集画面と同じ操作感）
-                    onTapDate: dueDateLocked ? nil : {
+                    // ロック中でも手動の日付変更は許可する
+                    onTapDate: {
                         draftDueDate = computedDueDate
                         showDueDatePicker = true
                     },
@@ -656,7 +656,9 @@ struct RecordEditView: View {
                     Text("record.dueDate.section")
                     if userLevel == .beginner {
                         // 引き落とし日のヘルプは見出しの末尾に置く
-                        BeginnerHintView(detailMessageKey: "record.dueDate.help")
+                        BeginnerHintView {
+                            dueDateHelpContent
+                        }
                     }
                 }
             }
@@ -668,6 +670,7 @@ struct RecordEditView: View {
     @ViewBuilder private func dueDateLockRow(
         date: Date,
         isLocked: Bool,
+        showsModeLabel: Bool = true,
         onTapDate: (() -> Void)?,
         onToggleLock: (() -> Void)?
     ) -> some View {
@@ -688,10 +691,19 @@ struct RecordEditView: View {
             Button {
                 onToggleLock?()
             } label: {
-                Image(systemName: isLocked ? "lock.fill" : "lock.open.fill")
-                    .foregroundStyle(isLocked ? .orange : .secondary)
-                    .imageScale(.large)
-                    .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                // ロック状態の意味をアイコン下の短いラベルで補足する
+                VStack(spacing: 2) {
+                    Image(systemName: isLocked ? "lock.fill" : "lock.open.fill")
+                        .foregroundStyle(isLocked ? Color(.systemOrange) : Color(.systemGray3))
+                        .imageScale(.large)
+                        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                    if showsModeLabel {
+                        Text(isLocked ? "record.dueDate.mode.manual" : "record.dueDate.mode.auto")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(isLocked ? Color(.systemOrange) : Color(.systemGray3))
+                            .lineLimit(1)
+                    }
+                }
             }
             .buttonStyle(.plain)
             .disabled(onToggleLock == nil)
@@ -923,10 +935,43 @@ struct RecordEditView: View {
                     Text("record.dueDate.section")
                     if userLevel == .beginner {
                         // 明細ごとの固定ヘルプは見出しの末尾に置く
-                        BeginnerHintView(detailMessageKey: "record.dueDate.help")
+                        BeginnerHintView {
+                            dueDateHelpContent
+                        }
                     }
                 }
             }
+        }
+    }
+
+    /// 引き落とし日ヘルプの本文
+    private var dueDateHelpContent: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            Text("record.dueDate.help.auto")
+            Text("record.dueDate.help.change")
+            dueDateHelpIconRow(
+                systemName: "lock.open.fill",
+                textKey: "record.dueDate.help.unlocked"
+            )
+            dueDateHelpIconRow(
+                systemName: "lock.fill",
+                textKey: "record.dueDate.help.locked"
+            )
+        }
+        .font(.body)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    /// アイコン付き説明行
+    private func dueDateHelpIconRow(systemName: String, textKey: LocalizedStringKey) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Image(systemName: systemName)
+                .foregroundStyle(Color.secondary)
+                .imageScale(.medium)
+                .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                .frame(width: 24, alignment: .center)
+            Text(textKey)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -935,21 +980,24 @@ struct RecordEditView: View {
     @ViewBuilder
     private func partDueDateLockRow(for part: E6part) -> some View {
         let isPaid = part.e2invoice?.isPaid ?? false
-        let canEdit = canEditPartDueDate(part)
+        let canManualEdit = canManuallyEditPartDueDate(part)
+        let canAutoUpdate = canAutoUpdatePartDueDate(part)
         let date = partDueDateOverridesByPartNo[part.nPartNo]
             ?? part.e2invoice?.date
             ?? Date()
         VStack(alignment: .leading, spacing: 8) {
             dueDateLockRow(
                 date: date,
-                // 済み・ロック中は固定。ロック＝旧確認チェック(isChecked)
-                isLocked: !canEdit,
-                onTapDate: canEdit ? { openPartDueDatePicker(part) } : nil,
-                // 済みはロック操作不可。未払はロック(isChecked)を切り替えられる
-                onToggleLock: isPaid ? nil : { togglePartLock(part) }
+                // ロックは自動更新禁止を示す。済みは操作不可として固定表示する
+                isLocked: isPaid || !canAutoUpdate,
+                // 明細ロック中は変更禁止状態として手動ラベルを隠す
+                showsModeLabel: !part.isChecked,
+                onTapDate: canManualEdit ? { openPartDueDatePicker(part) } : nil,
+                // 済み・明細ロック中はロック操作不可。未払かつ明細アンロック中だけ切り替えられる
+                onToggleLock: (isPaid || part.isChecked) ? nil : { togglePartDueDateLock(part) }
             )
-            // 未ロックの時だけ、月単位で前/次の支払日へずらせるショートカット
-            if canEdit {
+            // 手動変更はロック中でも可能にする
+            if canManualEdit {
                 HStack {
                     Button {
                         shiftPartDueDateByMonth(part, months: -1, currentDate: date)
@@ -982,9 +1030,10 @@ struct RecordEditView: View {
     private func recomputeEditablePartsDueDates() {
         guard case .edit = mode else { return }
         guard hasInitialized else { return }    // loadFields 中の初期化での誤発火を防ぐ
+        guard dueDateDriversChangedFromInitialDraft else { return }
         guard let card = selectedCard else { return }
         for part in editableParts {
-            guard canEditPartDueDate(part) else { continue }
+            guard canAutoUpdatePartDueDate(part) else { continue }
             let computed = BillingService.billingDate(
                 useDate: dateUse,
                 card: card,
@@ -996,23 +1045,33 @@ struct RecordEditView: View {
         }
     }
 
+    private var dueDateDriversChangedFromInitialDraft: Bool {
+        guard let initialDraft else { return false }
+        // 初期ロード由来の onChange では、引き落とし日を規定日に戻さない
+        let dateChanged = !Calendar.current.isDate(initialDraft.dateUse, inSameDayAs: dateUse)
+        let cardChanged = initialDraft.cardID != selectedCard?.id
+        return dateChanged || cardChanged
+    }
+
     /// 指定明細の引き落とし日を「支払月をシフト」して再計算する。
     /// 「前」= 支払月をデクリメント、「次」= 支払月をインクリメントして `BillingService` で計算し直す。
     /// 土日祝シフトも `BillingService` 内で適用される。
     /// シフトが 0 に戻ったら override を解除し、元の invoice.date を表示する
     private func shiftPartDueDateByMonth(_ part: E6part, months: Int, currentDate: Date) {
         let card = selectedCard ?? part.e3record?.e1card
-        guard let useDate = part.e3record?.dateUse, let card else { return }
+        guard let card else { return }
         let naturalOffset = Int(part.nPartNo) - 1
         let newShift = (partDueDateCycleShiftByPartNo[part.nPartNo] ?? 0) + months
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        // 前月/翌月の手動変更後は自動更新しない
+        part.isDueDateLocked = true
         if newShift == 0 {
             partDueDateCycleShiftByPartNo.removeValue(forKey: part.nPartNo)
             partDueDateOverridesByPartNo.removeValue(forKey: part.nPartNo)
             return
         }
         let computed = BillingService.billingDate(
-            useDate: useDate,
+            useDate: dateUse,
             card: card,
             partOffset: naturalOffset + newShift
         )
@@ -1020,16 +1079,15 @@ struct RecordEditView: View {
         partDueDateOverridesByPartNo[part.nPartNo] = computed
     }
 
-    /// 明細のロック（旧確認チェック isChecked）を切り替え、関連集計を更新する
-    private func togglePartLock(_ part: E6part) {
-        part.isChecked.toggle()
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        if let invoice = part.e2invoice {
-            if let card = invoice.e1card {
-                RecordService.recalculateCard(card)
-            }
-            invoice.e7payment?.sumNoCheck = invoice.e7payment?.e2invoices.reduce(0) { $0 + $1.sumNoCheck } ?? 0
+    /// 引き落とし日専用ロックを切り替える
+    private func togglePartDueDateLock(_ part: E6part) {
+        if part.isDueDateLocked {
+            part.isDueDateLocked = false
+            resetPartDueDateToDefault(part)
+        } else {
+            part.isDueDateLocked = true
         }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
     @ViewBuilder private var similarSection: some View {
@@ -1219,9 +1277,10 @@ struct RecordEditView: View {
             r.e5tags = selectedCategories
             do {
                 if billingChanged {
+                    // 保存時の再構築では、画面に表示中の引き落とし日をそのまま保持する
                     try RecordService.save(
                         r,
-                        partDueDateOverridesByPartNo: partDueDateOverridesByPartNo,
+                        partDueDateOverridesByPartNo: displayedDueDateOverridesForSave(),
                         context: context
                     )
                 } else {
@@ -1261,14 +1320,20 @@ struct RecordEditView: View {
         }
     }
 
-    private func canEditPartDueDate(_ part: E6part) -> Bool {
+    private func canManuallyEditPartDueDate(_ part: E6part) -> Bool {
         guard let invoice = part.e2invoice else { return false }
-        // 旧アプリ同様、済み・確認済みのパーツは日付変更しない
+        // 明細ロック中は手動変更も禁止する
         return !invoice.isPaid && !part.isChecked
     }
 
+    private func canAutoUpdatePartDueDate(_ part: E6part) -> Bool {
+        guard canManuallyEditPartDueDate(part) else { return false }
+        // 自動更新だけ、引き落とし日専用ロックで止める
+        return !part.isDueDateLocked
+    }
+
     private func openPartDueDatePicker(_ part: E6part) {
-        guard canEditPartDueDate(part), let invoice = part.e2invoice else { return }
+        guard canManuallyEditPartDueDate(part), let invoice = part.e2invoice else { return }
         editingPart = part
         draftPartDueDate = partDueDateOverridesByPartNo[part.nPartNo] ?? invoice.date
         showPartDatePicker = true
@@ -1288,9 +1353,38 @@ struct RecordEditView: View {
             // 保存ボタンを押すまで、明細番号ごとの変更予定日として保持する
             partDueDateOverridesByPartNo[part.nPartNo] = selectedDate
         }
+        // 日付を手動選択した後は自動更新しない
+        part.isDueDateLocked = true
         // 手動カレンダー選択はサイクル単位ではないため、前/次ボタンの累積はリセット
         partDueDateCycleShiftByPartNo.removeValue(forKey: part.nPartNo)
         showPartDatePicker = false
+    }
+
+    private func resetPartDueDateToDefault(_ part: E6part) {
+        let card = selectedCard ?? part.e3record?.e1card
+        guard let card else { return }
+        let computed = BillingService.billingDate(
+            useDate: dateUse,
+            card: card,
+            partOffset: Int(part.nPartNo) - 1
+        )
+        partDueDateOverridesByPartNo[part.nPartNo] = computed
+        partDueDateCycleShiftByPartNo.removeValue(forKey: part.nPartNo)
+    }
+
+    private func displayedDueDate(for part: E6part) -> Date {
+        partDueDateOverridesByPartNo[part.nPartNo]
+            ?? part.e2invoice?.date
+            ?? Date()
+    }
+
+    private func displayedDueDateOverridesForSave() -> [Int16: Date] {
+        // 請求再構築で規定日に戻らないよう、未払明細の表示中日付を保存側へ渡す
+        var overrides = partDueDateOverridesByPartNo
+        for part in editableParts where canManuallyEditPartDueDate(part) {
+            overrides[part.nPartNo] = displayedDueDate(for: part)
+        }
+        return overrides
     }
 
     private func deleteCurrentRecord() {

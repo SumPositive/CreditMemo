@@ -171,6 +171,10 @@ struct InvoiceListView: View {
     /// チェック状態を反転し、関連集計を更新する
     private func toggleCheck(_ part: E6part) {
         part.isChecked.toggle()
+        if part.isChecked {
+            // 明細ロック時は引き落とし日も自動更新しない状態にする
+            part.isDueDateLocked = true
+        }
         if let invoice = part.e2invoice {
             if let card = invoice.e1card {
                 RecordService.recalculateCard(card)
