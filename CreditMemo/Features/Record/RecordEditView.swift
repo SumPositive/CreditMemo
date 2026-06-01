@@ -95,6 +95,8 @@ struct RecordEditView: View {
     @State private var initialDraft: DraftState?
     // 保存ボタンを押すまで、E6part.nPartNo ごとの引き落とし日変更を保持する
     @State private var partDueDateOverridesByPartNo: [Int16: Date] = [:]
+    // 保存ボタンを押すまで、引き落とし日ロックの変更を保持する
+    @State private var partDueDateLockOverridesByPartNo: [Int16: Bool] = [:]
     /// 前/次の支払日ボタンで支払月をいくつシフトしたかを E6part.nPartNo 単位で保持する。
     /// 0 のときは override を持たず、保存時の元の引き落とし日（invoice.date）に戻る
     @State private var partDueDateCycleShiftByPartNo: [Int16: Int] = [:]
@@ -126,7 +128,9 @@ struct RecordEditView: View {
     private var hasChanges: Bool {
         guard let initialDraft else { return false }
         // 明細単位の引き落とし日変更も、保存ボタンの強調対象に含める
-        return currentDraft() != initialDraft || !partDueDateOverridesByPartNo.isEmpty
+        return currentDraft() != initialDraft
+            || !partDueDateOverridesByPartNo.isEmpty
+            || !partDueDateLockOverridesByPartNo.isEmpty
     }
     private var shouldShowBankPickerRow: Bool {
         if selectedCard == nil {
@@ -981,7 +985,7 @@ struct RecordEditView: View {
     private func partDueDateLockRow(for part: E6part) -> some View {
         let isPaid = part.e2invoice?.isPaid ?? false
         let canManualEdit = canManuallyEditPartDueDate(part)
-        let canAutoUpdate = canAutoUpdatePartDueDate(part)
+        let isDueDateLocked = effectivePartDueDateLocked(part)
         let date = partDueDateOverridesByPartNo[part.nPartNo]
             ?? part.e2invoice?.date
             ?? Date()
@@ -989,7 +993,7 @@ struct RecordEditView: View {
             dueDateLockRow(
                 date: date,
                 // ロックは自動更新禁止を示す。済みは操作不可として固定表示する
-                isLocked: isPaid || !canAutoUpdate,
+                isLocked: isPaid || isDueDateLocked,
                 // 済み・明細ロック中は変更禁止状態として手動ラベルを隠す
                 showsModeLabel: !isPaid && !part.isChecked,
                 onTapDate: canManualEdit ? { openPartDueDatePicker(part) } : nil,
@@ -1064,7 +1068,7 @@ struct RecordEditView: View {
         let newShift = (partDueDateCycleShiftByPartNo[part.nPartNo] ?? 0) + months
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         // 前月/翌月の手動変更後は自動更新しない
-        part.isDueDateLocked = true
+        setDraftPartDueDateLocked(part, isLocked: true)
         if newShift == 0 {
             partDueDateCycleShiftByPartNo.removeValue(forKey: part.nPartNo)
             partDueDateOverridesByPartNo.removeValue(forKey: part.nPartNo)
@@ -1081,11 +1085,11 @@ struct RecordEditView: View {
 
     /// 引き落とし日専用ロックを切り替える
     private func togglePartDueDateLock(_ part: E6part) {
-        if part.isDueDateLocked {
-            part.isDueDateLocked = false
+        if effectivePartDueDateLocked(part) {
+            setDraftPartDueDateLocked(part, isLocked: false)
             resetPartDueDateToDefault(part)
         } else {
-            part.isDueDateLocked = true
+            setDraftPartDueDateLocked(part, isLocked: true)
         }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
@@ -1276,6 +1280,7 @@ struct RecordEditView: View {
             r.e1card = selectedCard
             r.e5tags = selectedCategories
             do {
+                applyPartDueDateLockOverridesForSave(to: r)
                 if billingChanged {
                     // 保存時の再構築では、画面に表示中の引き落とし日をそのまま保持する
                     try RecordService.save(
@@ -1329,7 +1334,20 @@ struct RecordEditView: View {
     private func canAutoUpdatePartDueDate(_ part: E6part) -> Bool {
         guard canManuallyEditPartDueDate(part) else { return false }
         // 自動更新だけ、引き落とし日専用ロックで止める
-        return !part.isDueDateLocked
+        return !effectivePartDueDateLocked(part)
+    }
+
+    private func effectivePartDueDateLocked(_ part: E6part) -> Bool {
+        partDueDateLockOverridesByPartNo[part.nPartNo] ?? part.isDueDateLocked
+    }
+
+    private func setDraftPartDueDateLocked(_ part: E6part, isLocked: Bool) {
+        // 保存までは SwiftData モデルを直接変更せず、キャンセルで破棄できるドラフトに保持する
+        if part.isDueDateLocked == isLocked {
+            partDueDateLockOverridesByPartNo.removeValue(forKey: part.nPartNo)
+        } else {
+            partDueDateLockOverridesByPartNo[part.nPartNo] = isLocked
+        }
     }
 
     private func openPartDueDatePicker(_ part: E6part) {
@@ -1354,7 +1372,7 @@ struct RecordEditView: View {
             partDueDateOverridesByPartNo[part.nPartNo] = selectedDate
         }
         // 日付を手動選択した後は自動更新しない
-        part.isDueDateLocked = true
+        setDraftPartDueDateLocked(part, isLocked: true)
         // 手動カレンダー選択はサイクル単位ではないため、前/次ボタンの累積はリセット
         partDueDateCycleShiftByPartNo.removeValue(forKey: part.nPartNo)
         showPartDatePicker = false
@@ -1385,6 +1403,16 @@ struct RecordEditView: View {
             overrides[part.nPartNo] = displayedDueDate(for: part)
         }
         return overrides
+    }
+
+    private func applyPartDueDateLockOverridesForSave(to record: E3record) {
+        // 保存時だけ引き落とし日ロックのドラフトをモデルへ反映する
+        for part in record.e6parts {
+            guard let isLocked = partDueDateLockOverridesByPartNo[part.nPartNo] else {
+                continue
+            }
+            part.isDueDateLocked = isLocked
+        }
     }
 
     private func deleteCurrentRecord() {
