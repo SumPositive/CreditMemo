@@ -27,8 +27,6 @@ extension RecordEditMode: Equatable {
 struct RecordEditView: View {
     let mode: RecordEditMode
     var onSaved: ((Bool) -> Void)? = nil
-    /// 上部ショートカットのコピー新規保存を親の一覧へ伝える
-    var onShortcutCopySaved: (() -> Void)? = nil
     /// 親画面からコピー新規を開いた時、保存後に親まで戻す
     var forceDismissOnNewSave = false
     /// `.addNew` のとき、開いた時点で初期選択しておきたい決済手段
@@ -37,8 +35,6 @@ struct RecordEditView: View {
     /// `.addNew` / `.addCopy` のとき、引き落とし日を初期指定する。
     /// 指定された場合は引き落とし日ロック状態で開き、保存時に override 機構で固定する
     var presetDueDate: Date? = nil
-    /// 編集画面上部のコピー新規だけに使う引き落とし日固定指定
-    var shortcutCopyPresetDueDate: Date? = nil
     /// 済み側の引き落とし明細から追加する場合、保存直後に済みへ移す
     var presetIsPaid = false
     /// メインメニューの「新しい決済」から開いた場合のみ true。決済一覧からコピーセクションの表示に使う
@@ -87,7 +83,6 @@ struct RecordEditView: View {
     @State private var showCardPicker     = false
     @State private var showBankPicker     = false
     @State private var showCategoryPicker = false
-    @State private var shortcutCopySource: E3record?
     @State private var showDeleteAlert    = false
     @State private var isRepeatDropdownExpanded = false
     @State private var savedBanner        = false
@@ -253,7 +248,6 @@ struct RecordEditView: View {
     var body: some View {
         ScrollViewReader { proxy in
             Form {
-                addRecordShortcutSection
                 beginnerSection
                 requiredSection
                 if showsSimilarSection {
@@ -549,23 +543,6 @@ struct RecordEditView: View {
             // タグ選択シートは背面を透かさず、候補一覧を読みやすくする
             .presentationBackground(Color(uiColor: .systemBackground))
         }
-        .sheet(item: $shortcutCopySource) { source in
-            NavigationStack {
-                RecordEditView(
-                    mode: .addCopy(source),
-                    onSaved: { _ in
-                        onShortcutCopySaved?()
-                        dismiss()
-                    },
-                    forceDismissOnNewSave: true,
-                    // 明細編集からのコピー新規は、元の明細日を引き落とし日に固定する
-                    presetDueDate: shortcutCopyPresetDueDate
-                )
-            }
-            // コピー新規シートにもアプリ内文字サイズ設定を明示適用する
-            .modifier(ConditionalDynamicTypeModifier(fontScale: fontScale))
-            .presentationBackground(Color(uiColor: .systemBackground))
-        }
         .overlay(alignment: .top) {
             if savedBanner {
                 SavedBanner()
@@ -589,31 +566,6 @@ struct RecordEditView: View {
     }
 
     // MARK: - Form Sections
-
-    /// 編集画面上部に新しい決済へのショートカットを置く
-    @ViewBuilder private var addRecordShortcutSection: some View {
-        if case .edit(let source) = mode {
-            Section {
-                HStack(spacing: 0) {
-                    EditShortcutCapsuleButton(
-                        title: "record.edit.title.add",
-                        showsTitle: userLevel == .beginner,
-                        showsChevron: false,
-                        action: { shortcutCopySource = source }
-                    ) {
-                        Image(systemName: "plus.circle.fill")
-                            .resizable()
-                            .scaledToFit()
-                            .foregroundStyle(Color.blue)
-                            .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
-                    }
-                    Spacer(minLength: 0)
-                }
-                .listRowBackground(Color.clear)
-                .listRowInsets(EdgeInsets(top: 2, leading: 0, bottom: 2, trailing: 0))
-            }
-        }
-    }
 
     /// 新規入力時に表示する引き落とし日（支払日）。
     /// - ロック中: 固定値

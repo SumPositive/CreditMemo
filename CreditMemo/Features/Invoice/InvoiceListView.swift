@@ -461,9 +461,7 @@ struct InvoiceListView: View {
                         if bankChanged {
                             dismiss()
                         }
-                    },
-                    // 引き落とし明細セルから入った編集画面の（＋）だけ、表示中の引き落とし日に固定する
-                    shortcutCopyPresetDueDate: displayDate
+                    }
                 )
             }
             // シートにもアプリ内文字サイズ設定を明示適用する
