@@ -42,10 +42,10 @@ struct InvoiceListView: View {
     @State private var editRecord: E3record?
     /// 右スワイプ「新しい決済」で開く、コピー元のレコード
     @State private var copySource: E3record?
-    /// 引き落とし日見出し横の「新しい決済」ボタンで開くシートのトリガー
-    @State private var showNewPaymentSheet = false
-    /// 決済手段セクション見出しの「新しい決済」ボタンで開くシートのプリセット決済手段
-    @State private var newPaymentCard: E1card?
+    /// この画面内だけで保持する、保存前の金額0仮明細
+    @State private var draftPayments: [InvoiceDraftPayment] = []
+    /// タップされた仮明細から開く新規決済シート
+    @State private var editingDraftPayment: InvoiceDraftPayment?
     /// 明細追加・編集を保存したとき、画面を「開き直す」ためのトリガー。
     /// 値を変えると `.id()` 経由でフォーム本体が破棄→再構築され、最新の SwiftData 状態が読み直される。
     @State private var reloadKey = UUID()
@@ -94,6 +94,35 @@ struct InvoiceListView: View {
             .foregroundStyle(isPaid ? COLOR_PAID : COLOR_UNPAID)
             .font(.caption.weight(.semibold))
             .frame(width: 16, alignment: .center)
+    }
+
+    // MARK: Draft Payment
+
+    /// 画面上だけの仮明細を追加する。戻ると State ごと破棄される
+    private func addDraftPayment(card: E1card?) {
+        draftPayments.append(
+            InvoiceDraftPayment(
+                card: card,
+                dueDate: displayDate,
+                isPaid: displayIsPaid
+            )
+        )
+    }
+
+    /// 保存済みレコードに置き換わった仮明細を画面から消す
+    private func removeDraftPayment(_ draft: InvoiceDraftPayment) {
+        draftPayments.removeAll { $0.id == draft.id }
+    }
+
+    /// 決済手段未定の仮明細
+    private var unselectedDraftPayments: [InvoiceDraftPayment] {
+        draftPayments.filter { $0.card == nil }
+    }
+
+    /// 指定した決済手段の仮明細
+    private func draftPayments(for card: E1card?) -> [InvoiceDraftPayment] {
+        guard let card else { return [] }
+        return draftPayments.filter { $0.card?.id == card.id }
     }
 
     private var addPaymentHelpIcon: some View {
@@ -264,7 +293,7 @@ struct InvoiceListView: View {
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                         Spacer(minLength: 8)
-                        newPaymentButton(action: { showNewPaymentSheet = true })
+                        newPaymentButton(action: { addDraftPayment(card: nil) })
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -279,9 +308,27 @@ struct InvoiceListView: View {
                 }
             }
 
+            if !unselectedDraftPayments.isEmpty {
+                Section {
+                    ForEach(unselectedDraftPayments) { draft in
+                        DraftPaymentRow(draft: draft) {
+                            editingDraftPayment = draft
+                        }
+                    }
+                } header: {
+                    Text("invoice.draft.noCardSection")
+                }
+            }
+
             // カード別請求
             ForEach(cardSections) { section in
                 Section {
+                    ForEach(draftPayments(for: section.card)) { draft in
+                        DraftPaymentRow(draft: draft) {
+                            editingDraftPayment = draft
+                        }
+                    }
+
                     ForEach(section.parts) { part in
                         PartRow(
                             part: part,
@@ -343,7 +390,7 @@ struct InvoiceListView: View {
                         Spacer(minLength: 8)
                         // 決済手段セクション見出しの右端に「新しい決済」ボタン（その手段をプリセット）
                         if let card = section.card {
-                            newPaymentButton(action: { newPaymentCard = card })
+                            newPaymentButton(action: { addDraftPayment(card: card) })
                         }
                     }
                 }
@@ -425,35 +472,87 @@ struct InvoiceListView: View {
             .appFontScale(fontScale)
             .presentationBackground(Color(uiColor: .systemBackground))
         }
-        // 「...に引き落とし」見出し横の「新しい決済」ボタンから、決済手段未選択の新規シートを開く。
-        // この明細画面の引き落とし日を強制指定として渡す。保存されたら明細画面を再構築する
-        .sheet(isPresented: $showNewPaymentSheet) {
+        // 仮明細をタップした時だけ新規決済を開く。保存後は仮明細を消し、実データを読み直す
+        .sheet(item: $editingDraftPayment) { draft in
             NavigationStack {
                 RecordEditView(
                     mode: .addNew,
-                    onSaved: { _ in reloadKey = UUID() },
-                    presetDueDate: displayDate,
-                    presetIsPaid: displayIsPaid
+                    onSaved: { _ in
+                        removeDraftPayment(draft)
+                        reloadKey = UUID()
+                    },
+                    forceDismissOnNewSave: true,
+                    presetCard: draft.card,
+                    presetDueDate: draft.dueDate,
+                    presetIsPaid: draft.isPaid
                 )
             }
             .appFontScale(fontScale)
             .presentationBackground(Color(uiColor: .systemBackground))
         }
-        // 決済手段セクション見出しの「新しい決済」ボタンから、決済手段＋引き落とし日固定の新規シートを開く。
-        // 保存されたら明細画面を再構築する
-        .sheet(item: $newPaymentCard) { card in
-            NavigationStack {
-                RecordEditView(
-                    mode: .addNew,
-                    onSaved: { _ in reloadKey = UUID() },
-                    presetCard: card,
-                    presetDueDate: displayDate,
-                    presetIsPaid: displayIsPaid
-                )
+    }
+}
+
+/// 引き落とし明細画面だけに存在する保存前の仮明細
+private struct InvoiceDraftPayment: Identifiable {
+    let id = UUID()
+    let card: E1card?
+    let dueDate: Date
+    let isPaid: Bool
+}
+
+/// 金額0で追加された仮明細を、編集待ちとして少し目立たせるセル
+private struct DraftPaymentRow: View {
+    let draft: InvoiceDraftPayment
+    let onEdit: () -> Void
+
+    var body: some View {
+        Button(action: onEdit) {
+            HStack(spacing: 10) {
+                InvoiceStatusIcon(isPaid: draft.isPaid)
+                    .opacity(0.55)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("invoice.draft.title")
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                    Text(AppDateFormat.singleLineText(draft.dueDate))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Text("invoice.draft.tapToEdit")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.orange)
+                }
+
+                Spacer(minLength: 8)
+
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text(Decimal.zero.currencyString())
+                        .font(.headline.monospacedDigit())
+                        .foregroundStyle(.orange)
+                    HStack(spacing: 4) {
+                        Image(systemName: "lock.fill")
+                            .imageScale(.small)
+                        Text("record.dueDate.mode.manual")
+                    }
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.orange)
+                }
             }
-            .appFontScale(fontScale)
-            .presentationBackground(Color(uiColor: .systemBackground))
+            .padding(.vertical, 8)
+            .padding(.horizontal, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color(.systemOrange).opacity(0.08))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(Color(.systemOrange).opacity(0.35), lineWidth: 1)
+            )
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text("invoice.draft.title"))
     }
 }
 

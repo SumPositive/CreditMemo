@@ -1719,6 +1719,57 @@
         }
       }
     },
+    "invoice.draft.noCardSection" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Method Pending"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "手段未定"
+          }
+        }
+      }
+    },
+    "invoice.draft.tapToEdit" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap to edit"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "タップして編集"
+          }
+        }
+      }
+    },
+    "invoice.draft.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New Payment"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新しい決済"
+          }
+        }
+      }
+    },
     "invoice.beginner.addPayment" : {
       "extractionState" : "manual",
       "localizations" : {
