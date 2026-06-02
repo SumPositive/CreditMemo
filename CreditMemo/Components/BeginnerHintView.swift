@@ -86,7 +86,8 @@ struct BeginnerHintView: View {
         } label: {
             // ヘルプ導線は疑問符アイコンだけで示す
             Image(systemName: "questionmark.circle")
-                .font(.caption.weight(.semibold))
+                // タップ対象として見つけやすいよう少し大きめにする
+                .font(.body.weight(.semibold))
         }
         .buttonStyle(.plain)
         // アプリのアクセント色を明示して型推論の揺れを避ける
@@ -102,6 +103,8 @@ struct BeginnerHintView: View {
                     Spacer()
                     // 本文との間隔を制御するため、アイコンはシート本文側に置く
                     Image(systemName: "questionmark.circle")
+                        // シート見出しのアイコンもヘルプボタンと揃えて見やすくする
+                        .font(.title3.weight(.semibold))
                         .foregroundStyle(Color.accentColor)
                     Spacer()
                 }
