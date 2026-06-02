@@ -437,6 +437,21 @@ struct InvoiceListView: View {
         // 結果として `cardSections`/`invoices` の計算が走り直し、追加された明細が見える。
         .id(reloadKey)
         .scalableNavigationTitle("invoice.statement.title")
+        // 標準戻るを隠すと右スワイプ戻りも止まるため、不意な画面戻りを防げる
+        .navigationBarBackButtonHidden(true)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .imageScale(.large)
+                        .symbolRenderingMode(.hierarchical)
+                        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                }
+                .accessibilityLabel(Text("button.back"))
+            }
+        }
         .sheet(item: $editRecord) { record in
             NavigationStack {
                 RecordEditView(

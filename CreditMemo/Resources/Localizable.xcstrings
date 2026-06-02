@@ -529,6 +529,23 @@
         }
       }
     },
+    "button.back" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Back"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "戻る"
+          }
+        }
+      }
+    },
     "button.cancel" : {
       "extractionState" : "manual",
       "localizations" : {
