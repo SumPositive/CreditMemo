@@ -1233,6 +1233,7 @@ struct RecordEditView: View {
                     try RecordService.save(
                         r,
                         partDueDateOverridesByPartNo: [1: lockedDueDate],
+                        partDueDateLockOverridesByPartNo: [1: true],
                         context: context
                     )
                 } else {

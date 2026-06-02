@@ -31,6 +31,7 @@ enum RecordService {
     static func save(
         _ record: E3record,
         partDueDateOverridesByPartNo: [Int16: Date],
+        partDueDateLockOverridesByPartNo: [Int16: Bool] = [:],
         context: ModelContext
     ) throws {
         // 通常保存で E6part を再構築した後、画面で指定された支払日を同じ保存単位で反映する
@@ -42,6 +43,10 @@ enum RecordService {
             to: record,
             overridesByPartNo: partDueDateOverridesByPartNo,
             context: context
+        )
+        applyPartDueDateLockOverrides(
+            to: record,
+            overridesByPartNo: partDueDateLockOverridesByPartNo
         )
         try commit(context)
     }
@@ -59,6 +64,7 @@ enum RecordService {
     static func saveMetadata(
         _ record: E3record,
         partDueDateOverridesByPartNo: [Int16: Date],
+        partDueDateLockOverridesByPartNo: [Int16: Bool] = [:],
         context: ModelContext
     ) throws {
         // メタ情報だけの保存でも、画面で指定された支払日だけは同じ保存単位で反映する
@@ -69,6 +75,10 @@ enum RecordService {
             to: record,
             overridesByPartNo: partDueDateOverridesByPartNo,
             context: context
+        )
+        applyPartDueDateLockOverrides(
+            to: record,
+            overridesByPartNo: partDueDateLockOverridesByPartNo
         )
         try commit(context)
     }
@@ -87,6 +97,22 @@ enum RecordService {
                 continue
             }
             movePartDueDate(part, date: date, ignoresDueDateLock: true, context: context)
+        }
+    }
+
+    private static func applyPartDueDateLockOverrides(
+        to record: E3record,
+        overridesByPartNo: [Int16: Bool]
+    ) {
+        // 支払日を固定した新規保存では、再構築後の E6part にロック状態も明示反映する
+        if overridesByPartNo.isEmpty {
+            return
+        }
+        for part in record.e6parts {
+            guard let isLocked = overridesByPartNo[part.nPartNo] else {
+                continue
+            }
+            part.isDueDateLocked = isLocked
         }
     }
 
