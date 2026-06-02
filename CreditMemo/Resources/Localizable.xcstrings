@@ -4324,6 +4324,23 @@
         }
       }
     },
+    "settings.afterSave" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "After Adding New Payment"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新しい決済入力後"
+          }
+        }
+      }
+    },
     "settings.afterSave.continuous" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4805,14 +4822,14 @@
       "localizations" : {
         "en" : {
           "stringUnit" : {
-            "state" : "translated",
+            "state" : "needs_review",
             "value" : "Auto: Follows your iOS Larger Text settings. At very large sizes the layout may break.\n\nStandard: The app's own standard size.\n\nLarge: About 1.5× Standard.\n\nX-Large: About 2× Standard. The layout may break depending on screen size and text length. If this causes problems, please report it and we'll do our best to address it."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "自動：システム設定のさらに大きな文字に対応します。特大相当になれば同様に崩れる場合があります。\n\n標準：アプリ独自の標準サイズ\n\n　大：標準の1.5倍くらいになります\n\n特大：標準の2倍くらいになります。画面サイズや文字数などで限界を超えて崩れる場合があります。どうしても困る場合は報告して頂ければ、できる限り対応したいと思っています。"
+            "value" : "ローガンフリーを目指します\n\n自動：システム設定のさらに大きな文字に対応します\n\n標準：アプリ独自の標準サイズ\n\n　大：標準の1.5倍くらいになります\n\n特大：標準の2倍くらいになります\n\n特大サイズくらいになると一部崩れるケースが残っています。どうしても困る場合は報告して頂ければ、できる限り対応したいと思っています。"
           }
         }
       }
