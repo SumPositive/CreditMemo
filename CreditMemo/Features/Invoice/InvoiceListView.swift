@@ -562,67 +562,38 @@ struct InvoiceDraftCopy: Identifiable, Equatable {
     }
 }
 
-/// 金額0で追加されたコピー仮明細セル。新しい決済の追加（DraftPaymentRow）と同じレイアウト：
-/// 状態アイコン｜日付｜（ラベル + カード名 + （コピー）タップして編集）。
-/// 金額・ロックアイコンは表示しない。編集保存されると消えて通常の明細として現れる
+/// 金額0で追加されたコピー仮明細セル。決済一覧の RecordDraftCopyRow と同じく
+/// RecordSummaryRow を流用し、タグと ¥0 も含めて表示する。
+/// 編集保存されると消えて、通常の明細として現れる
 private struct InvoiceDraftCopyRow: View {
     let draft: InvoiceDraftCopy
     let onEdit: () -> Void
 
-    private var labelText: String {
-        let trimmed = draft.source.zName.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "—" : trimmed
-    }
-
-    private var cardNameText: String {
-        draft.source.e1card?.zName ?? NSLocalizedString("payment.card.noSelection", comment: "")
-    }
-
     var body: some View {
-        Button(action: onEdit) {
-            HStack(alignment: .center, spacing: 6) {
-                InvoiceStatusIcon(isPaid: draft.isPaid)
-                    .opacity(0.55)
-
-                StackedDateView(date: draft.dueDate)
-
-                VStack(alignment: .leading, spacing: 4) {
-                    // 1 行目：元レコードのラベル
-                    Text(labelText)
-                        .font(.body)
-                        .foregroundStyle(Color(.label))
-                        .lineLimit(1)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    // 2 行目：カード名
-                    Text(cardNameText)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    // 3 行目：（コピー）タップして編集 を右寄せ
-                    Text("invoice.copied.tapToEdit")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.blue)
-                        .lineLimit(1)
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
+        VStack(alignment: .trailing, spacing: 4) {
+            Button(action: onEdit) {
+                RecordSummaryRow(
+                    record: draft.source,
+                    dateOverride: draft.dueDate,
+                    amountOverride: 0,
+                    showsStatus: false
+                )
             }
-            .frame(minHeight: 48, alignment: .center)
-            .padding(.vertical, 4)
-            .padding(.horizontal, 8)
-            .background(
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(Color.blue.opacity(0.05))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(Color.blue.opacity(0.25), lineWidth: 1)
-            )
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            Text("invoice.copied.tapToEdit")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.blue)
         }
-        .buttonStyle(.plain)
+        .padding(.vertical, 4)
+        .padding(.horizontal, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.blue.opacity(0.05))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.blue.opacity(0.25), lineWidth: 1)
+        )
         .accessibilityLabel(Text("button.copy"))
     }
 }
@@ -654,13 +625,20 @@ private struct DraftPaymentRow: View {
                         .foregroundStyle(Color(.label))
                         .lineLimit(1)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                    // 2 行目：カード名
-                    Text(cardNameText)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    // 2 行目：カード名（左） + ¥0（右）
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        Text(cardNameText)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        Text(Decimal.zero.currencyString())
+                            .font(.body.monospacedDigit())
+                            .foregroundStyle(COLOR_AMOUNT_POSITIVE)
+                            .lineLimit(1)
+                            .fixedSize(horizontal: true, vertical: false)
+                    }
                     // 3 行目：（追加）タップして編集 を右寄せ
                     Text("invoice.draft.addedTapToEdit")
                         .font(.caption.weight(.semibold))

@@ -669,13 +669,20 @@ struct RecordEditView: View {
         }
     }
 
+    /// 仮明細経由（引き落とし明細の「+」やコピー）かどうか。
+    /// メインメニュー経由でない新規/コピー新規はこちらに該当する
+    private var isDraftEntry: Bool {
+        if case .addCopy = mode { return true }
+        return !isFromMainMenu && isNew
+    }
+
     @ViewBuilder private var beginnerSection: some View {
         // 編集画面では初心者ヒントは出さない（情報過多を避ける）。新規入力時のみ表示
         if userLevel == .beginner && isNew {
             Section {
-                BeginnerHintView(hintKey: "record.beginner.hint") {
+                BeginnerHintView(hintKey: isDraftEntry ? "record.beginner.hint.draft" : "record.beginner.hint") {
                     VStack(alignment: .leading, spacing: 18) {
-                        Text("record.beginner.guide")
+                        Text(isDraftEntry ? "record.beginner.guide.draft" : "record.beginner.guide")
                             .font(.body)
                             .fixedSize(horizontal: false, vertical: true)
                         // 末尾にプライバシー注意文を、目立つ色で添える

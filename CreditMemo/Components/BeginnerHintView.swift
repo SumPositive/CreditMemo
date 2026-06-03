@@ -9,7 +9,8 @@ struct BeginnerHintView: View {
 
     @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
     @State private var showsDetail = false
-    @State private var detailContentHeight: CGFloat = 220
+    /// 本文 ScrollView 内コンテンツの実測高。初期値は控えめにして、計測後に追従させる
+    @State private var detailContentHeight: CGFloat = 120
 
     init(
         hintKey: LocalizedStringKey? = nil,
@@ -49,8 +50,9 @@ struct BeginnerHintView: View {
     }
 
     private var detailSheetHeight: CGFloat {
-        let preferredHeight = detailContentHeight + 84
-        return min(max(preferredHeight, 180), 620)
+        // 本文 + ドラッグインジケーター/ホームインジケーター分の小さなバッファだけ確保
+        let preferredHeight = detailContentHeight + 36
+        return min(max(preferredHeight, 120), 700)
     }
 
     /// 横幅に余裕がある場合は一行で見せる
@@ -151,7 +153,7 @@ struct BeginnerHintView: View {
 
 /// 詳細シートの本文高さを親へ伝える
 private enum BeginnerHintDetailHeightKey: PreferenceKey {
-    static let defaultValue: CGFloat = 220
+    static let defaultValue: CGFloat = 120
 
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = max(value, nextValue())
