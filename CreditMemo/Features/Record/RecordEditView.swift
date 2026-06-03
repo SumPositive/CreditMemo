@@ -1019,29 +1019,46 @@ struct RecordEditView: View {
     }
 
     /// 指定明細の引き落とし日を「支払月をシフト」して再計算する。
-    /// 「前」= 支払月をデクリメント、「次」= 支払月をインクリメントして `BillingService` で計算し直す。
-    /// 土日祝シフトも `BillingService` 内で適用される。
-    /// シフトが 0 に戻ったら override を解除し、元の invoice.date を表示する
+    /// 現在表示中の日付が BillingService 上のどの partOffset に当たるかを逆引きし、
+    /// そこを基準に ±1 して再計算する。逆引き不能（過去の手動指定など）の時は
+    /// 表示中の日付に対する単純な月加算へフォールバックする
     private func shiftPartDueDateByMonth(_ part: E6part, months: Int, currentDate: Date) {
-        let card = selectedCard ?? part.e3record?.e1card
-        guard let card else { return }
-        let naturalOffset = Int(part.nPartNo) - 1
-        let newShift = (partDueDateCycleShiftByPartNo[part.nPartNo] ?? 0) + months
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         // 前月/翌月の手動変更後は自動更新しない
         setDraftPartDueDateLocked(part, isLocked: true)
-        if newShift == 0 {
-            partDueDateCycleShiftByPartNo.removeValue(forKey: part.nPartNo)
-            partDueDateOverridesByPartNo.removeValue(forKey: part.nPartNo)
-            return
+        let card = selectedCard ?? part.e3record?.e1card
+        guard let card else { return }
+        let cal = Calendar.current
+        if let baseOffset = inferPartOffset(displayedDate: currentDate, useDate: dateUse, card: card) {
+            // 表示日が BillingService 上の cycle と一致 → cycle 単位で動かす
+            let computed = BillingService.billingDate(
+                useDate: dateUse,
+                card: card,
+                partOffset: baseOffset + months
+            )
+            partDueDateOverridesByPartNo[part.nPartNo] = computed
+        } else {
+            // 表示日がどの cycle にも一致しない → 表示日に月加算
+            guard let shifted = cal.date(byAdding: .month, value: months, to: currentDate) else { return }
+            partDueDateOverridesByPartNo[part.nPartNo] = cal.startOfDay(for: shifted)
         }
-        let computed = BillingService.billingDate(
-            useDate: dateUse,
-            card: card,
-            partOffset: naturalOffset + newShift
-        )
-        partDueDateCycleShiftByPartNo[part.nPartNo] = newShift
-        partDueDateOverridesByPartNo[part.nPartNo] = computed
+    }
+
+    /// 表示中の日付が BillingService.billingDate(useDate, card, partOffset: X) と
+    /// 同じ日になる X を −12〜+12 の範囲で探す。見つからなければ nil
+    private func inferPartOffset(displayedDate: Date, useDate: Date, card: E1card) -> Int? {
+        let cal = Calendar.current
+        for offset in -12...12 {
+            let candidate = BillingService.billingDate(
+                useDate: useDate,
+                card: card,
+                partOffset: offset
+            )
+            if cal.isDate(candidate, inSameDayAs: displayedDate) {
+                return offset
+            }
+        }
+        return nil
     }
 
     /// 引き落とし日専用ロックを切り替える
