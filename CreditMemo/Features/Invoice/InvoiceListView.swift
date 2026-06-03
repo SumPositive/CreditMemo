@@ -44,8 +44,11 @@ struct InvoiceListView: View {
     @State private var draftPayments: [InvoiceDraftPayment] = []
     /// タップされた仮明細から開く新規決済シート
     @State private var editingDraftPayment: InvoiceDraftPayment?
-    /// この画面表示中だけ、複製直後の明細IDを保持する
-    @State private var copiedRecordIDs: Set<String> = []
+    /// この画面内だけで保持する、保存前のコピー仮明細（金額0）。
+    /// 編集保存されると消えて、通常の明細として現れる
+    @State private var draftCopies: [InvoiceDraftCopy] = []
+    /// タップされたコピー仮明細から開く編集シート
+    @State private var editingDraftCopy: InvoiceDraftCopy?
     /// 明細追加・編集を保存したとき、画面を「開き直す」ためのトリガー。
     /// 値を変えると `.id()` 経由でフォーム本体が破棄→再構築され、最新の SwiftData 状態が読み直される。
     @State private var reloadKey = UUID()
@@ -125,40 +128,27 @@ struct InvoiceListView: View {
         return draftPayments.filter { $0.card?.id == card.id }
     }
 
-    /// スワイプ操作から、その明細行と同じ内容の決済を即時追加する
+    /// スワイプ操作から、その明細行と同じ内容のコピー仮明細を金額0で追加する。
+    /// 実データへの保存は、ユーザーが仮明細をタップして編集→保存したタイミングで行う
     private func duplicatePart(_ part: E6part) {
         guard let source = part.e3record else { return }
-        let duplicated = E3record(
-            dateUse: source.dateUse,
-            zName: source.zName,
-            zNote: source.zNote,
-            nAmount: part.nAmount,
-            nPayType: PayType.lumpSum.rawValue,
-            nRepeat: source.nRepeat
+        let draft = InvoiceDraftCopy(
+            source: source,
+            dueDate: displayDate,
+            isPaid: displayIsPaid
         )
-        duplicated.e1card = source.e1card
-        duplicated.e5tags = source.e5tags
-        context.insert(duplicated)
+        draftCopies.append(draft)
+    }
 
-        do {
-            // 引き落とし明細上の複製は、この画面の引き落とし日に手動固定する
-            try RecordService.save(
-                duplicated,
-                partDueDateOverridesByPartNo: [1: displayDate],
-                partDueDateLockOverridesByPartNo: [1: true],
-                context: context
-            )
-            if displayIsPaid {
-                for duplicatedPart in duplicated.e6parts {
-                    try RecordService.setPartPaid(duplicatedPart, isPaid: true, context: context)
-                }
-            }
-            copiedRecordIDs.insert(duplicated.id)
-            reloadKey = UUID()
-        } catch {
-            appLog(.error, "明細の複製に失敗しました: \(error)")
-            context.rollback()
-        }
+    /// 保存済みに置き換わったコピー仮明細を画面から消す
+    private func removeDraftCopy(_ draft: InvoiceDraftCopy) {
+        draftCopies.removeAll { $0.id == draft.id }
+    }
+
+    /// 指定明細を元としたコピー仮明細だけを返す（コピー元の直下に並べる用）
+    private func draftCopies(for part: E6part) -> [InvoiceDraftCopy] {
+        guard let sourceID = part.e3record?.id else { return [] }
+        return draftCopies.filter { $0.source.id == sourceID }
     }
 
     private var addPaymentHelpIcon: some View {
@@ -368,7 +358,6 @@ struct InvoiceListView: View {
                     ForEach(section.parts) { part in
                         PartRow(
                             part: part,
-                            isCopied: part.e3record.map { copiedRecordIDs.contains($0.id) } ?? false,
                             onTogglePaid: {
                                 try? RecordService.setPartPaid(
                                     part,
@@ -396,6 +385,12 @@ struct InvoiceListView: View {
                                 }
                                 .tint(.blue)
                                 .accessibilityLabel(Text("button.copy"))
+                            }
+                        }
+                        // コピー仮明細はコピー元の直下に並べて表示する
+                        ForEach(draftCopies(for: part)) { draft in
+                            InvoiceDraftCopyRow(draft: draft) {
+                                editingDraftCopy = draft
                             }
                         }
                     }
@@ -525,6 +520,24 @@ struct InvoiceListView: View {
             .appFontScale(fontScale)
             .presentationBackground(Color(uiColor: .systemBackground))
         }
+        // コピー仮明細をタップすると、金額0のコピー新規シートを開く
+        .sheet(item: $editingDraftCopy) { draft in
+            NavigationStack {
+                RecordEditView(
+                    mode: .addCopy(draft.source),
+                    onSaved: { _ in
+                        removeDraftCopy(draft)
+                        reloadKey = UUID()
+                    },
+                    forceDismissOnNewSave: true,
+                    presetDueDate: draft.dueDate,
+                    presetIsPaid: draft.isPaid,
+                    copySourceAmount: false
+                )
+            }
+            .appFontScale(fontScale)
+            .presentationBackground(Color(uiColor: .systemBackground))
+        }
     }
 }
 
@@ -536,45 +549,129 @@ private struct InvoiceDraftPayment: Identifiable {
     let isPaid: Bool
 }
 
+/// スワイプ「コピー」で生成される、保存前のコピー仮明細
+/// 金額以外は元レコードからコピーする
+struct InvoiceDraftCopy: Identifiable, Equatable {
+    let id = UUID()
+    let source: E3record
+    let dueDate: Date
+    let isPaid: Bool
+
+    static func == (lhs: InvoiceDraftCopy, rhs: InvoiceDraftCopy) -> Bool {
+        lhs.id == rhs.id
+    }
+}
+
+/// 金額0で追加されたコピー仮明細セル。新しい決済の追加（DraftPaymentRow）と同じレイアウト：
+/// 状態アイコン｜日付｜（ラベル + カード名 + （コピー）タップして編集）。
+/// 金額・ロックアイコンは表示しない。編集保存されると消えて通常の明細として現れる
+private struct InvoiceDraftCopyRow: View {
+    let draft: InvoiceDraftCopy
+    let onEdit: () -> Void
+
+    private var labelText: String {
+        let trimmed = draft.source.zName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "—" : trimmed
+    }
+
+    private var cardNameText: String {
+        draft.source.e1card?.zName ?? NSLocalizedString("payment.card.noSelection", comment: "")
+    }
+
+    var body: some View {
+        Button(action: onEdit) {
+            HStack(alignment: .center, spacing: 6) {
+                InvoiceStatusIcon(isPaid: draft.isPaid)
+                    .opacity(0.55)
+
+                StackedDateView(date: draft.dueDate)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    // 1 行目：元レコードのラベル
+                    Text(labelText)
+                        .font(.body)
+                        .foregroundStyle(Color(.label))
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    // 2 行目：カード名
+                    Text(cardNameText)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    // 3 行目：（コピー）タップして編集 を右寄せ
+                    Text("invoice.copied.tapToEdit")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.blue)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(minHeight: 48, alignment: .center)
+            .padding(.vertical, 4)
+            .padding(.horizontal, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color.blue.opacity(0.05))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(Color.blue.opacity(0.25), lineWidth: 1)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text("button.copy"))
+    }
+}
+
 /// 金額0で追加された仮明細を、編集待ちとして少し目立たせるセル
 private struct DraftPaymentRow: View {
     let draft: InvoiceDraftPayment
     let onEdit: () -> Void
 
+    private var cardNameText: String {
+        draft.card?.zName ?? NSLocalizedString("payment.card.noSelection", comment: "")
+    }
+
     var body: some View {
         Button(action: onEdit) {
-            HStack(spacing: 10) {
+            // 通常の明細セル (PartRow) と同じレイアウトに揃える：
+            // 状態アイコン｜日付｜（ラベル=新しい決済 + カード名）｜（追加）タップして編集
+            // 金額・ロックアイコンは表示しない
+            HStack(alignment: .center, spacing: 6) {
                 InvoiceStatusIcon(isPaid: draft.isPaid)
                     .opacity(0.55)
 
+                StackedDateView(date: draft.dueDate)
+
                 VStack(alignment: .leading, spacing: 4) {
+                    // 1 行目：ラベル位置に「新しい決済」
                     Text("invoice.draft.title")
-                        .font(.headline)
-                        .foregroundStyle(.primary)
-                    Text(AppDateFormat.singleLineText(draft.dueDate))
-                        .font(.subheadline)
+                        .font(.body)
+                        .foregroundStyle(Color(.label))
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    // 2 行目：カード名
+                    Text(cardNameText)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
-                    Text("invoice.draft.tapToEdit")
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    // 3 行目：（追加）タップして編集 を右寄せ
+                    Text("invoice.draft.addedTapToEdit")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.orange)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
                 }
-
-                Spacer(minLength: 8)
-
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text(Decimal.zero.currencyString())
-                        .font(.headline.monospacedDigit())
-                        .foregroundStyle(.orange)
-                    HStack(spacing: 4) {
-                        Image(systemName: "lock.fill")
-                            .imageScale(.small)
-                        Text("record.dueDate.mode.manual")
-                    }
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.orange)
-                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.vertical, 8)
+            .frame(minHeight: 48, alignment: .center)
+            .padding(.vertical, 4)
             .padding(.horizontal, 8)
             .background(
                 RoundedRectangle(cornerRadius: 10)
@@ -656,7 +753,6 @@ private extension E7payment {
 
 private struct PartRow: View {
     let part: E6part
-    let isCopied: Bool
     let onTogglePaid: () -> Void
     let onToggleCheck: () -> Void
     let onEdit: () -> Void
@@ -683,26 +779,12 @@ private struct PartRow: View {
                 .opacity(canToggleToPaid ? 1 : 0.35)
 
                 Button(action: onEdit) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        // 明細本体は既存セルを流用し、状態表示だけ消す
-                        RecordSummaryRow(
-                            record: record,
-                            amountOverride: part.nAmount,
-                            showsStatus: false
-                        )
-                        if isCopied {
-                            // 複製直後の明細だと分かる一時表示
-                            Label("button.copy", systemImage: "doc.on.doc.fill")
-                                .font(.caption2.weight(.semibold))
-                                .foregroundStyle(.blue)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 3)
-                                .background(
-                                    Capsule()
-                                        .fill(Color.blue.opacity(0.10))
-                                )
-                        }
-                    }
+                    // 明細本体は既存セルを流用し、状態表示だけ消す
+                    RecordSummaryRow(
+                        record: record,
+                        amountOverride: part.nAmount,
+                        showsStatus: false
+                    )
                 }
                 .buttonStyle(.plain)
                 .opacity(isChecked ? 0.45 : 1)
@@ -713,15 +795,13 @@ private struct PartRow: View {
                 }
                 .buttonStyle(.plain)
             }
-            .padding(.vertical, isCopied ? 4 : 0)
-            .padding(.horizontal, isCopied ? 6 : 0)
             .background(
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(isCopied ? Color.blue.opacity(0.05) : Color.clear)
+                    .fill(Color.clear)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 10)
-                    .stroke(isCopied ? Color.blue.opacity(0.25) : Color.clear, lineWidth: 1)
+                    .stroke(Color.clear, lineWidth: 1)
             )
         } else {
             HStack {

@@ -597,23 +597,6 @@
         }
       }
     },
-    "button.delete" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Delete"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "削除"
-          }
-        }
-      }
-    },
     "button.copy" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -627,6 +610,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "コピー"
+          }
+        }
+      }
+    },
+    "button.delete" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "削除"
           }
         }
       }
@@ -1753,70 +1753,19 @@
         }
       }
     },
-    "invoice.draft.noCardSection" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Method Pending"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "手段未定"
-          }
-        }
-      }
-    },
-    "invoice.draft.tapToEdit" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tap to edit"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "タップして編集"
-          }
-        }
-      }
-    },
-    "invoice.draft.title" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "New Payment"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "新しい決済"
-          }
-        }
-      }
-    },
     "invoice.beginner.addPayment" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
-            "state" : "translated",
+            "state" : "needs_review",
             "value" : "Open new payment with these conditions"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "この条件で新しい決済を開く"
+            "value" : "この条件で新しい決済を追加します\n明細をスワイプしてコピーもできます"
           }
         }
       }
@@ -2056,6 +2005,91 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "まとめて変更"
+          }
+        }
+      }
+    },
+    "invoice.copied.tapToEdit" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(Copied) Tap to edit"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "（コピー）タップして編集"
+          }
+        }
+      }
+    },
+    "invoice.draft.addedTapToEdit" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(Added) Tap to edit"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "（追加）タップして編集"
+          }
+        }
+      }
+    },
+    "invoice.draft.noCardSection" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Method Pending"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "手段未定"
+          }
+        }
+      }
+    },
+    "invoice.draft.tapToEdit" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap to edit"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "タップして編集"
+          }
+        }
+      }
+    },
+    "invoice.draft.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New Payment"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新しい決済"
           }
         }
       }
@@ -3700,14 +3734,14 @@
       "localizations" : {
         "en" : {
           "stringUnit" : {
-            "state" : "translated",
+            "state" : "needs_review",
             "value" : "Fix saved payments here.\n\nSwitch the filter to \"Incomplete\" to show only payments with missing info."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "保存後の修正はここで行います\n\nフィルターを【未入力あり】にすれば未入力や未選択が残っている決済が表示されます"
+            "value" : "保存後の修正はここで行います\n\nフィルターを【未入力あり】にすれば未入力や未選択が残っている決済が表示されます\n\n明細をスワイプするとコピーボタンが現れます。タップして明細をコピーします"
           }
         }
       }

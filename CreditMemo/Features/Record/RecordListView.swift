@@ -149,9 +149,9 @@ struct RecordListView: View {
     @State private var recordPage = 0
     @State private var hasMoreRecords = true
     @State private var isLoadingRecords = false
-    @State private var editTarget: E3record?
-    /// 左スワイプ「新しい決済」で開く、コピー元のレコード
-    @State private var copySource: E3record?
+    @State private var sheetTarget: RecordSheetTarget?
+    /// この画面表示中だけ保持する、保存前のコピー仮明細
+    @State private var draftCopies: [RecordDraftCopy] = []
     @State private var showFilterPopover = false
     @State private var showCardPicker = false
     @State private var showBankPicker = false
@@ -324,22 +324,28 @@ struct RecordListView: View {
             .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 2, trailing: 16))
             ForEach(filtered) { record in
                 Button {
-                    editTarget = record
+                    sheetTarget = .edit(record)
                 } label: {
                     RecordSummaryRow(record: record)
                 }
                 .buttonStyle(.plain)
-                // 右スワイプ（指は左方向）で「日付以外をコピーした新しい決済」シートを開く。
-                // 決済手段一覧の「新しい決済」スワイプとアイコン・背景を統一し、テキストは省略する。
-                // ロングスワイプの即時実行は無効にする（誤操作防止）。
+                // 右スワイプ（指は左方向）で、その場に明細の複製を追加する
+                // 引き落とし明細と同じコピー表示にそろえる
+                // ロングスワイプの即時実行は無効にする（誤操作防止）
                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                     Button {
-                        copySource = record
+                        addDraftCopy(from: record)
                     } label: {
-                        Label("", image: "AddRecordIcon")
+                        Label("button.copy", systemImage: "doc.on.doc.fill")
                     }
-                    .tint(Color(uiColor: .systemBackground))
-                    .accessibilityLabel(Text("record.edit.title.add"))
+                    .tint(.blue)
+                    .accessibilityLabel(Text("button.copy"))
+                }
+                // コピー仮明細はコピー元の直下に並べて表示する
+                ForEach(draftCopies(for: record)) { draft in
+                    RecordDraftCopyRow(draft: draft) {
+                        sheetTarget = .draftCopy(draft)
+                    }
                 }
             }
 
@@ -359,28 +365,29 @@ struct RecordListView: View {
             Image(systemName: "list.bullet.circle.fill")
                 .foregroundStyle(Color.cyan)
         }
-        .sheet(item: $editTarget, onDismiss: {
+        .sheet(item: $sheetTarget, onDismiss: {
             // 編集反映後は先頭ページから再読込する
             resetAndLoadRecords()
-        }) { record in
+        }) { target in
             NavigationStack {
-                RecordEditView(mode: .edit(record))
+                switch target {
+                case .edit(let record):
+                    RecordEditView(mode: .edit(record))
+                case .draftCopy(let draft):
+                    // 仮コピーは金額0から編集してもらい、保存後は仮明細を消す
+                    RecordEditView(
+                        mode: .addCopy(draft.source),
+                        onSaved: { _ in
+                            removeDraftCopy(draft)
+                        },
+                        forceDismissOnNewSave: true,
+                        copySourceAmount: false
+                    )
+                }
             }
             // シートにもアプリ内文字サイズ設定を明示適用する
             .appFontScale(fontScale)
             // 編集シートの背面を透かさない
-            .presentationBackground(Color(uiColor: .systemBackground))
-        }
-        // 左スワイプ「新しい決済」のコピー元から、日付以外を引き継いだ新規追加シートを開く
-        .sheet(item: $copySource, onDismiss: {
-            resetAndLoadRecords()
-        }) { source in
-            NavigationStack {
-                RecordEditView(mode: .addCopy(source))
-            }
-            // シートにもアプリ内文字サイズ設定を明示適用する
-            .appFontScale(fontScale)
-            // コピー新規シートの背面を透かさない
             .presentationBackground(Color(uiColor: .systemBackground))
         }
         .onAppear {
@@ -527,6 +534,21 @@ struct RecordListView: View {
         records = []
         sortedCache = []
         loadMoreRecordsIfNeeded()
+    }
+
+    /// 一覧上で選んだ明細を、保存前のコピー仮明細として先頭に追加する
+    private func addDraftCopy(from source: E3record) {
+        draftCopies.insert(RecordDraftCopy(source: source), at: 0)
+    }
+
+    /// 保存済みに置き換わったコピー仮明細を画面から消す
+    private func removeDraftCopy(_ draft: RecordDraftCopy) {
+        draftCopies.removeAll { $0.id == draft.id }
+    }
+
+    /// 指定レコードを元としたコピー仮明細だけを返す（コピー元の直下に並べる用）
+    private func draftCopies(for source: E3record) -> [RecordDraftCopy] {
+        draftCopies.filter { $0.source.id == source.id }
     }
 
     private func loadMoreRecordsIfNeeded() {
@@ -717,11 +739,69 @@ private struct RecordTagFilterSheet: View {
     }
 }
 
+/// 決済一覧画面だけに存在する保存前のコピー仮明細
+private struct RecordDraftCopy: Identifiable {
+    let id = UUID()
+    let source: E3record
+    let dateUse = Date()
+}
+
+/// 決済一覧から開く編集シートの種類
+private enum RecordSheetTarget: Identifiable {
+    case edit(E3record)
+    case draftCopy(RecordDraftCopy)
+
+    var id: String {
+        switch self {
+        case .edit(let record):
+            "edit-\(record.id)"
+        case .draftCopy(let draft):
+            "draft-\(draft.id)"
+        }
+    }
+}
+
+/// 金額0で追加されたコピー仮明細を、編集待ちとして少し目立たせるセル
+private struct RecordDraftCopyRow: View {
+    let draft: RecordDraftCopy
+    let onEdit: () -> Void
+
+    var body: some View {
+        // 引き落とし明細の PartRow と同じ「（コピー）タップして編集」レイアウトに揃える：
+        // 本体セルを上に置き、その下に独立した行として右寄せで案内文を表示する
+        VStack(alignment: .trailing, spacing: 4) {
+            Button(action: onEdit) {
+                RecordSummaryRow(
+                    record: draft.source,
+                    dateOverride: draft.dateUse,
+                    amountOverride: 0
+                )
+            }
+            .buttonStyle(.plain)
+            Text("invoice.copied.tapToEdit")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.blue)
+        }
+        .padding(.vertical, 4)
+        .padding(.horizontal, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.blue.opacity(0.05))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.blue.opacity(0.25), lineWidth: 1)
+        )
+        .accessibilityLabel(Text("button.copy"))
+    }
+}
+
 // MARK: - Shared Row
 
 /// 決済履歴とタグ編集で共用する明細セル
 struct RecordSummaryRow: View {
     let record: E3record
+    var dateOverride: Date? = nil
     var amountOverride: Decimal? = nil
     var showsStatus: Bool = true
 
@@ -735,6 +815,9 @@ struct RecordSummaryRow: View {
     }
     private var displayAmount: Decimal {
         amountOverride ?? record.nAmount
+    }
+    private var displayDate: Date {
+        dateOverride ?? record.dateUse
     }
     // 金額と同じトーンで文字色を統一する
     private var amountToneColor: Color {
@@ -760,7 +843,7 @@ struct RecordSummaryRow: View {
     var body: some View {
         HStack(alignment: .center, spacing: 6) {
             // 共通日付ビュー（年・月日・曜日の3段表示）
-            StackedDateView(date: record.dateUse)
+            StackedDateView(date: displayDate)
 
             VStack(alignment: .leading, spacing: 4) {
                 ViewThatFits(in: .horizontal) {

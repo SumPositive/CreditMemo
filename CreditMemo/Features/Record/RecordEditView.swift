@@ -39,6 +39,8 @@ struct RecordEditView: View {
     var presetIsPaid = false
     /// メインメニューの「新しい決済」から開いた場合のみ true。決済一覧からコピーセクションの表示に使う
     var isFromMainMenu: Bool = false
+    /// コピー新規でコピー元の金額も引き継ぐか。決済一覧の仮コピーでは金額0から編集してもらう
+    var copySourceAmount = true
 
     @Environment(\.modelContext)    private var context
     @Environment(\.dismiss)         private var dismiss
@@ -1129,7 +1131,7 @@ struct RecordEditView: View {
             draftDateUse = dateUse
             zName        = source.zName
             zNote        = source.zNote
-            nAmount      = source.nAmount
+            nAmount      = copySourceAmount ? source.nAmount : 0
             // 新規作成は一括払いのみを許可するため、payType は強制的に lumpSum
             payType      = .lumpSum
             nRepeat      = source.nRepeat
