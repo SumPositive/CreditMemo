@@ -18,15 +18,10 @@ struct TopMenuView: View {
 
     private var recentUnpaidTotal: Decimal {
         // メニュー表示は「本日から N 日間の引き落とし合計」を使う
-        let windowDays = max(1, min(paymentWindowDays, 30))
+        let windowDays = max(1, min(paymentWindowDays, 60))
         let sorted = unpaidPayments.sorted { $0.date < $1.date }
         let today = Calendar.current.startOfDay(for: Date())
-        let end: Date
-        if windowDays == 30 {
-            end = Calendar.current.date(byAdding: .month, value: 1, to: today) ?? today
-        } else {
-            end = Calendar.current.date(byAdding: .day, value: windowDays - 1, to: today) ?? today
-        }
+        let end = Calendar.current.date(byAdding: .day, value: windowDays - 1, to: today) ?? today
         return sorted
             .filter {
                 let date = Calendar.current.startOfDay(for: $0.date)
@@ -38,7 +33,7 @@ struct TopMenuView: View {
     }
 
     private var recentWindowLabel: String {
-        let windowText = paymentWindowLabel(max(1, min(paymentWindowDays, 30)))
+        let windowText = paymentWindowLabel(max(1, min(paymentWindowDays, 60)))
         let isJapanese = Locale.current.language.languageCode?.identifier == "ja"
         if isJapanese {
             return "直近\(windowText)合計"
@@ -182,9 +177,6 @@ struct TopMenuView: View {
 
     private func paymentWindowLabel(_ days: Int) -> String {
         let isJapanese = Locale.current.language.languageCode?.identifier == "ja"
-        if days == 30 {
-            return isJapanese ? "1ヶ月" : "1 Month"
-        }
         return isJapanese ? "\(days)日" : "\(days) Days"
     }
 }

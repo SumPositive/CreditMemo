@@ -1995,6 +1995,40 @@
         }
       }
     },
+    "list.copySwipeHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Swipe left on an item to copy it"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "左へスワイプするとコピーできます"
+          }
+        }
+      }
+    },
+    "payment.window.selectedFormat": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recent: %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "直近：%@"
+          }
+        }
+      }
+    },
     "invoice.copied.tapToEdit": {
       "extractionState": "manual",
       "localizations": {

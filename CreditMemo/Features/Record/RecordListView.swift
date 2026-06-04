@@ -137,6 +137,7 @@ struct RecordListView: View {
     @Environment(\.modelContext) private var context
     @AppStorage(AppStorageKey.userLevel) private var userLevel: UserLevel = .beginner
     @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
+    @AppStorage(AppStorageKey.copySwipeHintDone) private var copySwipeHintDone = false
 
     // 一覧の絞り込み・並び順は、シングルトン経由でアプリ起動中だけ保持する。
     // （永続化は行わず、メモリ上で前回値を引き継ぐ）
@@ -322,6 +323,11 @@ struct RecordListView: View {
                 .padding(.vertical, 2)
             }
             .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 2, trailing: 16))
+            // 一度もコピーしていない時は、リスト先頭に「左へスワイプ」ヒントを出す
+            if !copySwipeHintDone && !filtered.isEmpty {
+                CopySwipeHint()
+                    .listRowSeparator(.hidden)
+            }
             ForEach(filtered) { record in
                 Button {
                     sheetTarget = .edit(record)
@@ -539,6 +545,8 @@ struct RecordListView: View {
     /// 一覧上で選んだ明細を、保存前のコピー仮明細として先頭に追加する
     private func addDraftCopy(from source: E3record) {
         draftCopies.insert(RecordDraftCopy(source: source), at: 0)
+        // 一度でもコピーしたらヒントは隠す
+        copySwipeHintDone = true
     }
 
     /// 保存済みに置き換わったコピー仮明細を画面から消す

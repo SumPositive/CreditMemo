@@ -144,6 +144,9 @@ struct AZDropdownPicker<Option: Hashable & Identifiable, Label: View>: View {
     /// 選択ボタンを親の横幅いっぱいに広げる
     var fillsWidth: Bool = false
     var style: AZPickerStyle = .form
+    /// 選択ボタン（折りたたみ時）の表示を、候補一覧とは別の View で差し替えたい時に使う。
+    /// nil なら従来通り `label(selection)` を使用する
+    var collapsedLabelOverride: ((Option) -> AnyView)? = nil
     @ViewBuilder let label: (Option) -> Label
 
     var body: some View {
@@ -257,11 +260,18 @@ struct AZDropdownPicker<Option: Hashable & Identifiable, Label: View>: View {
         .buttonStyle(.plain)
     }
 
+    @ViewBuilder
     private var selectedLabel: some View {
-        label(selection)
-            .font(.subheadline)
-            .foregroundStyle(Color.primary)
-            .azPickerTextFit(style.dropdownTextFitMode, alignment: .center)
+        Group {
+            if let override = collapsedLabelOverride {
+                override(selection)
+            } else {
+                label(selection)
+            }
+        }
+        .font(.subheadline)
+        .foregroundStyle(Color.primary)
+        .azPickerTextFit(style.dropdownTextFitMode, alignment: .center)
     }
 
     /// 選択ボタン右端のインジケータ。スタイル設定で非表示／chevron を切り替える。

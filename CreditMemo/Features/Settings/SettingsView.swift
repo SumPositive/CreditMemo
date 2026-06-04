@@ -148,26 +148,7 @@ struct SettingsView: View {
                     .zIndex(expandedDropdown == .afterSave ? 60 : 0)
                 }
 
-                VStack(alignment: .leading, spacing: 8) {
-                    AZAdaptiveControlRow {
-                        settingTitle("settings.paymentWindow", help: "settings.help.paymentWindow")
-                            // 見出しはできるだけ1行を優先する
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.85)
-                            .layoutPriority(1)
-                    } control: {
-                        AZDropdownPicker(
-                            options: paymentWindowOptions,
-                            selection: paymentWindowBinding,
-                            isExpanded: dropdownBinding(.paymentWindow),
-                            minWidth: 150,
-                            popoverDynamicTypeSize: dropdownDynamicTypeSize
-                        ) { option in
-                            Text(windowLabel(option.days))
-                        }
-                    }
-                    .zIndex(expandedDropdown == .paymentWindow ? 60 : 0)
-                }
+                // 引き落とし合計期間のプルダウンは「引き落とし状況」画面の絞り込み条件の右側に移動した
             }
 
             Section("settings.panel.share") {

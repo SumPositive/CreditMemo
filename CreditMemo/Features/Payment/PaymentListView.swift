@@ -614,6 +614,12 @@ private enum PaymentGroupMode: String, CaseIterable, Identifiable {
     }
 }
 
+/// 引き落とし合計期間（直近 N 日）の選択肢
+private struct PaymentWindowOption: Hashable, Identifiable {
+    let days: Int
+    var id: Int { days }
+}
+
 private enum PaymentFilterMode: String, CaseIterable, Identifiable {
     case all
     case bank
@@ -731,6 +737,25 @@ private struct PaymentFilterStatusBar: View {
     let onSelectCard: () -> Void
     let onClear: () -> Void
     @State private var showFilterMenu = false
+    /// 引き落とし合計期間（直近 N 日）は設定値に直接バインドする
+    @AppStorage(AppStorageKey.paymentWindowDays) private var paymentWindowDays = 15
+    @State private var showWindowMenu = false
+
+    private let paymentWindowOptions: [PaymentWindowOption] =
+        (1...20).map { PaymentWindowOption(days: $0) }
+            + [30, 35, 40, 50, 60].map { PaymentWindowOption(days: $0) }
+
+    private var paymentWindowBinding: Binding<PaymentWindowOption> {
+        Binding(
+            get: { PaymentWindowOption(days: paymentWindowDays) },
+            set: { paymentWindowDays = $0.days }
+        )
+    }
+
+    private func windowLabel(_ days: Int) -> String {
+        let isJapanese = Locale.current.language.languageCode?.identifier == "ja"
+        return isJapanese ? "\(days)日" : "\(days) Days"
+    }
 
     private var filterSelection: Binding<PaymentFilterMode> {
         Binding(
@@ -774,6 +799,28 @@ private struct PaymentFilterStatusBar: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel(Text("label.all"))
             }
+
+            // 引き落とし合計期間（旧 設定画面のプルダウン）を右側に配置
+            // 候補一覧は「N日 / 1ヶ月」、選択結果は「直近：N日」と差し替えて表示する
+            AZDropdownPicker(
+                options: paymentWindowOptions,
+                selection: paymentWindowBinding,
+                isExpanded: $showWindowMenu,
+                minWidth: 90,
+                collapsedLabelOverride: { option in
+                    AnyView(
+                        Text(String(
+                            format: NSLocalizedString("payment.window.selectedFormat", comment: ""),
+                            windowLabel(option.days)
+                        ))
+                    )
+                }
+            ) { option in
+                Text(windowLabel(option.days))
+            }
+            .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+            .fixedSize()
+            .accessibilityLabel(Text("settings.paymentWindow"))
         }
         .fixedSize(horizontal: false, vertical: true)
     }
@@ -1406,7 +1453,7 @@ private struct PaymentUnpaidSummaries {
     let futureAmount: Decimal
 
     static func build(from payments: [E7payment], windowDays rawWindowDays: Int) -> PaymentUnpaidSummaries {
-        let windowDays = max(1, min(rawWindowDays, 30))
+        let windowDays = max(1, min(rawWindowDays, 60))
         let sorted = payments.sorted { $0.date < $1.date }
         let today = Calendar.current.startOfDay(for: Date())
 
@@ -1496,7 +1543,7 @@ private struct PaymentUnpaidGrouped {
     let sections: [Section]
 
     static func build(from payments: [PaymentDisplayItem], windowDays rawWindowDays: Int) -> PaymentUnpaidGrouped {
-        let windowDays = max(1, min(rawWindowDays, 30))
+        let windowDays = max(1, min(rawWindowDays, 60))
         let sorted = payments.sorted { $0.date < $1.date }
         let today = Calendar.current.startOfDay(for: Date())
 

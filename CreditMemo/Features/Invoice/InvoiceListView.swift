@@ -39,6 +39,7 @@ struct InvoiceListView: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage(AppStorageKey.userLevel) private var userLevel: UserLevel = .beginner
     @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
+    @AppStorage(AppStorageKey.copySwipeHintDone) private var copySwipeHintDone = false
     @State private var editRecord: E3record?
     /// この画面内だけで保持する、保存前の金額0仮明細
     @State private var draftPayments: [InvoiceDraftPayment] = []
@@ -138,6 +139,8 @@ struct InvoiceListView: View {
             isPaid: displayIsPaid
         )
         draftCopies.append(draft)
+        // 一度でもコピーしたらヒントは隠す
+        copySwipeHintDone = true
     }
 
     /// 保存済みに置き換わったコピー仮明細を画面から消す
@@ -291,60 +294,81 @@ struct InvoiceListView: View {
         .sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
     }
 
+    // MARK: - Body Sections（型推論負荷を下げるためサブビューに分割）
+
+    @ViewBuilder
+    private var beginnerSection: some View {
+        if userLevel == .beginner {
+            Section {
+                BeginnerHintView(hintKey: "invoice.beginner.hint") {
+                    beginnerHelpDetail
+                }
+            }
+        }
+    }
+
+    /// 口座名・日付・合計をまとめた先頭サマリ Section
+    @ViewBuilder
+    private var statementSummarySection: some View {
+        Section {
+            VStack(alignment: .leading, spacing: 6) {
+                if showsBankHeader {
+                    Text(bankNameText)
+                        .font(.headline)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+                HStack(spacing: 8) {
+                    Text(statementTitleText)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: 8)
+                    newPaymentButton(action: { addDraftPayment(card: nil) })
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            HStack {
+                Text("label.total")
+                Spacer()
+                Text(currentDisplayAmount.currencyString())
+                    .font(.headline.monospacedDigit())
+                    .foregroundStyle(displayIsPaid ? COLOR_PAID : COLOR_UNPAID)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var unselectedDraftSection: some View {
+        if !unselectedDraftPayments.isEmpty {
+            Section {
+                ForEach(unselectedDraftPayments) { draft in
+                    DraftPaymentRow(draft: draft) {
+                        editingDraftPayment = draft
+                    }
+                }
+            } header: {
+                Text("invoice.draft.noCardSection")
+            }
+        }
+    }
+
+    /// 一度もコピー操作していない時だけ表示する「左へスワイプ」ヒント
+    @ViewBuilder
+    private var copyHintSection: some View {
+        if !copySwipeHintDone && !cardSections.isEmpty {
+            Section {
+                CopySwipeHint()
+                    .listRowSeparator(.hidden)
+            }
+        }
+    }
+
     var body: some View {
         List {
-            if userLevel == .beginner {
-                Section {
-                    BeginnerHintView(
-                        hintKey: "invoice.beginner.hint"
-                    ) {
-                        beginnerHelpDetail
-                    }
-                }
-            }
-
-            // 口座名・日付・合計を同一セクションにまとめる
-            Section {
-                VStack(alignment: .leading, spacing: 6) {
-                    if showsBankHeader {
-                        // 単一支払の明細では従来どおり口座名を表示する
-                        Text(bankNameText)
-                            .font(.headline)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.7)
-                    }
-                    // 「...に引き落とし」見出しの右に「新しい決済」ボタンを置く
-                    HStack(spacing: 8) {
-                        Text(statementTitleText)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                        Spacer(minLength: 8)
-                        newPaymentButton(action: { addDraftPayment(card: nil) })
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                HStack {
-                    HStack {
-                        Text("label.total")
-                        Spacer()
-                        Text(currentDisplayAmount.currencyString())
-                            .font(.headline.monospacedDigit())
-                            .foregroundStyle(displayIsPaid ? COLOR_PAID : COLOR_UNPAID)
-                    }
-                }
-            }
-
-            if !unselectedDraftPayments.isEmpty {
-                Section {
-                    ForEach(unselectedDraftPayments) { draft in
-                        DraftPaymentRow(draft: draft) {
-                            editingDraftPayment = draft
-                        }
-                    }
-                } header: {
-                    Text("invoice.draft.noCardSection")
-                }
-            }
+            beginnerSection
+            statementSummarySection
+            unselectedDraftSection
+            copyHintSection
 
             // カード別請求
             ForEach(cardSections) { section in
@@ -609,13 +633,9 @@ private struct DraftPaymentRow: View {
 
     var body: some View {
         Button(action: onEdit) {
-            // 通常の明細セル (PartRow) と同じレイアウトに揃える：
-            // 状態アイコン｜日付｜（ラベル=新しい決済 + カード名）｜（追加）タップして編集
-            // 金額・ロックアイコンは表示しない
+            // コピー仮明細 (InvoiceDraftCopyRow / RecordDraftCopyRow) と揃え、
+            // 未払アイコン・金額・ロックアイコンは出さない
             HStack(alignment: .center, spacing: 6) {
-                InvoiceStatusIcon(isPaid: draft.isPaid)
-                    .opacity(0.55)
-
                 StackedDateView(date: draft.dueDate)
 
                 VStack(alignment: .leading, spacing: 4) {
@@ -790,5 +810,27 @@ private struct PartRow: View {
                     .font(.body.monospacedDigit())
             }
         }
+    }
+}
+
+/// 「左へスワイプするとコピーできます」を一覧上部に表示するヒント。
+/// 一度でもコピー操作が行われたら呼び出し側で非表示にする想定
+struct CopySwipeHint: View {
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "hand.draw")
+                .imageScale(.small)
+                .foregroundStyle(Color.secondary)
+            Text("list.copySwipeHint")
+                .font(.caption)
+                .foregroundStyle(Color.secondary)
+                .lineLimit(2)
+                .minimumScaleFactor(0.85)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 4)
+        .padding(.horizontal, 8)
+        .listRowBackground(Color.clear)
     }
 }
