@@ -1,3 +1,8 @@
+//
+//  決済保存サービス
+//  決済保存、請求再構築、繰り返し生成、派生集計をまとめる
+//
+
 import Foundation
 import SwiftData
 

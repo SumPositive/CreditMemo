@@ -1,3 +1,8 @@
+//
+//  決済手段編集画面
+//  決済手段、請求方式、引き落とし口座の編集をまとめる
+//
+
 import SwiftUI
 import SwiftData
 

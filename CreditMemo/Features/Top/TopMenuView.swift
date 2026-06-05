@@ -1,3 +1,8 @@
+//
+//  メインメニュー画面
+//  新しい決済、各一覧、設定への導線をまとめる
+//
+
 import SwiftUI
 import SwiftData
 

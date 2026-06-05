@@ -1,3 +1,8 @@
+//
+//  引き落とし状況画面
+//  未払と引き落とし済みの明細確認、集計、状態変更をまとめる
+//
+
 import SwiftUI
 import SwiftData
 import UIKit

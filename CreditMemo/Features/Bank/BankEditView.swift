@@ -1,3 +1,8 @@
+//
+//  引き落とし口座編集画面
+//  口座名、メモ、関連する引き落とし状況への導線をまとめる
+//
+
 import SwiftUI
 import SwiftData
 

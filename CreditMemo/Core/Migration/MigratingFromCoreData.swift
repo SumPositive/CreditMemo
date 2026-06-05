@@ -1,3 +1,8 @@
+//
+//  旧データ移行処理
+//  CoreData版クレメモのデータをSwiftData形式へ移行する
+//
+
 import Foundation
 import SwiftData
 import CoreData

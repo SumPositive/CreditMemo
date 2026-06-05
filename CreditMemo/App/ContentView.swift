@@ -1,3 +1,8 @@
+//
+//  アプリルート画面
+//  起動時の移行、初期データ投入、メイン表示の切り替えをまとめる
+//
+
 import SwiftUI
 import SwiftData
 

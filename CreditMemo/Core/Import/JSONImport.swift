@@ -1,3 +1,8 @@
+//
+//  JSONインポート処理
+//  バックアップJSONの読み込み、既存データ更新、請求再構築をまとめる
+//
+
 import Foundation
 import SwiftData
 

@@ -1,3 +1,8 @@
+//
+//  決済一覧画面
+//  決済履歴の絞り込み、並び替え、仮明細追加をまとめる
+//
+
 import SwiftUI
 import SwiftData
 

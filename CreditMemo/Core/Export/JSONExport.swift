@@ -1,3 +1,8 @@
+//
+//  JSONエクスポート処理
+//  バックアップ用JSONの生成と出力形式の切り替えをまとめる
+//
+
 import Foundation
 import SwiftData
 

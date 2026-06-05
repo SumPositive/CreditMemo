@@ -1,3 +1,8 @@
+//
+//  決済編集画面
+//  決済入力、タグ、繰り返し、引き落とし日調整をまとめる
+//
+
 import SwiftUI
 import SwiftData
 import UIKit

@@ -1,3 +1,8 @@
+//
+//  タグ編集画面
+//  タグ名、メモ、関連する決済一覧への導線をまとめる
+//
+
 import SwiftUI
 import SwiftData
 

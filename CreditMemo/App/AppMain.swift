@@ -1,3 +1,8 @@
+//
+//  アプリ起動定義
+//  SwiftDataコンテナ、広告初期化、URL連携をまとめる
+//
+
 import SwiftUI
 import SwiftData
 import UIKit

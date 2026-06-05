@@ -1,3 +1,8 @@
+//
+//  決済手段別引き落とし一覧画面
+//  決済手段単位の請求確認、状態変更、新規決済追加をまとめる
+//
+
 import SwiftUI
 import SwiftData
 import UIKit

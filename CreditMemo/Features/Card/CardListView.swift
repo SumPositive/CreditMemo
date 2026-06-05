@@ -1,3 +1,8 @@
+//
+//  決済手段一覧画面
+//  決済手段の表示、並び替え、スワイプ操作をまとめる
+//
+
 import SwiftUI
 import SwiftData
 

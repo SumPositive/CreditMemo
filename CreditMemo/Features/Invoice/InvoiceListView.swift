@@ -1,3 +1,8 @@
+//
+//  引き落とし明細画面
+//  請求単位の明細確認、日付変更、仮明細追加をまとめる
+//
+
 import SwiftUI
 import SwiftData
 

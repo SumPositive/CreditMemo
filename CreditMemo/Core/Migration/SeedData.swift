@@ -1,3 +1,8 @@
+//
+//  初期データ投入処理
+//  初回起動時の決済手段、口座、タグのサンプル登録をまとめる
+//
+
 import Foundation
 import SwiftData
 

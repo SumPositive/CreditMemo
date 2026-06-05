@@ -1,3 +1,8 @@
+//
+//  設定画面
+//  表示、決済・支払、共有、サポートの設定をまとめる
+//
+
 import SwiftUI
 import SwiftData
 import StoreKit
