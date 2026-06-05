@@ -145,13 +145,15 @@ struct RecordEditView: View {
         // 新規・編集とも、いったん表示したら保存/終了まで維持する
         return selectedBankForCard == nil || keepBankPickerRowVisible
     }
-    // 済みまたはロック済みの明細を含むレコードは、コア項目を固定する
+    // いずれかの明細が済み・ロック済みのレコードは、コア項目を固定する。
+    // 2回払いの1回目だけ済みでも、金額・利用日・決済手段などは編集不可にする
+    // （未払の残り明細の引き落とし日は canEditPartDueDate 側で個別に許可する）
     private var isCoreFieldsLocked: Bool {
         guard case .edit(let record) = mode else { return false }
         if record.e6parts.isEmpty { return false }
-        let allPartsPaid = record.e6parts.allSatisfy { $0.e2invoice?.isPaid ?? false }
+        let anyPartPaid = record.e6parts.contains { $0.e2invoice?.isPaid ?? false }
         let hasLockedPart = record.e6parts.contains { $0.isChecked }
-        return allPartsPaid || hasLockedPart
+        return anyPartPaid || hasLockedPart
     }
     private var shownUsePointCandidates: [String] {
         // フォーカス時に候補をそのまま表示する
@@ -487,6 +489,9 @@ struct RecordEditView: View {
                             )
                         }
                     )
+                    // カレンダー下に「前月/翌月の支払日へ」ボタンを置く
+                    partDueDateShiftButtons
+                        .padding(.top, 8)
                 }
                 .padding(.horizontal, 16)
                 .onPreferenceChange(CalendarHeightPreferenceKey.self) { h in
@@ -497,7 +502,8 @@ struct RecordEditView: View {
             }
             .modifier(ConditionalDynamicTypeModifier(fontScale: fontScale))
             .presentationBackground(Color(uiColor: .systemBackground))
-            .presentationDetents([.height(ceil(50 + datePickerCalendarHeight + 44))])
+            // ボタン高さ ~50pt 分を確保
+            .presentationDetents([.height(ceil(50 + datePickerCalendarHeight + 44 + 50))])
             .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showDueDatePicker) {
@@ -1306,7 +1312,58 @@ struct RecordEditView: View {
         }
     }
 
-    /// 明細行用「日付＋ロック」行（＋未ロック時の前/次の支払日ボタン）。
+    /// 引き落とし日カレンダーシート下部の「前/次の支払日へ」ボタン。
+    /// シート上のカレンダーに対して動作し、タップで仮日付を確定する
+    @ViewBuilder
+    private var partDueDateShiftButtons: some View {
+        HStack {
+            Button {
+                shiftPartDueDateInSheet(months: -1)
+            } label: {
+                Label("record.dueDate.prev", systemImage: "chevron.left")
+                    .labelStyle(.titleAndIcon)
+                    .font(.caption)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            Spacer(minLength: 8)
+            Button {
+                shiftPartDueDateInSheet(months: 1)
+            } label: {
+                Label("record.dueDate.next", systemImage: "chevron.right")
+                    .labelStyle(.titleAndIcon)
+                    .font(.caption)
+                    .environment(\.layoutDirection, .rightToLeft)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        }
+    }
+
+    /// シート上のカレンダーで「前/次の支払日へ」ボタンが押された時の処理。
+    /// 現在の draftPartDueDate を基準に ±N ヶ月シフトして即時確定する
+    private func shiftPartDueDateInSheet(months: Int) {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        let card = selectedCard ?? editingPart?.e3record?.e1card
+        let base = draftPartDueDate
+        let cal = Calendar.current
+        let computed: Date
+        if let card,
+           let baseOffset = inferPartOffset(displayedDate: base, useDate: dateUse, card: card) {
+            computed = BillingService.billingDate(
+                useDate: dateUse,
+                card: card,
+                partOffset: baseOffset + months
+            )
+        } else {
+            computed = cal.date(byAdding: .month, value: months, to: base) ?? base
+        }
+        let normalized = cal.startOfDay(for: computed)
+        draftPartDueDate = normalized
+        applyPartDueDate(normalized)
+    }
+
+    /// 明細行用「日付＋ロック」行（前/次の支払日ボタンはシート側に移動済み）。
     /// ViewBuilder 内の多文評価で型推論が崩れないよう関数に分離する
     @ViewBuilder
     private func partDueDateLockRow(for part: E6part) -> some View {
@@ -1316,44 +1373,17 @@ struct RecordEditView: View {
         let date = partDueDateOverridesByPartNo[part.nPartNo]
             ?? part.e2invoice?.date
             ?? Date()
-        VStack(alignment: .leading, spacing: 8) {
-            dueDateLockRow(
-                date: date,
-                // ロックは自動更新禁止を示す。済みは操作不可として固定表示する
-                isLocked: isPaid || isDueDateLocked,
-                // 済み・明細ロック中は変更禁止状態として手動ラベルを隠す
-                showsModeLabel: !isPaid && !part.isChecked,
-                onTapDate: canManualEdit ? { openPartDueDatePicker(part) } : nil,
-                // 済み・明細ロック中はロック操作不可。未払かつ明細アンロック中だけ切り替えられる
-                onToggleLock: (isPaid || part.isChecked) ? nil : { togglePartDueDateLock(part) }
-            )
-            // 手動変更はロック中でも可能にする
-            if canManualEdit {
-                HStack {
-                    Button {
-                        shiftPartDueDateByMonth(part, months: -1, currentDate: date)
-                    } label: {
-                        Label("record.dueDate.prev", systemImage: "chevron.left")
-                            .labelStyle(.titleAndIcon)
-                            .font(.caption)
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    Spacer(minLength: 8)
-                    Button {
-                        shiftPartDueDateByMonth(part, months: 1, currentDate: date)
-                    } label: {
-                        Label("record.dueDate.next", systemImage: "chevron.right")
-                            .labelStyle(.titleAndIcon)
-                            .font(.caption)
-                            // chevron.right を末尾に出す
-                            .environment(\.layoutDirection, .rightToLeft)
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                }
-            }
-        }
+        // 前/次の支払日ボタンはカレンダーシート（openPartDueDatePicker）側に移動した
+        dueDateLockRow(
+            date: date,
+            // ロックは自動更新禁止を示す。済みは操作不可として固定表示する
+            isLocked: isPaid || isDueDateLocked,
+            // 済み・明細ロック中は変更禁止状態として手動ラベルを隠す
+            showsModeLabel: !isPaid && !part.isChecked,
+            onTapDate: canManualEdit ? { openPartDueDatePicker(part) } : nil,
+            // 済み・明細ロック中はロック操作不可。未払かつ明細アンロック中だけ切り替えられる
+            onToggleLock: (isPaid || part.isChecked) ? nil : { togglePartDueDateLock(part) }
+        )
     }
 
     /// 編集モードで、未ロックの明細の引き落とし日を BillingService で再計算する。

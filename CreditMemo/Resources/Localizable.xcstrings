@@ -3447,13 +3447,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Next month"
+            "value" : "Next due date"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "翌月へ"
+            "value" : "翌支払日へ"
           }
         }
       }
@@ -3464,13 +3464,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Prev month"
+            "value" : "Prev due date"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "前月へ"
+            "value" : "前支払日へ"
           }
         }
       }

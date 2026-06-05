@@ -569,6 +569,8 @@ struct InvoiceListView: View {
 private struct InvoiceDraftPayment: Identifiable {
     let id = UUID()
     let card: E1card?
+    /// 保存される利用日（仮明細表示用）。デフォルトは作成時の当日
+    let useDate: Date = Date()
     let dueDate: Date
     let isPaid: Bool
 }
@@ -578,6 +580,8 @@ private struct InvoiceDraftPayment: Identifiable {
 struct InvoiceDraftCopy: Identifiable, Equatable {
     let id = UUID()
     let source: E3record
+    /// 保存される利用日（仮明細表示用）。デフォルトは作成時の当日
+    let useDate: Date = Date()
     let dueDate: Date
     let isPaid: Bool
 
@@ -598,7 +602,8 @@ private struct InvoiceDraftCopyRow: View {
             Button(action: onEdit) {
                 RecordSummaryRow(
                     record: draft.source,
-                    dateOverride: draft.dueDate,
+                    // 仮明細セルには利用日を表示する（引き落とし日ではなく）
+                    dateOverride: draft.useDate,
                     amountOverride: 0,
                     showsStatus: false
                 )
@@ -636,7 +641,8 @@ private struct DraftPaymentRow: View {
             // コピー仮明細 (InvoiceDraftCopyRow / RecordDraftCopyRow) と揃え、
             // 未払アイコン・金額・ロックアイコンは出さない
             HStack(alignment: .center, spacing: 6) {
-                StackedDateView(date: draft.dueDate)
+                // 仮明細セルには利用日を表示する（引き落とし日ではなく）
+                StackedDateView(date: draft.useDate)
 
                 VStack(alignment: .leading, spacing: 4) {
                     // 1 行目：ラベル位置に「新しい決済」

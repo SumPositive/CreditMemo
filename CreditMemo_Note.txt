@@ -1336,30 +1336,6 @@ Localizable.xcstrings のjaを直接修正したのでenに翻訳してほしい
 決済一覧の仮明細と同じようにタグと金額0を表示したい
 仮明細を編集する場合、初心者ヒント「金額と決済手段を確認して保存」ヘルプ「金額と決済手段が決まれば保存できます　(以下同文)」にしたい
 
------------
-2.3.0 新機能
-- 仮明細：決済一覧や引き落とし明細にある(+)新しい決済を見やすく分かりやすくしました
-- 仮明細：引き落とし明細にある(+)新しい決済をタップして仮明細を追加できます
-- 仮明細：決済一覧や引き落とし明細にある明細をコピーして仮明細を追加できます
-- 仮明細：仮明細は、編集しなければ自動的に消えますが、金額と決済手段を決めれば保存できます
-- まとめて変更：引き落とし明細に「まとめて変更」ボタンを追加、まとめて引き落とし日を変更できます
-- 土日祝日繰延：引き落とし日が土日祝日のとき翌営業日になります。設定でOFFにすることもできます　　＜＜＜この機能はjaのみ
-- 引き落とし日を「日付指定」のほか、「前の支払日」と「次の支払日」に変えることができます
-- 初心者ヘルプを改善、見やすくしました
-- その他、修正や改善。初心者ヘルプが多く見難くなってきたので改善しました
-enにして
-2.3.0 New Features
-- Draft entries: Improved the (+) New Payment actions in the payment list and withdrawal details so they are easier to see and understand
-- Draft entries: Tap (+) New Payment in withdrawal details to add a draft entry
-- Draft entries: Copy an entry from the payment list or withdrawal details to add it as a draft entry
-- Draft entries: Draft entries disappear automatically if left unedited, but can be saved once you set an amount and payment method
-- Bulk edit: Added a “Bulk Edit” button to withdrawal details, allowing you to change withdrawal dates together
-- Withdrawal date: In addition to choosing a specific date, you can now change the withdrawal date to the previous or next payment date
-- Improved beginner help for better readability
-- Other fixes and improvements, including cleaner beginner help because there was too much on-screen guidance.
----------------------------------------------------
-2.4.0
-
 設定：引き落とし合計期間　のプルダウンメニューだけを引き落とし状況にある絞り込み条件の右側に配置したい
 選択肢一覧はこのままで良いが、選択結果の表示を「直近：N日」にしたい
 決済一覧と引き落とし明細を開いた時、スワイプ動作してコピーをチラ見せすることは可能かな？これでユーザに気づかせたい
@@ -1381,12 +1357,48 @@ enにして
 1回目の支払日を変更して2回目以降になれば2回目を1回目の翌月にする
 引き落とし（支払）明細：日付の前に「引落日」を入れる
 
+達人にすると引き落とし（支払）の右にある(?)が消えた、表示したい。他にも同様の箇所があるのでは？
+
+2回払いの1回目が支払い済みになった場合、2回目の引き落とし日以外は全て編集不可にしたい
+
+引き落とし（支払）明細の　前月へ　翌月へ　が見えないが、どうなった？
+引き落とし日カレンダーシートの下に入れたい
+
+-----------
+2.3.0 新機能
+- 仮明細：決済一覧や引き落とし明細にある(+)新しい決済を見やすく分かりやすくしました
+- 仮明細：引き落とし明細にある(+)新しい決済をタップして仮明細を追加できます
+- 仮明細：決済一覧や引き落とし明細にある明細をコピーして仮明細を追加できます
+- 仮明細：仮明細は、編集しなければ自動的に消えますが、金額と決済手段を決めれば保存できます
+- まとめて変更：引き落とし明細に「まとめて変更」ボタンを追加、まとめて引き落とし日を変更できます
+- 土日祝日繰延：引き落とし日が土日祝日のとき翌営業日になります。設定でOFFにすることもできます　　＜＜＜この機能はjaのみ
+- 引き落とし日を「日付指定」のほか、「前支払日」と「翌支払日」に変えることができます
+- ２回払い：旧アプリ機能を改善して復活しました
+- 初心者ヘルプを改善、見やすくしました
+- 設定：引き落とし合計期間を引き落とし状況画面で変更できるようになりました
+- その他、修正や改善
+enに翻訳して
+-----------
+2.3.0 What's New
+- Drafts: Made the (+) New Payment buttons in the records list and debit statement more visible and easier to understand.
+- Drafts: Tap (+) New Payment in the debit statement to add a draft entry.
+- Drafts: Copy an item from the records list or debit statement to add a draft entry.
+- Drafts: Drafts disappear automatically if you don't edit them, but you can save once the amount and payment method are set.
+- Bulk change: Added a "Change all" button to the debit statement so you can change debit dates in bulk.
+- You can change a debit date with "Pick date", "Prev due date", or "Next due date".
+- 2-payment installments: Brought back and improved from the previous app.
+- Improved the beginner help — easier to read.
+- Settings: The debit total period can now be changed from the Debit Status screen.
+- Other fixes and improvements.
+---------------------------------------------------
+2.4.0
+
+
 
 
 
 -----------
 2.4.0 新機能
-- ２回払い：旧アプリ機能を改善して復活しました
 - 
 - 
 enに翻訳して
