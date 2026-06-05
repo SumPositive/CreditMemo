@@ -209,10 +209,8 @@ struct CardEditView: View {
                         .multilineTextAlignment(.leading)
                         .trimmingTrailingNewlines($zName)
 
-                    if userLevel == .beginner {
-                        // 決済手段名のヘルプは入力欄の末尾に置く
-                        BeginnerHintView(detailMessageKey: "card.edit.beginner.help")
-                    }
+                    // 決済手段名のヘルプは入力欄の末尾に置く
+                    BeginnerHintView(detailMessageKey: "card.edit.beginner.help")
                 }
 
                 if hasDuplicateName {

@@ -8,6 +8,7 @@ struct BeginnerHintView: View {
     let customDetailContent: AnyView?
 
     @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
+    @AppStorage(AppStorageKey.userLevel) private var userLevel: UserLevel = .beginner
     @State private var showsDetail = false
     /// 本文 ScrollView 内コンテンツの実測高。初期値は控えめにして、計測後に追従させる
     @State private var detailContentHeight: CGFloat = 120
@@ -82,18 +83,21 @@ struct BeginnerHintView: View {
             .fixedSize(horizontal: false, vertical: true)
     }
 
+    /// アイコンのみ表示で、達人モードのときは控えめなサイズ/色で出す
+    private var isIconOnlyExpert: Bool {
+        hintKey == nil && userLevel != .beginner
+    }
+
     private var detailButton: some View {
         Button {
             showsDetail = true
         } label: {
-            // ヘルプ導線は疑問符アイコンだけで示す
             Image(systemName: "questionmark.circle")
-                // タップ対象として見つけやすいよう少し大きめにする
-                .font(.body.weight(.semibold))
+                .font(isIconOnlyExpert ? .caption2 : .body.weight(.semibold))
         }
         .buttonStyle(.plain)
-        // アプリのアクセント色を明示して型推論の揺れを避ける
-        .foregroundStyle(Color.accentColor)
+        // 達人モードでアイコンのみの時は控えめ、それ以外はアクセント色で目立たせる
+        .foregroundStyle(isIconOnlyExpert ? Color.secondary : Color.accentColor)
         .fixedSize()
         .accessibilityLabel(Text("button.help"))
     }

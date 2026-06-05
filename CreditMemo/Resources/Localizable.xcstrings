@@ -3293,14 +3293,14 @@
       "localizations" : {
         "en" : {
           "stringUnit" : {
-            "state" : "translated",
+            "state" : "needs_review",
             "value" : "Determined automatically from the use date and payment method."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "利用日と決済手段から自動的に規定日が表示されます"
+            "value" : "利用日と決済手段から自動的に規定日が表示されます\n\n２回払いを利用すると引き落としが2つに分かれます"
           }
         }
       }
@@ -3373,23 +3373,6 @@
         }
       }
     },
-    "record.dueDate.locked" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Debit date locked"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "引き落とし日を固定中"
-          }
-        }
-      }
-    },
     "record.dueDate.label" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3403,6 +3386,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "引落日"
+          }
+        }
+      }
+    },
+    "record.dueDate.locked" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Debit date locked"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "引き落とし日を固定中"
           }
         }
       }
@@ -5053,7 +5053,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "クレジットカードの2回払いに対応します。自動的に2回に配分しますが、個別に調整できます\n\nボーナス払いは引き落とし日を手動で変更してください。いずれも無利息・手数料無料の範囲でご利用ください"
+            "value" : "クレジットカードの2回払いに対応します。自動的に2回に配分しますが、個別に調整できます\n\nOFFにすると新しい決済の2回払いが利用できなくなります。すでに保存した2回払いは変わらず有効です\n\nボーナス払いは引き落とし日を手動で変更してください。いずれも無利息・手数料無料の範囲でご利用ください"
           }
         }
       }

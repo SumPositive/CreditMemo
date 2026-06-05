@@ -635,11 +635,10 @@ struct RecordEditView: View {
             } header: {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text("record.dueDate.section")
-                    if userLevel == .beginner {
-                        // 引き落とし日のヘルプは見出しの末尾に置く
-                        BeginnerHintView {
-                            dueDateHelpContent
-                        }
+                    // 引き落とし日のヘルプは見出しの末尾に置く。
+                    // 達人モードでも控えめな (?) として残す
+                    BeginnerHintView {
+                        dueDateHelpContent
                     }
                 }
             }
@@ -1266,11 +1265,10 @@ struct RecordEditView: View {
             } header: {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text("record.dueDate.section")
-                    if userLevel == .beginner {
-                        // 明細ごとの固定ヘルプは見出しの末尾に置く
-                        BeginnerHintView {
-                            dueDateHelpContent
-                        }
+                    // 明細ごとの固定ヘルプは見出しの末尾に置く。
+                    // 達人モードでも控えめな (?) として残す
+                    BeginnerHintView {
+                        dueDateHelpContent
                     }
                 }
             }

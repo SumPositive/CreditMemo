@@ -87,10 +87,8 @@ struct BankEditView: View {
                         .focused($focusName)
                         .trimmingTrailingNewlines($zName)
 
-                    if userLevel == .beginner {
-                        // 口座名のヘルプは入力欄の末尾に置く
-                        BeginnerHintView(detailMessageKey: "bank.edit.beginner.help")
-                    }
+                    // 口座名のヘルプは入力欄の末尾に置く
+                    BeginnerHintView(detailMessageKey: "bank.edit.beginner.help")
                 }
 
                 if hasDuplicateName {

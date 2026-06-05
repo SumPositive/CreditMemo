@@ -70,8 +70,9 @@ struct SettingsView: View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
             Text(key)
                 .font(.subheadline)
-            if userLevel == .beginner, let helpKey {
-                // 設定項目のヘルプは項目名の末尾に置く
+            if let helpKey {
+                // 設定項目のヘルプは項目名の末尾に置く。
+                // 達人モードでも (?) は使えるが控えめサイズで描画される
                 BeginnerHintView(detailMessageKey: helpKey)
             }
         }
@@ -166,10 +167,8 @@ struct SettingsView: View {
                         }
                         .disabled(isWorking)
 
-                        if userLevel == .beginner {
-                            // 共有操作のヘルプは実行ボタンの外に置き、本文色の伝播を避ける
-                            BeginnerHintView(detailMessageKey: "settings.help.export")
-                        }
+                        // 共有操作のヘルプは実行ボタンの外に置き、本文色の伝播を避ける
+                        BeginnerHintView(detailMessageKey: "settings.help.export")
                     }
 
                     if userLevel != .beginner {
@@ -195,10 +194,8 @@ struct SettingsView: View {
                         }
                         .disabled(isWorking)
 
-                        if userLevel == .beginner {
-                            // 読み込み操作のヘルプは実行ボタンの外に置き、本文色の伝播を避ける
-                            BeginnerHintView(detailMessageKey: "settings.help.import")
-                        }
+                        // 読み込み操作のヘルプは実行ボタンの外に置き、本文色の伝播を避ける
+                        BeginnerHintView(detailMessageKey: "settings.help.import")
                     }
                 }
 
@@ -211,10 +208,8 @@ struct SettingsView: View {
                         }
                         .disabled(isWorking)
 
-                        if userLevel == .beginner {
-                            // 履歴整理のヘルプは実行ボタンの外に置き、本文色の伝播を避ける
-                            BeginnerHintView(detailMessageKey: "settings.help.retention")
-                        }
+                        // 履歴整理のヘルプは実行ボタンの外に置き、本文色の伝播を避ける
+                        BeginnerHintView(detailMessageKey: "settings.help.retention")
                     }
                 }
             }
