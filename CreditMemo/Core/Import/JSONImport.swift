@@ -340,7 +340,9 @@ enum JSONImport {
             record.zName = item.name
             record.zNote = item.note
             record.nAmount = decimalValue(item.amount)
-            record.nPayType = Int16(item.payType)
+            // 旧アプリ由来のボーナス払い等（payType=101, 201）は現行モデルに無いので、
+            // 2 なら 2回払い、それ以外は一括(1) に正規化する
+            record.nPayType = (item.payType == 2) ? 2 : 1
             record.nRepeat = Int16(item.repeatMonths)
             record.e1card = item.cardID.flatMap { cardByID[$0] }
 
@@ -371,6 +373,16 @@ enum JSONImport {
 
             if let noCheck = item.noCheck {
                 part.nNoCheck = Int16(noCheck)
+            }
+
+            // 2回払いで手動配分した金額を復元する。
+            // rebuildBilling 直後のため、デフォルトは 50/50 + 余りに上書き済み。
+            // JSON 側に amount がある場合はそちらを尊重する。
+            if let amountString = item.amount {
+                let restored = decimalValue(amountString)
+                if restored != 0 {
+                    part.nAmount = restored
+                }
             }
 
             let shouldLockDueDate = item.dueDateLocked ?? false
