@@ -4,7 +4,7 @@ import SwiftData
 // 支払方法
 enum PayType: Int16, CaseIterable, Codable {
     case lumpSum     = 1  // 一括
-    case twoPayments = 2  // 二回払い
+    case twoPayments = 2  // 2回払い
 
     var localizedKey: String {
         switch self {

@@ -101,14 +101,18 @@ enum BillingService {
         case .lumpSum:
             return [record.nAmount]
         case .twoPayments:
-            // まず合計を通貨精度へ正規化する（インポート値など精度超過を防ぐ）
-            // 丸めは .plain（0.5 を絶対値方向へ切り上げる商業丸め）で統一する
-            let total     = record.nAmount.roundedAmount()
-            let half      = (total / 2).roundedAmount()
-            // remainder は合計から half を引くことで必ず total と一致させる
-            let remainder = total - half
-            return [half, remainder]
+            return twoPaymentAmounts(total: record.nAmount)
         }
+    }
+
+    /// 2回払いの初期配分を返す。端数は旧アプリに合わせて2回目へ寄せる
+    static func twoPaymentAmounts(total: Decimal, locale: Locale = .current) -> [Decimal] {
+        let roundedTotal = total.roundedAmount(locale: locale)
+        let minorUnits = roundedTotal.minorUnits(locale: locale)
+        let firstMinorUnits = Decimal((minorUnits as NSDecimalNumber).int64Value / 2)
+        let first = Decimal.fromMinorUnits(firstMinorUnits, locale: locale)
+        let second = roundedTotal - first
+        return [first, second]
     }
 
     static func partCount(for payType: PayType) -> Int {

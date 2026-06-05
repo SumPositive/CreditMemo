@@ -31,12 +31,17 @@ enum RecordService {
     static func save(
         _ record: E3record,
         partDueDateOverridesByPartNo: [Int16: Date],
+        partAmountOverridesByPartNo: [Int16: Decimal] = [:],
         partDueDateLockOverridesByPartNo: [Int16: Bool] = [:],
         context: ModelContext
     ) throws {
         // 通常保存で E6part を再構築した後、画面で指定された支払日を同じ保存単位で反映する
         record.dateUpdate = Date()
-        rebuildBilling(for: record, context: context)
+        rebuildBilling(
+            for: record,
+            partAmountOverridesByPartNo: partAmountOverridesByPartNo,
+            context: context
+        )
         let cats = record.e5tags
         for cat in cats { updateCategoryStats(cat, amount: record.nAmount, date: Date()) }
         applyPartDueDateOverrides(
@@ -499,7 +504,11 @@ enum RecordService {
         cleanupOrphanBilling(context: context)
     }
 
-    static func rebuildBilling(for record: E3record, context: ModelContext) {
+    static func rebuildBilling(
+        for record: E3record,
+        partAmountOverridesByPartNo: [Int16: Decimal] = [:],
+        context: ModelContext
+    ) {
         let snapshot = snapshot(for: record)
         removeExistingParts(of: record, context: context)
 
@@ -513,7 +522,8 @@ enum RecordService {
                 : nil
             // 引き落とし日ロック済みの明細は、請求方式変更時も旧日付を維持する
             let billingDate = Calendar.current.startOfDay(for: lockedDate ?? pair.0)
-            let amount = pair.1
+            // 2回払いで画面側が手動配分した金額を優先する
+            let amount = partAmountOverridesByPartNo[partNo] ?? pair.1
             rebuiltDates.append(billingDate)
             let bank = record.e1card?.e8bank
             let invoicePaid = snapshot.invoicePaidByKey[

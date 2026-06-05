@@ -17,6 +17,7 @@ struct SettingsView: View {
     @AppStorage(AppStorageKey.afterSaveAction)   private var afterSaveAction: AfterSaveAction = .goBack
     @AppStorage(AppStorageKey.openAddOnActive)   private var openAddOnActive = false
     @AppStorage(AppStorageKey.autoOpenAmountPad) private var autoOpenAmountPad = true
+    @AppStorage(AppStorageKey.enableTwoPayments) private var enableTwoPayments = false
     @AppStorage(AppStorageKey.shiftDueDateOffHoliday) private var shiftDueDateOffHoliday = true
     @AppStorage(AppStorageKey.paymentWindowDays) private var paymentWindowDays = 15
     @AppStorage(AppStorageKey.exportFormat)        private var exportFormatRaw = JSONExport.OutputStyle.compact.rawValue
@@ -121,6 +122,10 @@ struct SettingsView: View {
 
                 Toggle(isOn: $autoOpenAmountPad) {
                     settingTitle("settings.autoOpenAmountPad", help: "settings.help.autoOpenAmountPad")
+                }
+
+                Toggle(isOn: $enableTwoPayments) {
+                    settingTitle("settings.enableInstallment", help: "settings.help.enableInstallment")
                 }
 
                 // 日本ロケール限定の挙動。他ロケールでは設定 UI 自体を出さない

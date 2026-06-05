@@ -54,6 +54,7 @@ struct RecordEditView: View {
     @AppStorage(AppStorageKey.userLevel)         private var userLevel: UserLevel = .beginner
     @AppStorage(AppStorageKey.fontScale)         private var fontScale: FontScale = .system
     @AppStorage(AppStorageKey.autoOpenAmountPad) private var autoOpenAmountPad = true
+    @AppStorage(AppStorageKey.enableTwoPayments) private var enableTwoPayments = false
 
     @State private var dateUse:    Date     = Date()
     @State private var zName:      String   = ""
@@ -79,7 +80,10 @@ struct RecordEditView: View {
     @State private var draftDueDate        = Date()
     @State private var showPartDatePicker = false
     @State private var editingPart: E6part?
+    @State private var editingPartNoForDueDate: Int16?
     @State private var draftPartDueDate   = Date()
+    @State private var showPartAmountPad  = false
+    @State private var editingPartNoForAmount: Int16?
     /// カレンダーコンテンツの実測高（月ナビで更新される）
     @State private var datePickerCalendarHeight: CGFloat = 390
     @State private var showCardPicker     = false
@@ -92,6 +96,8 @@ struct RecordEditView: View {
     @State private var initialDraft: DraftState?
     // 保存ボタンを押すまで、E6part.nPartNo ごとの引き落とし日変更を保持する
     @State private var partDueDateOverridesByPartNo: [Int16: Date] = [:]
+    // 保存ボタンを押すまで、E6part.nPartNo ごとの分割金額変更を保持する
+    @State private var partAmountOverridesByPartNo: [Int16: Decimal] = [:]
     // 保存ボタンを押すまで、引き落とし日ロックの変更を保持する
     @State private var partDueDateLockOverridesByPartNo: [Int16: Bool] = [:]
     /// 前/次の支払日ボタンで支払月をいくつシフトしたかを E6part.nPartNo 単位で保持する。
@@ -117,6 +123,8 @@ struct RecordEditView: View {
     }
     private var isValid: Bool {
         if nAmount == 0 { return false }
+        // 2回払いは1円以上を2つに分けるため、最低2円相当を必要にする
+        if payType == .twoPayments && nAmount.roundedAmount() <= 1 { return false }
         // 引き落とし日固定モードでは、決済手段未選択だと請求が作られず明細画面に出ないため、必須にする
         if presetDueDate != nil && selectedCard == nil { return false }
         return true
@@ -127,6 +135,7 @@ struct RecordEditView: View {
         // 明細単位の引き落とし日変更も、保存ボタンの強調対象に含める
         return currentDraft() != initialDraft
             || !partDueDateOverridesByPartNo.isEmpty
+            || !partAmountOverridesByPartNo.isEmpty
             || !partDueDateLockOverridesByPartNo.isEmpty
     }
     private var shouldShowBankPickerRow: Bool {
@@ -380,6 +389,10 @@ struct RecordEditView: View {
             // 編集時、未ロックの明細は利用日変更に応じて引き落とし日を再計算
             recomputeEditablePartsDueDates()
         }
+        .onChange(of: nAmount) { _, _ in
+            // 金額変更時は手動配分が 1...総額-1 に収まるよう補正する
+            normalizePartAmountOverridesIfNeeded()
+        }
         .onChange(of: pastRecords.map(\.id)) { _, _ in
             // レコード集合が変わったときだけ再計算する
             refreshDerivedCaches()
@@ -400,6 +413,19 @@ struct RecordEditView: View {
                 DispatchQueue.main.async { isUsePointFocused = false }
             }
             // 金額入力シートの背面を透かさない
+            .presentationBackground(Color(uiColor: .systemGroupedBackground))
+        }
+        .sheet(isPresented: $showPartAmountPad, onDismiss: {
+            editingPartNoForAmount = nil
+        }) {
+            NumericKeypadSheet(
+                title: "record.partAmount.title",
+                placeholder: editingPartNoForAmount.map { displayedPartAmount(partNo: $0) } ?? .zero,
+                maxValue: editablePartAmountUpperBound
+            ) { value in
+                applyPartAmount(value)
+            }
+            // 分割金額入力シートの背面を透かさない
             .presentationBackground(Color(uiColor: .systemGroupedBackground))
         }
         .sheet(isPresented: $showDatePicker) {
@@ -441,12 +467,13 @@ struct RecordEditView: View {
         }
         .sheet(isPresented: $showPartDatePicker, onDismiss: {
             editingPart = nil
+            editingPartNoForDueDate = nil
         }) {
             NavigationStack {
                 ScrollView {
                     SingleDateCalendarView(
                         selectedDate: $draftPartDueDate,
-                        availableRange: APP_MIN_DATE...APP_MAX_DATE
+                        availableRange: partDueDateAvailableRange
                     ) { selectedDate in
                         applyPartDueDate(selectedDate)
                     }
@@ -599,16 +626,12 @@ struct RecordEditView: View {
     @ViewBuilder private var dueDateSection: some View {
         if isNew {
             Section {
-                dueDateLockRow(
-                    date: computedDueDate,
-                    isLocked: dueDateLocked,
-                    // ロック中でも手動の日付変更は許可する
-                    onTapDate: {
-                        draftDueDate = computedDueDate
-                        showDueDatePicker = true
-                    },
-                    onToggleLock: { toggleDueDateLock() }
-                )
+                if shouldShowPayTypeSelector {
+                    payTypeSelector
+                }
+                ForEach(paymentPartNumbers, id: \.self) { partNo in
+                    paymentPartRow(partNo: partNo, allowsDateEdit: true)
+                }
             } header: {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text("record.dueDate.section")
@@ -623,6 +646,95 @@ struct RecordEditView: View {
         }
     }
 
+    /// 引き落とし日セクション内の一括/2回払い切り替え
+    private var payTypeSelector: some View {
+        HStack(spacing: 8) {
+            ForEach(availablePayTypes, id: \.self) { type in
+                Button {
+                    applyPayType(type)
+                } label: {
+                    Text(LocalizedStringKey(type.localizedKey))
+                        .font(.body.weight(payType == type ? .semibold : .regular))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(payType == type ? Color.accentColor.opacity(0.16) : Color.clear)
+                        .foregroundStyle(payType == type ? Color.accentColor : Color.primary)
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .stroke(payType == type ? Color.accentColor.opacity(0.7) : Color(.separator), lineWidth: 1)
+                        }
+                }
+                .buttonStyle(.plain)
+                .disabled(isCoreFieldsLocked)
+            }
+        }
+    }
+
+    /// 2回払いを選べる状態か。既存2回払いは設定OFFでも表示を維持する
+    private var shouldShowPayTypeSelector: Bool {
+        enableTwoPayments || payType == .twoPayments
+    }
+
+    /// 設定に応じて支払方法の選択肢を絞る
+    private var availablePayTypes: [PayType] {
+        if enableTwoPayments || payType == .twoPayments {
+            return PayType.allCases
+        }
+        return [.lumpSum]
+    }
+
+    /// 現在の支払方法に応じた表示対象の回数
+    private var paymentPartNumbers: [Int16] {
+        switch payType {
+        case .lumpSum:
+            return [1]
+        case .twoPayments:
+            return [1, 2]
+        }
+    }
+
+    /// 引き落とし日と分割金額を表示する行
+    @ViewBuilder private func paymentPartRow(partNo: Int16, allowsDateEdit: Bool) -> some View {
+        if payType == .lumpSum {
+            dueDateLockRow(
+                date: displayedPartDueDate(partNo: partNo),
+                isLocked: isDisplayedPartLocked(partNo: partNo),
+                onTapDate: allowsDateEdit ? { openPartDueDatePicker(partNo: partNo) } : nil,
+                onToggleLock: canTogglePartDueDateLock(partNo: partNo) ? { togglePartDueDateLock(partNo: partNo) } : nil
+            )
+        } else {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    Text(partLabel(partNo))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: 8)
+                    Button {
+                        openPartAmountPad(partNo: partNo)
+                    } label: {
+                        Text(displayedPartAmount(partNo: partNo).currencyString())
+                            .font(.body.weight(.semibold).monospacedDigit())
+                            .foregroundStyle(canEditPartAmount ? Color.accentColor : Color.primary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!canEditPartAmount)
+                }
+
+                dueDateLockRow(
+                    date: displayedPartDueDate(partNo: partNo),
+                    isLocked: isDisplayedPartLocked(partNo: partNo),
+                    onTapDate: allowsDateEdit ? { openPartDueDatePicker(partNo: partNo) } : nil,
+                    onToggleLock: canTogglePartDueDateLock(partNo: partNo) ? { togglePartDueDateLock(partNo: partNo) } : nil
+                )
+            }
+        }
+    }
+
     /// 引き落とし日（支払日）の共通行：日付（タップで変更）＋ ロックアイコン。
     /// `onTapDate` が nil の時は日付を編集不可、`onToggleLock` が nil の時は鍵を操作不可にする
     @ViewBuilder private func dueDateLockRow(
@@ -633,6 +745,12 @@ struct RecordEditView: View {
         onToggleLock: (() -> Void)?
     ) -> some View {
         HStack(spacing: 8) {
+            // 日付の意味を行内で明示する
+            Text("record.dueDate.label")
+                .font(.body.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+
             Button {
                 onTapDate?()
             } label: {
@@ -667,6 +785,254 @@ struct RecordEditView: View {
             .disabled(onToggleLock == nil)
             .accessibilityLabel(Text(isLocked ? "record.dueDate.locked" : "record.dueDate.unlocked"))
         }
+    }
+
+    /// 支払方法を切り替え、不要になった分割ドラフトを整理する
+    private func applyPayType(_ type: PayType) {
+        guard payType != type else { return }
+        payType = type
+        prunePaymentPartDrafts()
+        if type == .lumpSum {
+            // 一括に戻したら分割専用の金額ドラフトを破棄する
+            partAmountOverridesByPartNo.removeAll()
+        } else {
+            // 2回払いでは繰り返しを併用しない
+            nRepeat = 0
+            normalizePartAmountOverridesIfNeeded()
+        }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    /// 支払方法に存在しない回のドラフトを取り除く
+    private func prunePaymentPartDrafts() {
+        let validPartNumbers = Set(paymentPartNumbers)
+        partDueDateOverridesByPartNo = partDueDateOverridesByPartNo.filter { validPartNumbers.contains($0.key) }
+        partDueDateLockOverridesByPartNo = partDueDateLockOverridesByPartNo.filter { validPartNumbers.contains($0.key) }
+        partDueDateCycleShiftByPartNo = partDueDateCycleShiftByPartNo.filter { validPartNumbers.contains($0.key) }
+    }
+
+    /// 分割金額を編集できる状態か
+    private var canEditPartAmount: Bool {
+        if payType != .twoPayments { return false }
+        if isCoreFieldsLocked { return false }
+        return 1 < nAmount.roundedAmount()
+    }
+
+    /// 分割金額入力の上限
+    private var editablePartAmountUpperBound: Decimal {
+        max(Decimal(1), nAmount.roundedAmount() - 1)
+    }
+
+    /// 指定回の表示用金額
+    private func displayedPartAmount(partNo: Int16) -> Decimal {
+        if let override = partAmountOverridesByPartNo[partNo] {
+            return override
+        }
+        if !isNew,
+           initialDraft?.payType == payType,
+           initialDraft?.nAmount == nAmount,
+           let existing = existingPart(partNo: partNo) {
+            return existing.nAmount
+        }
+        let amounts = BillingService.twoPaymentAmounts(total: nAmount)
+        let index = Int(partNo) - 1
+        guard 0 <= index, index < amounts.count else { return .zero }
+        return amounts[index]
+    }
+
+    /// 金額タップ時に分割金額入力を開く
+    private func openPartAmountPad(partNo: Int16) {
+        guard canEditPartAmount else { return }
+        editingPartNoForAmount = partNo
+        showPartAmountPad = true
+    }
+
+    /// 分割金額を片方へ入れ、もう片方へ差額を反映する
+    private func applyPartAmount(_ rawValue: Decimal) {
+        guard let partNo = editingPartNoForAmount else { return }
+        let total = nAmount.roundedAmount()
+        guard 1 < total else { return }
+        let positiveValue = rawValue < 0 ? -rawValue : rawValue
+        let clamped = min(max(positiveValue.roundedAmount(), 1), total - 1)
+        if partNo == 1 {
+            partAmountOverridesByPartNo[1] = clamped
+            partAmountOverridesByPartNo[2] = total - clamped
+        } else {
+            partAmountOverridesByPartNo[1] = total - clamped
+            partAmountOverridesByPartNo[2] = clamped
+        }
+    }
+
+    /// 金額変更で手動配分が範囲外になった時だけ補正する
+    private func normalizePartAmountOverridesIfNeeded() {
+        guard payType == .twoPayments else { return }
+        let total = nAmount.roundedAmount()
+        guard 1 < total else {
+            partAmountOverridesByPartNo.removeAll()
+            return
+        }
+        if partAmountOverridesByPartNo.isEmpty {
+            return
+        }
+        let first = min(max(displayedPartAmount(partNo: 1), 1), total - 1)
+        partAmountOverridesByPartNo[1] = first
+        partAmountOverridesByPartNo[2] = total - first
+    }
+
+    /// 指定回の表示用引き落とし日
+    private func displayedPartDueDate(partNo: Int16) -> Date {
+        if let override = partDueDateOverridesByPartNo[partNo] {
+            return normalizedPartDueDate(partNo: partNo, proposedDate: override)
+        }
+        if !isNew, initialDraft?.payType == payType, let existing = existingPart(partNo: partNo) {
+            return normalizedPartDueDate(partNo: partNo, proposedDate: existing.e2invoice?.date ?? Date())
+        }
+        if isNew && partNo == 1 && dueDateLocked {
+            return normalizedPartDueDate(partNo: partNo, proposedDate: lockedDueDate)
+        }
+        guard let card = selectedCard else {
+            return normalizedPartDueDate(partNo: partNo, proposedDate: dateUse)
+        }
+        let computed = BillingService.billingDate(
+            useDate: dateUse,
+            card: card,
+            partOffset: Int(partNo) - 1
+        )
+        return normalizedPartDueDate(partNo: partNo, proposedDate: computed)
+    }
+
+    /// 2回目の支払日は必ず1回目の翌日以降にする
+    private func normalizedPartDueDate(partNo: Int16, proposedDate: Date) -> Date {
+        let cal = Calendar.current
+        let day = cal.startOfDay(for: proposedDate)
+        guard payType == .twoPayments, partNo == 2 else { return day }
+        let firstDate = cal.startOfDay(for: rawPartDueDate(partNo: 1))
+        let minimumSecondDate = cal.date(byAdding: .day, value: 1, to: firstDate) ?? firstDate
+        if day < minimumSecondDate {
+            return minimumSecondDate
+        }
+        return day
+    }
+
+    /// 補正前の日付を取得する。2回目補正の再帰を避けるために使う
+    private func rawPartDueDate(partNo: Int16) -> Date {
+        if let override = partDueDateOverridesByPartNo[partNo] {
+            return Calendar.current.startOfDay(for: override)
+        }
+        if !isNew, initialDraft?.payType == payType, let existing = existingPart(partNo: partNo) {
+            return Calendar.current.startOfDay(for: existing.e2invoice?.date ?? Date())
+        }
+        if isNew && partNo == 1 && dueDateLocked {
+            return Calendar.current.startOfDay(for: lockedDueDate)
+        }
+        guard let card = selectedCard else {
+            return Calendar.current.startOfDay(for: dateUse)
+        }
+        return BillingService.billingDate(
+            useDate: dateUse,
+            card: card,
+            partOffset: Int(partNo) - 1
+        )
+    }
+
+    /// 1回目変更で2回目以降になった時は2回目を翌月へ送る
+    private func adjustSecondPartDateAfterFirstChange(_ firstDate: Date) {
+        guard payType == .twoPayments else { return }
+        let cal = Calendar.current
+        let firstDay = cal.startOfDay(for: firstDate)
+        let secondDay = cal.startOfDay(for: rawPartDueDate(partNo: 2))
+        if firstDay < secondDay {
+            return
+        }
+        // 1回目が2回目以降なら、2回目は1回目の翌月へ補正する
+        let shifted = cal.date(byAdding: .month, value: 1, to: firstDay) ?? firstDay
+        partDueDateOverridesByPartNo[2] = cal.startOfDay(for: shifted)
+        partDueDateLockOverridesByPartNo[2] = true
+        partDueDateCycleShiftByPartNo.removeValue(forKey: 2)
+    }
+
+    /// 既存の分割明細を回数から引く
+    private func existingPart(partNo: Int16) -> E6part? {
+        editableParts.first { $0.nPartNo == partNo }
+    }
+
+    /// 指定回の日付を手動変更できるか
+    private func canManuallyEditPartNo(_ partNo: Int16) -> Bool {
+        if isNew { return true }
+        guard let part = existingPart(partNo: partNo) else {
+            return !isCoreFieldsLocked
+        }
+        return canManuallyEditPartDueDate(part)
+    }
+
+    /// 指定回のロックを切り替えられるか
+    private func canTogglePartDueDateLock(partNo: Int16) -> Bool {
+        canManuallyEditPartNo(partNo)
+    }
+
+    /// 表示用ロック状態
+    private func isDisplayedPartLocked(partNo: Int16) -> Bool {
+        if !isNew, initialDraft?.payType == payType, let part = existingPart(partNo: partNo) {
+            return (part.e2invoice?.isPaid ?? false) || effectivePartDueDateLocked(part)
+        }
+        if isNew && partNo == 1 {
+            return dueDateLocked || (partDueDateLockOverridesByPartNo[partNo] ?? false)
+        }
+        return partDueDateLockOverridesByPartNo[partNo] ?? false
+    }
+
+    /// 保存前の仮明細も含めて日付ピッカーを開く
+    private func openPartDueDatePicker(partNo: Int16) {
+        guard canManuallyEditPartNo(partNo) else { return }
+        editingPart = existingPart(partNo: partNo)
+        editingPartNoForDueDate = partNo
+        draftPartDueDate = displayedPartDueDate(partNo: partNo)
+        showPartDatePicker = true
+    }
+
+    /// 2回目の日付ピッカーは1回目の翌日以降に制限する
+    private var partDueDateAvailableRange: ClosedRange<Date> {
+        let partNo = editingPart?.nPartNo ?? editingPartNoForDueDate
+        guard payType == .twoPayments, partNo == 2 else {
+            return APP_MIN_DATE...APP_MAX_DATE
+        }
+        let minimumSecondDate = Calendar.current.date(
+            byAdding: .day,
+            value: 1,
+            to: displayedPartDueDate(partNo: 1)
+        ) ?? APP_MIN_DATE
+        if APP_MAX_DATE < minimumSecondDate {
+            return APP_MAX_DATE...APP_MAX_DATE
+        }
+        return minimumSecondDate...APP_MAX_DATE
+    }
+
+    /// 保存前の仮明細も含めてロックを切り替える
+    private func togglePartDueDateLock(partNo: Int16) {
+        if let part = existingPart(partNo: partNo) {
+            togglePartDueDateLock(part)
+            return
+        }
+        if isDisplayedPartLocked(partNo: partNo) {
+            partDueDateLockOverridesByPartNo[partNo] = false
+            partDueDateOverridesByPartNo.removeValue(forKey: partNo)
+            if isNew && partNo == 1 {
+                dueDateLocked = false
+            }
+        } else {
+            partDueDateLockOverridesByPartNo[partNo] = true
+            partDueDateOverridesByPartNo[partNo] = displayedPartDueDate(partNo: partNo)
+            if isNew && partNo == 1 {
+                dueDateLocked = true
+                lockedDueDate = displayedPartDueDate(partNo: partNo)
+            }
+        }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    /// 回数ラベル
+    private func partLabel(_ partNo: Int16) -> LocalizedStringKey {
+        partNo == 1 ? "record.part.first" : "record.part.second"
     }
 
     /// 仮明細経由（引き落とし明細の「+」やコピー）かどうか。
@@ -889,11 +1255,13 @@ struct RecordEditView: View {
     }
 
     @ViewBuilder private var partPaymentSection: some View {
-        if !editableParts.isEmpty {
-            // 新規入力と共通の「日付＋ロック」行で表示する（未払/済み・金額は出さない）
+        if !isNew {
             Section {
-                ForEach(editableParts, id: \.id) { part in
-                    partDueDateLockRow(for: part)
+                if shouldShowPayTypeSelector {
+                    payTypeSelector
+                }
+                ForEach(paymentPartNumbers, id: \.self) { partNo in
+                    paymentPartRow(partNo: partNo, allowsDateEdit: canManuallyEditPartNo(partNo))
                 }
             } header: {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
@@ -1004,10 +1372,14 @@ struct RecordEditView: View {
                 card: card,
                 partOffset: Int(part.nPartNo) - 1
             )
-            partDueDateOverridesByPartNo[part.nPartNo] = computed
+            partDueDateOverridesByPartNo[part.nPartNo] = normalizedPartDueDate(
+                partNo: part.nPartNo,
+                proposedDate: computed
+            )
             // 利用日・決済手段の変化で基準が変わるため、前/次の累積シフトはリセット
             partDueDateCycleShiftByPartNo.removeValue(forKey: part.nPartNo)
         }
+        adjustSecondPartDateAfterFirstChange(displayedPartDueDate(partNo: 1))
     }
 
     private var dueDateDriversChangedFromInitialDraft: Bool {
@@ -1036,11 +1408,20 @@ struct RecordEditView: View {
                 card: card,
                 partOffset: baseOffset + months
             )
-            partDueDateOverridesByPartNo[part.nPartNo] = computed
+            partDueDateOverridesByPartNo[part.nPartNo] = normalizedPartDueDate(
+                partNo: part.nPartNo,
+                proposedDate: computed
+            )
         } else {
             // 表示日がどの cycle にも一致しない → 表示日に月加算
             guard let shifted = cal.date(byAdding: .month, value: months, to: currentDate) else { return }
-            partDueDateOverridesByPartNo[part.nPartNo] = cal.startOfDay(for: shifted)
+            partDueDateOverridesByPartNo[part.nPartNo] = normalizedPartDueDate(
+                partNo: part.nPartNo,
+                proposedDate: shifted
+            )
+        }
+        if part.nPartNo == 1 {
+            adjustSecondPartDateAfterFirstChange(displayedPartDueDate(partNo: 1))
         }
     }
 
@@ -1142,7 +1523,7 @@ struct RecordEditView: View {
             selectedCard = presetCard
             selectedBankForCard = presetCard?.e8bank
             keepBankPickerRowVisible = selectedCard != nil && selectedBankForCard == nil
-            // 新規作成は一括払いのみを許可する
+            // 新規作成は一括払いから開始する
             payType = .lumpSum
             // 引き落とし明細などから引き落とし日を指定された場合は、その日でロック状態で開始する
             if let presetDueDate {
@@ -1156,9 +1537,9 @@ struct RecordEditView: View {
             zName        = source.zName
             zNote        = source.zNote
             nAmount      = copySourceAmount ? source.nAmount : 0
-            // 新規作成は一括払いのみを許可するため、payType は強制的に lumpSum
-            payType      = .lumpSum
-            nRepeat      = source.nRepeat
+            // コピー新規は設定ONの時だけ2回払いも引き継ぐ
+            payType      = enableTwoPayments ? source.payType : .lumpSum
+            nRepeat      = payType == .twoPayments ? 0 : source.nRepeat
             selectedCard = source.e1card
             selectedBankForCard = source.e1card?.e8bank
             keepBankPickerRowVisible = selectedCard != nil && selectedBankForCard == nil
@@ -1199,19 +1580,21 @@ struct RecordEditView: View {
             // 保存直前にだけマスタへ口座変更を反映する
             selectedCard?.e8bank = selectedBankForCard
             let r = E3record(dateUse: dateUse, zName: usePoint, zNote: note,
-                             nAmount: nAmount, nPayType: PayType.lumpSum.rawValue, nRepeat: nRepeat)
+                             nAmount: nAmount, nPayType: payType.rawValue, nRepeat: nRepeat)
             r.e1card = selectedCard
             r.e5tags = selectedCategories
             context.insert(r)
             do {
-                // 引き落とし日をロックしている時だけ override で計算結果を上書きする。
-                // 一括払い（lumpSum）は part が1つ（nPartNo == 1）なので、その part に強制適用する。
-                // 未ロックなら BillingService の自動計算結果をそのまま使う
-                if dueDateLocked {
+                let dueDateOverrides = displayedDueDateOverridesForNewSave()
+                let amountOverrides = displayedPartAmountOverridesForSave()
+                let lockOverrides = displayedDueDateLockOverridesForNewSave()
+                // 手動日付や分割金額がある時は、請求再構築と同時に表示値を保存する
+                if !dueDateOverrides.isEmpty || !amountOverrides.isEmpty || !lockOverrides.isEmpty {
                     try RecordService.save(
                         r,
-                        partDueDateOverridesByPartNo: [1: lockedDueDate],
-                        partDueDateLockOverridesByPartNo: [1: true],
+                        partDueDateOverridesByPartNo: dueDateOverrides,
+                        partAmountOverridesByPartNo: amountOverrides,
+                        partDueDateLockOverridesByPartNo: lockOverrides,
                         context: context
                     )
                 } else {
@@ -1260,11 +1643,13 @@ struct RecordEditView: View {
             r.e5tags = selectedCategories
             do {
                 applyPartDueDateLockOverridesForSave(to: r)
-                if billingChanged {
+                let amountOverrides = displayedPartAmountOverridesForSave()
+                if billingChanged || !amountOverrides.isEmpty {
                     // 保存時の再構築では、画面に表示中の引き落とし日をそのまま保持する
                     try RecordService.save(
                         r,
                         partDueDateOverridesByPartNo: displayedDueDateOverridesForSave(),
+                        partAmountOverridesByPartNo: amountOverrides,
                         context: context
                     )
                 } else {
@@ -1337,11 +1722,33 @@ struct RecordEditView: View {
     }
 
     private func applyPartDueDate(_ date: Date) {
-        guard let part = editingPart else {
+        var selectedDate = Calendar.current.startOfDay(for: date)
+        if editingPart?.nPartNo == 2 || editingPartNoForDueDate == 2 {
+            // 2回目は1回目の翌日以降に丸める
+            selectedDate = normalizedPartDueDate(partNo: 2, proposedDate: selectedDate)
+        }
+        if let part = editingPart {
+            applyExistingPartDueDate(selectedDate, to: part)
+            if part.nPartNo == 1 {
+                adjustSecondPartDateAfterFirstChange(selectedDate)
+            }
             showPartDatePicker = false
             return
         }
-        let selectedDate = Calendar.current.startOfDay(for: date)
+        if let partNo = editingPartNoForDueDate {
+            // 新規作成中の分割行はモデル未作成なので、明細番号ごとのドラフトへ保持する
+            partDueDateOverridesByPartNo[partNo] = selectedDate
+            partDueDateLockOverridesByPartNo[partNo] = true
+            if isNew && partNo == 1 {
+                dueDateLocked = true
+                lockedDueDate = selectedDate
+                adjustSecondPartDateAfterFirstChange(selectedDate)
+            }
+        }
+        showPartDatePicker = false
+    }
+
+    private func applyExistingPartDueDate(_ selectedDate: Date, to part: E6part) {
         if let currentDate = part.e2invoice?.date,
            Calendar.current.isDate(currentDate, inSameDayAs: selectedDate) {
             // 元の日付に戻した場合は保存待ち変更から外す
@@ -1354,7 +1761,6 @@ struct RecordEditView: View {
         setDraftPartDueDateLocked(part, isLocked: true)
         // 手動カレンダー選択はサイクル単位ではないため、前/次ボタンの累積はリセット
         partDueDateCycleShiftByPartNo.removeValue(forKey: part.nPartNo)
-        showPartDatePicker = false
     }
 
     private func resetPartDueDateToDefault(_ part: E6part) {
@@ -1365,7 +1771,13 @@ struct RecordEditView: View {
             card: card,
             partOffset: Int(part.nPartNo) - 1
         )
-        partDueDateOverridesByPartNo[part.nPartNo] = computed
+        partDueDateOverridesByPartNo[part.nPartNo] = normalizedPartDueDate(
+            partNo: part.nPartNo,
+            proposedDate: computed
+        )
+        if part.nPartNo == 1 {
+            adjustSecondPartDateAfterFirstChange(displayedPartDueDate(partNo: 1))
+        }
         partDueDateCycleShiftByPartNo.removeValue(forKey: part.nPartNo)
     }
 
@@ -1376,12 +1788,41 @@ struct RecordEditView: View {
     }
 
     private func displayedDueDateOverridesForSave() -> [Int16: Date] {
-        // 請求再構築で規定日に戻らないよう、未払明細の表示中日付を保存側へ渡す
+        // 請求再構築で規定日に戻らないよう、現在表示中の支払行の日付を保存側へ渡す
         var overrides = partDueDateOverridesByPartNo
-        for part in editableParts where canManuallyEditPartDueDate(part) {
-            overrides[part.nPartNo] = displayedDueDate(for: part)
+        for partNo in paymentPartNumbers where canManuallyEditPartNo(partNo) {
+            overrides[partNo] = displayedPartDueDate(partNo: partNo)
         }
         return overrides
+    }
+
+    private func displayedDueDateOverridesForNewSave() -> [Int16: Date] {
+        // 新規作成時は手動指定された日付だけ保存側へ渡す
+        var overrides = partDueDateOverridesByPartNo
+        if dueDateLocked {
+            overrides[1] = lockedDueDate
+        }
+        return overrides
+    }
+
+    private func displayedDueDateLockOverridesForNewSave() -> [Int16: Bool] {
+        // 新規作成時は画面上で固定した回だけロック状態を保存する
+        var overrides = partDueDateLockOverridesByPartNo
+        if dueDateLocked {
+            overrides[1] = true
+        }
+        return overrides
+    }
+
+    private func displayedPartAmountOverridesForSave() -> [Int16: Decimal] {
+        guard payType == .twoPayments else { return [:] }
+        let total = nAmount.roundedAmount()
+        guard 1 < total else { return [:] }
+        // 2回払いは表示中の配分を保存へ渡し、再構築後も金額を保つ
+        return [
+            1: displayedPartAmount(partNo: 1),
+            2: displayedPartAmount(partNo: 2)
+        ]
     }
 
     private func applyPartDueDateLockOverridesForSave(to record: E3record) {
@@ -1445,6 +1886,11 @@ struct RecordEditView: View {
         nAmount = 0
         payType = .lumpSum
         nRepeat = 0
+        partDueDateOverridesByPartNo.removeAll()
+        partAmountOverridesByPartNo.removeAll()
+        partDueDateLockOverridesByPartNo.removeAll()
+        partDueDateCycleShiftByPartNo.removeAll()
+        dueDateLocked = false
         selectedCategories = []
         if keepDateAndCard {
             // 同じ日と決済手段だけ残し、残りは空に戻す
