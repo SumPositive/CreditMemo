@@ -1375,6 +1375,8 @@ Localizable.xcstrings のjaを直接修正したのでenに翻訳してほしい
 　自動　automatic.brakesignal　シアン
 　手動　hand.raised.brakesignal　オレンジ
 
+PrivacyInfo　必要ならば更新して
+
 -----------
 2.3.0 新機能
 - 仮明細：決済一覧や引き落とし明細にある(+)新しい決済を見やすく分かりやすくしました
