@@ -716,33 +716,70 @@ struct RecordEditView: View {
                 onToggleLock: canTogglePartDueDateLock(partNo: partNo) ? { togglePartDueDateLock(partNo: partNo) } : nil
             )
         } else {
-            VStack(alignment: .leading, spacing: 8) {
+            splitPaymentPartRow(partNo: partNo, allowsDateEdit: allowsDateEdit)
+        }
+    }
+
+    /// 2回払い用の2行行。右端の自動/手動は2行全体の右側に独立配置する
+    private func splitPaymentPartRow(partNo: Int16, allowsDateEdit: Bool) -> some View {
+        let isLocked = isDisplayedPartLocked(partNo: partNo)
+        return HStack(alignment: .center, spacing: 8) {
+            VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
                     Text(partLabel(partNo))
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
+
                     Spacer(minLength: 8)
-                    Button {
-                        openPartAmountPad(partNo: partNo)
-                    } label: {
-                        Text(displayedPartAmount(partNo: partNo).currencyString())
-                            .font(.body.weight(.semibold).monospacedDigit())
-                            .foregroundStyle(canEditPartAmount ? Color.accentColor : Color.primary)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.7)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(!canEditPartAmount)
+
+                    partAmountButton(partNo: partNo)
                 }
 
-                dueDateLockRow(
-                    date: displayedPartDueDate(partNo: partNo),
-                    isLocked: isDisplayedPartLocked(partNo: partNo),
-                    onTapDate: allowsDateEdit ? { openPartDueDatePicker(partNo: partNo) } : nil,
-                    onToggleLock: canTogglePartDueDateLock(partNo: partNo) ? { togglePartDueDateLock(partNo: partNo) } : nil
-                )
+                HStack(spacing: 8) {
+                    Text("record.dueDate.label")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+
+                    Button {
+                        openPartDueDatePicker(partNo: partNo)
+                    } label: {
+                        Text(AppDateFormat.singleLineText(displayedPartDueDate(partNo: partNo)))
+                            .font(.body)
+                            // 編集可能な時はアクセントカラー、固定時は通常色で見せる
+                            .foregroundStyle(allowsDateEdit ? Color.accentColor : Color.primary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.75)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!allowsDateEdit)
+
+                    Spacer(minLength: 0)
+                }
             }
+
+            dueDateModeButton(
+                isLocked: isLocked,
+                showsModeLabel: true,
+                onToggleLock: canTogglePartDueDateLock(partNo: partNo) ? { togglePartDueDateLock(partNo: partNo) } : nil
+            )
         }
+    }
+
+    /// 分割金額ボタン。右端アイコンの左に来るよう、呼び出し側で右寄せする
+    private func partAmountButton(partNo: Int16) -> some View {
+        Button {
+            openPartAmountPad(partNo: partNo)
+        } label: {
+            Text(displayedPartAmount(partNo: partNo).currencyString())
+                .font(.body.weight(.semibold).monospacedDigit())
+                .foregroundStyle(canEditPartAmount ? Color.accentColor : Color.primary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.65)
+        }
+        .buttonStyle(.plain)
+        .disabled(!canEditPartAmount)
     }
 
     /// 引き落とし日（支払日）の共通行：日付（タップで変更）＋ ロックアイコン。
@@ -777,19 +814,7 @@ struct RecordEditView: View {
             Button {
                 onToggleLock?()
             } label: {
-                // ロック状態の意味をアイコン下の短いラベルで補足する
-                VStack(spacing: 2) {
-                    Image(systemName: dueDateModeIconName(isLocked: isLocked))
-                        .foregroundStyle(dueDateModeColor(isLocked: isLocked))
-                        .imageScale(.large)
-                        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
-                    if showsModeLabel {
-                        Text(isLocked ? "record.dueDate.mode.manual" : "record.dueDate.mode.auto")
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(dueDateModeColor(isLocked: isLocked))
-                            .lineLimit(1)
-                    }
-                }
+                dueDateModeLabel(isLocked: isLocked, showsModeLabel: showsModeLabel)
             }
             .buttonStyle(.plain)
             .disabled(onToggleLock == nil)
@@ -797,14 +822,51 @@ struct RecordEditView: View {
         }
     }
 
+    /// 自動/手動ボタン。2回払いでは右端に単独配置する
+    private func dueDateModeButton(
+        isLocked: Bool,
+        showsModeLabel: Bool,
+        onToggleLock: (() -> Void)?
+    ) -> some View {
+        Button {
+            onToggleLock?()
+        } label: {
+            dueDateModeLabel(isLocked: isLocked, showsModeLabel: showsModeLabel)
+        }
+        .buttonStyle(.plain)
+        .disabled(onToggleLock == nil)
+        .accessibilityLabel(Text(isLocked ? "record.dueDate.locked" : "record.dueDate.unlocked"))
+    }
+
+    /// 自動/手動の縦積み表示。配置先の上下には他要素を置かない
+    private func dueDateModeLabel(isLocked: Bool, showsModeLabel: Bool) -> some View {
+        VStack(spacing: 2) {
+            dueDateModeIcon(isLocked: isLocked)
+            if showsModeLabel {
+                Text(isLocked ? "record.dueDate.mode.manual" : "record.dueDate.mode.auto")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(dueDateModeColor(isLocked: isLocked))
+                    .lineLimit(1)
+            }
+        }
+    }
+
+    /// 自動/手動アイコン本体。SF Symbols ごとの外接差で行高が揺れないよう、表示枠を固定する
+    private func dueDateModeIcon(isLocked: Bool) -> some View {
+        Image(systemName: dueDateModeIconName(isLocked: isLocked))
+            .font(.system(size: 25, weight: .semibold))
+            .foregroundStyle(dueDateModeColor(isLocked: isLocked))
+            .frame(width: 34, height: 28)
+    }
+
     /// 自動/手動の表示アイコン名
     private func dueDateModeIconName(isLocked: Bool) -> String {
-        isLocked ? "hand.raised.brakesignal" : "automatic.brakesignal"
+        isLocked ? "hand.raised.app" : "a.circle"
     }
 
     /// 自動/手動の表示色
     private func dueDateModeColor(isLocked: Bool) -> Color {
-        isLocked ? Color(.systemOrange) : Color(.systemCyan)
+        isLocked ? Color(.darkGray) : Color(.systemCyan)
     }
 
     /// 支払方法を切り替え、不要になった分割ドラフトを整理する

@@ -1377,6 +1377,16 @@ Localizable.xcstrings のjaを直接修正したのでenに翻訳してほしい
 
 PrivacyInfo　必要ならば更新して
 
+引き落とし明細の自動/手動アイコン画像を次のように変更したい
+　自動　steeringwheel.road.lane.dashed　シアン
+　手動　steeringwheel.and.hands　濃いグレー
+
+引き落とし明細の自動/手動アイコン画像を次のように変更したい
+　自動　a.circle　シアン
+　手動　hand.raised.circle　濃いグレー
+
+
+
 -----------
 2.3.0 新機能
 - 仮明細：決済一覧や引き落とし明細にある(+)新しい決済を見やすく分かりやすくしました
