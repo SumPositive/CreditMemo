@@ -151,7 +151,7 @@ struct AppMain: App {
             guard newPhase == .background,
                   let container = sharedModelContainer else { return }
             let ctx = container.mainContext
-            if ctx.hasChanges { try? ctx.save() }
+            if ctx.hasChanges { ctx.saveReporting(operation: "AppMain.backgroundSave") }
         }
     }
 
@@ -163,7 +163,7 @@ struct AppMain: App {
             AppTelemetry.reportBillingIntegrityRepair(repairResult)
         }
         if container.mainContext.hasChanges {
-            try? container.mainContext.save()
+            container.mainContext.saveReporting(operation: "AppMain.postMigrationInit")
         }
     }
 
@@ -182,7 +182,12 @@ struct AppMain: App {
             let src = URL(fileURLWithPath: srcBase.path + ext)
             let dst = URL(fileURLWithPath: dstBase.path + ext)
             guard fm.fileExists(atPath: src.path) else { continue }
-            try? fm.moveItem(at: src, to: dst)
+            do {
+                try fm.moveItem(at: src, to: dst)
+            } catch {
+                // ストア名移行の失敗を診断送信する
+                AppTelemetry.reportRecoverableError(error, operation: "AppMain.migrateStoreFileNameIfNeeded", category: "file")
+            }
         }
     }
 
@@ -191,11 +196,22 @@ struct AppMain: App {
     private func renameStoreForRecovery() {
         let fm = FileManager.default
         let bakURL = storeURL.appendingPathExtension("bak")
-        try? fm.moveItem(at: storeURL, to: bakURL)
+        do {
+            try fm.moveItem(at: storeURL, to: bakURL)
+        } catch {
+            // ストア退避の失敗を診断送信する
+            AppTelemetry.reportRecoverableError(error, operation: "AppMain.renameStoreForRecovery.main", category: "file")
+        }
         for suffix in ["-shm", "-wal"] {
             let src = URL(fileURLWithPath: storeURL.path + suffix)
             let dst = URL(fileURLWithPath: bakURL.path + suffix)
-            try? fm.moveItem(at: src, to: dst)
+            guard fm.fileExists(atPath: src.path) else { continue }
+            do {
+                try fm.moveItem(at: src, to: dst)
+            } catch {
+                // 付随ファイル退避の失敗を診断送信する
+                AppTelemetry.reportRecoverableError(error, operation: "AppMain.renameStoreForRecovery.sidecar", category: "file")
+            }
         }
         exit(0)
     }

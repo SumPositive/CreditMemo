@@ -586,7 +586,7 @@ struct RecordListView: View {
 
     private func rebuildSortedCache() {
         let descriptor = FetchDescriptor<E3record>()
-        let allRecords = (try? context.fetch(descriptor)) ?? []
+        let allRecords = context.fetchReporting(descriptor, entity: "E3record")
         sortedCache = allRecords
             .filter(matchesFilter)
             .sorted(by: shouldPlaceBefore)

@@ -25,7 +25,7 @@ enum SeedData {
     }
 
     static func seedIfNeeded(context: ModelContext) {
-        let count = (try? context.fetchCount(FetchDescriptor<E1card>())) ?? 0
+        let count = context.fetchCountReporting(FetchDescriptor<E1card>(), entity: "E1card")
         guard count == 0 else { return }
         let bankPresets = localizedBankPresets()
         let cardPresets = localizedCardPresets()
@@ -62,7 +62,7 @@ enum SeedData {
             )
             context.insert(tag)
         }
-        try? context.save()
+        context.saveReporting(operation: "SeedData.seedIfNeeded")
     }
 
     /// 現在の表示言語に合わせたプリセット一覧を返す

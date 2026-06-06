@@ -642,7 +642,14 @@ private final class TipStore {
         guard products.isEmpty else { return }
         isLoadingProducts = true
         defer { isLoadingProducts = false }
-        let loaded = (try? await Product.products(for: productIds)) ?? []
+        let loaded: [Product]
+        do {
+            loaded = try await Product.products(for: productIds)
+        } catch {
+            // 商品一覧取得の失敗を診断送信する
+            AppTelemetry.reportRecoverableError(error, operation: "PurchaseManager.loadProducts", category: "storekit")
+            loaded = []
+        }
         products = loaded.sorted { $0.price < $1.price }
     }
 

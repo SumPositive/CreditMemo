@@ -10,7 +10,7 @@ enum CardService {
             predicate: #Predicate<E3record> { $0.e1card?.id == cardID }
         )
         // 履歴は消さず、決済手段だけ未選択へ戻す
-        let records = (try? context.fetch(recordDesc)) ?? []
+        let records = context.fetchReporting(recordDesc, entity: "E3record")
 
         for record in records {
             // 先に参照を外してから請求を未選択決済として再構築する

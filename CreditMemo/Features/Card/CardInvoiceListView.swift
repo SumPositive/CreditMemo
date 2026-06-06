@@ -78,8 +78,8 @@ struct CardInvoiceListView: View {
             predicate: #Predicate { $0.e1paid?.id == cardID }
         )
 
-        let unpaid = (try? context.fetch(unpaidDesc)) ?? []
-        let paid   = (try? context.fetch(paidDesc))   ?? []
+        let unpaid = context.fetchReporting(unpaidDesc, entity: "E2invoice")
+        let paid   = context.fetchReporting(paidDesc, entity: "E2invoice")
 
         unpaidGroups = makeGroups(from: unpaid)
         paidGroups   = makeGroups(from: paid)
@@ -110,11 +110,16 @@ struct CardInvoiceListView: View {
         UIImpactFeedbackGenerator(style: style).impactOccurred()
         togglingPaymentIDs.insert(group.id)
         withAnimation(paymentMoveAnimation) {
-            try? RecordService.setInvoicesPaid(
-                payment.e2invoices,
-                isPaid: nextIsPaid,
-                context: context
-            )
+            do {
+                try RecordService.setInvoicesPaid(
+                    payment.e2invoices,
+                    isPaid: nextIsPaid,
+                    context: context
+                )
+            } catch {
+                // 決済手段別の済み切替失敗を診断送信する
+                AppTelemetry.reportSwiftDataError(error, operation: "CardInvoiceListView.togglePaid", entity: "E2invoice")
+            }
             loadData()
         }
         Task { @MainActor in

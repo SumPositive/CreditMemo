@@ -132,19 +132,19 @@ enum JSONExport {
         // 画面へ進行表示を出せるように、工程ごとに通知する
         onPhase?(.readingBanks)
         await Task.yield()
-        let banks      = (try? context.fetch(FetchDescriptor<E8bank>())) ?? []
+        let banks      = context.fetchReporting(FetchDescriptor<E8bank>(), entity: "E8bank")
         onPhase?(.readingCards)
         await Task.yield()
-        let cards      = (try? context.fetch(FetchDescriptor<E1card>(sortBy: [SortDescriptor(\E1card.nRow)]))) ?? []
+        let cards      = context.fetchReporting(FetchDescriptor<E1card>(sortBy: [SortDescriptor(\E1card.nRow)]), entity: "E1card")
         onPhase?(.readingCategories)
         await Task.yield()
-        let tags       = (try? context.fetch(FetchDescriptor<E5tag>())) ?? []
+        let tags       = context.fetchReporting(FetchDescriptor<E5tag>(), entity: "E5tag")
         onPhase?(.readingRecords)
         await Task.yield()
-        let records    = (try? context.fetch(FetchDescriptor<E3record>(sortBy: [SortDescriptor(\E3record.dateUse)]))) ?? []
-        let parts      = (try? context.fetch(FetchDescriptor<E6part>(sortBy: [SortDescriptor(\E6part.nPartNo)]))) ?? []
-        let invoices   = (try? context.fetch(FetchDescriptor<E2invoice>(sortBy: [SortDescriptor(\E2invoice.date)]))) ?? []
-        let payments   = (try? context.fetch(FetchDescriptor<E7payment>(sortBy: [SortDescriptor(\E7payment.date)]))) ?? []
+        let records    = context.fetchReporting(FetchDescriptor<E3record>(sortBy: [SortDescriptor(\E3record.dateUse)]), entity: "E3record")
+        let parts      = context.fetchReporting(FetchDescriptor<E6part>(sortBy: [SortDescriptor(\E6part.nPartNo)]), entity: "E6part")
+        let invoices   = context.fetchReporting(FetchDescriptor<E2invoice>(sortBy: [SortDescriptor(\E2invoice.date)]), entity: "E2invoice")
+        let payments   = context.fetchReporting(FetchDescriptor<E7payment>(sortBy: [SortDescriptor(\E7payment.date)]), entity: "E7payment")
 
         let bankData     = banks.map      { BankData(id: $0.id, name: $0.zName, note: $0.zNote, row: Int($0.nRow)) }
         let cardData     = cards.map      { c in

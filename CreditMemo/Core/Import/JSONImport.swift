@@ -201,10 +201,10 @@ enum JSONImport {
         let payload = try decoder.decode(ImportData.self, from: data)
 
         do {
-            let banks = (try? context.fetch(FetchDescriptor<E8bank>())) ?? []
-            let cards = (try? context.fetch(FetchDescriptor<E1card>())) ?? []
-            let categories = (try? context.fetch(FetchDescriptor<E5tag>())) ?? []
-            let records = (try? context.fetch(FetchDescriptor<E3record>())) ?? []
+            let banks = context.fetchReporting(FetchDescriptor<E8bank>(), entity: "E8bank")
+            let cards = context.fetchReporting(FetchDescriptor<E1card>(), entity: "E1card")
+            let categories = context.fetchReporting(FetchDescriptor<E5tag>(), entity: "E5tag")
+            let records = context.fetchReporting(FetchDescriptor<E3record>(), entity: "E3record")
 
             var bankByID = Dictionary(uniqueKeysWithValues: banks.map { ($0.id, $0) })
             var cardByID = Dictionary(uniqueKeysWithValues: cards.map { ($0.id, $0) })
@@ -379,7 +379,7 @@ enum JSONImport {
         context: ModelContext
     ) throws -> Int {
         guard !items.isEmpty else { return 0 }
-        let parts = (try? context.fetch(FetchDescriptor<E6part>())) ?? []
+        let parts = context.fetchReporting(FetchDescriptor<E6part>(), entity: "E6part")
         let partByRecordAndNo = Dictionary(
             uniqueKeysWithValues: parts.compactMap { part -> (String, E6part)? in
                 guard let recordID = part.e3record?.id else { return nil }
@@ -428,7 +428,7 @@ enum JSONImport {
         context: ModelContext
     ) -> Int {
         guard !items.isEmpty else { return 0 }
-        let invoices = (try? context.fetch(FetchDescriptor<E2invoice>())) ?? []
+        let invoices = context.fetchReporting(FetchDescriptor<E2invoice>(), entity: "E2invoice")
         let invoiceGroups = Dictionary(grouping: invoices) {
             invoiceKey(cardID: $0.e1card?.id, date: $0.date)
         }
@@ -450,7 +450,7 @@ enum JSONImport {
         context: ModelContext
     ) -> Int {
         guard !items.isEmpty else { return 0 }
-        let payments = (try? context.fetch(FetchDescriptor<E7payment>())) ?? []
+        let payments = context.fetchReporting(FetchDescriptor<E7payment>(), entity: "E7payment")
         let paymentGroups = Dictionary(grouping: payments) {
             paymentKey(bankID: $0.e8bank?.id, date: $0.date)
         }
@@ -546,7 +546,7 @@ enum JSONImport {
     ) -> E7payment {
         let day = Calendar.current.startOfDay(for: date)
         let desc = FetchDescriptor<E7payment>(predicate: #Predicate { $0.date == day })
-        let payments = (try? context.fetch(desc)) ?? []
+        let payments = context.fetchReporting(desc, entity: "E7payment")
         if let payment = payments.first(where: { $0.e8bank?.id == bank?.id && $0.isPaid == isPaid }) {
             return payment
         }

@@ -534,7 +534,7 @@ struct CardEditView: View {
             context.insert(c)
         }
         if context.hasChanges {
-            try? context.save()
+            context.saveReporting(operation: "CardEditView.deleteCard")
         }
         dismiss()
     }
@@ -609,7 +609,7 @@ struct CardEditView: View {
         // ぶら下がり請求/支払だけ最後に掃除する
         RecordService.cleanupOrphanBilling(context: context)
         if context.hasChanges {
-            try? context.save()
+            context.saveReporting(operation: "CardEditView.save")
         }
         isRebuildingBilling = false
         rebuildCompletedCount = 0
@@ -633,7 +633,7 @@ struct CardEditView: View {
             sortBy: [SortDescriptor(\E3record.dateUse)]
         )
         // 逆参照配列だけに頼ると、SwiftData の関係同期が遅れた履歴を取りこぼすことがある
-        return (try? context.fetch(descriptor)) ?? []
+        return context.fetchReporting(descriptor, entity: "E3record")
     }
 
     // MARK: - Bank Picker

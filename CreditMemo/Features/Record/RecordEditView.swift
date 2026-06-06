@@ -1910,7 +1910,7 @@ struct RecordEditView: View {
             sortBy: [SortDescriptor(\E3record.dateUse)]
         )
         // SwiftData の逆参照配列に残っていない履歴も、口座変更時は再構築対象に含める
-        return ((try? context.fetch(descriptor)) ?? []).filter { $0.id != recordID }
+        return context.fetchReporting(descriptor, entity: "E3record").filter { $0.id != recordID }
     }
 
     private func resetForm(keepDateAndCard: Bool) {

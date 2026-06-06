@@ -124,11 +124,22 @@ struct MigratingFromCoreData {
         for url in candidates {
             let discardURL = url.deletingLastPathComponent()
                 .appendingPathComponent("\(url.deletingPathExtension().lastPathComponent)_discarded.sqlite")
-            try? FileManager.default.moveItem(at: url, to: discardURL)
+            do {
+                try FileManager.default.moveItem(at: url, to: discardURL)
+            } catch {
+                // 旧ストア破棄の失敗を診断送信する
+                AppTelemetry.reportRecoverableError(error, operation: "MigratingFromCoreData.discardLegacyStores.main", category: "file")
+            }
             for suffix in ["-shm", "-wal"] {
                 let src = URL(fileURLWithPath: url.path + suffix)
                 let dst = URL(fileURLWithPath: discardURL.path + suffix)
-                try? FileManager.default.moveItem(at: src, to: dst)
+                guard FileManager.default.fileExists(atPath: src.path) else { continue }
+                do {
+                    try FileManager.default.moveItem(at: src, to: dst)
+                } catch {
+                    // 旧ストア付随ファイル破棄の失敗を診断送信する
+                    AppTelemetry.reportRecoverableError(error, operation: "MigratingFromCoreData.discardLegacyStores.sidecar", category: "file")
+                }
             }
         }
         migrationLogger.info("旧ファイルを破棄しました")

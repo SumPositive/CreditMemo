@@ -187,7 +187,7 @@ enum RecordService {
         let descriptor = FetchDescriptor<E3record>(
             predicate: #Predicate<E3record> { $0.dateUse < cutoff }
         )
-        let oldRecords = (try? context.fetch(descriptor)) ?? []
+        let oldRecords = context.fetchReporting(descriptor, entity: "E3record")
         if oldRecords.isEmpty {
             return
         }
@@ -212,11 +212,11 @@ enum RecordService {
         let paymentDesc = FetchDescriptor<E7payment>()
         let cardDesc = FetchDescriptor<E1card>()
         let recordDesc = FetchDescriptor<E3record>()
-        let parts = (try? context.fetch(partDesc)) ?? []
-        var invoices = (try? context.fetch(invoiceDesc)) ?? []
-        var payments = (try? context.fetch(paymentDesc)) ?? []
-        let cards = (try? context.fetch(cardDesc)) ?? []
-        let records = (try? context.fetch(recordDesc)) ?? []
+        let parts = context.fetchReporting(partDesc, entity: "E6part")
+        var invoices = context.fetchReporting(invoiceDesc, entity: "E2invoice")
+        var payments = context.fetchReporting(paymentDesc, entity: "E7payment")
+        let cards = context.fetchReporting(cardDesc, entity: "E1card")
+        let records = context.fetchReporting(recordDesc, entity: "E3record")
 
         // 旧データに残った不正な支払方法を起動時の整合性確認で正規化する
         sanitizePayTypes(records)
@@ -226,21 +226,21 @@ enum RecordService {
             deleteInvoice(invoice, context: context)
         }
         // 同一の請求キーを1件へ統合する
-        invoices = (try? context.fetch(invoiceDesc)) ?? []
+        invoices = context.fetchReporting(invoiceDesc, entity: "E2invoice")
         normalizeInvoices(invoices, context: context)
         // 決済手段の口座変更後、既存請求が古い支払先へ残るケースを修復する
-        invoices = (try? context.fetch(invoiceDesc)) ?? []
-        payments = (try? context.fetch(paymentDesc)) ?? []
+        invoices = context.fetchReporting(invoiceDesc, entity: "E2invoice")
+        payments = context.fetchReporting(paymentDesc, entity: "E7payment")
         repairPaymentMembership(invoices, payments: payments, context: context)
         // 張り替え後の支払配列を読み直し、空になった古い支払を確実に消す
-        payments = (try? context.fetch(paymentDesc)) ?? []
+        payments = context.fetchReporting(paymentDesc, entity: "E7payment")
         for payment in payments where payment.e2invoices.isEmpty {
             deletePayment(payment, context: context)
         }
         // 同一の支払キーを1件へ統合する
-        payments = (try? context.fetch(paymentDesc)) ?? []
+        payments = context.fetchReporting(paymentDesc, entity: "E7payment")
         normalizePayments(payments, context: context)
-        payments = (try? context.fetch(paymentDesc)) ?? []
+        payments = context.fetchReporting(paymentDesc, entity: "E7payment")
         for payment in payments where !payment.e2invoices.isEmpty {
             recalculatePayment(payment)
         }
@@ -268,11 +268,11 @@ enum RecordService {
         let paymentDesc = FetchDescriptor<E7payment>()
         let cardDesc = FetchDescriptor<E1card>()
         let recordDesc = FetchDescriptor<E3record>()
-        let parts = (try? context.fetch(partDesc)) ?? []
-        let invoices = (try? context.fetch(invoiceDesc)) ?? []
-        let payments = (try? context.fetch(paymentDesc)) ?? []
-        let cards = (try? context.fetch(cardDesc)) ?? []
-        let records = (try? context.fetch(recordDesc)) ?? []
+        let parts = context.fetchReporting(partDesc, entity: "E6part")
+        let invoices = context.fetchReporting(invoiceDesc, entity: "E2invoice")
+        let payments = context.fetchReporting(paymentDesc, entity: "E7payment")
+        let cards = context.fetchReporting(cardDesc, entity: "E1card")
+        let records = context.fetchReporting(recordDesc, entity: "E3record")
 
         var report = BillingIntegrityReport()
         var seenInvoiceKeys: Set<String> = []
@@ -366,7 +366,7 @@ enum RecordService {
         let recordDesc = FetchDescriptor<E3record>(
             predicate: #Predicate<E3record> { $0.e6parts.isEmpty }
         )
-        let records = (try? context.fetch(recordDesc)) ?? []
+        let records = context.fetchReporting(recordDesc, entity: "E3record")
         for record in records {
             rebuildBilling(for: record, context: context)
         }
@@ -666,7 +666,7 @@ enum RecordService {
                 targetStart <= $0.dateUse && $0.dateUse < targetEnd
             }
         )
-        let candidates = (try? context.fetch(descriptor)) ?? []
+        let candidates = context.fetchReporting(descriptor, entity: "E3record")
         guard let generated = candidates.first(where: { candidate in
             candidate.id != source.id &&
             candidate.nAmount == source.nAmount &&
@@ -680,7 +680,7 @@ enum RecordService {
 
     static func rebuildBilling(context: ModelContext) {
         let recordDesc = FetchDescriptor<E3record>(sortBy: [SortDescriptor(\E3record.dateUse)])
-        let records = (try? context.fetch(recordDesc)) ?? []
+        let records = context.fetchReporting(recordDesc, entity: "E3record")
         for record in records {
             rebuildBilling(for: record, context: context)
         }
@@ -898,14 +898,14 @@ enum RecordService {
         let cardDesc = FetchDescriptor<E1card>()
         let paymentDesc = FetchDescriptor<E7payment>()
         let invoiceDesc = FetchDescriptor<E2invoice>()
-        let cards = (try? context.fetch(cardDesc)) ?? []
-        var payments = (try? context.fetch(paymentDesc)) ?? []
-        var invoices = (try? context.fetch(invoiceDesc)) ?? []
+        let cards = context.fetchReporting(cardDesc, entity: "E1card")
+        var payments = context.fetchReporting(paymentDesc, entity: "E7payment")
+        var invoices = context.fetchReporting(invoiceDesc, entity: "E2invoice")
 
         for invoice in invoices where invoice.e6parts.isEmpty {
             deleteInvoice(invoice, context: context)
         }
-        invoices = (try? context.fetch(invoiceDesc)) ?? []
+        invoices = context.fetchReporting(invoiceDesc, entity: "E2invoice")
         normalizeInvoices(
             invoices.filter { cardIDs.contains($0.e1card?.id ?? "") },
             context: context
@@ -915,7 +915,7 @@ enum RecordService {
             recalculateCard(card)
         }
 
-        payments = (try? context.fetch(paymentDesc)) ?? []
+        payments = context.fetchReporting(paymentDesc, entity: "E7payment")
         normalizePayments(
             payments.filter { payment in
                 // findOrCreatePayment と同じ基準（物理フィールド）でキーを構築する
@@ -924,7 +924,7 @@ enum RecordService {
             },
             context: context
         )
-        payments = (try? context.fetch(paymentDesc)) ?? []
+        payments = context.fetchReporting(paymentDesc, entity: "E7payment")
         for payment in payments {
             let key = paymentKey(bankID: payment.e8bank?.id, date: payment.date, isPaid: payment.e8paid != nil)
             if payment.e2invoices.isEmpty {
@@ -960,7 +960,7 @@ enum RecordService {
         let desc = FetchDescriptor<E2invoice>(
             predicate: #Predicate { $0.date == day && $0.e1paid == nil && $0.e1unpaid == nil }
         )
-        if let ex = try? context.fetch(desc).first {
+        if let ex = context.fetchReporting(desc, entity: "E2invoice").first {
             return ex
         }
 
@@ -980,7 +980,7 @@ enum RecordService {
         // 口座未選択は物理的な paid/unpaid 所属を持てないため、内部キーは未払側へ寄せる
         let physicalIsPaid = bank == nil ? false : isPaid
         let desc = FetchDescriptor<E7payment>(predicate: #Predicate { $0.date == day })
-        let payments = (try? context.fetch(desc)) ?? []
+        let payments = context.fetchReporting(desc, entity: "E7payment")
         if let ex = payments.first(where: {
             // invoice 集計の見かけ状態でなく、所属先そのものを見る
             $0.e8bank?.id == bank?.id && (($0.e8paid != nil) == physicalIsPaid)

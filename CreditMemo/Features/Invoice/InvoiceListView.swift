@@ -29,7 +29,7 @@ struct InvoiceListView: View {
         let descriptor = FetchDescriptor<E2invoice>(
             predicate: #Predicate<E2invoice> { dayStart <= $0.date && $0.date < nextDay }
         )
-        let fetched = (try? context.fetch(descriptor)) ?? []
+        let fetched = context.fetchReporting(descriptor, entity: "E2invoice")
         let sameStateInvoices = fetched.filter { $0.isPaid == displayIsPaid }
         return sameStateInvoices.isEmpty ? (staticInvoices ?? payment?.e2invoices ?? []) : sameStateInvoices
     }
@@ -222,7 +222,12 @@ struct InvoiceListView: View {
         }
         let targets = bulkChangeMovableParts(in: section)
         for part in targets {
-            try? RecordService.setPartDueDate(part, date: bulkChangeDraftDate, context: context)
+            do {
+                try RecordService.setPartDueDate(part, date: bulkChangeDraftDate, context: context)
+            } catch {
+                // まとめて変更の保存失敗を診断送信する
+                AppTelemetry.reportSwiftDataError(error, operation: "InvoiceListView.applyBulkChangeDueDate", entity: "E6part")
+            }
         }
         bulkChangeCardID = nil
         // 反映のため画面を再構築する
@@ -388,11 +393,16 @@ struct InvoiceListView: View {
                         PartRow(
                             part: part,
                             onTogglePaid: {
-                                try? RecordService.setPartPaid(
-                                    part,
-                                    isPaid: !(part.e2invoice?.isPaid ?? false),
-                                    context: context
-                                )
+                                do {
+                                    try RecordService.setPartPaid(
+                                        part,
+                                        isPaid: !(part.e2invoice?.isPaid ?? false),
+                                        context: context
+                                    )
+                                } catch {
+                                    // 済み切替の保存失敗を診断送信する
+                                    AppTelemetry.reportSwiftDataError(error, operation: "InvoiceListView.togglePartPaid", entity: "E6part")
+                                }
                             },
                             onToggleCheck: {
                                 toggleCheck(part)

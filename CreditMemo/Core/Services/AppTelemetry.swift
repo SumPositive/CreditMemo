@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import SwiftData
 
 #if canImport(FirebaseAnalytics)
 import FirebaseAnalytics
@@ -52,6 +53,72 @@ enum AppTelemetry {
         #endif
     }
 
+    static func reportSwiftDataError(
+        _ error: Error,
+        operation: String,
+        entity: String? = nil,
+        detail: String? = nil
+    ) {
+        let nsError = error as NSError
+        var parameters: [String: Any] = [
+            "operation": limited(operation),
+            "error_domain": limited(nsError.domain),
+            "error_code": nsError.code
+        ]
+        if let entity {
+            parameters["entity"] = limited(entity)
+        }
+        if let detail {
+            parameters["detail"] = limited(detail)
+        }
+
+        #if canImport(FirebaseAnalytics)
+        Analytics.logEvent("swiftdata_error", parameters: parameters)
+        #endif
+
+        #if canImport(FirebaseCrashlytics)
+        let crashlytics = Crashlytics.crashlytics()
+        crashlytics.log("swiftdata_error operation=\(operation) entity=\(entity ?? "-") domain=\(nsError.domain) code=\(nsError.code)")
+        for (key, value) in parameters {
+            crashlytics.setCustomValue(value, forKey: key)
+        }
+        // SwiftData の失敗を非致命エラーとして集計する
+        crashlytics.record(error: nsError)
+        #endif
+    }
+
+    static func reportRecoverableError(
+        _ error: Error,
+        operation: String,
+        category: String,
+        detail: String? = nil
+    ) {
+        let nsError = error as NSError
+        var parameters: [String: Any] = [
+            "category": limited(category),
+            "operation": limited(operation),
+            "error_domain": limited(nsError.domain),
+            "error_code": nsError.code
+        ]
+        if let detail {
+            parameters["detail"] = limited(detail)
+        }
+
+        #if canImport(FirebaseAnalytics)
+        Analytics.logEvent("recoverable_error", parameters: parameters)
+        #endif
+
+        #if canImport(FirebaseCrashlytics)
+        let crashlytics = Crashlytics.crashlytics()
+        crashlytics.log("recoverable_error category=\(category) operation=\(operation) domain=\(nsError.domain) code=\(nsError.code)")
+        for (key, value) in parameters {
+            crashlytics.setCustomValue(value, forKey: key)
+        }
+        // 復帰可能な失敗も傾向確認のため非致命エラーに残す
+        crashlytics.record(error: nsError)
+        #endif
+    }
+
     private static func analyticsParameters(_ result: RecordService.BillingIntegrityRepairResult) -> [String: Any] {
         var parameters: [String: Any] = [
             "before_issue_count": result.before.issueCount,
@@ -79,5 +146,59 @@ enum AppTelemetry {
         parameters["\(prefix)_card_amount_mismatch_count"] = report.cardAmountMismatchCount
         parameters["\(prefix)_card_no_check_mismatch_count"] = report.cardNoCheckMismatchCount
         parameters["\(prefix)_invalid_pay_type_count"] = report.invalidPayTypeCount
+    }
+
+    private static func limited(_ value: String, maxLength: Int = 100) -> String {
+        if value.count <= maxLength {
+            return value
+        }
+        return String(value.prefix(maxLength))
+    }
+}
+
+extension ModelContext {
+    func fetchReporting<T: PersistentModel>(
+        _ descriptor: FetchDescriptor<T>,
+        entity: String,
+        operation: String = #function,
+        detail: String? = nil
+    ) -> [T] {
+        do {
+            return try fetch(descriptor)
+        } catch {
+            // 既存動作は維持しつつ、SwiftData の失敗を診断送信する
+            AppTelemetry.reportSwiftDataError(error, operation: operation, entity: entity, detail: detail)
+            return []
+        }
+    }
+
+    func fetchCountReporting<T: PersistentModel>(
+        _ descriptor: FetchDescriptor<T>,
+        entity: String,
+        operation: String = #function,
+        detail: String? = nil
+    ) -> Int {
+        do {
+            return try fetchCount(descriptor)
+        } catch {
+            // 件数取得の失敗も fetch と同じ経路で診断送信する
+            AppTelemetry.reportSwiftDataError(error, operation: operation, entity: entity, detail: detail)
+            return 0
+        }
+    }
+
+    @discardableResult
+    func saveReporting(
+        operation: String = #function,
+        detail: String? = nil
+    ) -> Bool {
+        do {
+            try save()
+            return true
+        } catch {
+            // 保存失敗はユーザーデータに直結するため非致命エラーとして残す
+            AppTelemetry.reportSwiftDataError(error, operation: operation, detail: detail)
+            return false
+        }
     }
 }

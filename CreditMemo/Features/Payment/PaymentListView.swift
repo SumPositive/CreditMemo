@@ -389,11 +389,16 @@ struct PaymentListView: View {
     private func applyPaidState(_ item: PaymentDisplayItem, isPaid: Bool) {
         withAnimation(paymentMoveAnimation) {
             // 未払/済みの変更はサービス層でまとめて保存する
-            try? RecordService.setInvoicesPaid(
-                item.invoices,
-                isPaid: isPaid,
-                context: context
-            )
+            do {
+                try RecordService.setInvoicesPaid(
+                    item.invoices,
+                    isPaid: isPaid,
+                    context: context
+                )
+            } catch {
+                // 引き落とし状態変更の保存失敗を診断送信する
+                AppTelemetry.reportSwiftDataError(error, operation: "PaymentListView.applyPaidState", entity: "E2invoice")
+            }
             // 更新後は一覧を読み直して境界付近を正しく保つ
             reloadPaymentsKeepingPaidPage()
         }
@@ -433,7 +438,7 @@ struct PaymentListView: View {
             sortBy: [SortDescriptor(\E7payment.date, order: .reverse)]
         )
         // 表示状態は invoice 側の paid/unpaid を正とする
-        return ((try? context.fetch(descriptor)) ?? []).filter { !$0.isPaid }
+        return context.fetchReporting(descriptor, entity: "E7payment").filter { !$0.isPaid }
     }
 
     /// 前日以前の未払は最大件数だけ表示する
@@ -445,7 +450,7 @@ struct PaymentListView: View {
             predicate: predicate,
             sortBy: [SortDescriptor(\E7payment.date, order: .reverse)]
         )
-        let fetched = ((try? context.fetch(descriptor)) ?? []).filter { !$0.isPaid }
+        let fetched = context.fetchReporting(descriptor, entity: "E7payment").filter { !$0.isPaid }
         // 直近の確認待ちから limit 件だけ表示する
         return Array(fetched.prefix(limit))
     }
@@ -456,7 +461,7 @@ struct PaymentListView: View {
         let predicate = #Predicate<E7payment> { startDate <= $0.date }
         let descriptor = FetchDescriptor<E7payment>(predicate: predicate)
         // 口座未選択でも済みになりうるため、件数は実状態で数える
-        return ((try? context.fetch(descriptor)) ?? []).filter(\.isPaid).count
+        return context.fetchReporting(descriptor, entity: "E7payment").filter(\.isPaid).count
     }
 
     /// 済みは必要件数だけ読む
@@ -467,7 +472,7 @@ struct PaymentListView: View {
             predicate: predicate,
             sortBy: [SortDescriptor(\E7payment.date, order: .reverse)]
         )
-        let paid = ((try? context.fetch(descriptor)) ?? []).filter(\.isPaid)
+        let paid = context.fetchReporting(descriptor, entity: "E7payment").filter(\.isPaid)
         if paid.count <= offset {
             return []
         }

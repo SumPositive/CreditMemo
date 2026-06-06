@@ -184,7 +184,7 @@ struct TagEditView: View {
         guard let tag else { return }
         context.delete(tag)
         if context.hasChanges {
-            try? context.save()
+            context.saveReporting(operation: "TagEditView.deleteTag")
         }
         dismiss()
     }
@@ -210,7 +210,7 @@ struct TagEditView: View {
             context.insert(t)
         }
         // 新規追加直後に一覧側へ確実に反映させる
-        try? context.save()
+        context.saveReporting(operation: "TagEditView.save")
         dismiss()
     }
 
