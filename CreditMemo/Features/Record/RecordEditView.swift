@@ -779,14 +779,14 @@ struct RecordEditView: View {
             } label: {
                 // ロック状態の意味をアイコン下の短いラベルで補足する
                 VStack(spacing: 2) {
-                    Image(systemName: isLocked ? "lock.fill" : "lock.open.fill")
-                        .foregroundStyle(isLocked ? Color(.systemOrange) : Color(.systemGray3))
+                    Image(systemName: dueDateModeIconName(isLocked: isLocked))
+                        .foregroundStyle(dueDateModeColor(isLocked: isLocked))
                         .imageScale(.large)
                         .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                     if showsModeLabel {
                         Text(isLocked ? "record.dueDate.mode.manual" : "record.dueDate.mode.auto")
                             .font(.caption2.weight(.semibold))
-                            .foregroundStyle(isLocked ? Color(.systemOrange) : Color(.systemGray3))
+                            .foregroundStyle(dueDateModeColor(isLocked: isLocked))
                             .lineLimit(1)
                     }
                 }
@@ -795,6 +795,16 @@ struct RecordEditView: View {
             .disabled(onToggleLock == nil)
             .accessibilityLabel(Text(isLocked ? "record.dueDate.locked" : "record.dueDate.unlocked"))
         }
+    }
+
+    /// 自動/手動の表示アイコン名
+    private func dueDateModeIconName(isLocked: Bool) -> String {
+        isLocked ? "hand.raised.brakesignal" : "automatic.brakesignal"
+    }
+
+    /// 自動/手動の表示色
+    private func dueDateModeColor(isLocked: Bool) -> Color {
+        isLocked ? Color(.systemOrange) : Color(.systemCyan)
     }
 
     /// 支払方法を切り替え、不要になった分割ドラフトを整理する
@@ -1292,11 +1302,13 @@ struct RecordEditView: View {
             Text("record.dueDate.help.auto")
             Text("record.dueDate.help.change")
             dueDateHelpIconRow(
-                systemName: "lock.open.fill",
+                systemName: dueDateModeIconName(isLocked: false),
+                color: dueDateModeColor(isLocked: false),
                 textKey: "record.dueDate.help.unlocked"
             )
             dueDateHelpIconRow(
-                systemName: "lock.fill",
+                systemName: dueDateModeIconName(isLocked: true),
+                color: dueDateModeColor(isLocked: true),
                 textKey: "record.dueDate.help.locked"
             )
         }
@@ -1305,10 +1317,10 @@ struct RecordEditView: View {
     }
 
     /// アイコン付き説明行
-    private func dueDateHelpIconRow(systemName: String, textKey: LocalizedStringKey) -> some View {
+    private func dueDateHelpIconRow(systemName: String, color: Color, textKey: LocalizedStringKey) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             Image(systemName: systemName)
-                .foregroundStyle(Color.secondary)
+                .foregroundStyle(color)
                 .imageScale(.medium)
                 .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                 .frame(width: 24, alignment: .center)
