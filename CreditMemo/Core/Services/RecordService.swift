@@ -20,6 +20,49 @@ enum RecordService {
         var partDueDateByPartNo: [Int16: Date] = [:]
     }
 
+    /// 起動時整合性チェックの検出結果
+    struct BillingIntegrityReport {
+        var orphanPartCount = 0
+        var emptyInvoiceCount = 0
+        var duplicateInvoiceCount = 0
+        var invoiceMissingPaymentCount = 0
+        var emptyPaymentCount = 0
+        var duplicatePaymentCount = 0
+        var paymentAmountMismatchCount = 0
+        var paymentNoCheckMismatchCount = 0
+        var cardAmountMismatchCount = 0
+        var cardNoCheckMismatchCount = 0
+        var invalidPayTypeCount = 0
+
+        var issueCount: Int {
+            orphanPartCount
+            + emptyInvoiceCount
+            + duplicateInvoiceCount
+            + invoiceMissingPaymentCount
+            + emptyPaymentCount
+            + duplicatePaymentCount
+            + paymentAmountMismatchCount
+            + paymentNoCheckMismatchCount
+            + cardAmountMismatchCount
+            + cardNoCheckMismatchCount
+            + invalidPayTypeCount
+        }
+
+        var hasIssue: Bool {
+            0 < issueCount
+        }
+    }
+
+    /// 起動時整合性修復の前後結果
+    struct BillingIntegrityRepairResult {
+        let before: BillingIntegrityReport
+        let after: BillingIntegrityReport
+
+        var isRepaired: Bool {
+            !after.hasIssue
+        }
+    }
+
     // MARK: - Save
 
     static func save(_ record: E3record, context: ModelContext) throws {
@@ -164,10 +207,12 @@ enum RecordService {
 
     /// 既存データの整合性を保つため、明細が空の請求/支払を掃除する
     static func cleanupOrphanBilling(context: ModelContext) {
+        let partDesc = FetchDescriptor<E6part>()
         let invoiceDesc = FetchDescriptor<E2invoice>()
         let paymentDesc = FetchDescriptor<E7payment>()
         let cardDesc = FetchDescriptor<E1card>()
         let recordDesc = FetchDescriptor<E3record>()
+        let parts = (try? context.fetch(partDesc)) ?? []
         var invoices = (try? context.fetch(invoiceDesc)) ?? []
         var payments = (try? context.fetch(paymentDesc)) ?? []
         let cards = (try? context.fetch(cardDesc)) ?? []
@@ -175,6 +220,8 @@ enum RecordService {
 
         // 旧データに残った不正な支払方法を起動時の整合性確認で正規化する
         sanitizePayTypes(records)
+        // 親を失った分割明細は復元できないため削除する
+        deleteOrphanParts(parts, context: context)
         for invoice in invoices where invoice.e6parts.isEmpty {
             deleteInvoice(invoice, context: context)
         }
@@ -202,12 +249,115 @@ enum RecordService {
         }
     }
 
+    /// 起動時に派生集計の不一致を検出し、必要な場合だけ自動修復する
+    static func repairBillingIntegrityIfNeeded(context: ModelContext) -> BillingIntegrityRepairResult? {
+        let before = checkBillingIntegrity(context: context)
+        if !before.hasIssue {
+            return nil
+        }
+
+        cleanupOrphanBilling(context: context)
+        let after = checkBillingIntegrity(context: context)
+        return BillingIntegrityRepairResult(before: before, after: after)
+    }
+
+    /// SwiftData の関係と派生集計の不一致を軽量に確認する
+    static func checkBillingIntegrity(context: ModelContext) -> BillingIntegrityReport {
+        let partDesc = FetchDescriptor<E6part>()
+        let invoiceDesc = FetchDescriptor<E2invoice>()
+        let paymentDesc = FetchDescriptor<E7payment>()
+        let cardDesc = FetchDescriptor<E1card>()
+        let recordDesc = FetchDescriptor<E3record>()
+        let parts = (try? context.fetch(partDesc)) ?? []
+        let invoices = (try? context.fetch(invoiceDesc)) ?? []
+        let payments = (try? context.fetch(paymentDesc)) ?? []
+        let cards = (try? context.fetch(cardDesc)) ?? []
+        let records = (try? context.fetch(recordDesc)) ?? []
+
+        var report = BillingIntegrityReport()
+        var seenInvoiceKeys: Set<String> = []
+        var seenPaymentKeys: Set<String> = []
+
+        for part in parts where part.e2invoice == nil || part.e3record == nil {
+            report.orphanPartCount += 1
+        }
+        for invoice in invoices {
+            let key = invoiceKey(cardID: invoice.e1card?.id, date: invoice.date, isPaid: invoice.isPaid)
+            if seenInvoiceKeys.contains(key) {
+                report.duplicateInvoiceCount += 1
+            } else {
+                seenInvoiceKeys.insert(key)
+            }
+            if invoice.e6parts.isEmpty {
+                report.emptyInvoiceCount += 1
+            }
+            if !invoice.e6parts.isEmpty && invoice.e7payment == nil {
+                report.invoiceMissingPaymentCount += 1
+            }
+        }
+        for payment in payments {
+            let key = paymentKey(bankID: payment.e8bank?.id, date: payment.date, isPaid: payment.e8paid != nil)
+            if seenPaymentKeys.contains(key) {
+                report.duplicatePaymentCount += 1
+            } else {
+                seenPaymentKeys.insert(key)
+            }
+            if payment.e2invoices.isEmpty {
+                report.emptyPaymentCount += 1
+                continue
+            }
+            let amount = payment.e2invoices.reduce(Decimal.zero) { $0 + $1.sumAmount }
+            let noCheck = payment.e2invoices.reduce(Int16(0)) { $0 + $1.sumNoCheck }
+            if payment.sumAmount != amount {
+                report.paymentAmountMismatchCount += 1
+            }
+            if payment.sumNoCheck != noCheck {
+                report.paymentNoCheckMismatchCount += 1
+            }
+        }
+        for card in cards {
+            var paid = Decimal.zero
+            var unpaid = Decimal.zero
+            var noCheck = Int16(0)
+            for invoice in card.e2invoices {
+                if invoice.isPaid {
+                    paid += invoice.sumAmount
+                } else {
+                    unpaid += invoice.sumAmount
+                }
+                noCheck += invoice.sumNoCheck
+            }
+            if card.sumPaid != paid || card.sumUnpaid != unpaid {
+                report.cardAmountMismatchCount += 1
+            }
+            if card.sumNoCheck != noCheck {
+                report.cardNoCheckMismatchCount += 1
+            }
+        }
+        for record in records where record.nPayType != E3record.normalizedPayTypeRawValue(record.nPayType) {
+            report.invalidPayTypeCount += 1
+        }
+
+        return report
+    }
+
     private static func sanitizePayTypes(_ records: [E3record]) {
         for record in records {
             let normalized = E3record.normalizedPayTypeRawValue(record.nPayType)
             if record.nPayType != normalized {
                 record.nPayType = normalized
             }
+        }
+    }
+
+    private static func deleteOrphanParts(_ parts: [E6part], context: ModelContext) {
+        for part in parts where part.e2invoice == nil || part.e3record == nil {
+            // 親を失った part は集計に戻せないため、残った逆参照を外して削除する
+            part.e2invoice?.e6parts.removeAll { $0.id == part.id }
+            part.e3record?.e6parts.removeAll { $0.id == part.id }
+            part.e2invoice = nil
+            part.e3record = nil
+            context.delete(part)
         }
     }
 

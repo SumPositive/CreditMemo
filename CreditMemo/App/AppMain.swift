@@ -23,6 +23,9 @@ struct AppMain: App {
     @State private var showMigrationFailure = false
 
     init() {
+        // Firebase 設定がある環境だけ診断送信を有効化する
+        AppTelemetry.configureIfAvailable()
+
         // default.store → CreditMemo.store へのリネーム（名前を明示化した際の既存ユーザー対応）
         Self.renameDefaultStoreIfNeeded()
 
@@ -156,7 +159,9 @@ struct AppMain: App {
 
     private func runPostMigrationInit(container: ModelContainer) {
         SeedData.seedIfNeeded(context: container.mainContext)
-        RecordService.cleanupOrphanBilling(context: container.mainContext)
+        if let repairResult = RecordService.repairBillingIntegrityIfNeeded(context: container.mainContext) {
+            AppTelemetry.reportBillingIntegrityRepair(repairResult)
+        }
         if container.mainContext.hasChanges {
             try? container.mainContext.save()
         }

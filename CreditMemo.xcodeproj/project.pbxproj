@@ -55,6 +55,7 @@
 		C1640C6CCBBC0D2F5540C977 /* CreditMemoTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A3204006A7EA7EE85CEA06C /* CreditMemoTests.swift */; };
 		C31B5A812FCBD9940090CAEC /* JapaneseHoliday.swift in Sources */ = {isa = PBXBuildFile; fileRef = C31B5A802FCBD9940090CAEC /* JapaneseHoliday.swift */; };
 		C31B5A832FCC6F390090CAEC /* InlineAdBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = C31B5A822FCC6F390090CAEC /* InlineAdBanner.swift */; };
+		C31B5B152FD4007F0090CAEC /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = C31B5B142FD4007F0090CAEC /* GoogleService-Info.plist */; };
 		C736EED40B1697AC698B6F81 /* InvoiceListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D1DFD33101839DCB19540E9 /* InvoiceListView.swift */; };
 		CE6F6CD0071085C235BAF6F4 /* JSONExport.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2D12827F146761299C2F9A /* JSONExport.swift */; };
 		CF1F84FA70C44A2D7D0E4EDC /* PaymentListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C888720898CBE1F720F736D /* PaymentListView.swift */; };
@@ -62,6 +63,9 @@
 		D893C9EB004052F1DE062529 /* BankListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA97A05301775C91BB87CE6F /* BankListView.swift */; };
 		E50EB7AD3DB2F3CE6CAA6AAF /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0AA3264A9D08B8C5FAFC814 /* Config.swift */; };
 		EAB27B9B73D8E77F8F5188FA /* MigratingFromCoreData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F8B9D625DF47B15550D7F4C /* MigratingFromCoreData.swift */; };
+		F1EBA5E00000000000000002 /* AppTelemetry.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1EBA5E00000000000000001 /* AppTelemetry.swift */; };
+		F1EBA5E00000000000000006 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = F1EBA5E00000000000000003 /* FirebaseAnalytics */; };
+		F1EBA5E00000000000000007 /* FirebaseCrashlytics in Frameworks */ = {isa = PBXBuildFile; productRef = F1EBA5E00000000000000004 /* FirebaseCrashlytics */; };
 		F7929AD07E62756D8EE69469 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 17B4815A12B4099B3F8C2A8D /* Localizable.xcstrings */; };
 /* End PBXBuildFile section */
 
@@ -128,6 +132,7 @@
 		B0AA3264A9D08B8C5FAFC814 /* Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
 		C31B5A802FCBD9940090CAEC /* JapaneseHoliday.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JapaneseHoliday.swift; sourceTree = "<group>"; };
 		C31B5A822FCC6F390090CAEC /* InlineAdBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InlineAdBanner.swift; sourceTree = "<group>"; };
+		C31B5B142FD4007F0090CAEC /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		CA97A05301775C91BB87CE6F /* BankListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BankListView.swift; sourceTree = "<group>"; };
 		D6BD6FE99BF6A7C356696B78 /* BankEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BankEditView.swift; sourceTree = "<group>"; };
 		DAE1EBD323E4A4A04B0805E8 /* E3record.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = E3record.swift; sourceTree = "<group>"; };
@@ -137,6 +142,7 @@
 		DF2D12827F146761299C2F9A /* JSONExport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONExport.swift; sourceTree = "<group>"; };
 		DF360467FE5A56224B12660D /* TagListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagListView.swift; sourceTree = "<group>"; };
 		F1A1B2E2DD399FBFF391B2C5 /* RecordService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordService.swift; sourceTree = "<group>"; };
+		F1EBA5E00000000000000001 /* AppTelemetry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTelemetry.swift; sourceTree = "<group>"; };
 		F2EF718F50B10EEBAAAD6744 /* SeedData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeedData.swift; sourceTree = "<group>"; };
 		F79355C01D775C52E0C34B50 /* DatabaseErrorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseErrorView.swift; sourceTree = "<group>"; };
 		F97721A91036068831138735 /* SplitPayListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplitPayListView.swift; sourceTree = "<group>"; };
@@ -150,6 +156,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F1EBA5E00000000000000006 /* FirebaseAnalytics in Frameworks */,
+				F1EBA5E00000000000000007 /* FirebaseCrashlytics in Frameworks */,
 				2A41B07D7E5A4AD0B719D3F1 /* GoogleMobileAds in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -239,6 +247,7 @@
 		5B155411FD36B0C994228CCD /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				C31B5B142FD4007F0090CAEC /* GoogleService-Info.plist */,
 				461FBECA42994F0A6C9BEA37 /* Assets.xcassets */,
 				FA5C86233C4FE3247A2D008B /* Info.plist */,
 				9A3B7A6225157E0900A17A10 /* InfoPlist.strings */,
@@ -387,6 +396,7 @@
 		F0AF934EEAE7E8689700F354 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				F1EBA5E00000000000000001 /* AppTelemetry.swift */,
 				38369113251626D100E7A110 /* BankService.swift */,
 				838545C9F18F5C517D3C170E /* BillingService.swift */,
 				38369111251625BA00E7A110 /* CardService.swift */,
@@ -458,6 +468,8 @@
 			name = CreditMemo;
 			packageProductDependencies = (
 				2A41B07D7E5A4AD0B719D3F0 /* GoogleMobileAds */,
+				F1EBA5E00000000000000003 /* FirebaseAnalytics */,
+				F1EBA5E00000000000000004 /* FirebaseCrashlytics */,
 			);
 			productName = CreditMemo;
 			productReference = 54F1C265A3492ECBB8AD9300 /* CreditMemo.app */;
@@ -514,6 +526,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				2A41B07D7E5A4AD0B719D3F3 /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */,
+				F1EBA5E00000000000000005 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 106FEC0C099A14C294BEC41D /* Products */;
@@ -534,6 +547,7 @@
 			files = (
 				1698067491EBDA300104D152 /* Assets.xcassets in Resources */,
 				F7929AD07E62756D8EE69469 /* Localizable.xcstrings in Resources */,
+				C31B5B152FD4007F0090CAEC /* GoogleService-Info.plist in Resources */,
 				9A3B7A6325157E0900A17A10 /* InfoPlist.strings in Resources */,
 				3E1A55B3CA0F4B0D8D3C9F11 /* PrivacyInfo.xcprivacy in Resources */,
 			);
@@ -607,6 +621,7 @@
 				6B962B07029AF00C00FE072C /* SeedData.swift in Sources */,
 				06CE2D98750923E3AD033A00 /* SettingsView.swift in Sources */,
 				490F8CBDAB27E8464CFC9A8C /* SplitPayListView.swift in Sources */,
+				F1EBA5E00000000000000002 /* AppTelemetry.swift in Sources */,
 				0A1A2B3C4D5E6F708192A3B4 /* AZPicker.swift in Sources */,
 				C03BB2AEED264F9C4A50EAB7 /* TopMenuView.swift in Sources */,
 				4531D860CDB0FDF2415DD421 /* View+ScalableTitle.swift in Sources */,
@@ -935,6 +950,14 @@
 				minimumVersion = 12.11.0;
 			};
 		};
+		F1EBA5E00000000000000005 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.0.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -942,6 +965,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 2A41B07D7E5A4AD0B719D3F3 /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */;
 			productName = GoogleMobileAds;
+		};
+		F1EBA5E00000000000000003 /* FirebaseAnalytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F1EBA5E00000000000000005 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalytics;
+		};
+		F1EBA5E00000000000000004 /* FirebaseCrashlytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F1EBA5E00000000000000005 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCrashlytics;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
