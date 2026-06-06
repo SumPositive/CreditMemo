@@ -508,8 +508,13 @@ enum RecordService {
             byAdding: .month, value: Int(source.nRepeat), to: source.dateUse
         ) else { return }
 
+        let calendar = Calendar.current
+        let targetStart = calendar.startOfDay(for: targetDate)
+        guard let targetEnd = calendar.date(byAdding: .day, value: 1, to: targetStart) else { return }
         let descriptor = FetchDescriptor<E3record>(
-            predicate: #Predicate<E3record> { $0.dateUse == targetDate }
+            predicate: #Predicate<E3record> {
+                targetStart <= $0.dateUse && $0.dateUse < targetEnd
+            }
         )
         let candidates = (try? context.fetch(descriptor)) ?? []
         guard let generated = candidates.first(where: { candidate in
