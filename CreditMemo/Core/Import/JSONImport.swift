@@ -14,6 +14,17 @@ import SwiftData
 @MainActor
 enum JSONImport {
 
+    enum ImportError: LocalizedError {
+        case invalidDecimal(String)
+
+        var errorDescription: String? {
+            switch self {
+            case .invalidDecimal(let value):
+                return "数値として読み込めない値があります: \(value)"
+            }
+        }
+    }
+
     struct ImportData: Decodable {
         var exportDate: Date?
         var banks: [BankData]?
@@ -189,68 +200,74 @@ enum JSONImport {
         decoder.dateDecodingStrategy = .iso8601
         let payload = try decoder.decode(ImportData.self, from: data)
 
-        let banks = (try? context.fetch(FetchDescriptor<E8bank>())) ?? []
-        let cards = (try? context.fetch(FetchDescriptor<E1card>())) ?? []
-        let categories = (try? context.fetch(FetchDescriptor<E5tag>())) ?? []
-        let records = (try? context.fetch(FetchDescriptor<E3record>())) ?? []
+        do {
+            let banks = (try? context.fetch(FetchDescriptor<E8bank>())) ?? []
+            let cards = (try? context.fetch(FetchDescriptor<E1card>())) ?? []
+            let categories = (try? context.fetch(FetchDescriptor<E5tag>())) ?? []
+            let records = (try? context.fetch(FetchDescriptor<E3record>())) ?? []
 
-        var bankByID = Dictionary(uniqueKeysWithValues: banks.map { ($0.id, $0) })
-        var cardByID = Dictionary(uniqueKeysWithValues: cards.map { ($0.id, $0) })
-        var tagByID = Dictionary(uniqueKeysWithValues: categories.map { ($0.id, $0) })
-        var recordByID = Dictionary(uniqueKeysWithValues: records.map { ($0.id, $0) })
+            var bankByID = Dictionary(uniqueKeysWithValues: banks.map { ($0.id, $0) })
+            var cardByID = Dictionary(uniqueKeysWithValues: cards.map { ($0.id, $0) })
+            var tagByID = Dictionary(uniqueKeysWithValues: categories.map { ($0.id, $0) })
+            var recordByID = Dictionary(uniqueKeysWithValues: records.map { ($0.id, $0) })
 
-        onPhase?(.importingMasters)
-        await Task.yield()
-        let importedBankCount = importBanks(payload.banks ?? [], bankByID: &bankByID, context: context)
-        let importedCardCount = importCards(payload.cards ?? [], cardByID: &cardByID, bankByID: bankByID, context: context)
-        // tags（新）または categories（旧JSON互換）のどちらかを読み込む
-        let importedTagCount = importTags(
-            payload.tags ?? payload.categories?.map { TagData(id: $0.id, name: $0.name, note: $0.note) } ?? [],
-            tagByID: &tagByID, context: context
-        )
-
-        onPhase?(.importingRecords)
-        await Task.yield()
-        let importedRecordCount = importRecords(
-            payload.records ?? [],
-            recordByID: &recordByID,
-            cardByID: cardByID,
-            tagByID: tagByID,
-            context: context
-        )
-
-        // record が入った場合や、状態 JSON を反映する場合は請求を正規状態へ作り直す
-        if 0 < importedRecordCount || payload.parts != nil || payload.invoices != nil || payload.payments != nil {
-            onPhase?(.rebuildingBilling)
+            onPhase?(.importingMasters)
             await Task.yield()
-            RecordService.rebuildBilling(context: context)
+            let importedBankCount = importBanks(payload.banks ?? [], bankByID: &bankByID, context: context)
+            let importedCardCount = importCards(payload.cards ?? [], cardByID: &cardByID, bankByID: bankByID, context: context)
+            // tags（新）または categories（旧JSON互換）のどちらかを読み込む
+            let importedTagCount = importTags(
+                payload.tags ?? payload.categories?.map { TagData(id: $0.id, name: $0.name, note: $0.note) } ?? [],
+                tagByID: &tagByID, context: context
+            )
+
+            onPhase?(.importingRecords)
+            await Task.yield()
+            let importedRecordCount = try importRecords(
+                payload.records ?? [],
+                recordByID: &recordByID,
+                cardByID: cardByID,
+                tagByID: tagByID,
+                context: context
+            )
+
+            // record が入った場合や、状態 JSON を反映する場合は請求を正規状態へ作り直す
+            if 0 < importedRecordCount || payload.parts != nil || payload.invoices != nil || payload.payments != nil {
+                onPhase?(.rebuildingBilling)
+                await Task.yield()
+                RecordService.rebuildBilling(context: context)
+            }
+
+            onPhase?(.applyingParts)
+            await Task.yield()
+            let appliedPartStateCount = try applyPartStates(payload.parts ?? [], context: context)
+
+            onPhase?(.applyingStates)
+            await Task.yield()
+            let appliedInvoiceStateCount = applyInvoiceStates(payload.invoices ?? [], context: context)
+            let appliedPaymentStateCount = applyPaymentStates(payload.payments ?? [], context: context)
+            RecordService.cleanupOrphanBilling(context: context)
+
+            onPhase?(.saving)
+            await Task.yield()
+            if context.hasChanges {
+                try context.save()
+            }
+
+            return Result(
+                bankCount: importedBankCount,
+                cardCount: importedCardCount,
+                tagCount: importedTagCount,
+                recordCount: importedRecordCount,
+                partStateCount: appliedPartStateCount,
+                invoiceStateCount: appliedInvoiceStateCount,
+                paymentStateCount: appliedPaymentStateCount
+            )
+        } catch {
+            // インポート途中の未保存変更を残さず、呼び出し元へ原因を返す
+            context.rollback()
+            throw error
         }
-
-        onPhase?(.applyingParts)
-        await Task.yield()
-        let appliedPartStateCount = applyPartStates(payload.parts ?? [], context: context)
-
-        onPhase?(.applyingStates)
-        await Task.yield()
-        let appliedInvoiceStateCount = applyInvoiceStates(payload.invoices ?? [], context: context)
-        let appliedPaymentStateCount = applyPaymentStates(payload.payments ?? [], context: context)
-        RecordService.cleanupOrphanBilling(context: context)
-
-        onPhase?(.saving)
-        await Task.yield()
-        if context.hasChanges {
-            try context.save()
-        }
-
-        return Result(
-            bankCount: importedBankCount,
-            cardCount: importedCardCount,
-            tagCount: importedTagCount,
-            recordCount: importedRecordCount,
-            partStateCount: appliedPartStateCount,
-            invoiceStateCount: appliedInvoiceStateCount,
-            paymentStateCount: appliedPaymentStateCount
-        )
     }
 
     private static func importBanks(
@@ -329,7 +346,7 @@ enum JSONImport {
         cardByID: [String: E1card],
         tagByID: [String: E5tag],
         context: ModelContext
-    ) -> Int {
+    ) throws -> Int {
         for item in items {
             let record = recordByID[item.id] ?? {
                 let value = E3record(id: item.id)
@@ -344,7 +361,7 @@ enum JSONImport {
             record.dateUpdate = item.dateUpdate ?? item.dateUse
             record.zName = item.name
             record.zNote = item.note
-            record.nAmount = decimalValue(item.amount)
+            record.nAmount = try decimalValue(item.amount)
             // 旧アプリ由来のボーナス払い等（payType=101, 201）は現行モデルに無いので、
             // 2 なら 2回払い、それ以外は一括(1) に正規化する
             record.nPayType = (item.payType == 2) ? 2 : 1
@@ -361,7 +378,7 @@ enum JSONImport {
     private static func applyPartStates(
         _ items: [PartData],
         context: ModelContext
-    ) -> Int {
+    ) throws -> Int {
         guard !items.isEmpty else { return 0 }
         let parts = (try? context.fetch(FetchDescriptor<E6part>())) ?? []
         let partByRecordAndNo = Dictionary(
@@ -370,33 +387,38 @@ enum JSONImport {
                 return ("\(recordID)#\(part.nPartNo)", part)
             }
         )
+        var amountByRecordID: [String: [Int16: Decimal]] = [:]
+        for item in items {
+            guard let recordID = item.recordID, let amountString = item.amount else { continue }
+            amountByRecordID[recordID, default: [:]][Int16(item.partNo)] = try decimalValue(amountString)
+        }
+        let validAmountByRecordAndNo = validTwoPaymentAmounts(
+            amountByRecordID: amountByRecordID,
+            partByRecordAndNo: partByRecordAndNo
+        )
 
         var updatedCount = 0
         for item in items {
             guard let recordID = item.recordID else { continue }
             guard let part = partByRecordAndNo["\(recordID)#\(Int16(item.partNo))"] else { continue }
 
-            if let noCheck = item.noCheck {
-                part.nNoCheck = Int16(noCheck)
-            }
-
-            // 2回払いで手動配分した金額を復元する。
-            // rebuildBilling 直後のため、デフォルトは 50/50 + 余りに上書き済み。
-            // JSON 側に amount がある場合はそちらを尊重する。
-            if let amountString = item.amount {
-                let restored = decimalValue(amountString)
-                if restored != 0 {
-                    part.nAmount = restored
-                }
+            // 2回払いの手動配分は、合計が正しい場合だけ復元する
+            let amountKey = "\(recordID)#\(part.nPartNo)"
+            if let restored = validAmountByRecordAndNo[amountKey] {
+                part.nAmount = restored
             }
 
             let shouldLockDueDate = item.dueDateLocked ?? false
             if let dueDate = item.dueDate {
                 // 日付復元中だけ専用ロックを外し、移動後にエクスポート時の状態へ戻す
                 part.isDueDateLocked = false
-                try? RecordService.setPartDueDate(part, date: dueDate, context: context)
+                RecordService.movePartDueDateWithoutCommit(part, date: dueDate, context: context)
             }
             part.isDueDateLocked = shouldLockDueDate
+            if let noCheck = item.noCheck {
+                // チェック状態は支払日移動を妨げるため、日付復元後に反映する
+                part.nNoCheck = Int16(noCheck)
+            }
             updatedCount += 1
         }
         return updatedCount
@@ -461,8 +483,39 @@ enum JSONImport {
         return "\(rawBankID)#\(day)"
     }
 
-    private static func decimalValue(_ rawValue: String) -> Decimal {
-        Decimal(string: rawValue, locale: Locale(identifier: "en_US_POSIX")) ?? 0
+    private static func validTwoPaymentAmounts(
+        amountByRecordID: [String: [Int16: Decimal]],
+        partByRecordAndNo: [String: E6part]
+    ) -> [String: Decimal] {
+        var validAmounts: [String: Decimal] = [:]
+        for (recordID, amountsByPartNo) in amountByRecordID {
+            guard amountsByPartNo.count == 2,
+                  let first = amountsByPartNo[1],
+                  let second = amountsByPartNo[2],
+                  let record = partByRecordAndNo["\(recordID)#1"]?.e3record,
+                  record.payType == .twoPayments else {
+                continue
+            }
+            let total = record.nAmount.roundedAmount()
+            guard 1 < total,
+                  0 < first,
+                  0 < second,
+                  first < total,
+                  second < total,
+                  first + second == total else {
+                continue
+            }
+            validAmounts["\(recordID)#1"] = first
+            validAmounts["\(recordID)#2"] = second
+        }
+        return validAmounts
+    }
+
+    private static func decimalValue(_ rawValue: String) throws -> Decimal {
+        guard let value = Decimal(string: rawValue, locale: Locale(identifier: "en_US_POSIX")) else {
+            throw ImportError.invalidDecimal(rawValue)
+        }
+        return value
     }
 
     private static func moveInvoice(_ invoice: E2invoice, toPaid: Bool, context: ModelContext) {
