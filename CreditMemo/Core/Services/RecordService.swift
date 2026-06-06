@@ -371,6 +371,16 @@ enum RecordService {
         try commit(context)
     }
 
+    /// 明細1件だけを指定した引き落とし日の請求へ移す（呼び出し元でまとめて保存する）
+    static func movePartDueDateWithoutCommit(
+        _ part: E6part,
+        date: Date,
+        context: ModelContext
+    ) {
+        // インポート中は途中保存せず、最後の保存失敗で全体を巻き戻せるようにする
+        movePartDueDate(part, date: date, ignoresDueDateLock: true, context: context)
+    }
+
     private static func movePartDueDate(
         _ part: E6part,
         date: Date,
@@ -519,6 +529,10 @@ enum RecordService {
 
         let dates = BillingService.partDates(record: record, card: record.e1card)
         let amounts = BillingService.partAmounts(record: record)
+        let validPartAmountOverrides = validatedPartAmountOverrides(
+            for: record,
+            overridesByPartNo: partAmountOverridesByPartNo
+        )
         var rebuiltDates: [Date] = []
         for (index, pair) in zip(dates.indices, zip(dates, amounts)) {
             let partNo = Int16(index + 1)
@@ -528,7 +542,7 @@ enum RecordService {
             // 引き落とし日ロック済みの明細は、請求方式変更時も旧日付を維持する
             let billingDate = Calendar.current.startOfDay(for: lockedDate ?? pair.0)
             // 2回払いで画面側が手動配分した金額を優先する
-            let amount = partAmountOverridesByPartNo[partNo] ?? pair.1
+            let amount = validPartAmountOverrides[partNo] ?? pair.1
             rebuiltDates.append(billingDate)
             let bank = record.e1card?.e8bank
             let invoicePaid = snapshot.invoicePaidByKey[
@@ -587,6 +601,29 @@ enum RecordService {
             touchedPaymentKeys.insert(paymentKey(bankID: record.e1card?.e8bank?.id, date: day, isPaid: paid))
         }
         recalculateTouchedBilling(cardIDs: touchedCardIDs, paymentKeys: touchedPaymentKeys, context: context)
+    }
+
+    private static func validatedPartAmountOverrides(
+        for record: E3record,
+        overridesByPartNo: [Int16: Decimal]
+    ) -> [Int16: Decimal] {
+        guard record.payType == .twoPayments,
+              overridesByPartNo.count == 2,
+              let first = overridesByPartNo[1],
+              let second = overridesByPartNo[2] else {
+            return [:]
+        }
+        let total = record.nAmount.roundedAmount()
+        guard 1 < total,
+              0 < first,
+              0 < second,
+              first < total,
+              second < total,
+              first + second == total else {
+            return [:]
+        }
+        // Service 境界で不正な分割金額を捨て、集計不整合を防ぐ
+        return [1: first, 2: second]
     }
 
     // MARK: - Recalculate
