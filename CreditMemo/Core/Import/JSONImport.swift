@@ -362,9 +362,8 @@ enum JSONImport {
             record.zName = item.name
             record.zNote = item.note
             record.nAmount = try decimalValue(item.amount)
-            // 旧アプリ由来のボーナス払い等（payType=101, 201）は現行モデルに無いので、
-            // 2 なら 2回払い、それ以外は一括(1) に正規化する
-            record.nPayType = (item.payType == 2) ? 2 : 1
+            // 旧アプリ由来のボーナス払い等は現行モデルに無いので一括払いへ正規化する
+            record.nPayType = E3record.normalizedPayTypeRawValue(Int16(item.payType))
             record.nRepeat = Int16(item.repeatMonths)
             record.e1card = item.cardID.flatMap { cardByID[$0] }
 

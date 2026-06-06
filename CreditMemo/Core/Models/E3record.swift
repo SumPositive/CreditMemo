@@ -24,7 +24,12 @@ final class E3record {
     var zName: String
     var zNote: String
     var nAmount: Decimal
-    var nPayType: Int16    // PayType.rawValue
+    var nPayType: Int16 {  // PayType.rawValue
+        didSet {
+            // 旧データや外部入力の不正値は、モデル境界で一括払いへ正規化する
+            nPayType = Self.normalizedPayTypeRawValue(nPayType)
+        }
+    }
     var nRepeat: Int16     // 繰り返し月数 (0=なし, 1-99)
     var nAnnual: Float     // 年利率 (通常は0)
     var sumNoCheck: Int16  // 未チェック分割数（集計値）
@@ -35,7 +40,13 @@ final class E3record {
 
     var payType: PayType {
         get { PayType(rawValue: nPayType) ?? .lumpSum }
-        set { nPayType = newValue.rawValue }
+        set { nPayType = Self.normalizedPayTypeRawValue(newValue.rawValue) }
+    }
+
+    static func normalizedPayTypeRawValue(_ rawValue: Int16) -> Int16 {
+        rawValue == PayType.twoPayments.rawValue
+            ? PayType.twoPayments.rawValue
+            : PayType.lumpSum.rawValue
     }
 
     init(
@@ -56,7 +67,7 @@ final class E3record {
         self.zName = zName
         self.zNote = zNote
         self.nAmount = nAmount
-        self.nPayType = nPayType
+        self.nPayType = Self.normalizedPayTypeRawValue(nPayType)
         self.nRepeat = nRepeat
         self.nAnnual = nAnnual
         self.sumNoCheck = sumNoCheck

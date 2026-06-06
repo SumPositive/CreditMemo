@@ -167,10 +167,14 @@ enum RecordService {
         let invoiceDesc = FetchDescriptor<E2invoice>()
         let paymentDesc = FetchDescriptor<E7payment>()
         let cardDesc = FetchDescriptor<E1card>()
+        let recordDesc = FetchDescriptor<E3record>()
         var invoices = (try? context.fetch(invoiceDesc)) ?? []
         var payments = (try? context.fetch(paymentDesc)) ?? []
         let cards = (try? context.fetch(cardDesc)) ?? []
+        let records = (try? context.fetch(recordDesc)) ?? []
 
+        // 旧データに残った不正な支払方法を起動時の整合性確認で正規化する
+        sanitizePayTypes(records)
         for invoice in invoices where invoice.e6parts.isEmpty {
             deleteInvoice(invoice, context: context)
         }
@@ -195,6 +199,15 @@ enum RecordService {
         }
         for card in cards {
             recalculateCard(card)
+        }
+    }
+
+    private static func sanitizePayTypes(_ records: [E3record]) {
+        for record in records {
+            let normalized = E3record.normalizedPayTypeRawValue(record.nPayType)
+            if record.nPayType != normalized {
+                record.nPayType = normalized
+            }
         }
     }
 

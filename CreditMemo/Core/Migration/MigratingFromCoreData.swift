@@ -279,7 +279,7 @@ struct MigratingFromCoreData {
                     dateUpdate: r.dateUse ?? Date(),
                     zName: r.zName, zNote: r.zNote,
                     nAmount: r.nAmount,
-                    nPayType: min(r.nPayType, 2),  // 1か2に限定
+                    nPayType: E3record.normalizedPayTypeRawValue(r.nPayType),
                     nRepeat: r.nRepeat,
                     nAnnual: r.nAnnual,
                     sumNoCheck: r.sumNoCheck
