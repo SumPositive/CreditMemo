@@ -32,6 +32,7 @@ struct PaymentListView: View {
     @State private var selectedCard: E1card?
     @State private var showBankPicker = false
     @State private var showCardPicker = false
+    @State private var isInitialLoading = true
 
     /// 外部から起動時の絞り込みを指定するためのイニシャライザ。
     /// 例：決済手段一覧／口座一覧の「状況」スワイプ／ボタンから渡された値で絞り込んだ状態で開く。
@@ -117,7 +118,12 @@ struct PaymentListView: View {
         // 分岐で View 構造を入れ替えると principal ToolbarItem の登録がリセットされ
         // タイトル表示が一瞬遅延するため、常に同じ VStack を保ち中身だけ差し替える
         VStack(spacing: 0) {
-            if !hasAnyPayments {
+            if isInitialLoading {
+                // 初期読込中は空表示を出さず、データなし確定まで待つ
+                ProgressView()
+                    .controlSize(.large)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if !hasAnyPayments {
                 ContentUnavailableView("label.empty", systemImage: "calendar.badge.clock")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
@@ -276,6 +282,7 @@ struct PaymentListView: View {
         allPaidCount = fetchPaidCount()
         paidPayments = fetchPaidPayments(offset: 0, limit: pageSize)
         rebuildDisplayItems()
+        isInitialLoading = false
     }
 
     private func scrollToInitialPosition(proxy: ScrollViewProxy) async {
