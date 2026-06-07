@@ -727,7 +727,7 @@ struct RecordEditView: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
                     Text(partLabel(partNo))
-                        .font(.caption.weight(.semibold))
+                        .font(.body.weight(.regular))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
 
@@ -738,7 +738,7 @@ struct RecordEditView: View {
 
                 HStack(spacing: 8) {
                     Text("record.dueDate.label")
-                        .font(.body.weight(.semibold))
+                        .font(.body.weight(.regular))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
 
@@ -773,8 +773,9 @@ struct RecordEditView: View {
             openPartAmountPad(partNo: partNo)
         } label: {
             Text(displayedPartAmount(partNo: partNo).currencyString())
-                .font(.body.weight(.semibold).monospacedDigit())
-                .foregroundStyle(canEditPartAmount ? Color.accentColor : Color.primary)
+                .font(.body.weight(.regular).monospacedDigit())
+                // 金額は操作可否に関係なく通常文字色で見せる
+                .foregroundStyle(.primary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.65)
         }
@@ -794,7 +795,7 @@ struct RecordEditView: View {
         HStack(spacing: 8) {
             // 日付の意味を行内で明示する
             Text("record.dueDate.label")
-                .font(.body.weight(.semibold))
+                .font(.body.weight(.regular))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
 
@@ -844,7 +845,7 @@ struct RecordEditView: View {
             dueDateModeIcon(isLocked: isLocked)
             if showsModeLabel {
                 Text(isLocked ? "record.dueDate.mode.manual" : "record.dueDate.mode.auto")
-                    .font(.caption2.weight(.semibold))
+                    .font(.caption2.weight(.regular))
                     .foregroundStyle(dueDateModeColor(isLocked: isLocked))
                     .lineLimit(1)
             }
@@ -861,12 +862,13 @@ struct RecordEditView: View {
 
     /// 自動/手動の表示アイコン名
     private func dueDateModeIconName(isLocked: Bool) -> String {
-        isLocked ? "hand.raised.app" : "a.circle"
+        isLocked ? "hand.raised.brakesignal" : "autostartstop"
     }
 
     /// 自動/手動の表示色
     private func dueDateModeColor(isLocked: Bool) -> Color {
-        isLocked ? Color(.darkGray) : Color(.systemCyan)
+        // 手動は済み・施錠と同じ緑、自動はアクセント色にそろえる
+        isLocked ? COLOR_PAID : .accentColor
     }
 
     /// 支払方法を切り替え、不要になった分割ドラフトを整理する
@@ -878,8 +880,7 @@ struct RecordEditView: View {
             // 一括に戻したら分割専用の金額ドラフトを破棄する
             partAmountOverridesByPartNo.removeAll()
         } else {
-            // 2回払いでは繰り返しを併用しない
-            nRepeat = 0
+            // 2回払いでも繰り返し設定は保持し、分割金額だけ整える
             normalizePartAmountOverridesIfNeeded()
         }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -1310,22 +1311,20 @@ struct RecordEditView: View {
             }
 
             // 繰り返し
-            if payType == .lumpSum {
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 8) {
-                        Text("record.field.repeat")
-                            .foregroundStyle(.secondary)
-                        Spacer(minLength: 8)
-                        // 設定画面と同じカスタムプルダウンで文字サイズに対応する
-                        AZDropdownPicker(
-                            options: repeatOptions,
-                            selection: repeatSelectionBinding,
-                            isExpanded: $isRepeatDropdownExpanded,
-                            minWidth: 150,
-                            popoverDynamicTypeSize: repeatDropdownDynamicTypeSize
-                        ) { option in
-                            repeatOptionLabel(option)
-                        }
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 8) {
+                    Text("record.field.repeat")
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: 8)
+                    // 設定画面と同じカスタムプルダウンで文字サイズに対応する
+                    AZDropdownPicker(
+                        options: repeatOptions,
+                        selection: repeatSelectionBinding,
+                        isExpanded: $isRepeatDropdownExpanded,
+                        minWidth: 150,
+                        popoverDynamicTypeSize: repeatDropdownDynamicTypeSize
+                    ) { option in
+                        repeatOptionLabel(option)
                     }
                 }
             }
@@ -1646,7 +1645,7 @@ struct RecordEditView: View {
             nAmount      = copySourceAmount ? source.nAmount : 0
             // コピー新規は設定ONの時だけ2回払いも引き継ぐ
             payType      = enableTwoPayments ? source.payType : .lumpSum
-            nRepeat      = payType == .twoPayments ? 0 : source.nRepeat
+            nRepeat      = source.nRepeat
             selectedCard = source.e1card
             selectedBankForCard = source.e1card?.e8bank
             keepBankPickerRowVisible = selectedCard != nil && selectedBankForCard == nil
