@@ -202,8 +202,26 @@ struct PaymentListView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .scalableNavigationTitle("payment.list.title") {
-            AppIconBadge(size: 22)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Button {
+                    // タイトルタップで未払/済み境界へ戻す
+                    requestBoundaryScroll()
+                } label: {
+                    HStack(spacing: 6) {
+                        AppIconBadge(size: 22)
+                        Text("payment.list.title")
+                            .font(.title3.bold())
+                            .minimumScaleFactor(0.55)
+                            .lineLimit(1)
+                    }
+                    .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text("payment.list.title"))
+            }
         }
         .onAppear {
             // 重い SwiftData クエリ群を次の runloop に逃がし、
