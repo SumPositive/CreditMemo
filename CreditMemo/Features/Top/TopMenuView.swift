@@ -8,6 +8,7 @@ import SwiftData
 
 struct TopMenuView: View {
     @Binding var selectedDestination: AppDestination?
+    @Environment(\.colorScheme) private var colorScheme
     @AppStorage(AppStorageKey.userLevel) private var userLevel: UserLevel = .beginner
     @AppStorage(AppStorageKey.paymentWindowDays) private var paymentWindowDays = 15
 
@@ -46,6 +47,24 @@ struct TopMenuView: View {
         return "Recent \(windowText) Total"
     }
 
+    private var hasOverdueUnpaidPayments: Bool {
+        // 今日より前の未払は引き落とし確認待ちとして知らせる
+        let today = Calendar.current.startOfDay(for: Date())
+        return unpaidPayments.contains {
+            let date = Calendar.current.startOfDay(for: $0.date)
+            return date < today
+        }
+    }
+
+    private var overdueAccentColor: Color {
+        // 状況画面の確認待ちセクションと同じ警告色
+        Color(red: 0.78, green: 0.28, blue: 0.36)
+    }
+
+    private var overdueLabelColor: Color {
+        colorScheme == .dark ? overdueAccentColor.opacity(0.92) : overdueAccentColor.opacity(0.88)
+    }
+
     var body: some View {
         List(selection: $selectedDestination) {
             if userLevel == .beginner {
@@ -71,26 +90,29 @@ struct TopMenuView: View {
                         // タイトル / 直近計 / 金額 を、入る範囲で 1段→2段→3段 と段を増やして表示する
                         ViewThatFits(in: .horizontal) {
                             // 1行版: タイトル + 直近計 + 金額をすべて1行に
-                            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                                Text("top.paymentList")
-                                    .fixedSize(horizontal: true, vertical: false)
-                                Spacer(minLength: 8)
-                                HStack(alignment: .firstTextBaseline, spacing: 4) {
-                                    Text(recentWindowLabel)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                        .lineLimit(1)
-                                        .minimumScaleFactor(0.5)
-                                        .allowsTightening(true)
+                            VStack(alignment: .leading, spacing: 3) {
+                                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                    Text("top.paymentList")
                                         .fixedSize(horizontal: true, vertical: false)
-                                    Text(recentUnpaidTotal.currencyString())
-                                        .font(.callout.weight(.semibold))
-                                        .foregroundStyle(COLOR_UNPAID)
-                                        .fixedSize(horizontal: true, vertical: false)
+                                    Spacer(minLength: 8)
+                                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                                        Text(recentWindowLabel)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                            .lineLimit(1)
+                                            .minimumScaleFactor(0.5)
+                                            .allowsTightening(true)
+                                            .fixedSize(horizontal: true, vertical: false)
+                                        Text(recentUnpaidTotal.currencyString())
+                                            .font(.callout.weight(.semibold))
+                                            .foregroundStyle(COLOR_UNPAID)
+                                            .fixedSize(horizontal: true, vertical: false)
+                                    }
                                 }
+                                overdueConfirmationRow
                             }
                             // 2行版: タイトル / 直近計+金額（右寄せ1行）
-                            VStack(alignment: .leading, spacing: 4) {
+                            VStack(alignment: .leading, spacing: 3) {
                                 Text("top.paymentList")
                                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                                     Spacer(minLength: 0)
@@ -108,9 +130,10 @@ struct TopMenuView: View {
                                         .minimumScaleFactor(0.6)
                                         .fixedSize(horizontal: true, vertical: false)
                                 }
+                                overdueConfirmationRow
                             }
                             // 3行版: タイトル / 直近計 / 金額（金額は右寄せ）
-                            VStack(alignment: .leading, spacing: 4) {
+                            VStack(alignment: .leading, spacing: 3) {
                                 Text("top.paymentList")
                                 Text(recentWindowLabel)
                                     .font(.caption)
@@ -127,6 +150,7 @@ struct TopMenuView: View {
                                         .minimumScaleFactor(0.6)
                                         .fixedSize(horizontal: true, vertical: false)
                                 }
+                                overdueConfirmationRow
                             }
                         }
                     }
@@ -178,6 +202,21 @@ struct TopMenuView: View {
             }
         }
         .tag(dest)
+    }
+
+    @ViewBuilder
+    private var overdueConfirmationRow: some View {
+        if hasOverdueUnpaidPayments {
+            HStack {
+                Spacer(minLength: 0)
+                Text("payment.section.overdue")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(overdueLabelColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                    .allowsTightening(true)
+            }
+        }
     }
 
     private func paymentWindowLabel(_ days: Int) -> String {
