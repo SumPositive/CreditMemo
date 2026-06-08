@@ -739,19 +739,11 @@ private struct PartLockIcon: View {
     let isLocked: Bool
 
     var body: some View {
-        ZStack {
-            Image(systemName: isLocked ? "lock.fill" : "lock.open.fill")
-                .foregroundStyle(isLocked ? Color(.systemGreen) : Color(.systemGray3))
-                .imageScale(.large)
-                .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
-            if isLocked {
-                // 旧確認チェックを示すため、施錠時だけ鍵の矩形中央にチェックを重ねる
-                Image(systemName: "checkmark").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
-                    .font(.system(size: 9, weight: .black))
-                    .foregroundStyle(.white)
-                    .offset(y: 5)
-            }
-        }
+        // 施錠済みはチェック付きの標準アイコンで示す
+        Image(systemName: isLocked ? "lock.badge.checkmark.fill" : "lock.open.fill")
+            .foregroundStyle(isLocked ? Color(.systemGreen) : Color(.systemGray3))
+            .imageScale(.large)
+            .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
         .frame(width: 30, height: 30)
     }
 }
