@@ -6,15 +6,15 @@
 import Foundation
 import SwiftData
 
-#if canImport(FirebaseAnalytics)
+//#if canImport(FirebaseAnalytics)
 import FirebaseAnalytics
-#endif
-#if canImport(FirebaseCore)
+//#endif
+//#if canImport(FirebaseCore)
 import FirebaseCore
-#endif
-#if canImport(FirebaseCrashlytics)
+//#endif
+//#if canImport(FirebaseCrashlytics)
 import FirebaseCrashlytics
-#endif
+//#endif
 
 enum AppTelemetry {
     static func configureIfAvailable() {
