@@ -53,11 +53,15 @@ struct TopMenuView: View {
     }
 
     private var hasOverdueUnpaidPayments: Bool {
-        // 今日より前の未払は引き落とし確認待ちとして知らせる
+        // PaymentList の確認待ち判定（!isPaid + 直近1年）と一致させる
+        // unpaidPayments は e8paid==nil の物理判定で、旧データや口座未設定で
+        // isPaid と乖離しうるため、ここでは allPayments から直接判定する
         let today = Calendar.current.startOfDay(for: Date())
-        return unpaidPayments.contains {
-            let date = Calendar.current.startOfDay(for: $0.date)
-            return date < today
+        let earliest = Calendar.current.date(byAdding: .year, value: -1, to: today) ?? today
+        return allPayments.contains { payment in
+            let date = Calendar.current.startOfDay(for: payment.date)
+            guard earliest <= date && date < today else { return false }
+            return !payment.isPaid
         }
     }
 
