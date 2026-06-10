@@ -8,12 +8,17 @@ import SwiftData
 
 struct TopMenuView: View {
     @Binding var selectedDestination: AppDestination?
+    @Environment(\.modelContext) private var context
     @Environment(\.colorScheme) private var colorScheme
     @AppStorage(AppStorageKey.userLevel) private var userLevel: UserLevel = .beginner
+    @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
     @AppStorage(AppStorageKey.paymentWindowDays) private var paymentWindowDays = 15
+    @State private var showVoiceRecordSheet = false
 
     @Query(sort: \E7payment.date, order: .reverse)
     private var allPayments: [E7payment]
+    @Query(sort: \E1card.nRow)
+    private var cards: [E1card]
 
     private var unpaidPayments: [E7payment] {
         // 起動直後クラッシュ回避:
@@ -65,6 +70,19 @@ struct TopMenuView: View {
         colorScheme == .dark ? overdueAccentColor.opacity(0.92) : overdueAccentColor.opacity(0.88)
     }
 
+    private var supportsVoiceInput: Bool {
+        Locale.current.language.languageCode?.identifier == "ja"
+    }
+
+    private var canOpenVoiceInputSheet: Bool {
+        #if targetEnvironment(simulator)
+        // シミュレータでは音声入力シートがクラッシュするため開かない
+        return false
+        #else
+        return true
+        #endif
+    }
+
     var body: some View {
         List(selection: $selectedDestination) {
             if userLevel == .beginner {
@@ -77,6 +95,9 @@ struct TopMenuView: View {
             }
             // 明細
             Section {
+                if supportsVoiceInput {
+                    voiceRecordRow()
+                }
                 row(.addRecord, icon: "plus.circle.fill", color: .blue, key: "top.addRecord")
                 row(.recordList, icon: "list.bullet.circle.fill", color: .cyan, key: "top.recordList")
             }
@@ -186,6 +207,20 @@ struct TopMenuView: View {
                     .foregroundStyle(.tertiary)
             }
         }
+        .sheet(isPresented: $showVoiceRecordSheet) {
+            VoiceInputSheet(
+                cards: cards,
+                currentAmount: 0,
+                currentCard: nil,
+                currentLabel: "",
+                requiresAmount: true,
+                applyTitleKey: "button.save",
+                onApply: { payload in saveVoiceRecord(payload) }
+            )
+            .appFontScale(fontScale)
+            // 音声入力シートは背面を透かさない
+            .presentationBackground(Color(uiColor: .systemGroupedBackground))
+        }
     }
 
     @ViewBuilder
@@ -202,6 +237,25 @@ struct TopMenuView: View {
             }
         }
         .tag(dest)
+    }
+
+    @ViewBuilder
+    private func voiceRecordRow() -> some View {
+        Button {
+            guard canOpenVoiceInputSheet else { return }
+            showVoiceRecordSheet = true
+        } label: {
+            HStack(alignment: .top, spacing: 12) {
+                ScaledMenuIcon(systemName: "microphone.badge.plus.fill", color: .blue)
+                    .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                Text("top.addRecordByVoice")
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .buttonStyle(.plain)
     }
 
     @ViewBuilder
@@ -222,6 +276,49 @@ struct TopMenuView: View {
     private func paymentWindowLabel(_ days: Int) -> String {
         let isJapanese = Locale.current.language.languageCode?.identifier == "ja"
         return isJapanese ? "\(days)日" : "\(days) Days"
+    }
+
+    private func saveVoiceRecord(_ payload: VoiceApplyPayload) {
+        let amount = (payload.amount ?? .zero).roundedAmount()
+        guard 0 < amount else { return }
+
+        let usePoint = payload.label?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let record = E3record(
+            dateUse: Calendar.current.startOfDay(for: Date()),
+            zName: usePoint,
+            zNote: "",
+            nAmount: amount,
+            nPayType: PayType.lumpSum.rawValue,
+            nRepeat: 0
+        )
+        record.e1card = payload.card
+        context.insert(record)
+        do {
+            // メニュー音声入力も通常保存と同じ派生データ更新に通す
+            try RecordService.save(record, context: context)
+            commitVoiceLearning(payload: payload, savedCard: payload.card)
+        } catch {
+            appLog(.error, "音声入力からの新規保存に失敗しました: \(error)")
+            AppTelemetry.reportSwiftDataError(
+                error,
+                operation: "top_voice_record_save",
+                entity: "E3record"
+            )
+            context.rollback()
+        }
+    }
+
+    private func commitVoiceLearning(payload: VoiceApplyPayload, savedCard: E1card?) {
+        guard let token = payload.matchedToken, let cardID = savedCard?.id else { return }
+        if !tokenMatchesCardName(token, cardID: cardID) {
+            // 保存まで手段が確定した発話だけを次回候補として学習する
+            VoiceAliasStore.append(token, forCardID: cardID)
+        }
+    }
+
+    private func tokenMatchesCardName(_ token: String, cardID: String) -> Bool {
+        guard let card = cards.first(where: { $0.id == cardID }) else { return false }
+        return token.compare(card.zName, options: .caseInsensitive) == .orderedSame
     }
 }
 

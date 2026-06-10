@@ -108,6 +108,10 @@
 	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>金額・決済手段・ラベルを音声で入力するためにマイクを使用します</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>音声を文字に変換して、金額・決済手段・ラベルとして取り込みます</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>

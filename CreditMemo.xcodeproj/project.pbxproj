@@ -67,6 +67,11 @@
 		F1EBA5E00000000000000006 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = F1EBA5E00000000000000003 /* FirebaseAnalytics */; };
 		F1EBA5E00000000000000007 /* FirebaseCrashlytics in Frameworks */ = {isa = PBXBuildFile; productRef = F1EBA5E00000000000000004 /* FirebaseCrashlytics */; };
 		F7929AD07E62756D8EE69469 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 17B4815A12B4099B3F8C2A8D /* Localizable.xcstrings */; };
+		BEE20000000000000000A1A1 /* VoiceAliasStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEE10000000000000000A1A1 /* VoiceAliasStore.swift */; };
+		BEE20000000000000000A2A2 /* JapaneseNumberParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEE10000000000000000A2A2 /* JapaneseNumberParser.swift */; };
+		BEE20000000000000000A3A3 /* SpeechRecognizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEE10000000000000000A3A3 /* SpeechRecognizer.swift */; };
+		BEE20000000000000000A4A4 /* VoiceInputParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEE10000000000000000A4A4 /* VoiceInputParser.swift */; };
+		BEE20000000000000000A5A5 /* VoiceInputSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEE10000000000000000A5A5 /* VoiceInputSheet.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -149,6 +154,11 @@
 		FA5C86233C4FE3247A2D008B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		FDB4F7EAA70EE49D23DA0441 /* NumericKeypadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumericKeypadView.swift; sourceTree = "<group>"; };
 		FFE96F1625157DEB00A17A10 /* ja */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ja; path = ja.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		BEE10000000000000000A1A1 /* VoiceAliasStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceAliasStore.swift; sourceTree = "<group>"; };
+		BEE10000000000000000A2A2 /* JapaneseNumberParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JapaneseNumberParser.swift; sourceTree = "<group>"; };
+		BEE10000000000000000A3A3 /* SpeechRecognizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechRecognizer.swift; sourceTree = "<group>"; };
+		BEE10000000000000000A4A4 /* VoiceInputParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceInputParser.swift; sourceTree = "<group>"; };
+		BEE10000000000000000A5A5 /* VoiceInputSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceInputSheet.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -400,7 +410,11 @@
 				38369113251626D100E7A110 /* BankService.swift */,
 				838545C9F18F5C517D3C170E /* BillingService.swift */,
 				38369111251625BA00E7A110 /* CardService.swift */,
+				BEE10000000000000000A2A2 /* JapaneseNumberParser.swift */,
 				F1A1B2E2DD399FBFF391B2C5 /* RecordService.swift */,
+				BEE10000000000000000A3A3 /* SpeechRecognizer.swift */,
+				BEE10000000000000000A1A1 /* VoiceAliasStore.swift */,
+				BEE10000000000000000A4A4 /* VoiceInputParser.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -410,6 +424,7 @@
 			children = (
 				3733DDAFE02614F6EA7B3BC9 /* RecordEditView.swift */,
 				6AC306E701300663C94683C4 /* RecordListView.swift */,
+				BEE10000000000000000A5A5 /* VoiceInputSheet.swift */,
 			);
 			path = Record;
 			sourceTree = "<group>";
@@ -626,6 +641,11 @@
 				C03BB2AEED264F9C4A50EAB7 /* TopMenuView.swift in Sources */,
 				4531D860CDB0FDF2415DD421 /* View+ScalableTitle.swift in Sources */,
 				260F3E001BE44EBABDFC9258 /* View+TextTrimming.swift in Sources */,
+				BEE20000000000000000A1A1 /* VoiceAliasStore.swift in Sources */,
+				BEE20000000000000000A2A2 /* JapaneseNumberParser.swift in Sources */,
+				BEE20000000000000000A3A3 /* SpeechRecognizer.swift in Sources */,
+				BEE20000000000000000A4A4 /* VoiceInputParser.swift in Sources */,
+				BEE20000000000000000A5A5 /* VoiceInputSheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

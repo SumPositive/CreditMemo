@@ -9,6 +9,9 @@ struct NumericKeypadSheet: View {
     let placeholder: Decimal
     let maxValue: Decimal
     let onCommit: (Decimal) -> Void
+    /// 非 nil のとき、ツールバー右端にマイクアイコンを表示する
+    /// タップでシートを閉じ、親側で音声入力シートを開く
+    var onVoiceTapped: (() -> Void)? = nil
 
     @Environment(\.dismiss) private var dismiss
     @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
@@ -109,6 +112,18 @@ struct NumericKeypadSheet: View {
                         Image(systemName: "chevron.down").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                             .font(.title3)
                             .symbolRenderingMode(.hierarchical)
+                    }
+                }
+                if let onVoiceTapped {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button {
+                            onVoiceTapped()
+                            dismiss()
+                        } label: {
+                            Image(systemName: "mic.fill").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                                .font(.body.weight(.semibold))
+                                .foregroundColor(.accentColor)
+                        }
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
