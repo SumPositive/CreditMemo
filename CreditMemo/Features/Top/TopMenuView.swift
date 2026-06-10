@@ -13,6 +13,7 @@ struct TopMenuView: View {
     @AppStorage(AppStorageKey.userLevel) private var userLevel: UserLevel = .beginner
     @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
     @AppStorage(AppStorageKey.paymentWindowDays) private var paymentWindowDays = 15
+    @AppStorage(AppStorageKey.enableVoiceInput)  private var enableVoiceInput = true
     @State private var showVoiceRecordSheet = false
 
     @Query(sort: \E7payment.date, order: .reverse)
@@ -75,7 +76,8 @@ struct TopMenuView: View {
     }
 
     private var supportsVoiceInput: Bool {
-        Locale.current.language.languageCode?.identifier == "ja"
+        guard Locale.current.language.languageCode?.identifier == "ja" else { return false }
+        return enableVoiceInput
     }
 
     private var canOpenVoiceInputSheet: Bool {

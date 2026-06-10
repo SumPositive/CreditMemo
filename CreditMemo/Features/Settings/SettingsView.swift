@@ -23,6 +23,7 @@ struct SettingsView: View {
     @AppStorage(AppStorageKey.openAddOnActive)   private var openAddOnActive = false
     @AppStorage(AppStorageKey.autoOpenAmountPad) private var autoOpenAmountPad = true
     @AppStorage(AppStorageKey.enableTwoPayments) private var enableTwoPayments = false
+    @AppStorage(AppStorageKey.enableVoiceInput)  private var enableVoiceInput = true
     @AppStorage(AppStorageKey.shiftDueDateOffHoliday) private var shiftDueDateOffHoliday = true
     @AppStorage(AppStorageKey.paymentWindowDays) private var paymentWindowDays = 15
     @AppStorage(AppStorageKey.exportFormat)        private var exportFormatRaw = JSONExport.OutputStyle.compact.rawValue
@@ -122,6 +123,13 @@ struct SettingsView: View {
             }
 
             Section("settings.panel.payment") {
+                // 日本ロケール限定の音声入力。セクション先頭に配置する
+                if Locale.current.language.languageCode?.identifier == "ja" {
+                    Toggle(isOn: $enableVoiceInput) {
+                        settingTitle("settings.enableVoiceInput", help: "settings.help.enableVoiceInput")
+                    }
+                }
+
                 Toggle(isOn: $openAddOnActive) {
                     settingTitle("settings.openAddOnActive", help: "settings.help.openAddOnActive")
                 }

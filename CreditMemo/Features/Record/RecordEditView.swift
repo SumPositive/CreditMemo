@@ -72,11 +72,6 @@ struct RecordEditView: View {
     @State private var selectedCategories:  [E5tag] = []
 
     @State private var showAmountPad      = false
-    @State private var showVoiceSheet     = false
-    /// テンキーシートのマイクから起動した時、シートを閉じた直後に音声シートを開くためのフラグ
-    @State private var pendingVoiceFromKeypad = false
-    /// 直近の音声入力で取得したマッチ情報。保存時に VoiceAliasStore を更新するために保持する
-    @State private var voiceLearningSnapshot: VoiceLearningSnapshot?
     @State private var showDatePicker     = false
     @State private var draftDateUse       = Date()
     /// 新規入力時の引き落とし日（支払日）をロックしているか。
@@ -131,12 +126,7 @@ struct RecordEditView: View {
         case .edit: return false
         }
     }
-    /// 音声入力を表示するか。ja-JP のみ先行対応で、新規追加（.addNew）画面に限定する
-    private var supportsVoiceInput: Bool {
-        guard case .addNew = mode else { return false }
-        return Locale.current.language.languageCode?.identifier == "ja"
-    }
-    private var isValid: Bool {
+private var isValid: Bool {
         if nAmount == 0 { return false }
         // 2回払いは1円以上を2つに分けるため、最低2円相当を必要にする
         if payType == .twoPayments && nAmount.roundedAmount() <= 1 { return false }
@@ -415,12 +405,6 @@ struct RecordEditView: View {
             refreshDerivedCaches()
         }
         .sheet(isPresented: $showAmountPad, onDismiss: {
-            // テンキーのマイクから起動された場合は、続けて音声入力シートを開く
-            if pendingVoiceFromKeypad {
-                pendingVoiceFromKeypad = false
-                DispatchQueue.main.async { showVoiceSheet = true }
-                return
-            }
             // 自動表示ONの時だけ、金額未入力のままテンキーを閉じると新規入力画面ごと閉じる
             if isNew && nAmount == 0 && autoOpenAmountPad {
                 dismiss()
@@ -429,25 +413,14 @@ struct RecordEditView: View {
             NumericKeypadSheet(
                 title: "record.field.amount",
                 placeholder: nAmount,
-                maxValue: APP_MAX_AMOUNT,
-                onCommit: { value in
-                    nAmount = value.roundedAmount()
-                    // 金額確定後はフォーカスを外して類似決済を見やすくする
-                    DispatchQueue.main.async { isUsePointFocused = false }
-                },
-                onVoiceTapped: nil
-            )
+                maxValue: APP_MAX_AMOUNT
+            ) { value in
+                nAmount = value.roundedAmount()
+                // 金額確定後はフォーカスを外して類似決済を見やすくする
+                DispatchQueue.main.async { isUsePointFocused = false }
+            }
             // 金額入力シートの背面を透かさない
             .presentationBackground(Color(uiColor: .systemGroupedBackground))
-        }
-        .sheet(isPresented: $showVoiceSheet) {
-            VoiceInputSheet(
-                cards: cards,
-                currentAmount: nAmount,
-                currentCard: selectedCard,
-                currentLabel: zName,
-                onApply: { payload in applyVoiceResult(payload: payload) }
-            )
         }
         .sheet(isPresented: $showPartAmountPad, onDismiss: {
             editingPartNoForAmount = nil
@@ -1173,28 +1146,6 @@ struct RecordEditView: View {
         }
     }
 
-    @ViewBuilder private var voiceInputSection: some View {
-        if supportsVoiceInput {
-            Section {
-                Button {
-                    showVoiceSheet = true
-                } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: "mic.fill")
-                            .foregroundStyle(Color.accentColor)
-                        Text("voice.input.prompt")
-                            .foregroundStyle(Color.accentColor)
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                    }
-                }
-                .buttonStyle(.plain)
-            }
-        }
-    }
-
     @ViewBuilder private var requiredSection: some View {
         Section {
             // 金額
@@ -1669,62 +1620,6 @@ struct RecordEditView: View {
         }
     }
 
-    // MARK: - Voice input
-
-    /// 保存時に VoiceAliasStore を更新するための学習スナップショット
-    /// 音声で初期表示したカード ID と、認識テキストから抽出したトークンを保持する
-    struct VoiceLearningSnapshot {
-        let voiceCardID: String?
-        let token: String?
-        let wasExistingAlias: Bool
-    }
-
-    /// 音声入力シートからの結果を新規決済の各フィールドに反映する
-    /// 学習自体は保存時にまとめて行うため、ここではスナップショットだけ持つ
-    private func applyVoiceResult(payload: VoiceApplyPayload) {
-        if let amount = payload.amount, amount > 0 {
-            nAmount = amount.roundedAmount()
-        }
-        if let card = payload.card {
-            selectedCard = card
-        }
-        if let label = payload.label, !label.isEmpty {
-            zName = label
-        }
-        voiceLearningSnapshot = VoiceLearningSnapshot(
-            voiceCardID: payload.card?.id,
-            token: payload.matchedToken,
-            wasExistingAlias: payload.matchedWasExistingAlias
-        )
-    }
-
-    /// 音声入力で初期選択した手段と保存時の手段を比較し、エイリアスを学習する
-    /// 同一手段で確定: トークンを先頭追加（カード名と同一なら冗長なのでスキップ）
-    /// 別手段へ変更: 既存エイリアス由来は旧手段から削除し、新手段にトークンを追加
-    /// 未選択へ変更: 既存エイリアス由来なら旧手段から削除のみ
-    private func commitVoiceLearning() {
-        guard let snap = voiceLearningSnapshot, let token = snap.token else { return }
-        let currentCardID = selectedCard?.id
-        if snap.voiceCardID == currentCardID {
-            if let cid = currentCardID, !tokenMatchesCardName(token, cardID: cid) {
-                VoiceAliasStore.append(token, forCardID: cid)
-            }
-        } else {
-            if snap.wasExistingAlias, let oldID = snap.voiceCardID {
-                VoiceAliasStore.removeAlias(token, forCardID: oldID)
-            }
-            if let newID = currentCardID, !tokenMatchesCardName(token, cardID: newID) {
-                VoiceAliasStore.append(token, forCardID: newID)
-            }
-        }
-        voiceLearningSnapshot = nil
-    }
-
-    private func tokenMatchesCardName(_ token: String, cardID: String) -> Bool {
-        guard let card = cards.first(where: { $0.id == cardID }) else { return false }
-        return token.compare(card.zName, options: .caseInsensitive) == .orderedSame
-    }
-
     // MARK: - Load / Save
 
     private func loadFields() {
@@ -1817,8 +1712,6 @@ struct RecordEditView: View {
                 context.rollback()
                 return
             }
-            // 保存確定後、音声入力時の手段が変更されていればエイリアスを学習する
-            commitVoiceLearning()
             if !markNewRecordPaidIfNeeded(r) {
                 return
             }

@@ -4825,14 +4825,14 @@
       "localizations" : {
         "en" : {
           "stringUnit" : {
-            "state" : "translated",
+            "state" : "needs_review",
             "value" : "Use Pay in 2"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "2回払いを利用する"
+            "value" : "2回払いを使う"
           }
         }
       }
@@ -4867,6 +4867,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "英語モードでは分割払いは非表示です"
+          }
+        }
+      }
+    },
+    "settings.enableVoiceInput" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Use voice input"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "音声入力を使う [β]"
           }
         }
       }
@@ -5054,6 +5071,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "クレジットカードの2回払いに対応します。自動的に2回に配分しますが、個別に調整できます\n\nOFFにすると新しい決済の2回払いが利用できなくなります。すでに保存した2回払いは変わらず有効です\n\nボーナス払いは引き落とし日を手動で変更してください。いずれも利息や手数料に対応しておりませんので無利息・手数料無料の範囲でご利用ください"
+          }
+        }
+      }
+    },
+    "settings.help.enableVoiceInput" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Enter amount, label, and payment method by speaking. Available in Japanese."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ON：音声により新しい決済の金額とラベルが入力できます\n\nまだしばらく [β] 試作調整中です"
           }
         }
       }
@@ -6775,19 +6809,36 @@
         }
       }
     },
-    "voice.input.title" : {
+    "voice.apply" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Voice Input"
+            "value" : "Apply"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "音声入力"
+            "value" : "適用"
+          }
+        }
+      }
+    },
+    "voice.input.example" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Examples: \"1296 groceries\", \"2860 taxi\". You can also say \"method\" followed by a payment method name."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "（例）\"1296 食材\"　\"2860 タクシー\"　さらに \"手段\" に続けて決済手段名を伝えることができます"
           }
         }
       }
@@ -6826,19 +6877,19 @@
         }
       }
     },
-    "voice.input.example" : {
+    "voice.input.title" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Examples: \"1296 groceries\", \"2860 taxi\". You can also say \"method\" followed by a payment method name."
+            "value" : "Voice Input"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "（例）\"1296 食材\"　\"2860 タクシー\"　さらに \"手段\" に続けて決済手段名を伝えることができます"
+            "value" : "音声入力"
           }
         }
       }
@@ -6860,87 +6911,19 @@
         }
       }
     },
-    "voice.tap.to.start" : {
+    "voice.permission.audio" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tap the mic to start"
+            "value" : "Could not start the microphone."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "マイクをタップして開始"
-          }
-        }
-      }
-    },
-    "voice.stop" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Stop"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "停止"
-          }
-        }
-      }
-    },
-    "voice.retry" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Retry"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "もう一度"
-          }
-        }
-      }
-    },
-    "voice.apply" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Apply"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "適用"
-          }
-        }
-      }
-    },
-    "voice.permission.title" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Permission required"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "許可が必要です"
+            "value" : "マイクを開始できませんでした"
           }
         }
       }
@@ -6979,6 +6962,23 @@
         }
       }
     },
+    "voice.permission.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Permission required"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "許可が必要です"
+          }
+        }
+      }
+    },
     "voice.permission.unavailable" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6996,19 +6996,53 @@
         }
       }
     },
-    "voice.permission.audio" : {
+    "voice.retry" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Could not start the microphone."
+            "value" : "Retry"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "マイクを開始できませんでした"
+            "value" : "もう一度"
+          }
+        }
+      }
+    },
+    "voice.stop" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止"
+          }
+        }
+      }
+    },
+    "voice.tap.to.start" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap the mic to start"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "マイクをタップして開始"
           }
         }
       }
