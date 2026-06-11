@@ -187,9 +187,9 @@ struct TopMenuView: View {
 
             // マスタメニューは初心者/達人に関係なく常時表示する
             Section {
-                row(.cardList, icon: "creditcard", color: .green, key: "top.cardList")
-                row(.bankList, icon: "building.columns", color: .teal, key: "top.bankList")
-                row(.tagList, icon: "tag", color: .pink, key: "top.tagList")
+                row(.cardList, icon: "creditcard", color: .indigo, key: "top.cardList")
+                row(.bankList, icon: "building.columns", color: .brown, key: "top.bankList")
+                row(.tagList, icon: "tag", color: .orange, key: "top.tagList")
             }
 
             // アプリ

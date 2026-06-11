@@ -53,6 +53,6 @@ let APP_MAX_DATE = Calendar.current.date(from: DateComponents(year: 2100, month:
 
 let COLOR_AMOUNT_POSITIVE: Color = .primary
 let COLOR_AMOUNT_NEGATIVE: Color = .red
-let COLOR_UNPAID: Color          = Color(.systemOrange)
-let COLOR_PAID: Color            = Color(.systemGreen)
+let COLOR_UNPAID: Color          = Color(.systemBlue)
+let COLOR_PAID: Color            = Color(.systemGray)
 let COLOR_SEPARATOR: Color       = Color(.separator)

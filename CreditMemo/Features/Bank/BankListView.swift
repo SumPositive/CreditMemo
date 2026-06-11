@@ -74,7 +74,7 @@ struct BankListView: View {
         }
         .scalableNavigationTitle("bank.list.title") {
             Image(systemName: "building.columns")
-                .foregroundStyle(Color.teal)
+                .foregroundStyle(Color.brown)
         }
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {

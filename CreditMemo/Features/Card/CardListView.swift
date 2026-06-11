@@ -94,7 +94,7 @@ struct CardListView: View {
         }
         .scalableNavigationTitle("card.list.title") {
             Image(systemName: "creditcard")
-                .foregroundStyle(Color.green)
+                .foregroundStyle(Color.indigo)
         }
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {

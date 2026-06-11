@@ -107,7 +107,7 @@ struct TagListView: View {
         }
         .scalableNavigationTitle("tag.list.title") {
             Image(systemName: "tag")
-                .foregroundStyle(Color.pink)
+                .foregroundStyle(Color.orange)
         }
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {

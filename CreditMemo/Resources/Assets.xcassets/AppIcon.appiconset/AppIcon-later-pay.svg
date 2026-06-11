@@ -1,34 +1,34 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" fill="none">
   <defs>
     <linearGradient id="bgVertical" x1="512" y1="0" x2="512" y2="1024" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#8B1021"/>
-      <stop offset="0.52" stop-color="#74101E"/>
-      <stop offset="1" stop-color="#5E0C18"/>
+      <stop offset="0" stop-color="#7A0E1E"/>
+      <stop offset="0.52" stop-color="#5E0C18"/>
+      <stop offset="1" stop-color="#3F080F"/>
     </linearGradient>
     <radialGradient id="bgGlowTop" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(512 294) rotate(90) scale(290 760)">
-      <stop offset="0" stop-color="#B21F34" stop-opacity="0.44"/>
-      <stop offset="1" stop-color="#B21F34" stop-opacity="0"/>
+      <stop offset="0" stop-color="#A01C2D" stop-opacity="0.36"/>
+      <stop offset="1" stop-color="#A01C2D" stop-opacity="0"/>
     </radialGradient>
     <radialGradient id="bgGlowBottom" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(512 784) rotate(90) scale(360 800)">
-      <stop offset="0" stop-color="#2A0A0D" stop-opacity="0.26"/>
-      <stop offset="1" stop-color="#2A0A0D" stop-opacity="0"/>
+      <stop offset="0" stop-color="#1F0608" stop-opacity="0.42"/>
+      <stop offset="1" stop-color="#1F0608" stop-opacity="0"/>
     </radialGradient>
     <linearGradient id="topBand" x1="512" y1="340" x2="512" y2="512" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FF8A1F" stop-opacity="0"/>
-      <stop offset="0.32" stop-color="#FF8A1F" stop-opacity="0.18"/>
-      <stop offset="0.68" stop-color="#FF8A1F" stop-opacity="0.56"/>
-      <stop offset="1" stop-color="#FF8A1F" stop-opacity="0.92"/>
+      <stop offset="0" stop-color="#0A84FF" stop-opacity="0"/>
+      <stop offset="0.32" stop-color="#0A84FF" stop-opacity="0.18"/>
+      <stop offset="0.68" stop-color="#0A84FF" stop-opacity="0.56"/>
+      <stop offset="1" stop-color="#0A84FF" stop-opacity="0.92"/>
     </linearGradient>
     <linearGradient id="bottomBand" x1="512" y1="512" x2="512" y2="684" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#4BE673" stop-opacity="0.92"/>
-      <stop offset="0.32" stop-color="#4BE673" stop-opacity="0.52"/>
-      <stop offset="0.68" stop-color="#4BE673" stop-opacity="0.16"/>
-      <stop offset="1" stop-color="#4BE673" stop-opacity="0"/>
+      <stop offset="0" stop-color="#AEAEB2" stop-opacity="0.92"/>
+      <stop offset="0.32" stop-color="#AEAEB2" stop-opacity="0.52"/>
+      <stop offset="0.68" stop-color="#AEAEB2" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#AEAEB2" stop-opacity="0"/>
     </linearGradient>
-    <linearGradient id="centerGlow" x1="512" y1="500" x2="512" y2="524" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FFF1A6" stop-opacity="0.72"/>
-      <stop offset="0.5" stop-color="#FFFFFF"/>
-      <stop offset="1" stop-color="#D8FFD4" stop-opacity="0.82"/>
+    <linearGradient id="centerGlow" x1="0" y1="512" x2="1024" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.10"/>
+      <stop offset="0.5" stop-color="#FFFFFF" stop-opacity="1.0"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.10"/>
     </linearGradient>
     <filter id="softGlow" x="-8%" y="-12%" width="116%" height="124%" color-interpolation-filters="sRGB">
       <feGaussianBlur stdDeviation="28"/>
@@ -48,8 +48,8 @@
       <stop offset="1" stop-color="#FFF0DA"/>
     </linearGradient>
     <linearGradient id="payFill" x1="352" y1="760" x2="672" y2="760" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#F3FFBE"/>
-      <stop offset="1" stop-color="#D9F08B"/>
+      <stop offset="0" stop-color="#F5F5F7"/>
+      <stop offset="1" stop-color="#E5E5EA"/>
     </linearGradient>
     <filter id="textGlowWarm" x="-15%" y="-35%" width="130%" height="170%" color-interpolation-filters="sRGB">
       <feGaussianBlur stdDeviation="10" result="blur"/>
@@ -57,7 +57,7 @@
     </filter>
     <filter id="textGlowLime" x="-15%" y="-35%" width="130%" height="170%" color-interpolation-filters="sRGB">
       <feGaussianBlur stdDeviation="10" result="blur"/>
-      <feColorMatrix in="blur" type="matrix" values="1 0 0 0 0.89 0 1 0 0 0.98 0 0 1 0 0.58 0 0 0 1 0"/>
+      <feColorMatrix in="blur" type="matrix" values="1 0 0 0 0.95 0 1 0 0 0.95 0 0 1 0 0.95 0 0 0 1 0"/>
     </filter>
   </defs>
 
@@ -74,9 +74,9 @@
   <rect x="0" y="512" width="1024" height="172" fill="url(#bottomBand)"/>
 
   <g filter="url(#lineGlow)">
-    <rect x="0" y="509" width="1024" height="6" fill="url(#centerGlow)"/>
+    <rect x="0" y="506" width="1024" height="12" fill="url(#centerGlow)"/>
   </g>
-  <rect x="0" y="510" width="1024" height="4" fill="url(#centerGlow)"/>
+  <rect x="0" y="508" width="1024" height="8" fill="url(#centerGlow)"/>
 
   <g filter="url(#textGlowWarm)">
     <text x="540" y="352" text-anchor="middle" fill="url(#laterFill)" font-family="Avenir Next, Helvetica Neue, Arial, sans-serif" font-size="118" font-weight="500" letter-spacing="68">LATER</text>
