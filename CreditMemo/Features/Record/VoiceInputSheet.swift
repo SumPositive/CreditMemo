@@ -302,7 +302,7 @@ struct VoiceInputSheet: View {
         let r: VoiceInputResult
         switch phase {
         case .amountAndLabel:
-            r = VoiceInputParser.parseAmountAndLabel(text)
+            r = VoiceInputParser.parseAmountAndLabel(text, locale: recognizer.locale)
         case .card:
             r = VoiceInputParser.parseCard(text, cards: cards)
             if r.card == nil {

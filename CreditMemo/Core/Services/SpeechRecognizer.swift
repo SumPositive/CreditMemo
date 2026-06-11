@@ -2,7 +2,7 @@ import Foundation
 @preconcurrency import Speech
 import AVFoundation
 
-/// SFSpeechRecognizer の ja-JP ラッパー
+/// SFSpeechRecognizer のロケール対応ラッパー
 /// パーシャル結果をリアルタイムに更新し、停止時に最終結果を確定する
 @MainActor
 @Observable
@@ -21,12 +21,25 @@ final class SpeechRecognizer {
     /// 停止後の確定テキスト
     private(set) var transcript: String = ""
 
-    private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "ja-JP"))
+    let locale: Locale
+    private let recognizer: SFSpeechRecognizer?
     private var request: SFSpeechAudioBufferRecognitionRequest?
     private var task: SFSpeechRecognitionTask?
     private let audioEngine = AVAudioEngine()
 
+    /// 端末ロケールで初期化。サポート外なら recognizer が nil で isAvailable = false
+    init(locale: Locale = .current) {
+        self.locale = locale
+        self.recognizer = SFSpeechRecognizer(locale: locale)
+    }
+
     var isAvailable: Bool { recognizer?.isAvailable == true }
+
+    /// 指定ロケールで音声認識が使えるか。端末・iOS バージョン依存
+    /// SFSpeechRecognizer の init は未対応ロケールで nil を返すので、それで判定する
+    static func supports(_ locale: Locale = .current) -> Bool {
+        SFSpeechRecognizer(locale: locale) != nil
+    }
 
     /// 認識を開始。contextualStrings はカード名・エイリアスなどの語彙ヒントを渡す
     func start(contextualStrings: [String]) async {

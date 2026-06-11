@@ -1,1 +1,3 @@
 "CFBundleDisplayName" = "CreditMemo";
+"NSMicrophoneUsageDescription" = "Used to enter the amount, payment method, and label by voice.";
+"NSSpeechRecognitionUsageDescription" = "Converts your speech to text so the app can fill in the amount, payment method, and label.";

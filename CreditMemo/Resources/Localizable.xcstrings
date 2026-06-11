@@ -3684,7 +3684,7 @@
       "localizations" : {
         "en" : {
           "stringUnit" : {
-            "state" : "needs_review",
+            "state" : "translated",
             "value" : "Label (store, purpose, etc.)"
           }
         },
@@ -4825,7 +4825,7 @@
       "localizations" : {
         "en" : {
           "stringUnit" : {
-            "state" : "needs_review",
+            "state" : "translated",
             "value" : "Use Pay in 2"
           }
         },
@@ -4876,8 +4876,8 @@
       "localizations" : {
         "en" : {
           "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Use voice input"
+            "state" : "translated",
+            "value" : "Use voice input [β]"
           }
         },
         "ja" : {
@@ -5063,7 +5063,7 @@
       "localizations" : {
         "en" : {
           "stringUnit" : {
-            "state" : "needs_review",
+            "state" : "translated",
             "value" : "Use this for cards that support splitting a purchase into two interest-free payments. CreditMemo splits the amount evenly, and you can adjust each payment manually.\n\nTurning this off hides Pay in 2 for new records. Existing Pay in 2 records stay valid.\n\nFor bonus or special payment dates, change the debit date manually. CreditMemo does not calculate interest or fees, so use this only for interest-free, fee-free plans."
           }
         },
@@ -5080,8 +5080,8 @@
       "localizations" : {
         "en" : {
           "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Enter amount, label, and payment method by speaking. Available in Japanese."
+            "state" : "translated",
+            "value" : "On: Use your voice to enter the amount and label of a new record.\n\nStill in [β] prototype tuning for a while."
           }
         },
         "ja" : {

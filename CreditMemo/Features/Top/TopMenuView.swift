@@ -76,8 +76,9 @@ struct TopMenuView: View {
     }
 
     private var supportsVoiceInput: Bool {
-        guard Locale.current.language.languageCode?.identifier == "ja" else { return false }
-        return enableVoiceInput
+        guard enableVoiceInput else { return false }
+        // 端末ロケールが SFSpeechRecognizer に対応しているか
+        return SpeechRecognizer.supports()
     }
 
     private var canOpenVoiceInputSheet: Bool {

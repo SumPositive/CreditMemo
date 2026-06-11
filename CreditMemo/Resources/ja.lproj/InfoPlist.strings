@@ -1,1 +1,3 @@
 "CFBundleDisplayName" = "クレメモ";
+"NSMicrophoneUsageDescription" = "金額や決済手段、ラベルを音声で入力するためにマイクを使用します";
+"NSSpeechRecognitionUsageDescription" = "音声を文字に変換して、金額や決済手段、ラベルとして取り込みます";

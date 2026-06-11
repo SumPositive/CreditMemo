@@ -15,14 +15,15 @@ struct VoiceInputResult {
 /// 音声認識テキストの解析
 /// - parseAmountAndLabel: 数値を金額、それ以外をラベルにする
 /// - parseCard: カード名／エイリアス／省略形を手段にする
+/// 数値解析・助詞除去はロケール依存。ja-JP では漢数字と助詞も処理する
 enum VoiceInputParser {
-    /// 数値は金額、文字（名詞）はラベル
-    static func parseAmountAndLabel(_ rawText: String) -> VoiceInputResult {
+    /// 数値は金額、文字（名詞）はラベル。locale が ja-JP の時は漢数字・万・千・円も解釈する
+    static func parseAmountAndLabel(_ rawText: String, locale: Locale = .current) -> VoiceInputResult {
         let text = normalize(rawText)
         var result = VoiceInputResult()
 
         let labelText: String
-        if let (amount, range) = JapaneseNumberParser.firstAmount(in: text) {
+        if let (amount, range) = firstAmount(in: text, locale: locale) {
             result.amount = amount
             labelText = String(text[..<range.lowerBound]) + " " + String(text[range.upperBound...])
         } else {
@@ -37,6 +38,7 @@ enum VoiceInputParser {
     }
 
     /// 認識テキストから決済手段を特定する。マッチ無しならカードは nil
+    /// カード名のマッチングはロケール非依存（文字列比較ベース）
     static func parseCard(_ rawText: String, cards: [E1card]) -> VoiceInputResult {
         let text = normalize(rawText)
         var result = VoiceInputResult()
@@ -57,6 +59,31 @@ enum VoiceInputParser {
             return n
         }
         return s
+    }
+
+    /// ロケールに応じて数値抽出する。ja-JP は JapaneseNumberParser、他は半角数字のみ
+    private static func firstAmount(in text: String, locale: Locale) -> (Decimal, Range<String.Index>)? {
+        if locale.language.languageCode?.identifier == "ja" {
+            return JapaneseNumberParser.firstAmount(in: text)
+        }
+        return firstArabicAmount(in: text)
+    }
+
+    /// "15", "1,500", "1.99" のような半角数字パターンをマッチする（非 ja ロケール用）
+    /// 通貨記号は無視。最初に見つかった数値を返す
+    private static func firstArabicAmount(in text: String) -> (Decimal, Range<String.Index>)? {
+        let pattern = #"[0-9]+(?:[,][0-9]{3})*(?:\.[0-9]+)?"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+        let ns = text as NSString
+        let matches = regex.matches(in: text, range: NSRange(location: 0, length: ns.length))
+        for m in matches {
+            let raw = ns.substring(with: m.range).replacingOccurrences(of: ",", with: "")
+            if let value = Decimal(string: raw), value > 0,
+               let range = Range(m.range, in: text) {
+                return (value, range)
+            }
+        }
+        return nil
     }
 
     private struct CardMatch {

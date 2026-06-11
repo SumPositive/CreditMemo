@@ -123,8 +123,8 @@ struct SettingsView: View {
             }
 
             Section("settings.panel.payment") {
-                // 日本ロケール限定の音声入力。セクション先頭に配置する
-                if Locale.current.language.languageCode?.identifier == "ja" {
+                // 音声入力はロケールが SFSpeechRecognizer の対応外なら設定 UI 自体を出さない
+                if SpeechRecognizer.supports() {
                     Toggle(isOn: $enableVoiceInput) {
                         settingTitle("settings.enableVoiceInput", help: "settings.help.enableVoiceInput")
                     }
