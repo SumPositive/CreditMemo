@@ -7,8 +7,27 @@
 
 ![Platform](https://img.shields.io/badge/platform-iOS%2018%2B-blue)
 ![Swift](https://img.shields.io/badge/Swift-6-orange)
-![Version](https://img.shields.io/badge/version-2.2.0-brightgreen)
+![Version](https://img.shields.io/badge/version-2.4.0-brightgreen)
 [![App Store](https://img.shields.io/badge/App%20Store-Download-blue)](https://apps.apple.com/us/app/id432458298)
+
+## バージョン 2.4.0 の主な変更
+
+- **音声で新しい決済 [β]**
+  - メインメニュー先頭に「音声で新しい決済」を追加し、発話だけで明細を保存できる
+  - 第1フェーズ: 金額とラベルを聞き取る。数値が金額、それ以外がラベルになる
+  - 第2フェーズ: 「決済手段を音声入力する」ボタンで手段専用フェーズへ切替。検出した手段はタップで一覧から選び直せる
+  - 選び直した結果は `VoiceAliasStore`（UserDefaults）に学習され、次回以降の音声判定に反映される
+  - 設定 > 決済・支払の先頭に「音声入力を使う」スイッチを追加（既定 ON）
+  - ロケール対応: `SFSpeechRecognizer` が対応する全ロケールで自動有効化（ja-JP / en-US 等）
+  - 数値解析は ja-JP のみ漢数字・万・千・円を解釈、他ロケールは半角数字のみ
+- **配色刷新**
+  - 引き落とし状況の未払 / 済み: オレンジ / グリーン → ブルー / グレー
+  - 確認待ち（赤）の警告色がより際立ち、3 状態の識別性が向上
+  - メニューアイコン: 決済手段 = インディゴ、口座 = ブラウン、タグ = オレンジに更新
+- **アプリアイコン刷新**
+  - 中央バンドを 青 / グレーに更新（旧 オレンジ / グリーン）
+  - 境界の白い発光ラインを倍幅化し、左右が暗く中央が明るく盛り上がるリッジ風に変更
+  - 小豆色の背景グラデーションを一段深くし、新しい中央デザインが映えるよう調整
 
 ## バージョン 2.2.0 の主な変更
 

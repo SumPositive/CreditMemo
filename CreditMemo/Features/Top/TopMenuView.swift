@@ -290,19 +290,14 @@ struct TopMenuView: View {
         guard 0 < amount else { return }
 
         let usePoint = payload.label?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let record = E3record(
-            dateUse: Calendar.current.startOfDay(for: Date()),
-            zName: usePoint,
-            zNote: "",
-            nAmount: amount,
-            nPayType: PayType.lumpSum.rawValue,
-            nRepeat: 0
-        )
-        record.e1card = payload.card
-        context.insert(record)
         do {
-            // メニュー音声入力も通常保存と同じ派生データ更新に通す
-            try RecordService.save(record, context: context)
+            // 音声入力も Siri と同じ簡易保存ヘルパーへ揃える
+            _ = try RecordService.addQuickRecord(
+                amount: amount,
+                label: usePoint,
+                card: payload.card,
+                context: context
+            )
             commitVoiceLearning(payload: payload, savedCard: payload.card)
         } catch {
             appLog(.error, "音声入力からの新規保存に失敗しました: \(error)")

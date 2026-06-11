@@ -13,6 +13,8 @@
 		162A501B71D24A57A57D4D01 /* Log.swift in Sources */ = {isa = PBXBuildFile; fileRef = 162A501A71D24A57A57D4D01 /* Log.swift */; };
 		1698067491EBDA300104D152 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 461FBECA42994F0A6C9BEA37 /* Assets.xcassets */; };
 		1EC1A3B5C7312FB9E9E97EAB /* AppMain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0864042EF421461DBA308F5E /* AppMain.swift */; };
+		1EC1A3B5C7312FB9E9E97EAC /* AppModelContainerFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0864042EF421461DBA308F5F /* AppModelContainerFactory.swift */; };
+		1EC1A3B5C7312FB9E9E97EAD /* CreditMemoAppShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0864042EF421461DBA308F60 /* CreditMemoAppShortcuts.swift */; };
 		260F3E001BE44EBABDFC9258 /* View+TextTrimming.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A3FC2C30656461C9CEBA1D0 /* View+TextTrimming.swift */; };
 		2921018F4FA6C238795FFF40 /* RecordEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3733DDAFE02614F6EA7B3BC9 /* RecordEditView.swift */; };
 		2A41B07D7E5A4AD0B719D3F1 /* GoogleMobileAds in Frameworks */ = {isa = PBXBuildFile; productRef = 2A41B07D7E5A4AD0B719D3F0 /* GoogleMobileAds */; };
@@ -50,6 +52,11 @@
 		B8D5318A0375ABEC58B26E95 /* E3record.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAE1EBD323E4A4A04B0805E8 /* E3record.swift */; };
 		BB03164E173F407986C40936 /* CardInvoiceListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47A08768F8CA4739B5477E49 /* CardInvoiceListView.swift */; };
 		BDEAA58C8115B3513B809369 /* Decimal+Rounding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90A96AFAF7BCB93A9445E45C /* Decimal+Rounding.swift */; };
+		BEE20000000000000000A1A1 /* VoiceAliasStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEE10000000000000000A1A1 /* VoiceAliasStore.swift */; };
+		BEE20000000000000000A2A2 /* JapaneseNumberParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEE10000000000000000A2A2 /* JapaneseNumberParser.swift */; };
+		BEE20000000000000000A3A3 /* SpeechRecognizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEE10000000000000000A3A3 /* SpeechRecognizer.swift */; };
+		BEE20000000000000000A4A4 /* VoiceInputParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEE10000000000000000A4A4 /* VoiceInputParser.swift */; };
+		BEE20000000000000000A5A5 /* VoiceInputSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEE10000000000000000A5A5 /* VoiceInputSheet.swift */; };
 		BFCEF1FB428B8D2A4C030C0A /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88C5C87297314999CAF44CF8 /* ContentView.swift */; };
 		C03BB2AEED264F9C4A50EAB7 /* TopMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 899029E259E53F50A679EB0C /* TopMenuView.swift */; };
 		C1640C6CCBBC0D2F5540C977 /* CreditMemoTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A3204006A7EA7EE85CEA06C /* CreditMemoTests.swift */; };
@@ -67,11 +74,6 @@
 		F1EBA5E00000000000000006 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = F1EBA5E00000000000000003 /* FirebaseAnalytics */; };
 		F1EBA5E00000000000000007 /* FirebaseCrashlytics in Frameworks */ = {isa = PBXBuildFile; productRef = F1EBA5E00000000000000004 /* FirebaseCrashlytics */; };
 		F7929AD07E62756D8EE69469 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 17B4815A12B4099B3F8C2A8D /* Localizable.xcstrings */; };
-		BEE20000000000000000A1A1 /* VoiceAliasStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEE10000000000000000A1A1 /* VoiceAliasStore.swift */; };
-		BEE20000000000000000A2A2 /* JapaneseNumberParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEE10000000000000000A2A2 /* JapaneseNumberParser.swift */; };
-		BEE20000000000000000A3A3 /* SpeechRecognizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEE10000000000000000A3A3 /* SpeechRecognizer.swift */; };
-		BEE20000000000000000A4A4 /* VoiceInputParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEE10000000000000000A4A4 /* VoiceInputParser.swift */; };
-		BEE20000000000000000A5A5 /* VoiceInputSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEE10000000000000000A5A5 /* VoiceInputSheet.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -93,6 +95,8 @@
 
 /* Begin PBXFileReference section */
 		0864042EF421461DBA308F5E /* AppMain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppMain.swift; sourceTree = "<group>"; };
+		0864042EF421461DBA308F5F /* AppModelContainerFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModelContainerFactory.swift; sourceTree = "<group>"; };
+		0864042EF421461DBA308F60 /* CreditMemoAppShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreditMemoAppShortcuts.swift; sourceTree = "<group>"; };
 		0A1A2B3C4D5E6F708192A3B3 /* AZPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AZPicker.swift; sourceTree = "<group>"; };
 		162A501A71D24A57A57D4D01 /* Log.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Log.swift; sourceTree = "<group>"; };
 		17B4815A12B4099B3F8C2A8D /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
@@ -135,6 +139,11 @@
 		9F95EF3EE0B184C7D267B8C7 /* View+ScalableTitle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+ScalableTitle.swift"; sourceTree = "<group>"; };
 		ACAC65A5428E245996B921E5 /* E6part.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = E6part.swift; sourceTree = "<group>"; };
 		B0AA3264A9D08B8C5FAFC814 /* Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
+		BEE10000000000000000A1A1 /* VoiceAliasStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceAliasStore.swift; sourceTree = "<group>"; };
+		BEE10000000000000000A2A2 /* JapaneseNumberParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JapaneseNumberParser.swift; sourceTree = "<group>"; };
+		BEE10000000000000000A3A3 /* SpeechRecognizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechRecognizer.swift; sourceTree = "<group>"; };
+		BEE10000000000000000A4A4 /* VoiceInputParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceInputParser.swift; sourceTree = "<group>"; };
+		BEE10000000000000000A5A5 /* VoiceInputSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceInputSheet.swift; sourceTree = "<group>"; };
 		C31B5A802FCBD9940090CAEC /* JapaneseHoliday.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JapaneseHoliday.swift; sourceTree = "<group>"; };
 		C31B5A822FCC6F390090CAEC /* InlineAdBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InlineAdBanner.swift; sourceTree = "<group>"; };
 		C31B5B142FD4007F0090CAEC /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
@@ -154,11 +163,6 @@
 		FA5C86233C4FE3247A2D008B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		FDB4F7EAA70EE49D23DA0441 /* NumericKeypadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumericKeypadView.swift; sourceTree = "<group>"; };
 		FFE96F1625157DEB00A17A10 /* ja */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ja; path = ja.lproj/InfoPlist.strings; sourceTree = "<group>"; };
-		BEE10000000000000000A1A1 /* VoiceAliasStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceAliasStore.swift; sourceTree = "<group>"; };
-		BEE10000000000000000A2A2 /* JapaneseNumberParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JapaneseNumberParser.swift; sourceTree = "<group>"; };
-		BEE10000000000000000A3A3 /* SpeechRecognizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechRecognizer.swift; sourceTree = "<group>"; };
-		BEE10000000000000000A4A4 /* VoiceInputParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceInputParser.swift; sourceTree = "<group>"; };
-		BEE10000000000000000A5A5 /* VoiceInputSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceInputSheet.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -247,6 +251,8 @@
 			isa = PBXGroup;
 			children = (
 				0864042EF421461DBA308F5E /* AppMain.swift */,
+				0864042EF421461DBA308F5F /* AppModelContainerFactory.swift */,
+				0864042EF421461DBA308F60 /* CreditMemoAppShortcuts.swift */,
 				88C5C87297314999CAF44CF8 /* ContentView.swift */,
 				B0AA3264A9D08B8C5FAFC814 /* Config.swift */,
 				F79355C01D775C52E0C34B50 /* DatabaseErrorView.swift */,
@@ -515,7 +521,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 2610;
+				LastUpgradeCheck = 2650;
 				TargetAttributes = {
 					2428C92422D18A829E2F0849 = {
 						DevelopmentTeam = 5C2UYK6F45;
@@ -629,6 +635,8 @@
 				2D70AB99C9F44E59B12E7D19 /* EditShortcutCapsuleButton.swift in Sources */,
 				2D70AB9BC9F44E59B12E7D1B /* BeginnerHintView.swift in Sources */,
 				1EC1A3B5C7312FB9E9E97EAB /* AppMain.swift in Sources */,
+				1EC1A3B5C7312FB9E9E97EAC /* AppModelContainerFactory.swift in Sources */,
+				1EC1A3B5C7312FB9E9E97EAD /* CreditMemoAppShortcuts.swift in Sources */,
 				CF1F84FA70C44A2D7D0E4EDC /* PaymentListView.swift in Sources */,
 				2921018F4FA6C238795FFF40 /* RecordEditView.swift in Sources */,
 				A946C018695C57EED22F67DB /* RecordListView.swift in Sources */,
@@ -847,7 +855,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CURRENT_PROJECT_VERSION = 0;
 				INFOPLIST_FILE = CreditMemo/Resources/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = CreditMemo;
+				INFOPLIST_KEY_CFBundleDisplayName = CrediMemo;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -871,7 +879,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CURRENT_PROJECT_VERSION = 0;
 				INFOPLIST_FILE = CreditMemo/Resources/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = CreditMemo;
+				INFOPLIST_KEY_CFBundleDisplayName = CrediMemo;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (

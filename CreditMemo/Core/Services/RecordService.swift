@@ -63,6 +63,30 @@ enum RecordService {
         }
     }
 
+    // MARK: - Quick Add
+
+    static func addQuickRecord(
+        amount: Decimal,
+        label: String,
+        card: E1card? = nil,
+        dateUse: Date = Date(),
+        context: ModelContext
+    ) throws -> E3record {
+        // Siri や音声入力からの簡易保存を通常保存へつなぐ
+        let record = E3record(
+            dateUse: Calendar.current.startOfDay(for: dateUse),
+            zName: label,
+            zNote: "",
+            nAmount: amount,
+            nPayType: PayType.lumpSum.rawValue,
+            nRepeat: 0
+        )
+        record.e1card = card
+        context.insert(record)
+        try save(record, context: context)
+        return record
+    }
+
     // MARK: - Save
 
     static func save(_ record: E3record, context: ModelContext) throws {

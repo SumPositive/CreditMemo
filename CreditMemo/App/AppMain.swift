@@ -6,6 +6,7 @@
 import SwiftUI
 import SwiftData
 import UIKit
+import AppIntents
 
 @main
 struct AppMain: App {
@@ -25,23 +26,16 @@ struct AppMain: App {
     init() {
         // Firebase 設定がある環境だけ診断送信を有効化する
         AppTelemetry.configureIfAvailable()
+        // Siri フレーズ定義を起動時に最新化する
+        CreditMemoAppShortcuts.updateAppShortcutParameters()
 
         // default.store → CreditMemo.store へのリネーム（名前を明示化した際の既存ユーザー対応）
         Self.renameDefaultStoreIfNeeded()
 
-        let schema = Schema([
-            E1card.self,
-            E2invoice.self,
-            E3record.self,
-            E5tag.self,
-            E6part.self,
-            E7payment.self,
-            E8bank.self,
-        ])
-        let config = ModelConfiguration("CreditMemo", schema: schema, isStoredInMemoryOnly: false)
+        let config = AppModelContainerFactory.makeConfiguration()
         storeURL = config.url
         do {
-            sharedModelContainer = try ModelContainer(for: schema, configurations: [config])
+            sharedModelContainer = try AppModelContainerFactory.makeContainer(configuration: config)
             containerError = nil
         } catch {
             sharedModelContainer = nil
