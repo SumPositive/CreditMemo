@@ -3684,14 +3684,14 @@
       "localizations" : {
         "en" : {
           "stringUnit" : {
-            "state" : "translated",
+            "state" : "needs_review",
             "value" : "Label (store, purpose, etc.)"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ラベル（店名・用途など）"
+            "value" : "ラベル（店名・使途など）"
           }
         }
       }
@@ -6826,19 +6826,53 @@
         }
       }
     },
+    "voice.cardInputButton" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add payment method by voice"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "決済手段を音声入力する"
+          }
+        }
+      }
+    },
     "voice.input.example" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Examples: \"1296 groceries\", \"2860 taxi\". You can also say \"method\" followed by a payment method name."
+            "value" : "Examples: \"1296 groceries\", \"2860 taxi\". Numbers become the amount, the rest becomes the label."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "（例）\"1296 食材\"　\"2860 タクシー\"　さらに \"手段\" に続けて決済手段名を伝えることができます"
+            "value" : "（例）\"1296 食材\"　\"2860 タクシー\"　数値が金額、それ以外がラベルになります"
+          }
+        }
+      }
+    },
+    "voice.input.exampleCard" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Say a card name. Tap the detected value to pick from the full list."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "カード名を話してください。表示された値をタップすると一覧から選び直せます"
           }
         }
       }
@@ -6873,6 +6907,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "金額とラベルを言ってください"
+          }
+        }
+      }
+    },
+    "voice.input.sayCard" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Say the payment method"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "決済手段を言ってください"
           }
         }
       }

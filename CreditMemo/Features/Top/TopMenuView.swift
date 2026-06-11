@@ -315,7 +315,15 @@ struct TopMenuView: View {
     }
 
     private func commitVoiceLearning(payload: VoiceApplyPayload, savedCard: E1card?) {
-        guard let token = payload.matchedToken, let cardID = savedCard?.id else { return }
+        guard let token = payload.matchedToken else { return }
+        // 音声で最初に確定したカードと、最終的に保存したカードが違う場合
+        // 既存エイリアス由来なら旧カードのリストから外す
+        if let originalID = payload.originalCardID,
+           originalID != savedCard?.id,
+           payload.matchedWasExistingAlias {
+            VoiceAliasStore.removeAlias(token, forCardID: originalID)
+        }
+        guard let cardID = savedCard?.id else { return }
         if !tokenMatchesCardName(token, cardID: cardID) {
             // 保存まで手段が確定した発話だけを次回候補として学習する
             VoiceAliasStore.append(token, forCardID: cardID)

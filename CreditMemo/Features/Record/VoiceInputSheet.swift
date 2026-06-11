@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 
 /// 音声入力シートから親画面へ渡すペイロード
-/// 親は保存時に matchedToken を見て VoiceAliasStore を更新する
+/// 親は保存時に matchedToken / originalCardID を見て VoiceAliasStore を更新する
 struct VoiceApplyPayload {
     let amount: Decimal?
     let card: E1card?
@@ -11,12 +11,20 @@ struct VoiceApplyPayload {
     let matchedToken: String?
     /// matchedToken が VoiceAliasStore に既存だったか
     let matchedWasExistingAlias: Bool
+    /// 音声で最初に確定したカード ID。手動で別カードへ変更した場合は旧カードからエイリアス削除に使う
+    let originalCardID: String?
 }
 
 /// 音声入力シート
-/// 認識結果を 金額・手段・ラベル に振り分けてプレビュー、適用で親へ返す
-/// コマンドが確定する（"金額は300" 等の値が揃う）と認識テキストをクリアして次のコマンドを待つ
+/// 第1フェーズ: 金額とラベルだけを聞き取る
+/// 第2フェーズ: 「決済手段を音声入力する」を押すと手段専用の聞き取りに切り替わる
+/// 検出した手段は Menu でタップ変更可能。変更時は学習対象として追跡する
 struct VoiceInputSheet: View {
+    enum Phase {
+        case amountAndLabel
+        case card
+    }
+
     let cards: [E1card]
     /// シートを開いた時点の現在値。指定が無いコマンドではこの値が保持される
     let currentAmount: Decimal
@@ -26,19 +34,25 @@ struct VoiceInputSheet: View {
     var requiresAmount = false
     /// 確定ボタンの表示名。入力画面では適用、直接保存では保存にする
     var applyTitleKey: LocalizedStringKey = "voice.apply"
-    /// 適用時に呼ばれる。学習は親側で保存時にまとめて行うため、マッチ情報も含めて渡す
+    /// 適用時に呼ばれる
     let onApply: (VoiceApplyPayload) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var recognizer = SpeechRecognizer()
+    @State private var phase: Phase = .amountAndLabel
     /// 現在認識中フレーズのパース結果
     @State private var parsed: VoiceInputResult = VoiceInputResult()
-    /// 確定済みコマンドの累積。フレーズ確定のたびに parsed をマージする
+    /// 確定済みコマンドの累積
     @State private var accumulated: VoiceInputResult = VoiceInputResult()
+    /// 手段フェーズで「マッチしなかった発話」を学習トークン候補として覚える
+    @State private var lastSpokenInCardPhase: String = ""
+    /// 音声で最後に確定したカード ID。手動変更時の学習用に保持
+    @State private var originalVoiceCardID: String?
+    /// 次に発話が始まった時に手段の累積をリセットする（言い直し対応）
+    @State private var resetCardOnNextSpeech: Bool = false
     @State private var deniedReason: String?
-    /// セグメント検出用 debounce。フレーズが落ち着いたタイミングで accumulated へ統合
+    /// セグメント検出用 debounce
     @State private var commitTask: Task<Void, Never>? = nil
-    /// debounce 待ち時間（秒）。短すぎるとフレーズの途中で確定し、長すぎると次のコマンドが入り込む
     private let commitDebounceSeconds: Double = 1.4
 
     var body: some View {
@@ -48,6 +62,9 @@ struct VoiceInputSheet: View {
                 voiceGuideArea
                 if !currentTranscript.isEmpty || accumulated.hasAnyField {
                     previewArea
+                }
+                if showCardPhaseButton {
+                    cardPhaseSwitchButton
                 }
                 Spacer()
                 controlButton
@@ -68,9 +85,7 @@ struct VoiceInputSheet: View {
                         .disabled(!canApply)
                 }
             }
-            .task {
-                await startListening()
-            }
+            .task { await startListening() }
             .onDisappear {
                 commitTask?.cancel()
                 if case .listening = recognizer.state { recognizer.stop() }
@@ -120,10 +135,10 @@ struct VoiceInputSheet: View {
 
     @ViewBuilder private var voiceGuideArea: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("voice.input.sayAmountAndLabel")
+            Text(phase == .amountAndLabel ? "voice.input.sayAmountAndLabel" : "voice.input.sayCard")
                 .font(.headline)
                 .foregroundStyle(.primary)
-            Text("voice.input.example")
+            Text(phase == .amountAndLabel ? "voice.input.example" : "voice.input.exampleCard")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -134,11 +149,11 @@ struct VoiceInputSheet: View {
     @ViewBuilder private var previewArea: some View {
         VStack(spacing: 14) {
             previewRow(label: "record.field.amount", value: amountPreview, color: amountActive ? .accentColor : .secondary)
-            // 手段は音声で検出された時だけ表示する（"決済手段/手段" + 候補マッチが必要）
-            if cardActive {
-                previewRow(label: "record.field.card", value: cardPreview, color: .accentColor)
-            }
             previewRow(label: "record.field.usePoint", value: labelPreview, color: labelActive ? .accentColor : .secondary)
+            // 手段は第2フェーズに入った、もしくは手段が既に設定済みなら表示する
+            if showCardRow {
+                cardMenuRow
+            }
         }
         .padding()
         .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
@@ -150,6 +165,36 @@ struct VoiceInputSheet: View {
             Spacer()
             Text(value).foregroundStyle(color)
         }
+    }
+
+    @ViewBuilder private var cardMenuRow: some View {
+        Menu {
+            ForEach(cards, id: \.id) { card in
+                Button(card.zName) { selectCard(card) }
+            }
+        } label: {
+            HStack {
+                Text("record.field.card").foregroundStyle(.secondary)
+                Spacer()
+                Text(cardPreview)
+                    .foregroundStyle(cardActive ? Color.accentColor : .secondary)
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+        }
+    }
+
+    @ViewBuilder private var cardPhaseSwitchButton: some View {
+        Button {
+            switchToCardPhase()
+        } label: {
+            Label("voice.cardInputButton", systemImage: "creditcard.fill")
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+        }
+        .buttonStyle(.bordered)
+        .tint(.accentColor)
     }
 
     @ViewBuilder private var controlButton: some View {
@@ -165,7 +210,7 @@ struct VoiceInputSheet: View {
             .tint(.red)
         } else {
             Button {
-                Task { await startListening() }
+                retry()
             } label: {
                 Label("voice.retry", systemImage: "mic.fill")
                     .frame(maxWidth: .infinity)
@@ -212,10 +257,19 @@ struct VoiceInputSheet: View {
         return currentLabel.isEmpty ? "—" : currentLabel
     }
 
-    /// 音声で値が設定されたフィールドはアクセントカラーで強調
     private var amountActive: Bool { merged.amount != nil }
     private var cardActive: Bool { merged.card != nil }
     private var labelActive: Bool { merged.label != nil }
+
+    /// 手段フェーズに入った、または手段が既にセットされていれば表示
+    private var showCardRow: Bool {
+        phase == .card || accumulated.card != nil
+    }
+
+    /// 第1フェーズで amount または label が入った時に「決済手段を音声入力する」ボタンを出す
+    private var showCardPhaseButton: Bool {
+        phase == .amountAndLabel && (accumulated.amount != nil || accumulated.label != nil)
+    }
 
     private var canApply: Bool {
         let m = merged
@@ -236,10 +290,29 @@ struct VoiceInputSheet: View {
     private func updateParsed() {
         let text = currentTranscript
         guard !text.isEmpty else { return }
-        let r = VoiceInputParser.parse(text, cards: cards)
+        // 手段フェーズの言い直し: 新しい発話が始まったタイミングで累積をクリア
+        if resetCardOnNextSpeech && phase == .card {
+            accumulated.card = nil
+            accumulated.matchedToken = nil
+            accumulated.matchedWasExistingAlias = false
+            originalVoiceCardID = nil
+            lastSpokenInCardPhase = ""
+            resetCardOnNextSpeech = false
+        }
+        let r: VoiceInputResult
+        switch phase {
+        case .amountAndLabel:
+            r = VoiceInputParser.parseAmountAndLabel(text)
+        case .card:
+            r = VoiceInputParser.parseCard(text, cards: cards)
+            if r.card == nil {
+                // マッチしなかった発話を学習トークン候補として保持
+                lastSpokenInCardPhase = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            } else {
+                lastSpokenInCardPhase = ""
+            }
+        }
         parsed = r
-        // 何らかのコマンドが検出されたら、debounce 経過後に accumulated へ統合し
-        // 認識テキストをクリアして次のコマンドを待つ
         if r.hasAnyField {
             scheduleCommit()
         } else {
@@ -260,10 +333,17 @@ struct VoiceInputSheet: View {
     /// 現在の parsed を accumulated へ統合し、recognizer を再起動して認識テキストをクリアする
     private func commitCurrentPhrase() {
         guard parsed.hasAnyField else { return }
+        // 手段フェーズで音声マッチした場合、最新のカードを original として覚える
+        if phase == .card, let card = parsed.card {
+            originalVoiceCardID = card.id
+        }
         Self.merge(from: parsed, into: &accumulated)
         parsed = VoiceInputResult()
         commitTask = nil
-        // 認識中なら再起動して transcript を空にする。停止中なら何もしない
+        // 手段フェーズでは次の発話が始まった時点でクリアする（言い直し対応）
+        if phase == .card {
+            resetCardOnNextSpeech = true
+        }
         if case .listening = recognizer.state {
             recognizer.stop()
             Task { await startListening() }
@@ -284,6 +364,46 @@ struct VoiceInputSheet: View {
         }
     }
 
+    /// 「もう一度」タップ時: 手段の累積をクリアして第1フェーズへ戻し、再聞き取りを開始する
+    /// 金額・ラベルは保持して、必要なら話し直しで上書きできるようにする
+    private func retry() {
+        commitTask?.cancel()
+        commitTask = nil
+        accumulated.card = nil
+        accumulated.matchedToken = nil
+        accumulated.matchedWasExistingAlias = false
+        originalVoiceCardID = nil
+        lastSpokenInCardPhase = ""
+        resetCardOnNextSpeech = false
+        parsed = VoiceInputResult()
+        phase = .amountAndLabel
+        Task { await startListening() }
+    }
+
+    /// 手段フェーズへ切り替えて再聞き取りを開始する
+    private func switchToCardPhase() {
+        commitTask?.cancel()
+        Self.merge(from: parsed, into: &accumulated)
+        parsed = VoiceInputResult()
+        phase = .card
+        resetCardOnNextSpeech = false  // 切替直後は累積無いのでクリア対象なし
+        if case .listening = recognizer.state {
+            recognizer.stop()
+        }
+        Task { await startListening() }
+    }
+
+    /// メニューからカードを選択した時の処理。学習用トークンも更新する
+    private func selectCard(_ card: E1card) {
+        accumulated.card = card
+        // 学習トークン: 既に音声マッチ済みならその token を維持
+        // 無ければ手段フェーズで聞き取った発話を新規エイリアスとして使う
+        if accumulated.matchedToken == nil, !lastSpokenInCardPhase.isEmpty {
+            accumulated.matchedToken = lastSpokenInCardPhase
+            accumulated.matchedWasExistingAlias = false
+        }
+    }
+
     private func apply() {
         commitTask?.cancel()
         commitTask = nil
@@ -291,7 +411,6 @@ struct VoiceInputSheet: View {
             recognizer.stop()
             updateParsed()
         }
-        // 最終フレーズを accumulated へ統合
         Self.merge(from: parsed, into: &accumulated)
         let m = accumulated
 
@@ -300,7 +419,8 @@ struct VoiceInputSheet: View {
             card: m.card,
             label: m.label,
             matchedToken: m.matchedToken,
-            matchedWasExistingAlias: m.matchedWasExistingAlias
+            matchedWasExistingAlias: m.matchedWasExistingAlias,
+            originalCardID: originalVoiceCardID
         )
         onApply(payload)
         dismiss()
