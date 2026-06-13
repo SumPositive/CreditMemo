@@ -863,7 +863,8 @@ struct RecordSummaryRow: View {
                     HStack(alignment: .top, spacing: 8) {
                         Text(recordLabelText)
                             .font(.body)
-                            .foregroundStyle(Color(.label))
+                            // ラベル未入力（"—"）はオレンジで強調する
+                            .foregroundStyle(record.zName.isEmpty ? Color.orange : Color(.label))
                             .lineLimit(1)
                             .truncationMode(.tail)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -876,7 +877,8 @@ struct RecordSummaryRow: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(recordLabelText)
                             .font(.body)
-                            .foregroundStyle(Color(.label))
+                            // ラベル未入力（"—"）はオレンジで強調する
+                            .foregroundStyle(record.zName.isEmpty ? Color.orange : Color(.label))
                             .lineLimit(1)
                             .truncationMode(.tail)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -906,7 +908,8 @@ struct RecordSummaryRow: View {
                     }
                     Text(cardNameText)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        // 決済手段未選択はオレンジで強調して気付かせる
+                        .foregroundStyle(record.e1card == nil ? Color.orange : Color.secondary)
                         .lineLimit(1)
                         .truncationMode(.tail)
                         .frame(maxWidth: .infinity, alignment: .leading)
