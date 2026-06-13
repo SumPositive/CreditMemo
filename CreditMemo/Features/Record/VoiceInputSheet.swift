@@ -313,19 +313,27 @@ struct VoiceInputSheet: View {
         }
     }
 
-    /// 「決済手段は」または「手段は」の最初の出現範囲を返す（決済手段は を優先）
+    /// カードフェーズ切替キーワード正規表現
+    /// ja: 決済手段は / 手段は
+    /// en: payment method is / method is / card is（前後の語境界はあえて入れない、自然な後続を許容）
+    private static let cardPhaseKeywordPattern = #"(?i)((?:決済)?手段は|(?:payment )?method is|card is)"#
+
+    /// 最初の出現範囲（金額・ラベルセクション末尾）
     private static func findFirstCardPhaseKeyword(in text: String) -> Range<String.Index>? {
-        text.range(of: "(?:決済)?手段は", options: .regularExpression)
+        text.range(of: cardPhaseKeywordPattern, options: .regularExpression)
     }
 
-    /// 「決済手段は」または「手段は」の最後の出現範囲を返す（後勝ち上書き用）
+    /// 最後の出現範囲（手段セクション先頭 = 後勝ち上書き用）
     private static func findLastCardPhaseKeyword(in text: String) -> Range<String.Index>? {
-        text.range(of: "(?:決済)?手段は", options: [.regularExpression, .backwards])
+        text.range(of: cardPhaseKeywordPattern, options: [.regularExpression, .backwards])
     }
 
-    /// 保存コマンド（保存 / セーブ / オーケー / オッケー / OK）を検出して取り除く
+    /// 保存コマンドを検出して取り除く
+    /// ja: 保存 / セーブ / オーケー / オッケー
+    /// en: save / ok（OK 含む、大小文字無視）
+    /// "save" や "ok" は label に紛れにくい想定（家計簿用途なので "save the day" 等は稀）
     private static func consumeSaveCommand(in text: String) -> (found: Bool, cleaned: String) {
-        let keywords = ["保存", "セーブ", "オーケー", "オッケー", "OK"]
+        let keywords = ["保存", "セーブ", "オーケー", "オッケー", "OK", "save"]
         var stripped = text
         var found = false
         for kw in keywords {
