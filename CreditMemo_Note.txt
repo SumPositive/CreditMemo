@@ -1488,14 +1488,24 @@ Localizable.xcstrings のjaを直接修正したのでenに翻訳してほしい
 Siriはクレメモ起動だけにしてパラメータ渡しは無しにする
 Siriから起動した時は、音声入力シートを開き聴き取り状態にする
 
+「Hey Siri クレメモ」だけで、起動して音声入力シートを開きたい
 
+引き落とし状況アイコンが地味で暗い感じ、派手ではないが鮮明にしたい
+アプリアイコンも同様に明るくしたい
+次の、将来の、の区切り線のグラデーションの方向を上下逆にしたい
 
 -----------
 2.4.0 新機能
-- 音声で新しい決済（金額とラベル）を入力して保存できます
-- Siriに対応しました。「クレメモで 2560 タクシー 記録して」「クレメモ 電車 840 保存」のちほど決済一覧から確認してください
+- 音声入力：音声で新しい決済（金額とラベル）を入力して保存できます
+- Siriに対応：「Hey Siri クレメモで音声入力」と言えば音声入力が始まります
 - 配色を調整しました
 enに翻訳して
 -----
-
+2.4.0 What's New
+- Voice Input: Add and save a new payment with your voice by speaking the amount and label
+- Siri Support: Say "Hey Siri, voice input with CrediMemo" to start voice input
+- Updated color adjustments
 --------------------------------------------
+2.5.0
+
+

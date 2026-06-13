@@ -4876,14 +4876,14 @@
       "localizations" : {
         "en" : {
           "stringUnit" : {
-            "state" : "translated",
+            "state" : "needs_review",
             "value" : "Use voice input [β]"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "音声入力を使う [β]"
+            "value" : "音声入力を使う"
           }
         }
       }
@@ -5080,14 +5080,14 @@
       "localizations" : {
         "en" : {
           "stringUnit" : {
-            "state" : "translated",
+            "state" : "needs_review",
             "value" : "On: Use your voice to enter the amount and label of a new record.\n\nStill in [β] prototype tuning for a while."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ON：音声により新しい決済の金額とラベルが入力できます\n\nまだしばらく [β] 試作調整中です"
+            "value" : "ON：音声により新しい決済が入力できます\n\n「Hey Siri クレメモで音声入力」と言えば、音声入力が始まります"
           }
         }
       }
