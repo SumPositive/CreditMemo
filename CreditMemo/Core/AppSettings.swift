@@ -9,6 +9,8 @@ enum AppStorageKey {
     static let tagSortMode       = "setting.tagSortMode"
     static let afterSaveAction   = "setting.afterSaveAction"
     static let openAddOnActive   = "setting.openAddOnActive"
+    /// Siri 起動後に音声入力シートを自動で開く
+    static let openVoiceInputOnActive = "setting.openVoiceInputOnActive"
     static let autoOpenAmountPad = "setting.autoOpenAmountPad"
     /// 2回払い入力を有効にする
     static let enableTwoPayments = "setting.enableTwoPayments"

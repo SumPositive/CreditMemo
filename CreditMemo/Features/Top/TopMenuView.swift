@@ -10,10 +10,12 @@ struct TopMenuView: View {
     @Binding var selectedDestination: AppDestination?
     @Environment(\.modelContext) private var context
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.scenePhase) private var scenePhase
     @AppStorage(AppStorageKey.userLevel) private var userLevel: UserLevel = .beginner
     @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
     @AppStorage(AppStorageKey.paymentWindowDays) private var paymentWindowDays = 15
     @AppStorage(AppStorageKey.enableVoiceInput)  private var enableVoiceInput = true
+    @AppStorage(AppStorageKey.openVoiceInputOnActive) private var openVoiceInputOnActive = false
     @State private var showVoiceRecordSheet = false
 
     @Query(sort: \E7payment.date, order: .reverse)
@@ -228,6 +230,19 @@ struct TopMenuView: View {
             // 音声入力シートは背面を透かさない
             .presentationBackground(Color(uiColor: .systemGroupedBackground))
         }
+        .onAppear {
+            openVoiceInputSheetIfNeeded()
+        }
+        .onChange(of: scenePhase) { _, newValue in
+            if newValue == .active {
+                openVoiceInputSheetIfNeeded()
+            }
+        }
+        .onChange(of: openVoiceInputOnActive) { _, newValue in
+            if newValue {
+                openVoiceInputSheetIfNeeded()
+            }
+        }
     }
 
     @ViewBuilder
@@ -283,6 +298,34 @@ struct TopMenuView: View {
     private func paymentWindowLabel(_ days: Int) -> String {
         let isJapanese = Locale.current.language.languageCode?.identifier == "ja"
         return isJapanese ? "\(days)日" : "\(days) Days"
+    }
+
+    private func openVoiceInputSheetIfNeeded() {
+        guard openVoiceInputOnActive else { return }
+
+        // シミュレータではクラッシュ回避のためフラグだけ消す
+        guard canOpenVoiceInputSheet else {
+            openVoiceInputOnActive = false
+            return
+        }
+
+        // 端末が未対応なら主メニュー表示だけにする
+        guard SpeechRecognizer.supports() else {
+            openVoiceInputOnActive = false
+            return
+        }
+
+        // 設定 OFF なら主メニューまでで止める
+        guard enableVoiceInput else {
+            openVoiceInputOnActive = false
+            return
+        }
+
+        guard !showVoiceRecordSheet else { return }
+
+        // Siri 起動時だけ自動で聞き取りシートを開く
+        openVoiceInputOnActive = false
+        showVoiceRecordSheet = true
     }
 
     private func saveVoiceRecord(_ payload: VoiceApplyPayload) {

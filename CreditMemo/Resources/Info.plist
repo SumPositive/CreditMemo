@@ -114,6 +114,17 @@
 	<string>Converts your speech to text so the app can fill in the amount, payment method, and label.</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>app.creditmemo.deeplink</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>credimemo</string>
+			</array>
+		</dict>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

@@ -6849,13 +6849,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Examples: \"1296 groceries\", \"2860 taxi\". Numbers become the amount, the rest becomes the label."
+            "value" : "Examples: \"1296 groceries\", \"2860 taxi\". Numbers become the amount, the rest becomes the label. Say \"payment method\" or \"method\" to switch to the card phase. Say \"save\" or \"OK\" to finish."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "（例）\"1296 食材\"　\"2860 タクシー\"　数値が金額、それ以外がラベルになります"
+            "value" : "（例）\"1296 食材\"　\"2860 タクシー\"　数値が金額、それ以外がラベルになります。「決済手段は」または「手段は」と言うと手段の聞き取りに切り替わります。「保存」「OK」で確定します"
           }
         }
       }

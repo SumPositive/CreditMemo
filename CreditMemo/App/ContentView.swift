@@ -14,6 +14,7 @@ struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @AppStorage(AppStorageKey.openAddOnActive) private var openAddOnActive = false
+    @AppStorage(AppStorageKey.openVoiceInputOnActive) private var openVoiceInputOnActive = false
     @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
     @SceneStorage("content.selectedDestination") private var selectedDestinationRaw: String?
     @State private var selectedDestination: AppDestination?
@@ -65,6 +66,9 @@ struct ContentView: View {
         .onChange(of: stackPath) { _, newValue in
             // 特大レイアウト時の先頭画面も同じ保存先へ同期する
             selectedDestinationRaw = newValue.last?.rawValue
+        }
+        .onOpenURL { url in
+            handleDeepLink(url)
         }
         .environment(editingState)
     }
@@ -177,6 +181,21 @@ private extension ContentView {
             }
         } else if selectedDestination == nil {
             selectedDestination = storedDestination
+        }
+    }
+
+    func handleDeepLink(_ url: URL) {
+        // Siri からの音声入力起動だけを受け付ける
+        guard url.scheme == "credimemo" else { return }
+        guard url.host == "voice-input" else { return }
+
+        openVoiceInputOnActive = true
+
+        // まず主メニューへ戻してから音声入力シートを開く
+        if shouldUseStackBody {
+            stackPath = []
+        } else {
+            selectedDestination = nil
         }
     }
 }

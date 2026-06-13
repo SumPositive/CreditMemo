@@ -17,24 +17,47 @@ struct VoiceInputResult {
 /// - parseCard: カード名／エイリアス／省略形を手段にする
 /// 数値解析・助詞除去はロケール依存。ja-JP では漢数字と助詞も処理する
 enum VoiceInputParser {
-    /// 数値は金額、文字（名詞）はラベル。locale が ja-JP の時は漢数字・万・千・円も解釈する
+    /// 数値は金額、文字（名詞）はラベル
+    /// 後勝ち上書き: 複数の数値があれば最後を金額、ラベルは数値間の区切りで分けた中の
+    /// 最後の非空セグメントを採用する
+    /// locale が ja-JP の時は漢数字・万・千・円も解釈する
     static func parseAmountAndLabel(_ rawText: String, locale: Locale = .current) -> VoiceInputResult {
         let text = normalize(rawText)
         var result = VoiceInputResult()
 
-        let labelText: String
-        if let (amount, range) = firstAmount(in: text, locale: locale) {
-            result.amount = amount
-            labelText = String(text[..<range.lowerBound]) + " " + String(text[range.upperBound...])
+        let amounts = allAmounts(in: text, locale: locale)
+
+        if let last = amounts.last {
+            result.amount = last.value
+
+            // 数値で区切られたセグメントを集めて、後ろから順に最初の非空を採用する
+            var segments: [Substring] = []
+            var cursor = text.startIndex
+            for amt in amounts {
+                segments.append(text[cursor..<amt.range.lowerBound])
+                cursor = amt.range.upperBound
+            }
+            segments.append(text[cursor..<text.endIndex])
+
+            for seg in segments.reversed() {
+                let cleaned = cleanLabel(String(seg))
+                if !cleaned.isEmpty {
+                    result.label = cleaned
+                    break
+                }
+            }
         } else {
-            labelText = text
+            // 数値が無ければ全文をラベル候補にする
+            let cleaned = cleanLabel(text)
+            if !cleaned.isEmpty { result.label = cleaned }
         }
-        let combined = labelText
-            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .trimmingCharacters(in: CharacterSet(charactersIn: "、。,.・"))
-        if !combined.isEmpty { result.label = combined }
         return result
+    }
+
+    private static func cleanLabel(_ s: String) -> String {
+        s.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+         .trimmingCharacters(in: .whitespacesAndNewlines)
+         .trimmingCharacters(in: CharacterSet(charactersIn: "、。,.・"))
     }
 
     /// 認識テキストから決済手段を特定する。マッチ無しならカードは nil
@@ -54,36 +77,52 @@ enum VoiceInputParser {
     // MARK: - Helpers
 
     private static func normalize(_ s: String) -> String {
-        // 全角→半角に寄せる（数字・英字の取り違えを減らす）
-        if let n = s.applyingTransform(.fullwidthToHalfwidth, reverse: false) {
-            return n
+        // 全角の ASCII（数字・英字・記号）と全角スペースだけ半角化する
+        // applyingTransform(.fullwidthToHalfwidth) はカタカナまで半角化するので使わない
+        var result = ""
+        for ch in s {
+            guard let scalar = ch.unicodeScalars.first else {
+                result.append(ch)
+                continue
+            }
+            let v = scalar.value
+            if v >= 0xFF01, v <= 0xFF5E, let half = UnicodeScalar(v - 0xFEE0) {
+                // 全角 ASCII → 半角 ASCII（U+FF01–U+FF5E を 0xFEE0 引いて U+0021–U+007E へ）
+                result.append(Character(half))
+            } else if v == 0x3000 {
+                // 全角スペース → 半角スペース
+                result.append(" ")
+            } else {
+                // それ以外（カタカナ・ひらがな・漢字など）はそのまま
+                result.append(ch)
+            }
         }
-        return s
+        return result
     }
 
-    /// ロケールに応じて数値抽出する。ja-JP は JapaneseNumberParser、他は半角数字のみ
-    private static func firstAmount(in text: String, locale: Locale) -> (Decimal, Range<String.Index>)? {
+    /// ロケールに応じて全数値を抽出する。ja-JP は JapaneseNumberParser、他は半角数字のみ
+    private static func allAmounts(in text: String, locale: Locale) -> [(value: Decimal, range: Range<String.Index>)] {
         if locale.language.languageCode?.identifier == "ja" {
-            return JapaneseNumberParser.firstAmount(in: text)
+            return JapaneseNumberParser.allAmounts(in: text)
         }
-        return firstArabicAmount(in: text)
+        return allArabicAmounts(in: text)
     }
 
-    /// "15", "1,500", "1.99" のような半角数字パターンをマッチする（非 ja ロケール用）
-    /// 通貨記号は無視。最初に見つかった数値を返す
-    private static func firstArabicAmount(in text: String) -> (Decimal, Range<String.Index>)? {
+    /// "15", "1,500", "1.99" のような半角数字パターンを全件マッチする（非 ja ロケール用）
+    private static func allArabicAmounts(in text: String) -> [(Decimal, Range<String.Index>)] {
         let pattern = #"[0-9]+(?:[,][0-9]{3})*(?:\.[0-9]+)?"#
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
         let ns = text as NSString
         let matches = regex.matches(in: text, range: NSRange(location: 0, length: ns.length))
+        var results: [(Decimal, Range<String.Index>)] = []
         for m in matches {
             let raw = ns.substring(with: m.range).replacingOccurrences(of: ",", with: "")
             if let value = Decimal(string: raw), value > 0,
                let range = Range(m.range, in: text) {
-                return (value, range)
+                results.append((value, range))
             }
         }
-        return nil
+        return results
     }
 
     private struct CardMatch {

@@ -65,12 +65,24 @@ final class SpeechRecognizer {
         req.taskHint = .dictation
         request = req
 
-        do {
-            try beginAudio(into: req)
-        } catch {
-            state = .denied(reason: "audio")
-            return
+        // Siri 起動直後は Siri 側が音声リソースを握っているため beginAudio が失敗しやすい
+        // バックオフ付きで複数回リトライする
+        var audioStarted = false
+        let backoffsNs: [UInt64] = [0, 400_000_000, 900_000_000, 1_500_000_000]
+        for (i, delay) in backoffsNs.enumerated() {
+            if delay > 0 { try? await Task.sleep(nanoseconds: delay) }
+            do {
+                try beginAudio(into: req)
+                audioStarted = true
+                break
+            } catch {
+                if i == backoffsNs.count - 1 {
+                    state = .denied(reason: "audio")
+                    return
+                }
+            }
         }
+        guard audioStarted else { return }
 
         partialTranscript = ""
         transcript = ""
@@ -107,17 +119,36 @@ final class SpeechRecognizer {
 
     private func beginAudio(into req: SFSpeechAudioBufferRecognitionRequest) throws {
         let session = AVAudioSession.sharedInstance()
+        // Siri 直後など、前のセッション状態が残っているとフォーマットが不正になることがあるため
+        // 一度解除してから設定し直す
+        try? session.setActive(false, options: .notifyOthersOnDeactivation)
         try session.setCategory(.record, mode: .measurement, options: .duckOthers)
         try session.setActive(true, options: .notifyOthersOnDeactivation)
+
+        // inputNode へのアクセスでエンジンに lazy にノードが作られる
+        // この前に prepare を呼ぶと inputNode/outputNode が nullptr でクラッシュする
         let input = audioEngine.inputNode
+        audioEngine.prepare()
+
         let format = input.outputFormat(forBus: 0)
+
+        // sampleRate/channelCount が 0 だと installTap で
+        // IsFormatSampleRateAndChannelCountValid アサーションでクラッシュする
+        // フォーマット不正時は throw して .denied(reason: "audio") に落とす
+        guard format.sampleRate > 0, format.channelCount > 0 else {
+            throw NSError(
+                domain: "SpeechRecognizer.audio",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "Invalid audio input format (sr=\(format.sampleRate) ch=\(format.channelCount))"]
+            )
+        }
+
         // タップは音声スレッドから呼ばれるため、@Sendable で MainActor 隔離を外す
         // Speech のリクエストを直接 capture せず、Sendable ラッパー経由で渡す
         let requestBox = SpeechAudioRequestBox(req)
         input.installTap(onBus: 0, bufferSize: 1024, format: format) { @Sendable buffer, _ in
             requestBox.append(buffer)
         }
-        audioEngine.prepare()
         try audioEngine.start()
     }
 
