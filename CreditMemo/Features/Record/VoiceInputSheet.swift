@@ -7,12 +7,44 @@ struct VoiceApplyPayload {
     let amount: Decimal?
     let card: E1card?
     let label: String?
+    /// 起動元。通常メニューは menu、Siri 起動は siri
+    let source: String
     /// 認識テキストから手段判定に使われたトークン（カード名・既存エイリアス・短縮発話のいずれか）
     let matchedToken: String?
     /// matchedToken が VoiceAliasStore に既存だったか
     let matchedWasExistingAlias: Bool
     /// 音声で最後に確定したカード ID。手動で別カードへ変更した場合は旧カードからエイリアス削除に使う
     let originalCardID: String?
+    /// 手段をメニューから手動で選び直したか
+    let manualCardSelection: Bool
+    /// 保存コマンドの発話で確定したか
+    let usedSaveCommand: Bool
+}
+
+/// 音声入力セッション中に溜める匿名集計
+private struct VoiceInputTelemetryState {
+    var source = "menu"
+    var localeIdentifier = Locale.current.identifier
+    var startedAt = Date()
+    var startCount = 0
+    var contextualHintCount = 0
+    var cardCount = 0
+    var transcriptUpdateCount = 0
+    var finalTranscriptDetected = false
+    var cardKeywordSpoken = false
+    var saveCommandSpoken = false
+    var amountDetected = false
+    var labelDetected = false
+    var cardDetected = false
+    var manualCardSelection = false
+    var deniedReason: String?
+    var unresolvedCardPhraseLength = 0
+    var usedSaveCommand = false
+    var didReport = false
+
+    var retryCount: Int {
+        max(0, startCount - 1)
+    }
 }
 
 /// 音声入力シート（統合パーサ方式）
@@ -29,10 +61,13 @@ struct VoiceInputSheet: View {
     var requiresAmount = false
     /// 確定ボタンの表示名。入力画面では適用、直接保存では保存にする
     var applyTitleKey: LocalizedStringKey = "voice.apply"
+    /// 起動元。通常メニューは menu、Siri 起動は siri
+    var telemetrySource = "menu"
     /// 適用時に呼ばれる
     let onApply: (VoiceApplyPayload) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @AppStorage(AppStorageKey.shareVoiceInputDiagnostics) private var shareVoiceInputDiagnostics = false
     @State private var recognizer = SpeechRecognizer()
     /// 現在の transcript をまとめてパースした最新結果
     @State private var parsed: VoiceInputResult = VoiceInputResult()
@@ -41,6 +76,7 @@ struct VoiceInputSheet: View {
     /// 保存コマンド検出による apply 二重起動防止
     @State private var didTriggerSaveCommand = false
     @State private var deniedReason: String?
+    @State private var telemetry = VoiceInputTelemetryState()
 
     var body: some View {
         NavigationStack {
@@ -71,6 +107,7 @@ struct VoiceInputSheet: View {
             }
             .task { await startListening() }
             .onDisappear {
+                reportSessionIfNeeded(dismissalReason: "cancelled")
                 if case .listening = recognizer.state { recognizer.stop() }
             }
             .onChange(of: recognizer.partialTranscript) { _, _ in updateParsed() }
@@ -80,6 +117,10 @@ struct VoiceInputSheet: View {
                 if case .denied(let reason) = newState,
                    reason == "microphone" || reason == "speech" {
                     deniedReason = reason
+                }
+                if case .denied(let reason) = newState {
+                    // セッション終了時に失敗要因を集計する
+                    telemetry.deniedReason = reason
                 }
             }
             .alert(
@@ -255,6 +296,15 @@ struct VoiceInputSheet: View {
 
     private func startListening() async {
         let hints = contextualHints()
+        // 開始条件をセッション単位で記録する
+        if telemetry.startCount == 0 {
+            telemetry.startedAt = Date()
+        }
+        telemetry.source = telemetrySource
+        telemetry.localeIdentifier = recognizer.locale.identifier
+        telemetry.contextualHintCount = hints.count
+        telemetry.cardCount = cards.count
+        telemetry.startCount += 1
         await recognizer.start(contextualStrings: hints)
     }
 
@@ -267,7 +317,12 @@ struct VoiceInputSheet: View {
         let text = currentTranscript
         guard !text.isEmpty else { return }
 
+        // 認識結果が何度更新されたかを集計する
+        telemetry.transcriptUpdateCount += 1
+        telemetry.finalTranscriptDetected = telemetry.finalTranscriptDetected || !recognizer.transcript.isEmpty
+
         let (hasSave, cleanedText) = Self.consumeSaveCommand(in: text)
+        telemetry.saveCommandSpoken = telemetry.saveCommandSpoken || hasSave
 
         // 後勝ち上書き: 最後の「手段は/決済手段は」を手段セクションの開始位置にする
         // 金額・ラベルは最初の出現より前のテキストを使い、間に挟まれた古い「手段は X」は捨てる
@@ -281,11 +336,14 @@ struct VoiceInputSheet: View {
             amountLabelText = cleanedText
             cardText = ""
         }
+        telemetry.cardKeywordSpoken = telemetry.cardKeywordSpoken || Self.findFirstCardPhaseKeyword(in: cleanedText) != nil
 
         var r = VoiceInputResult()
         let amountLabel = VoiceInputParser.parseAmountAndLabel(amountLabelText, locale: recognizer.locale)
         r.amount = amountLabel.amount
         r.label = amountLabel.label
+        telemetry.amountDetected = telemetry.amountDetected || amountLabel.amount != nil
+        telemetry.labelDetected = telemetry.labelDetected || amountLabel.label != nil
 
         let trimmedCardText = cardText.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmedCardText.isEmpty {
@@ -293,6 +351,10 @@ struct VoiceInputSheet: View {
             r.card = cardResult.card
             r.matchedToken = cardResult.matchedToken
             r.matchedWasExistingAlias = cardResult.matchedWasExistingAlias
+            telemetry.cardDetected = telemetry.cardDetected || cardResult.card != nil
+            if cardResult.card == nil {
+                telemetry.unresolvedCardPhraseLength = max(telemetry.unresolvedCardPhraseLength, trimmedCardText.count)
+            }
         }
 
         // 音声で新しい手段がマッチした場合は originalVoiceCardID を更新
@@ -309,6 +371,7 @@ struct VoiceInputSheet: View {
 
         if hasSave && !didTriggerSaveCommand && canApply {
             didTriggerSaveCommand = true
+            telemetry.usedSaveCommand = true
             apply()
         }
     }
@@ -353,12 +416,15 @@ struct VoiceInputSheet: View {
         parsed = VoiceInputResult()
         originalVoiceCardID = nil
         didTriggerSaveCommand = false
+        telemetry.usedSaveCommand = false
         Task { await startListening() }
     }
 
     /// メニューからカード手動選択。音声で検出無しならキーワード後の発話を学習トークンに据える
     private func selectCard(_ card: E1card) {
         parsed.card = card
+        // 手段の選び直しを改善ヒント候補として扱う
+        telemetry.manualCardSelection = true
         if parsed.matchedToken == nil {
             let token = lastSpokenAfterKeyword
             if !token.isEmpty {
@@ -370,13 +436,17 @@ struct VoiceInputSheet: View {
 
     private func apply() {
         if case .listening = recognizer.state { recognizer.stop() }
+        reportSessionIfNeeded(dismissalReason: "applied")
         let payload = VoiceApplyPayload(
             amount: parsed.amount,
             card: parsed.card,
             label: parsed.label,
+            source: telemetry.source,
             matchedToken: parsed.matchedToken,
             matchedWasExistingAlias: parsed.matchedWasExistingAlias,
-            originalCardID: originalVoiceCardID
+            originalCardID: originalVoiceCardID,
+            manualCardSelection: telemetry.manualCardSelection,
+            usedSaveCommand: telemetry.usedSaveCommand
         )
         onApply(payload)
         dismiss()
@@ -389,5 +459,53 @@ struct VoiceInputSheet: View {
             hints.append(contentsOf: VoiceAliasStore.aliases(forCardID: card.id))
         }
         return hints
+    }
+
+    private func reportSessionIfNeeded(dismissalReason: String) {
+        guard !telemetry.didReport else { return }
+        telemetry.didReport = true
+
+        let durationMilliseconds = max(0, Int(Date().timeIntervalSince(telemetry.startedAt) * 1000))
+        AppTelemetry.reportVoiceInputSession(
+            VoiceInputSessionTelemetry(
+                source: telemetry.source,
+                localeIdentifier: telemetry.localeIdentifier,
+                durationMilliseconds: durationMilliseconds,
+                contextualHintCount: telemetry.contextualHintCount,
+                cardCount: telemetry.cardCount,
+                retryCount: telemetry.retryCount,
+                transcriptUpdateCount: telemetry.transcriptUpdateCount,
+                finalTranscriptDetected: telemetry.finalTranscriptDetected,
+                cardKeywordSpoken: telemetry.cardKeywordSpoken,
+                saveCommandSpoken: telemetry.saveCommandSpoken,
+                amountDetected: telemetry.amountDetected,
+                labelDetected: telemetry.labelDetected,
+                cardDetected: telemetry.cardDetected,
+                manualCardSelection: telemetry.manualCardSelection,
+                dismissalReason: dismissalReason,
+                deniedReason: telemetry.deniedReason,
+                unresolvedCardPhraseLength: telemetry.unresolvedCardPhraseLength
+            )
+        )
+
+        reportHintCandidateIfNeeded()
+    }
+
+    private func reportHintCandidateIfNeeded() {
+        guard shareVoiceInputDiagnostics else { return }
+        guard telemetry.manualCardSelection else { return }
+        guard !parsed.matchedWasExistingAlias else { return }
+        guard let token = parsed.matchedToken, let selectedCard = parsed.card else { return }
+
+        let normalizedToken = token.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedToken.isEmpty else { return }
+        guard normalizedToken.compare(selectedCard.zName, options: .caseInsensitive) != .orderedSame else { return }
+
+        // 生の全文ではなく、手段として解釈できなかった短い呼び方だけを送る
+        AppTelemetry.reportVoiceInputHintCandidate(
+            token: normalizedToken,
+            source: telemetry.source,
+            localeIdentifier: telemetry.localeIdentifier
+        )
     }
 }

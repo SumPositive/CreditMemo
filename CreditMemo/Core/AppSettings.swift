@@ -16,6 +16,8 @@ enum AppStorageKey {
     static let enableTwoPayments = "setting.enableTwoPayments"
     /// 音声入力を使う（既定 ON、日本ロケールのみ表示）
     static let enableVoiceInput  = "setting.enableVoiceInput"
+    /// 音声入力の改善用に匿名診断を共有する
+    static let shareVoiceInputDiagnostics = "setting.shareVoiceInputDiagnostics"
     /// 「左へスワイプでコピー」のヒントを使用済みにしたか。コピーを1度でも行えば true
     static let copySwipeHintDone = "setting.copySwipeHintDone"
     /// 引き落とし日が土日祝なら翌営業日へ繰り下げる（日本ロケール・締日/支払日型のみ）

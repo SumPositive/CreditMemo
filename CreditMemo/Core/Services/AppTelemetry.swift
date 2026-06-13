@@ -16,6 +16,38 @@ import FirebaseCore
 import FirebaseCrashlytics
 //#endif
 
+/// 音声入力セッションの匿名要約
+struct VoiceInputSessionTelemetry {
+    let source: String
+    let localeIdentifier: String
+    let durationMilliseconds: Int
+    let contextualHintCount: Int
+    let cardCount: Int
+    let retryCount: Int
+    let transcriptUpdateCount: Int
+    let finalTranscriptDetected: Bool
+    let cardKeywordSpoken: Bool
+    let saveCommandSpoken: Bool
+    let amountDetected: Bool
+    let labelDetected: Bool
+    let cardDetected: Bool
+    let manualCardSelection: Bool
+    let dismissalReason: String
+    let deniedReason: String?
+    let unresolvedCardPhraseLength: Int
+}
+
+/// 音声入力保存の匿名要約
+struct VoiceInputSaveTelemetry {
+    let source: String
+    let saveResult: String
+    let hasCard: Bool
+    let hasLabel: Bool
+    let manualCardSelection: Bool
+    let matchedExistingAlias: Bool
+    let usedSaveCommand: Bool
+}
+
 enum AppTelemetry {
     static func configureIfAvailable() {
         #if canImport(FirebaseCore)
@@ -119,6 +151,42 @@ enum AppTelemetry {
         #endif
     }
 
+    static func reportVoiceInputSession(_ telemetry: VoiceInputSessionTelemetry) {
+        let parameters = voiceInputSessionParameters(telemetry)
+
+        #if canImport(FirebaseAnalytics)
+        Analytics.logEvent("voice_input_session", parameters: parameters)
+        #endif
+    }
+
+    static func reportVoiceInputSave(_ telemetry: VoiceInputSaveTelemetry) {
+        let parameters = voiceInputSaveParameters(telemetry)
+
+        #if canImport(FirebaseAnalytics)
+        Analytics.logEvent("voice_input_save", parameters: parameters)
+        #endif
+    }
+
+    static func reportVoiceInputHintCandidate(
+        token: String,
+        source: String,
+        localeIdentifier: String
+    ) {
+        let normalized = normalizedHintToken(token)
+        guard !normalized.isEmpty else { return }
+
+        let parameters: [String: Any] = [
+            "source": limited(source),
+            "locale": limited(localeIdentifier),
+            "token": limited(normalized, maxLength: 32),
+            "token_length": normalized.count
+        ]
+
+        #if canImport(FirebaseAnalytics)
+        Analytics.logEvent("voice_input_hint_candidate", parameters: parameters)
+        #endif
+    }
+
     private static func analyticsParameters(_ result: RecordService.BillingIntegrityRepairResult) -> [String: Any] {
         var parameters: [String: Any] = [
             "before_issue_count": result.before.issueCount,
@@ -146,6 +214,55 @@ enum AppTelemetry {
         parameters["\(prefix)_card_amount_mismatch_count"] = report.cardAmountMismatchCount
         parameters["\(prefix)_card_no_check_mismatch_count"] = report.cardNoCheckMismatchCount
         parameters["\(prefix)_invalid_pay_type_count"] = report.invalidPayTypeCount
+    }
+
+    private static func voiceInputSessionParameters(_ telemetry: VoiceInputSessionTelemetry) -> [String: Any] {
+        var parameters: [String: Any] = [
+            "source": limited(telemetry.source),
+            "locale": limited(telemetry.localeIdentifier),
+            "duration_ms": telemetry.durationMilliseconds,
+            "contextual_hint_count": telemetry.contextualHintCount,
+            "card_count": telemetry.cardCount,
+            "retry_count": telemetry.retryCount,
+            "transcript_update_count": telemetry.transcriptUpdateCount,
+            "final_transcript_detected": telemetry.finalTranscriptDetected,
+            "card_keyword_spoken": telemetry.cardKeywordSpoken,
+            "save_command_spoken": telemetry.saveCommandSpoken,
+            "amount_detected": telemetry.amountDetected,
+            "label_detected": telemetry.labelDetected,
+            "card_detected": telemetry.cardDetected,
+            "manual_card_selection": telemetry.manualCardSelection,
+            "dismissal_reason": limited(telemetry.dismissalReason),
+            "unresolved_card_phrase_length": telemetry.unresolvedCardPhraseLength
+        ]
+
+        if let deniedReason = telemetry.deniedReason, !deniedReason.isEmpty {
+            parameters["denied_reason"] = limited(deniedReason)
+        }
+        return parameters
+    }
+
+    private static func voiceInputSaveParameters(_ telemetry: VoiceInputSaveTelemetry) -> [String: Any] {
+        [
+            "source": limited(telemetry.source),
+            "save_result": limited(telemetry.saveResult),
+            "has_card": telemetry.hasCard,
+            "has_label": telemetry.hasLabel,
+            "manual_card_selection": telemetry.manualCardSelection,
+            "matched_existing_alias": telemetry.matchedExistingAlias,
+            "used_save_command": telemetry.usedSaveCommand
+        ]
+    }
+
+    private static func normalizedHintToken(_ token: String) -> String {
+        let trimmed = token
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !trimmed.isEmpty else { return "" }
+        guard trimmed.count < 33 else { return "" }
+        guard trimmed.components(separatedBy: " ").count < 4 else { return "" }
+        return trimmed
     }
 
     private static func limited(_ value: String, maxLength: Int = 100) -> String {

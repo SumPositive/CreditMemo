@@ -16,6 +16,8 @@
     <!--
         決済情報そのものは端末内 SwiftData にのみ保存する。
         Firebase にはクラッシュと匿名診断イベントだけを送信する。
+        さらに設定で許可した場合のみ、手段認識に失敗した短い呼び方を
+        改善ヒントとして匿名送信する。
     -->
     <key>NSPrivacyCollectedDataTypes</key>
     <array>
@@ -44,6 +46,19 @@
                 <!-- 自動修復や SwiftData エラーの傾向把握のため -->
                 <string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
                 <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+            </array>
+        </dict>
+        <dict>
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypeOtherUserContent</string>
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array>
+                <!-- 音声入力の手段認識を改善するヒント分析のため -->
+                <string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
             </array>
         </dict>
     </array>

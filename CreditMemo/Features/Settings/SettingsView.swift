@@ -24,6 +24,7 @@ struct SettingsView: View {
     @AppStorage(AppStorageKey.autoOpenAmountPad) private var autoOpenAmountPad = true
     @AppStorage(AppStorageKey.enableTwoPayments) private var enableTwoPayments = false
     @AppStorage(AppStorageKey.enableVoiceInput)  private var enableVoiceInput = true
+    @AppStorage(AppStorageKey.shareVoiceInputDiagnostics) private var shareVoiceInputDiagnostics = false
     @AppStorage(AppStorageKey.shiftDueDateOffHoliday) private var shiftDueDateOffHoliday = true
     @AppStorage(AppStorageKey.paymentWindowDays) private var paymentWindowDays = 15
     @AppStorage(AppStorageKey.exportFormat)        private var exportFormatRaw = JSONExport.OutputStyle.compact.rawValue
@@ -128,6 +129,12 @@ struct SettingsView: View {
                     Toggle(isOn: $enableVoiceInput) {
                         settingTitle("settings.enableVoiceInput", help: "settings.help.enableVoiceInput")
                     }
+
+                    Toggle(isOn: $shareVoiceInputDiagnostics) {
+                        settingTitle("settings.shareVoiceInputDiagnostics", help: "settings.help.shareVoiceInputDiagnostics")
+                    }
+                    // 音声入力を使わない時は改善ヒント共有も操作できないようにする
+                    .disabled(!enableVoiceInput)
                 }
 
                 Toggle(isOn: $openAddOnActive) {

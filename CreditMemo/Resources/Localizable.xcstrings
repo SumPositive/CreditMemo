@@ -4876,7 +4876,7 @@
       "localizations" : {
         "en" : {
           "stringUnit" : {
-            "state" : "needs_review",
+            "state" : "translated",
             "value" : "Use voice input [β]"
           }
         },
@@ -4884,6 +4884,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "音声入力を使う"
+          }
+        }
+      }
+    },
+    "settings.shareVoiceInputDiagnostics" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Help improve voice input"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "音声入力の改善に協力"
           }
         }
       }
@@ -5080,7 +5097,7 @@
       "localizations" : {
         "en" : {
           "stringUnit" : {
-            "state" : "needs_review",
+            "state" : "translated",
             "value" : "On: Use your voice to enter the amount and label of a new record.\n\nStill in [β] prototype tuning for a while."
           }
         },
@@ -5088,6 +5105,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ON：音声により新しい決済が入力できます\n\n「Hey Siri クレメモで音声入力」と言えば、音声入力が始まります"
+          }
+        }
+      }
+    },
+    "settings.help.shareVoiceInputDiagnostics" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share anonymous diagnostics about voice input usage and recognition failures.\n\nWhen enabled, short payment-method phrases that could not be matched may also be sent as improvement hints. Amounts, labels, and other payment details are not sent."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "音声入力の利用状況や認識失敗を匿名診断として共有します\n\nON の場合、手段の認識に使えなかった短い呼び方も改善ヒントとして送信します。金額やラベルなどの決済内容は送信しません"
           }
         }
       }

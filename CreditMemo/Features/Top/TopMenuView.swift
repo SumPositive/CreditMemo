@@ -17,6 +17,7 @@ struct TopMenuView: View {
     @AppStorage(AppStorageKey.enableVoiceInput)  private var enableVoiceInput = true
     @AppStorage(AppStorageKey.openVoiceInputOnActive) private var openVoiceInputOnActive = false
     @State private var showVoiceRecordSheet = false
+    @State private var voiceInputSource = "menu"
 
     @Query(sort: \E7payment.date, order: .reverse)
     private var allPayments: [E7payment]
@@ -224,6 +225,7 @@ struct TopMenuView: View {
                 currentLabel: "",
                 requiresAmount: true,
                 applyTitleKey: "button.save",
+                telemetrySource: voiceInputSource,
                 onApply: { payload in saveVoiceRecord(payload) }
             )
             .appFontScale(fontScale)
@@ -265,6 +267,8 @@ struct TopMenuView: View {
     private func voiceRecordRow() -> some View {
         Button {
             guard canOpenVoiceInputSheet else { return }
+            // 通常メニューから開いた時の起動元を記録する
+            voiceInputSource = "menu"
             showVoiceRecordSheet = true
         } label: {
             HStack(alignment: .top, spacing: 12) {
@@ -325,6 +329,8 @@ struct TopMenuView: View {
 
         // Siri 起動時だけ自動で聞き取りシートを開く
         openVoiceInputOnActive = false
+        // 自動展開は Siri 起動由来として扱う
+        voiceInputSource = "siri"
         showVoiceRecordSheet = true
     }
 
@@ -335,19 +341,41 @@ struct TopMenuView: View {
         let usePoint = payload.label?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         do {
             // 音声入力も Siri と同じ簡易保存ヘルパーへ揃える
-            _ = try RecordService.addQuickRecord(
+            let _ = try RecordService.addQuickRecord(
                 amount: amount,
                 label: usePoint,
                 card: payload.card,
                 context: context
             )
             commitVoiceLearning(payload: payload, savedCard: payload.card)
+            AppTelemetry.reportVoiceInputSave(
+                VoiceInputSaveTelemetry(
+                    source: payload.source,
+                    saveResult: "success",
+                    hasCard: payload.card != nil,
+                    hasLabel: !usePoint.isEmpty,
+                    manualCardSelection: payload.manualCardSelection,
+                    matchedExistingAlias: payload.matchedWasExistingAlias,
+                    usedSaveCommand: payload.usedSaveCommand
+                )
+            )
         } catch {
             appLog(.error, "音声入力からの新規保存に失敗しました: \(error)")
             AppTelemetry.reportSwiftDataError(
                 error,
                 operation: "top_voice_record_save",
                 entity: "E3record"
+            )
+            AppTelemetry.reportVoiceInputSave(
+                VoiceInputSaveTelemetry(
+                    source: payload.source,
+                    saveResult: "failure",
+                    hasCard: payload.card != nil,
+                    hasLabel: !usePoint.isEmpty,
+                    manualCardSelection: payload.manualCardSelection,
+                    matchedExistingAlias: payload.matchedWasExistingAlias,
+                    usedSaveCommand: payload.usedSaveCommand
+                )
             )
             context.rollback()
         }
