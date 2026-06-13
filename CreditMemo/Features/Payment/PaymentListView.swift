@@ -1359,7 +1359,7 @@ private struct PaymentUnpaidBoundaryBand: View {
         colorScheme == .dark ? COLOR_UNPAID.opacity(0.95) : COLOR_UNPAID
     }
 
-    private var bottomColor: Color {
+    private var topColor: Color {
         colorScheme == .dark ? Color(uiColor: .secondarySystemGroupedBackground) : Color.white
     }
 
@@ -1371,11 +1371,11 @@ private struct PaymentUnpaidBoundaryBand: View {
             .padding(.top, 8)
             .padding(.bottom, 8)
             .background(
-                // 未払帯も他色を混ぜず、オレンジから白系へ変化させる
+                // 横帯の芯を少し濃くして未払境界を見やすくする
                 LinearGradient(
                     colors: [
-                        COLOR_UNPAID.opacity(colorScheme == .dark ? 0.42 : 0.26),
-                        bottomColor,
+                        topColor,
+                        COLOR_UNPAID.opacity(colorScheme == .dark ? 0.72 : 0.58),
                     ],
                     startPoint: .top,
                     endPoint: .bottom
@@ -1395,21 +1395,24 @@ private struct PaymentBoundaryGlowLine: View {
     }
 
     var body: some View {
-        // 中央はアプリアイコンの発光線に寄せた白いラインで区切る
+        // アプリアイコン中央の発光ラインに合わせて
+        // 1) 横方向グラデを左右暗く中央明るく（端を 0.10 まで落とす）
+        // 2) ライン本体を高めに（4pt）、外側のグロウも強める
         Rectangle()
             .fill(
                 LinearGradient(
                     colors: [
-                        Color.white.opacity(0.26),
+                        Color.white.opacity(0.10),
                         glowLineColor,
-                        Color.white.opacity(0.26),
+                        Color.white.opacity(0.10),
                     ],
                     startPoint: .leading,
                     endPoint: .trailing
                 )
             )
             .frame(height: 2)
-            .shadow(color: Color.white.opacity(colorScheme == .dark ? 0.60 : 0.42), radius: 4, x: 0, y: 0)
+            .shadow(color: Color.white.opacity(colorScheme == .dark ? 0.75 : 0.55), radius: 4, x: 0, y: 0)
+            .shadow(color: Color.white.opacity(colorScheme == .dark ? 0.45 : 0.30), radius: 2, x: 0, y: 0)
             .background(
                 LinearGradient(
                     colors: [
@@ -1441,7 +1444,7 @@ private struct PaymentPaidBoundaryBand: View {
         colorScheme == .dark ? COLOR_PAID.opacity(0.95) : COLOR_PAID
     }
 
-    private var topColor: Color {
+    private var bottomColor: Color {
         colorScheme == .dark ? Color(uiColor: .secondarySystemGroupedBackground) : Color.white
     }
 
@@ -1453,11 +1456,11 @@ private struct PaymentPaidBoundaryBand: View {
             .padding(.top, 8)
             .padding(.bottom, 8)
             .background(
-                // 引き落とし済み帯は他色を混ぜず、白系からグリーンへ変化させる
+                // 横帯の芯を少し濃くして済み境界を見やすくする
                 LinearGradient(
                     colors: [
-                        topColor,
-                        COLOR_PAID.opacity(colorScheme == .dark ? 0.42 : 0.26),
+                        COLOR_PAID.opacity(colorScheme == .dark ? 0.72 : 0.58),
+                        bottomColor,
                     ],
                     startPoint: .top,
                     endPoint: .bottom
@@ -1634,7 +1637,8 @@ private struct PaymentSectionSeparator: View {
         Rectangle()
             .fill(
                 LinearGradient(
-                    colors: [COLOR_UNPAID.opacity(0.35), .clear],
+                    // 将来/次の区切り線は下側を濃くして境界の向きを反転する
+                    colors: [.clear, COLOR_UNPAID.opacity(0.35)],
                     startPoint: .top,
                     endPoint: .bottom
                 )
