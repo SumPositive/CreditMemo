@@ -26,15 +26,11 @@ struct AppIconBadge: View {
             // 中央のクリーム発光ライン
             Rectangle()
                 .fill(COLOR_BRAND_CREAM)
-                .frame(width: size, height: max(1, size * 0.08))
-                .shadow(color: COLOR_BRAND_CREAM.opacity(0.6), radius: size * 0.08)
+                .frame(width: size, height: max(0.5, size * 0.04))
+                .shadow(color: COLOR_BRAND_CREAM.opacity(0.6), radius: size * 0.06)
         }
         .frame(width: size, height: size)
         .clipShape(Circle())
-        .overlay(
-            // 外周は小豆色で締める
-            Circle().stroke(COLOR_DEBIT_BOUNDARY, lineWidth: max(0.5, size * 0.04))
-        )
         .frame(width: size, height: size)
         .fixedSize()
     }
