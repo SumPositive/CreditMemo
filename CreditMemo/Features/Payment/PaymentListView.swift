@@ -1391,28 +1391,29 @@ private struct PaymentBoundaryGlowLine: View {
     @Environment(\.colorScheme) private var colorScheme
 
     private var glowLineColor: Color {
-        colorScheme == .dark ? Color.white.opacity(0.92) : Color.white
+        // ブランドクリーム。白より暖色で、小豆背景アイコンと整合する
+        colorScheme == .dark ? COLOR_BRAND_CREAM.opacity(0.95) : COLOR_BRAND_CREAM
     }
 
     var body: some View {
-        // アプリアイコン中央の発光ラインに合わせて
+        // アプリアイコン中央の発光ラインに合わせて（クリーム発光）
         // 1) 横方向グラデを左右暗く中央明るく（端を 0.10 まで落とす）
         // 2) ライン本体を高めに（4pt）、外側のグロウも強める
         Rectangle()
             .fill(
                 LinearGradient(
                     colors: [
-                        Color.white.opacity(0.10),
+                        COLOR_BRAND_CREAM.opacity(0.10),
                         glowLineColor,
-                        Color.white.opacity(0.10),
+                        COLOR_BRAND_CREAM.opacity(0.10),
                     ],
                     startPoint: .leading,
                     endPoint: .trailing
                 )
             )
             .frame(height: 2)
-            .shadow(color: Color.white.opacity(colorScheme == .dark ? 0.75 : 0.55), radius: 4, x: 0, y: 0)
-            .shadow(color: Color.white.opacity(colorScheme == .dark ? 0.45 : 0.30), radius: 2, x: 0, y: 0)
+            .shadow(color: COLOR_BRAND_CREAM.opacity(colorScheme == .dark ? 0.75 : 0.55), radius: 4, x: 0, y: 0)
+            .shadow(color: COLOR_BRAND_CREAM.opacity(colorScheme == .dark ? 0.45 : 0.30), radius: 2, x: 0, y: 0)
             .background(
                 LinearGradient(
                     colors: [

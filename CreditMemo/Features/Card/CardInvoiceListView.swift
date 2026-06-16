@@ -334,9 +334,8 @@ private struct CardEmptyRow: View {
 private struct CardBoundaryMarker: View {
     @Environment(\.colorScheme) private var colorScheme
 
-    private var boundaryColor: Color {
-        colorScheme == .dark ? Color.white : Color.black
-    }
+    /// ブランド色を構造線として使う（小豆色、ライト／ダーク自動切替）
+    private var boundaryColor: Color { COLOR_DEBIT_BOUNDARY }
 
     private var edgeHighlightOpacity: Double {
         colorScheme == .dark ? 0.44 : 0.26

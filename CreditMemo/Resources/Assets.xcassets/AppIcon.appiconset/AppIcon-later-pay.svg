@@ -14,21 +14,21 @@
       <stop offset="1" stop-color="#B5605A" stop-opacity="0"/>
     </radialGradient>
     <linearGradient id="topBand" x1="512" y1="340" x2="512" y2="512" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#0A84FF" stop-opacity="0"/>
-      <stop offset="0.32" stop-color="#0A84FF" stop-opacity="0.22"/>
-      <stop offset="0.68" stop-color="#0A84FF" stop-opacity="0.66"/>
-      <stop offset="1" stop-color="#0A84FF" stop-opacity="0.98"/>
+      <stop offset="0" stop-color="#B8860B" stop-opacity="0"/>
+      <stop offset="0.32" stop-color="#B8860B" stop-opacity="0.22"/>
+      <stop offset="0.68" stop-color="#B8860B" stop-opacity="0.66"/>
+      <stop offset="1" stop-color="#B8860B" stop-opacity="0.98"/>
     </linearGradient>
     <linearGradient id="bottomBand" x1="512" y1="512" x2="512" y2="684" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#E5E5EA" stop-opacity="0.98"/>
-      <stop offset="0.32" stop-color="#E5E5EA" stop-opacity="0.60"/>
-      <stop offset="0.68" stop-color="#E5E5EA" stop-opacity="0.20"/>
-      <stop offset="1" stop-color="#E5E5EA" stop-opacity="0"/>
+      <stop offset="0" stop-color="#8B7E74" stop-opacity="0.98"/>
+      <stop offset="0.32" stop-color="#8B7E74" stop-opacity="0.60"/>
+      <stop offset="0.68" stop-color="#8B7E74" stop-opacity="0.20"/>
+      <stop offset="1" stop-color="#8B7E74" stop-opacity="0"/>
     </linearGradient>
     <linearGradient id="centerGlow" x1="0" y1="512" x2="1024" y2="512" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.10"/>
-      <stop offset="0.5" stop-color="#FFFFFF" stop-opacity="1.0"/>
-      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.10"/>
+      <stop offset="0" stop-color="#F5EBD8" stop-opacity="0.10"/>
+      <stop offset="0.5" stop-color="#F5EBD8" stop-opacity="1.0"/>
+      <stop offset="1" stop-color="#F5EBD8" stop-opacity="0.10"/>
     </linearGradient>
     <filter id="softGlow" x="-8%" y="-12%" width="116%" height="124%" color-interpolation-filters="sRGB">
       <feGaussianBlur stdDeviation="28"/>
@@ -48,8 +48,8 @@
       <stop offset="1" stop-color="#FFF0DA"/>
     </linearGradient>
     <linearGradient id="payFill" x1="352" y1="760" x2="672" y2="760" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#F5F5F7"/>
-      <stop offset="1" stop-color="#E5E5EA"/>
+      <stop offset="0" stop-color="#FFF8F1"/>
+      <stop offset="1" stop-color="#FFF0DA"/>
     </linearGradient>
     <filter id="textGlowWarm" x="-15%" y="-35%" width="130%" height="170%" color-interpolation-filters="sRGB">
       <feGaussianBlur stdDeviation="10" result="blur"/>

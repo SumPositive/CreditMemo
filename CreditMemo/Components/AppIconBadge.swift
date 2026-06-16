@@ -1,9 +1,9 @@
 import SwiftUI
 
-/// 引き落とし状況導線で使う共通バッジ。
-/// Asset Catalog にベクター PDF（`AppIconBadge.pdf`）として登録してあるので、
-/// SwiftUI のピュア描画と違いスワイプアクションなど任意の文脈で確実にレンダリングされ、
-/// かつ拡大縮小しても劣化しない。
+/// 引き落とし状況導線で使う共通バッジ
+/// 「上半分=未払（金茶）」「下半分=済み（グレージュ）」「中央=クリーム発光ライン」
+/// 「外周=小豆色」のブランド意匠を SwiftUI で描画する。色は Config の COLOR_* に追従し、
+/// ライト／ダーク自動切替・任意サイズでの劣化なしを両立する
 struct AppIconBadge: View {
     let size: CGFloat
 
@@ -12,11 +12,30 @@ struct AppIconBadge: View {
     }
 
     var body: some View {
-        Image("AppIconBadge")
-            .renderingMode(.original)
-            .resizable()
-            .aspectRatio(1, contentMode: .fit)
-            .frame(width: size, height: size)
-            .fixedSize()
+        ZStack {
+            // 上半分: 未払色（金茶）
+            Rectangle()
+                .fill(COLOR_UNPAID)
+                .frame(width: size, height: size / 2)
+                .offset(y: -size / 4)
+            // 下半分: 済み色（グレージュ）
+            Rectangle()
+                .fill(COLOR_PAID)
+                .frame(width: size, height: size / 2)
+                .offset(y: size / 4)
+            // 中央のクリーム発光ライン
+            Rectangle()
+                .fill(COLOR_BRAND_CREAM)
+                .frame(width: size, height: max(1, size * 0.08))
+                .shadow(color: COLOR_BRAND_CREAM.opacity(0.6), radius: size * 0.08)
+        }
+        .frame(width: size, height: size)
+        .clipShape(Circle())
+        .overlay(
+            // 外周は小豆色で締める
+            Circle().stroke(COLOR_DEBIT_BOUNDARY, lineWidth: max(0.5, size * 0.04))
+        )
+        .frame(width: size, height: size)
+        .fixedSize()
     }
 }
