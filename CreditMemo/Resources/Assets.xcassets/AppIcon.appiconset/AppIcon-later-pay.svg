@@ -14,29 +14,42 @@
       <stop offset="1" stop-color="#B5605A" stop-opacity="0"/>
     </radialGradient>
 
-    <!-- 上の下矢印円: 金茶 3 段グラデ -->
-    <linearGradient id="downCircleFill" x1="512" y1="60" x2="512" y2="540" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#D4A848"/>
-      <stop offset="0.45" stop-color="#B8860B"/>
-      <stop offset="1" stop-color="#8B6308"/>
+    <!-- 上側の帯 -->
+    <linearGradient id="topBand" x1="512" y1="160" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#C7961F" stop-opacity="0.08"/>
+      <stop offset="0.20" stop-color="#D5AB46" stop-opacity="0.22"/>
+      <stop offset="0.55" stop-color="#E3BA63" stop-opacity="0.54"/>
+      <stop offset="0.9726" stop-color="#F0D591" stop-opacity="0.98"/>
+      <stop offset="1" stop-color="#F0D591" stop-opacity="0.98"/>
     </linearGradient>
 
-    <!-- 下の上矢印円: グレージュ 3 段グラデ -->
-    <linearGradient id="upCircleFill" x1="512" y1="484" x2="512" y2="964" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#6E635A"/>
-      <stop offset="0.45" stop-color="#8B7E74"/>
-      <stop offset="1" stop-color="#A89A8E"/>
+    <!-- 下側の帯 -->
+    <linearGradient id="bottomBand" x1="512" y1="512" x2="512" y2="864" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F5EFE8" stop-opacity="0.98"/>
+      <stop offset="0.0274" stop-color="#F5EFE8" stop-opacity="0.98"/>
+      <stop offset="0.42" stop-color="#DDD6CE" stop-opacity="0.50"/>
+      <stop offset="0.80" stop-color="#BEB5AC" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#A29A93" stop-opacity="0.08"/>
     </linearGradient>
 
-    <!-- 中央クリーム発光ライン -->
+    <!-- 中央の小豆色ライン -->
     <linearGradient id="centerGlow" x1="0" y1="512" x2="1024" y2="512" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#F5EBD8" stop-opacity="0.25"/>
-      <stop offset="0.5" stop-color="#F5EBD8" stop-opacity="1.0"/>
-      <stop offset="1" stop-color="#F5EBD8" stop-opacity="0.25"/>
+      <stop offset="0" stop-color="#9B4A44"/>
+      <stop offset="1" stop-color="#9B4A44"/>
     </linearGradient>
 
     <filter id="lineGlow" x="-10%" y="-500%" width="120%" height="1100%" color-interpolation-filters="sRGB">
       <feGaussianBlur stdDeviation="6"/>
+    </filter>
+
+    <!-- 帯の柔らかいにじみ -->
+    <filter id="bandGlow" x="-8%" y="-24%" width="116%" height="148%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="24"/>
+    </filter>
+
+    <!-- 矢印の影を少しだけ出す -->
+    <filter id="arrowShadow" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#6F312D" flood-opacity="0.20"/>
     </filter>
 
     <filter id="grain" x="-20%" y="-20%" width="140%" height="140%">
@@ -46,52 +59,48 @@
         <feFuncA type="table" tableValues="0 0.032"/>
       </feComponentTransfer>
     </filter>
-
-    <!-- 境界線で円を欠けさせるためのクリップ -->
-    <clipPath id="topHalfClip">
-      <rect x="0" y="0" width="1024" height="506"/>
-    </clipPath>
-    <clipPath id="bottomHalfClip">
-      <rect x="0" y="518" width="1024" height="506"/>
-    </clipPath>
   </defs>
 
-  <!-- 背景: 小豆色 -->
+  <!-- 背景 -->
   <rect width="1024" height="1024" fill="url(#bgVertical)"/>
   <rect width="1024" height="1024" fill="url(#bgGlowTop)"/>
   <rect width="1024" height="1024" fill="url(#bgGlowBottom)"/>
 
-  <!-- 境界線の上: 金茶円（r=240, 境界線で下端 34px 切り取り） -->
-  <g clip-path="url(#topHalfClip)">
-    <circle cx="512" cy="300" r="240" fill="url(#downCircleFill)"/>
+  <!-- 境界帯 -->
+  <g filter="url(#bandGlow)">
+    <rect x="0" y="160" width="1024" height="352" fill="url(#topBand)"/>
+    <rect x="0" y="512" width="1024" height="352" fill="url(#bottomBand)"/>
   </g>
-  <!-- 下矢印 彫り込み: ハイライト → ダーク影 -->
-  <path d="M 512 224 L 512 330 M 440 296 L 512 380 L 584 296"
-        transform="translate(5 6)"
-        stroke="#FFF5DC" stroke-opacity="0.92" stroke-width="44"
-        stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-  <path d="M 512 224 L 512 330 M 440 296 L 512 380 L 584 296"
-        stroke="#0F0903" stroke-opacity="0.80" stroke-width="44"
-        stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <rect x="0" y="160" width="1024" height="352" fill="url(#topBand)"/>
+  <rect x="0" y="512" width="1024" height="352" fill="url(#bottomBand)"/>
 
-  <!-- 境界線の下: グレージュ円（r=240, 境界線で上端 34px 切り取り） -->
-  <g clip-path="url(#bottomHalfClip)">
-    <circle cx="512" cy="724" r="240" fill="url(#upCircleFill)"/>
+  <!-- 上側の矢印 -->
+  <g filter="url(#arrowShadow)">
+    <path d="M 512 250 L 512 356 M 440 322 L 512 406 L 584 322"
+          transform="translate(5 6)"
+          stroke="#FFF5DC" stroke-opacity="0.92" stroke-width="44"
+          stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M 512 250 L 512 356 M 440 322 L 512 406 L 584 322"
+          stroke="#0F0903" stroke-opacity="0.80" stroke-width="44"
+          stroke-linecap="round" stroke-linejoin="round" fill="none"/>
   </g>
-  <!-- 上矢印 彫り込み -->
-  <path d="M 512 800 L 512 694 M 440 728 L 512 644 L 584 728"
-        transform="translate(5 6)"
-        stroke="#FFF5DC" stroke-opacity="0.92" stroke-width="44"
-        stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-  <path d="M 512 800 L 512 694 M 440 728 L 512 644 L 584 728"
-        stroke="#0F0903" stroke-opacity="0.80" stroke-width="44"
-        stroke-linecap="round" stroke-linejoin="round" fill="none"/>
 
-  <!-- 中央クリーム発光ライン -->
+  <!-- 下側の矢印 -->
+  <g filter="url(#arrowShadow)">
+    <path d="M 512 774 L 512 668 M 440 702 L 512 618 L 584 702"
+          transform="translate(5 6)"
+          stroke="#FFF5DC" stroke-opacity="0.92" stroke-width="44"
+          stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <path d="M 512 774 L 512 668 M 440 702 L 512 618 L 584 702"
+          stroke="#0F0903" stroke-opacity="0.80" stroke-width="44"
+          stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </g>
+
+  <!-- 中央の境界線 -->
   <g filter="url(#lineGlow)">
-    <rect x="0" y="506" width="1024" height="12" fill="url(#centerGlow)"/>
+    <rect x="0" y="505" width="1024" height="14" fill="url(#centerGlow)"/>
   </g>
-  <rect x="0" y="508" width="1024" height="8" fill="url(#centerGlow)"/>
+  <rect x="0" y="507" width="1024" height="10" fill="url(#centerGlow)"/>
 
   <rect width="1024" height="1024" filter="url(#grain)"/>
 </svg>

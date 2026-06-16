@@ -29,7 +29,7 @@ struct CardListView: View {
             Text("card.beginner.statusSwipeIntro")
                 .font(.body)
                 .fixedSize(horizontal: false, vertical: true)
-            beginnerSwipeHelpRow(imageName: "AppIconBadgeSwipe", textKey: "card.beginner.statusSwipeText")
+            beginnerSwipeHelpRow(imageName: "AppIconBadge", textKey: "card.beginner.statusSwipeText")
             beginnerSwipeHelpRow(imageName: "AddRecordIcon", textKey: "card.beginner.addPaymentSwipeText")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -76,7 +76,8 @@ struct CardListView: View {
                     Button {
                         statusCard = card
                     } label: {
-                        Label("", image: "AppIconBadgeSwipe")
+                        // スワイプ用も共通バッジ画像を使う
+                        Label("", image: "AppIconBadge")
                     }
                     .tint(Color(uiColor: .systemBackground))
                     .accessibilityLabel(Text("card.action.status"))

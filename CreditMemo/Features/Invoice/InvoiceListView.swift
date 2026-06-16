@@ -100,7 +100,7 @@ struct InvoiceListView: View {
     private func invoiceHelpIcon(isPaid: Bool) -> some View {
         // ヘルプ内の状態アイコンは追加アイコンと同じサイズに揃える
         Image(systemName: isPaid ? "arrow.up.circle.fill" : "arrow.down.circle.fill").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
-            .foregroundStyle(isPaid ? COLOR_PAID : COLOR_UNPAID)
+            .foregroundStyle(isPaid ? COLOR_PAID_ICON : COLOR_UNPAID_ICON)
             .font(.caption.weight(.semibold))
             .frame(width: 16, alignment: .center)
     }
@@ -730,7 +730,7 @@ private struct InvoiceStatusIcon: View {
         // 引き落とし状況と同じ矢印アイコンを使う
         Image(systemName: isPaid ? "arrow.up.circle.fill" : "arrow.down.circle.fill").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
             .font(.title2.weight(.bold))
-            .foregroundStyle(isPaid ? COLOR_PAID : COLOR_UNPAID)
+            .foregroundStyle(isPaid ? COLOR_PAID_ICON : COLOR_UNPAID_ICON)
             .frame(minWidth: 34, minHeight: 34)
     }
 }
@@ -782,7 +782,7 @@ private struct PartRow: View {
                     // 先頭に未払/済み切替ボタンを置く
                     Image(systemName: isPaid ? "arrow.up.circle.fill" : "arrow.down.circle.fill").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                         .font(.title2.weight(.bold))
-                        .foregroundStyle(isPaid ? COLOR_PAID : COLOR_UNPAID)
+                        .foregroundStyle(isPaid ? COLOR_PAID_ICON : COLOR_UNPAID_ICON)
                         .frame(minWidth: 34, minHeight: 34)
                 }
                 .buttonStyle(.plain)

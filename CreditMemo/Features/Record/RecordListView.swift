@@ -894,7 +894,7 @@ struct RecordSummaryRow: View {
                         // 状態アイコンは控えめに表示する
                         Image(systemName: isUnpaid ? "arrow.down.circle.fill" : "arrow.up.circle.fill").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                             .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(statusTextColor)
+                            .foregroundStyle(isUnpaid ? COLOR_UNPAID_ICON : COLOR_PAID_ICON)
                             .opacity(0.5)
                             .fixedSize(horizontal: true, vertical: false)
                     }

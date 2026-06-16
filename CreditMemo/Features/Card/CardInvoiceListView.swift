@@ -253,7 +253,7 @@ private struct CardGroupRow: View {
             Button(action: onToggle) {
                 Image(systemName: isPaid ? "arrow.up.circle.fill" : "arrow.down.circle.fill").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                     .font(.title2.weight(.bold))
-                    .foregroundStyle(isPaid ? COLOR_PAID : COLOR_UNPAID)
+                    .foregroundStyle(isPaid ? COLOR_PAID_ICON : COLOR_UNPAID_ICON)
                     .frame(minWidth: 34, minHeight: 34)
             }
             .disabled(isToggling)

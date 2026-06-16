@@ -65,11 +65,25 @@ let COLOR_UNPAID: Color = Color(uiColor: UIColor { trait in
         : UIColor(red: 0.722, green: 0.525, blue: 0.043, alpha: 1)
 })
 
+/// 未払の丸矢印: アプリアイコン上側の金茶に合わせる
+let COLOR_UNPAID_ICON: Color = Color(uiColor: UIColor { trait in
+    trait.userInterfaceStyle == .dark
+        ? UIColor(red: 0.890, green: 0.729, blue: 0.388, alpha: 1)
+        : UIColor(red: 0.780, green: 0.588, blue: 0.122, alpha: 1)
+})
+
 /// 済みアイコン: グレージュ #8B7E74 / dark #A89A8E
 let COLOR_PAID: Color = Color(uiColor: UIColor { trait in
     trait.userInterfaceStyle == .dark
         ? UIColor(red: 0.659, green: 0.604, blue: 0.557, alpha: 1)
         : UIColor(red: 0.545, green: 0.494, blue: 0.455, alpha: 1)
+})
+
+/// 済みの丸矢印: アプリアイコン下側のグレージュに合わせる
+let COLOR_PAID_ICON: Color = Color(uiColor: UIColor { trait in
+    trait.userInterfaceStyle == .dark
+        ? UIColor(red: 0.780, green: 0.753, blue: 0.729, alpha: 1)
+        : UIColor(red: 0.635, green: 0.604, blue: 0.576, alpha: 1)
 })
 
 /// 引き落とし境界線: 小豆色 #7A2E2E / dark #A14848

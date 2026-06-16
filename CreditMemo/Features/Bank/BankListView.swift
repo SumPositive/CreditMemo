@@ -29,8 +29,8 @@ struct BankListView: View {
 
     private func beginnerStatusHelpRow(textKey: LocalizedStringKey) -> some View {
         HStack(alignment: .center, spacing: 12) {
-            // スワイプメニューと同じ画像で状況表示を説明する
-            Image("AppIconBadgeSwipe")
+            // スワイプ用も共通バッジ画像を使う
+            Image("AppIconBadge")
                 .resizable()
                 .scaledToFit()
                 .frame(width: 34, height: 34)
@@ -64,7 +64,8 @@ struct BankListView: View {
                     Button {
                         statusBank = bank
                     } label: {
-                        Label("", image: "AppIconBadgeSwipe")
+                        // スワイプ用も共通バッジ画像を使う
+                        Label("", image: "AppIconBadge")
                     }
                     .tint(Color(uiColor: .systemBackground))
                     .accessibilityLabel(Text("card.action.status"))

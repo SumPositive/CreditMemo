@@ -1013,7 +1013,7 @@ private struct PaymentStatusPill: View {
         // セル内の先頭は大きい矢印アイコンのみで状態を示す
         Image(systemName: isPaid ? "arrow.up.circle.fill" : "arrow.down.circle.fill").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
             .font(.title2.weight(.bold))
-            .foregroundStyle(isPaid ? COLOR_PAID : COLOR_UNPAID)
+            .foregroundStyle(isPaid ? COLOR_PAID_ICON : COLOR_UNPAID_ICON)
             .frame(minWidth: 34, minHeight: 34)
     }
 }
@@ -1351,12 +1351,49 @@ private struct PaymentOverdueHeader: View {
     }
 }
 
+// アプリアイコン由来の境界専用色
+private let PAYMENT_BOUNDARY_AZUKI_CORE = Color(uiColor: UIColor { trait in
+    trait.userInterfaceStyle == .dark
+        ? UIColor(red: 0.608, green: 0.290, blue: 0.267, alpha: 1)
+        : UIColor(red: 0.435, green: 0.192, blue: 0.176, alpha: 1)
+})
+
+private let PAYMENT_BOUNDARY_AZUKI_GLOW = Color(uiColor: UIColor { trait in
+    trait.userInterfaceStyle == .dark
+        ? UIColor(red: 0.706, green: 0.361, blue: 0.329, alpha: 1)
+        : UIColor(red: 0.608, green: 0.290, blue: 0.267, alpha: 1)
+})
+
+private let PAYMENT_UNPAID_BAND = Color(uiColor: UIColor { trait in
+    trait.userInterfaceStyle == .dark
+        ? UIColor(red: 0.890, green: 0.729, blue: 0.388, alpha: 1)
+        : UIColor(red: 0.780, green: 0.588, blue: 0.122, alpha: 1)
+})
+
+private let PAYMENT_UNPAID_BAND_DEEP = Color(uiColor: UIColor { trait in
+    trait.userInterfaceStyle == .dark
+        ? UIColor(red: 0.890, green: 0.729, blue: 0.388, alpha: 1)
+        : UIColor(red: 0.627, green: 0.435, blue: 0.071, alpha: 1)
+})
+
+private let PAYMENT_PAID_BAND = Color(uiColor: UIColor { trait in
+    trait.userInterfaceStyle == .dark
+        ? UIColor(red: 0.878, green: 0.859, blue: 0.831, alpha: 1)
+        : UIColor(red: 0.780, green: 0.753, blue: 0.729, alpha: 1)
+})
+
+private let PAYMENT_PAID_BAND_DEEP = Color(uiColor: UIColor { trait in
+    trait.userInterfaceStyle == .dark
+        ? UIColor(red: 0.780, green: 0.753, blue: 0.729, alpha: 1)
+        : UIColor(red: 0.635, green: 0.604, blue: 0.576, alpha: 1)
+})
+
 /// 未払側の境界帯
 private struct PaymentUnpaidBoundaryBand: View {
     @Environment(\.colorScheme) private var colorScheme
 
     private var labelColor: Color {
-        colorScheme == .dark ? COLOR_UNPAID.opacity(0.95) : COLOR_UNPAID
+        PAYMENT_UNPAID_BAND_DEEP
     }
 
     private var topColor: Color {
@@ -1371,11 +1408,12 @@ private struct PaymentUnpaidBoundaryBand: View {
             .padding(.top, 8)
             .padding(.bottom, 8)
             .background(
-                // 横帯の芯を少し濃くして未払境界を見やすくする
+                // 上側は境界線へ向かって金茶が濃くなる
                 LinearGradient(
                     colors: [
                         topColor,
-                        COLOR_UNPAID.opacity(colorScheme == .dark ? 0.72 : 0.58),
+                        PAYMENT_UNPAID_BAND.opacity(colorScheme == .dark ? 0.42 : 0.26),
+                        PAYMENT_UNPAID_BAND_DEEP.opacity(colorScheme == .dark ? 0.72 : 0.48),
                     ],
                     startPoint: .top,
                     endPoint: .bottom
@@ -1391,35 +1429,21 @@ private struct PaymentBoundaryGlowLine: View {
     @Environment(\.colorScheme) private var colorScheme
 
     private var glowLineColor: Color {
-        // ブランドクリーム。白より暖色で、小豆背景アイコンと整合する
-        colorScheme == .dark ? COLOR_BRAND_CREAM.opacity(0.95) : COLOR_BRAND_CREAM
+        colorScheme == .dark ? PAYMENT_BOUNDARY_AZUKI_CORE.opacity(0.96) : PAYMENT_BOUNDARY_AZUKI_CORE
     }
 
     var body: some View {
-        // アプリアイコン中央の発光ラインに合わせて（クリーム発光）
-        // 1) 横方向グラデを左右暗く中央明るく（端を 0.10 まで落とす）
-        // 2) ライン本体を高めに（4pt）、外側のグロウも強める
+        // 中央は小豆色の芯線をまっすぐ見せる
         Rectangle()
-            .fill(
-                LinearGradient(
-                    colors: [
-                        COLOR_BRAND_CREAM.opacity(0.10),
-                        glowLineColor,
-                        COLOR_BRAND_CREAM.opacity(0.10),
-                    ],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-            )
+            .fill(glowLineColor)
             .frame(height: 2)
-            .shadow(color: COLOR_BRAND_CREAM.opacity(colorScheme == .dark ? 0.75 : 0.55), radius: 4, x: 0, y: 0)
-            .shadow(color: COLOR_BRAND_CREAM.opacity(colorScheme == .dark ? 0.45 : 0.30), radius: 2, x: 0, y: 0)
+            .shadow(color: PAYMENT_BOUNDARY_AZUKI_GLOW.opacity(colorScheme == .dark ? 0.40 : 0.24), radius: 1.5, x: 0, y: 0)
             .background(
                 LinearGradient(
                     colors: [
-                        COLOR_UNPAID.opacity(colorScheme == .dark ? 0.20 : 0.10),
+                        PAYMENT_UNPAID_BAND_DEEP.opacity(colorScheme == .dark ? 0.14 : 0.08),
                         .clear,
-                        COLOR_PAID.opacity(colorScheme == .dark ? 0.20 : 0.10),
+                        PAYMENT_PAID_BAND_DEEP.opacity(colorScheme == .dark ? 0.14 : 0.08),
                     ],
                     startPoint: .top,
                     endPoint: .bottom
@@ -1442,7 +1466,7 @@ private struct PaymentPaidBoundaryBand: View {
     @Environment(\.colorScheme) private var colorScheme
 
     private var labelColor: Color {
-        colorScheme == .dark ? COLOR_PAID.opacity(0.95) : COLOR_PAID
+        PAYMENT_PAID_BAND_DEEP
     }
 
     private var bottomColor: Color {
@@ -1457,10 +1481,11 @@ private struct PaymentPaidBoundaryBand: View {
             .padding(.top, 8)
             .padding(.bottom, 8)
             .background(
-                // 横帯の芯を少し濃くして済み境界を見やすくする
+                // 下側は境界線直下をやや濃くして下へ抜く
                 LinearGradient(
                     colors: [
-                        COLOR_PAID.opacity(colorScheme == .dark ? 0.72 : 0.58),
+                        PAYMENT_PAID_BAND_DEEP.opacity(colorScheme == .dark ? 0.52 : 0.28),
+                        PAYMENT_PAID_BAND.opacity(colorScheme == .dark ? 0.30 : 0.16),
                         bottomColor,
                     ],
                     startPoint: .top,
