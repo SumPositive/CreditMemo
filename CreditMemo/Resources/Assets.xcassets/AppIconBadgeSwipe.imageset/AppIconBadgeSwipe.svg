@@ -5,9 +5,21 @@
     </clipPath>
   </defs>
   <g clip-path="url(#circleClip)">
-    <rect x="2" y="2" width="60" height="30" fill="#0A84FF"/>
-    <rect x="2" y="32" width="60" height="30" fill="#E5E5EA"/>
-    <rect x="2" y="30" width="60" height="4" fill="#FFFFFF"/>
+    <!-- 上半円: 金茶 -->
+    <rect x="2" y="2" width="60" height="30" fill="#B8860B"/>
+    <!-- 下半円: グレージュ -->
+    <rect x="2" y="32" width="60" height="30" fill="#8B7E74"/>
+    <!-- 中央クリーム発光ライン -->
+    <rect x="2" y="31" width="60" height="2" fill="#F5EBD8"/>
+    <!-- 下矢印（上半円内） -->
+    <g stroke="#F5EBD8" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <path d="M 32 10 L 32 19"/>
+      <path d="M 25 15.4 L 32 22 L 39 15.4"/>
+    </g>
+    <!-- 上矢印（下半円内） -->
+    <g stroke="#F5EBD8" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <path d="M 32 54 L 32 45"/>
+      <path d="M 25 48.6 L 32 42 L 39 48.6"/>
+    </g>
   </g>
-  <circle cx="32" cy="32" r="30" fill="none" stroke="#AEAEB2" stroke-width="1"/>
 </svg>
