@@ -99,24 +99,22 @@
   </g>
   <rect x="0" y="508" width="1024" height="8" fill="url(#centerGlow)"/>
 
-  <!-- 上半円: 下矢印（未払=これから引き落とされる） SF Symbol 風の柔らかい線 -->
-  <g filter="url(#arrowGlow)">
-    <path d="M 512 160 L 512 310 M 400 246 L 512 350 L 624 246"
-          stroke="url(#arrowFill)" stroke-width="76"
-          stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-  </g>
-  <path d="M 512 160 L 512 310 M 400 246 L 512 350 L 624 246"
-        stroke="url(#arrowFill)" stroke-width="76"
+  <!-- 上半円: 下矢印（彫り込み: 下にクリーム反射、上にダーク影を重ねる） -->
+  <path d="M 512 238 L 512 358 M 422 307 L 512 390 L 602 307"
+        transform="translate(6 9)"
+        stroke="#FFF5DC" stroke-opacity="0.92" stroke-width="60"
+        stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M 512 238 L 512 358 M 422 307 L 512 390 L 602 307"
+        stroke="#0F0903" stroke-opacity="0.80" stroke-width="60"
         stroke-linecap="round" stroke-linejoin="round" fill="none"/>
 
-  <!-- 下半円: 上矢印（済み=引き落とし完了） -->
-  <g filter="url(#arrowGlow)">
-    <path d="M 512 864 L 512 714 M 400 778 L 512 674 L 624 778"
-          stroke="url(#arrowFill)" stroke-width="76"
-          stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-  </g>
-  <path d="M 512 864 L 512 714 M 400 778 L 512 674 L 624 778"
-        stroke="url(#arrowFill)" stroke-width="76"
+  <!-- 下半円: 上矢印（彫り込み） -->
+  <path d="M 512 786 L 512 666 M 422 717 L 512 634 L 602 717"
+        transform="translate(6 9)"
+        stroke="#FFF5DC" stroke-opacity="0.92" stroke-width="60"
+        stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M 512 786 L 512 666 M 422 717 L 512 634 L 602 717"
+        stroke="#0F0903" stroke-opacity="0.80" stroke-width="60"
         stroke-linecap="round" stroke-linejoin="round" fill="none"/>
 
   <rect width="1024" height="1024" filter="url(#grain)"/>
