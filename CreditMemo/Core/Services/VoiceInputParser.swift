@@ -1,4 +1,5 @@
 import Foundation
+import NaturalLanguage
 
 struct VoiceInputResult {
     var amount: Decimal?
@@ -24,6 +25,7 @@ enum VoiceInputParser {
     static func parseAmountAndLabel(_ rawText: String, locale: Locale = .current) -> VoiceInputResult {
         let text = normalize(rawText)
         var result = VoiceInputResult()
+        let isJa = locale.language.languageCode?.identifier == "ja"
 
         let amounts = allAmounts(in: text, locale: locale)
 
@@ -41,17 +43,82 @@ enum VoiceInputParser {
 
             for seg in segments.reversed() {
                 let cleaned = cleanLabel(String(seg))
-                if !cleaned.isEmpty {
-                    result.label = cleaned
+                let refined = refineLabel(cleaned, isJa: isJa)
+                if !refined.isEmpty {
+                    result.label = refined
                     break
                 }
             }
         } else {
             // 数値が無ければ全文をラベル候補にする
             let cleaned = cleanLabel(text)
-            if !cleaned.isEmpty { result.label = cleaned }
+            let refined = refineLabel(cleaned, isJa: isJa)
+            if !refined.isEmpty { result.label = refined }
         }
         return result
+    }
+
+    // MARK: - Label refinement
+
+    /// ラベル精製: NLTagger で名詞だけ抽出 → 空ならロケール別の関数語/助詞を剥がす
+    private static func refineLabel(_ s: String, isJa: Bool) -> String {
+        let nouns = extractNouns(s)
+        if !nouns.isEmpty { return nouns }
+        return isJa
+            ? stripLeadingJapaneseParticles(s)
+            : stripLeadingEnglishFunctionWords(s)
+    }
+
+    private static func extractNouns(_ s: String) -> String {
+        guard !s.isEmpty else { return "" }
+        let tagger = NLTagger(tagSchemes: [.lexicalClass])
+        tagger.string = s
+        var nouns: [String] = []
+        tagger.enumerateTags(
+            in: s.startIndex..<s.endIndex,
+            unit: .word,
+            scheme: .lexicalClass,
+            options: [.omitWhitespace, .omitPunctuation, .omitOther]
+        ) { tag, range in
+            if tag == .noun {
+                let token = String(s[range]).trimmingCharacters(in: .whitespacesAndNewlines)
+                if !token.isEmpty { nouns.append(token) }
+            }
+            return true
+        }
+        return nouns.joined(separator: " ")
+    }
+
+    private static let jaLeadingParticles: [String] = [
+        "から", "まで", "より", "への", "での", "には", "とは",
+        "の", "で", "に", "を", "は", "が", "へ", "と", "や", "も"
+    ]
+
+    private static func stripLeadingJapaneseParticles(_ s: String) -> String {
+        var result = s
+        var changed = true
+        while changed {
+            changed = false
+            for p in jaLeadingParticles where result.hasPrefix(p) {
+                result = String(result.dropFirst(p.count))
+                changed = true
+                break
+            }
+        }
+        return result.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static let enLeadingFunctionWords: Set<String> = [
+        "a", "an", "the", "of", "for", "to", "on", "at", "in", "with", "by", "from"
+    ]
+
+    private static func stripLeadingEnglishFunctionWords(_ s: String) -> String {
+        let words = s.split(whereSeparator: { $0.isWhitespace })
+        var i = 0
+        while i < words.count, enLeadingFunctionWords.contains(words[i].lowercased()) {
+            i += 1
+        }
+        return words[i...].joined(separator: " ")
     }
 
     private static func cleanLabel(_ s: String) -> String {
@@ -108,15 +175,17 @@ enum VoiceInputParser {
         return allArabicAmounts(in: text)
     }
 
-    /// "15", "1,500", "1.99" のような半角数字パターンを全件マッチする（非 ja ロケール用）
+    /// "15", "1,500", "1.99", "$5", "5 dollars" を全件マッチする（非 ja ロケール用）
+    /// 通貨記号プレフィックスと通貨語サフィックスは range に呑み込む（ラベル側に残さないため）
     private static func allArabicAmounts(in text: String) -> [(Decimal, Range<String.Index>)] {
-        let pattern = #"[0-9]+(?:[,][0-9]{3})*(?:\.[0-9]+)?"#
+        let pattern = #"(?:[$£€¥]\s*)?([0-9]+(?:[,][0-9]{3})*(?:\.[0-9]+)?)(?i:\s*(?:dollars?|cents?|bucks?|yen|euros?|pounds?))?"#
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
         let ns = text as NSString
         let matches = regex.matches(in: text, range: NSRange(location: 0, length: ns.length))
         var results: [(Decimal, Range<String.Index>)] = []
         for m in matches {
-            let raw = ns.substring(with: m.range).replacingOccurrences(of: ",", with: "")
+            guard m.numberOfRanges >= 2 else { continue }
+            let raw = ns.substring(with: m.range(at: 1)).replacingOccurrences(of: ",", with: "")
             if let value = Decimal(string: raw), value > 0,
                let range = Range(m.range, in: text) {
                 results.append((value, range))

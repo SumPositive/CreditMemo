@@ -75,8 +75,14 @@ struct VoiceInputSheet: View {
     @State private var originalVoiceCardID: String?
     /// 保存コマンド検出による apply 二重起動防止
     @State private var didTriggerSaveCommand = false
+    /// キャンセルコマンド検出による dismiss 二重起動防止
+    @State private var didTriggerCancelCommand = false
     @State private var deniedReason: String?
     @State private var telemetry = VoiceInputTelemetryState()
+    /// セッション中に一度だけ走る早期失敗リトライのガード
+    @State private var didAutoRetry = false
+    /// ユーザー操作（停止・適用・キャンセル）による .stopped 遷移かどうか
+    @State private var userInitiatedStop = false
 
     var body: some View {
         NavigationStack {
@@ -95,7 +101,10 @@ struct VoiceInputSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("button.cancel") {
-                        if case .listening = recognizer.state { recognizer.stop() }
+                        if case .listening = recognizer.state {
+                            userInitiatedStop = true
+                            recognizer.stop()
+                        }
                         dismiss()
                     }
                 }
@@ -108,7 +117,10 @@ struct VoiceInputSheet: View {
             .task { await startListening() }
             .onDisappear {
                 reportSessionIfNeeded(dismissalReason: "cancelled")
-                if case .listening = recognizer.state { recognizer.stop() }
+                if case .listening = recognizer.state {
+                    userInitiatedStop = true
+                    recognizer.stop()
+                }
             }
             .onChange(of: recognizer.partialTranscript) { _, _ in updateParsed() }
             .onChange(of: recognizer.transcript) { _, _ in updateParsed() }
@@ -121,6 +133,14 @@ struct VoiceInputSheet: View {
                 if case .denied(let reason) = newState {
                     // セッション終了時に失敗要因を集計する
                     telemetry.deniedReason = reason
+                }
+                if shouldAutoRetry(newState: newState) {
+                    didAutoRetry = true
+                    Task {
+                        // tearDownAudio 直後はセッション解放猶予を取る
+                        try? await Task.sleep(nanoseconds: 500_000_000)
+                        retry()
+                    }
                 }
             }
             .alert(
@@ -216,6 +236,7 @@ struct VoiceInputSheet: View {
     @ViewBuilder private var controlButton: some View {
         if isListening {
             Button {
+                userInitiatedStop = true
                 recognizer.stop()
             } label: {
                 Label("voice.stop", systemImage: "stop.fill")
@@ -304,7 +325,17 @@ struct VoiceInputSheet: View {
         telemetry.localeIdentifier = recognizer.locale.identifier
         telemetry.contextualHintCount = hints.count
         telemetry.cardCount = cards.count
+        let isFirstStart = telemetry.startCount == 0
         telemetry.startCount += 1
+        // ユーザーが新しい聞き取りを始めるたびに stop フラグはリセットする
+        userInitiatedStop = false
+
+        // Siri 起動直後はマイクハンドオフが間に合わず beginAudio 成功でも無音になる
+        // 初回のみ固定で待ってから start する
+        if telemetrySource == "siri", isFirstStart {
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+        }
+
         await recognizer.start(contextualStrings: hints)
     }
 
@@ -320,6 +351,13 @@ struct VoiceInputSheet: View {
         // 認識結果が何度更新されたかを集計する
         telemetry.transcriptUpdateCount += 1
         telemetry.finalTranscriptDetected = telemetry.finalTranscriptDetected || !recognizer.transcript.isEmpty
+
+        // キャンセルコマンドは canApply を問わず即時シートを閉じる
+        if !didTriggerCancelCommand, Self.containsCancelCommand(in: text) {
+            didTriggerCancelCommand = true
+            cancelByVoice()
+            return
+        }
 
         let (hasSave, cleanedText) = Self.consumeSaveCommand(in: text)
         telemetry.saveCommandSpoken = telemetry.saveCommandSpoken || hasSave
@@ -391,6 +429,17 @@ struct VoiceInputSheet: View {
         text.range(of: cardPhaseKeywordPattern, options: [.regularExpression, .backwards])
     }
 
+    /// キャンセルコマンドの検出
+    /// ja: キャンセル / 中止
+    /// en: cancel（大小文字無視）
+    private static func containsCancelCommand(in text: String) -> Bool {
+        let keywords = ["キャンセル", "中止", "cancel"]
+        for kw in keywords {
+            if text.range(of: kw, options: .caseInsensitive) != nil { return true }
+        }
+        return false
+    }
+
     /// 保存コマンドを検出して取り除く
     /// ja: 保存 / セーブ / オーケー / オッケー
     /// en: save / ok（OK 含む、大小文字無視）
@@ -411,11 +460,26 @@ struct VoiceInputSheet: View {
         return (found, cleaned)
     }
 
+    /// Siri 起動直後にマイクを取りこぼした時、一度だけ自動再起動する
+    /// - 一切 transcript を受け取っていない
+    /// - ユーザー操作（停止・適用・キャンセル）由来ではない
+    /// - 状態が .stopped か .denied("audio")
+    private func shouldAutoRetry(newState: SpeechRecognizer.State) -> Bool {
+        guard !didAutoRetry, !userInitiatedStop else { return false }
+        guard telemetry.transcriptUpdateCount == 0 else { return false }
+        switch newState {
+        case .stopped: return true
+        case .denied(let reason): return reason == "audio"
+        default: return false
+        }
+    }
+
     /// 「もう一度」: パース結果と学習スナップショットをクリアして聞き取り再開
     private func retry() {
         parsed = VoiceInputResult()
         originalVoiceCardID = nil
         didTriggerSaveCommand = false
+        didTriggerCancelCommand = false
         telemetry.usedSaveCommand = false
         Task { await startListening() }
     }
@@ -434,8 +498,20 @@ struct VoiceInputSheet: View {
         }
     }
 
+    /// 音声で「キャンセル」「中止」が検出された時の処理（キャンセルボタンと同じ挙動）
+    private func cancelByVoice() {
+        if case .listening = recognizer.state {
+            userInitiatedStop = true
+            recognizer.stop()
+        }
+        dismiss()
+    }
+
     private func apply() {
-        if case .listening = recognizer.state { recognizer.stop() }
+        if case .listening = recognizer.state {
+            userInitiatedStop = true
+            recognizer.stop()
+        }
         reportSessionIfNeeded(dismissalReason: "applied")
         let payload = VoiceApplyPayload(
             amount: parsed.amount,
