@@ -1036,6 +1036,11 @@ private extension E7payment {
 }
 
 private struct PaymentCombinedCard: View {
+    /// 確認待ちエリアは少し内側へ沈ませる
+    private let overdueHorizontalInset: CGFloat = 8
+    /// 確認待ちエリアはほぼ角を立てる
+    private let overdueCornerRadius: CGFloat = 2
+
     let upcomingItems: [PaymentDisplayItem]
     let overdueItems: [PaymentDisplayItem]
     let paidItems: [PaymentDisplayItem]
@@ -1050,7 +1055,8 @@ private struct PaymentCombinedCard: View {
     let boundaryAnchorID: String
     let paidFirstRowAnchorID: String
     let onNavigateToDetail: () -> Void
-    @State private var boundaryMidY: CGFloat = 0
+    @State private var boundaryTopY: CGFloat = 0
+    @State private var boundaryBottomY: CGFloat = 0
 
     /// ViewBuilder 内の型推論負荷を下げるため、表示用の添字付き配列を事前に作る
     private var indexedPaidItems: [(offset: Int, element: PaymentDisplayItem)] {
@@ -1073,23 +1079,33 @@ private struct PaymentCombinedCard: View {
     /// body 内の式が複雑になり型推論がタイムアウトするため、サブビューに分離する
     @ViewBuilder
     private var overdueGroup: some View {
-        VStack(spacing: 0) {
-            PaymentOverdueHeader(tintColor: overdueAccentColor)
-            ForEach(indexedOverdueItems, id: \.element.id) { index, payment in
-                PaymentNavigationRow(
-                    item: payment,
-                    rowID: payment.id,
-                    isToggling: togglingPaymentIDs.contains(payment.id),
-                    onToggle: onToggle,
-                    onNavigateToDetail: onNavigateToDetail
-                )
-                if index + 1 < overdueItems.count {
-                    PaymentRowDivider()
+        HStack(spacing: 0) {
+            VStack(spacing: 0) {
+                PaymentOverdueHeader(tintColor: overdueAccentColor)
+                ForEach(indexedOverdueItems, id: \.element.id) { index, payment in
+                    PaymentNavigationRow(
+                        item: payment,
+                        rowID: payment.id,
+                        isToggling: togglingPaymentIDs.contains(payment.id),
+                        onToggle: onToggle,
+                        onNavigateToDetail: onNavigateToDetail
+                    )
+                    if index + 1 < overdueItems.count {
+                        PaymentRowDivider()
+                    }
                 }
             }
+            .frame(maxWidth: .infinity)
+            .background(overdueBackground)
+            .clipShape(RoundedRectangle(cornerRadius: overdueCornerRadius, style: .continuous))
+            .overlay(
+                // 確認待ちエリアは小さな角丸で沈み込みを見せる
+                RoundedRectangle(cornerRadius: overdueCornerRadius, style: .continuous)
+                    .stroke(PAYMENT_BOUNDARY_AZUKI_CORE.opacity(0.72), lineWidth: 1)
+            )
         }
-        .background(overdueBackground)
-        .overlay(overdueSideBars)
+        // 余白を含めて枠線の外側を画面背景色に戻す
+        .background(Color(uiColor: .systemGroupedBackground))
     }
 
     /// 確認待ちエリアの背景グラデーション
@@ -1101,18 +1117,26 @@ private struct PaymentCombinedCard: View {
         )
     }
 
-    /// 確認待ちエリアの左右の警告色サイドバー
-    private var overdueSideBars: some View {
-        HStack(spacing: 0) {
-            Rectangle()
-                .fill(overdueAccentColor)
-                .frame(width: 3)
-            Spacer(minLength: 0)
-            Rectangle()
-                .fill(overdueAccentColor)
-                .frame(width: 3)
+    /// 確認待ちエリア全体は1つの塊として出し入れする
+    @ViewBuilder
+    private var overdueSection: some View {
+        VStack(spacing: 0) {
+            PaymentBoundarySeparatorZone(position: .top)
+            // 引き落とし確認待ちが表示される時だけ、その上に AdMob バナーを差し込む
+            // 表示対象は英語ロケールのみ（日本語ユーザーには出さない方針）
+            if shouldShowInlineAdBanner {
+                InlineAdBanner()
+                    .padding(.vertical, 4)
+            }
+            overdueGroup
+            PaymentBoundarySeparatorZone(position: .bottom)
         }
-        .opacity(0.82)
+        // 区切り線と確認待ち本体を同じ横幅でまとめる
+        .padding(.horizontal, overdueHorizontalInset)
+        // フェード中の枠線と内容のズレを抑える
+        .compositingGroup()
+        // 確認待ちは位置をずらさず、塊ごとフェードさせる
+        .transition(.opacity)
     }
 
     /// 済み側の区切り線表示可否
@@ -1128,9 +1152,14 @@ private struct PaymentCombinedCard: View {
             .animation(.easeInOut(duration: 0.22), value: upcomingItemIDs)
             .animation(.easeInOut(duration: 0.22), value: overdueItemIDs)
             .animation(.easeInOut(duration: 0.22), value: paidItemIDs)
-            .onPreferenceChange(PaymentBoundaryMidYPreferenceKey.self) { y in
-                if 0 < y {
-                    boundaryMidY = y
+            .onPreferenceChange(PaymentBoundaryEdgesPreferenceKey.self) { edges in
+                // 境界領域の上下端を保持して、外枠を帯から切り離して描く
+                // 座標も通常のレイアウト変化に追従させて、枠線だけ先走らないようにする
+                if 0 < edges.topY {
+                    boundaryTopY = edges.topY
+                }
+                if 0 < edges.bottomY {
+                    boundaryBottomY = edges.bottomY
                 }
             }
             .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 1)
@@ -1186,17 +1215,12 @@ private struct PaymentCombinedCard: View {
             .frame(height: 1)
             .id(boundaryAnchorID)
         PaymentUnpaidBoundaryBand()
-        PaymentBoundaryGlowLine(reportsBoundary: false)
         if hasOverdue {
-            // 引き落とし確認待ちが表示される時だけ、その上に AdMob バナーを差し込む。
-            // 表示対象は英語ロケールのみ（日本語ユーザーには出さない方針）
-            if shouldShowInlineAdBanner {
-                InlineAdBanner()
-                    .padding(.vertical, 4)
-            }
-            overdueGroup
+            overdueSection
+        } else {
+            PaymentBoundarySeparatorZone(position: .single)
+                .transition(.opacity)
         }
-        PaymentBoundaryGlowLine(reportsBoundary: true)
         PaymentPaidBoundaryBand()
     }
 
@@ -1244,22 +1268,43 @@ private struct PaymentCombinedCard: View {
     private var cardOuterStroke: some View {
         GeometryReader { proxy in
             let cardHeight = proxy.size.height
-            let unpaidPaidY = min(max(boundaryMidY, 0), cardHeight)
+            let clampedTopY = min(max(boundaryTopY, 0), cardHeight)
+            let clampedBottomY = min(max(boundaryBottomY, clampedTopY), cardHeight)
+            let upperHeight = max(clampedTopY, 0)
+            let lowerHeight = max(cardHeight - clampedBottomY, 0)
             ZStack {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(COLOR_UNPAID, lineWidth: 1.5)
-                    .mask(
-                        Rectangle()
-                            .frame(width: proxy.size.width, height: unpaidPaidY)
-                            .frame(maxHeight: .infinity, alignment: .top)
+                if 0 < upperHeight {
+                    // 未払エリアは全周の細線で囲む
+                    UnevenRoundedRectangle(
+                        cornerRadii: .init(
+                            topLeading: 16,
+                            bottomLeading: 10,
+                            bottomTrailing: 10,
+                            topTrailing: 16
+                        ),
+                        style: .continuous
                     )
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(COLOR_PAID, lineWidth: 1.5)
-                    .mask(
-                        Rectangle()
-                            .frame(width: proxy.size.width, height: max(cardHeight - unpaidPaidY, 0))
-                            .frame(maxHeight: .infinity, alignment: .bottom)
+                    .stroke(COLOR_UNPAID, lineWidth: 1)
+                    .frame(width: proxy.size.width, height: upperHeight)
+                    // 外枠はカード全幅に合わせる
+                    .frame(maxHeight: .infinity, alignment: .top)
+                }
+                if 0 < lowerHeight {
+                    // 済みエリアも全周の細線で囲む
+                    UnevenRoundedRectangle(
+                        cornerRadii: .init(
+                            topLeading: 10,
+                            bottomLeading: 16,
+                            bottomTrailing: 16,
+                            topTrailing: 10
+                        ),
+                        style: .continuous
                     )
+                    .stroke(COLOR_PAID, lineWidth: 1)
+                    .frame(width: proxy.size.width, height: lowerHeight)
+                    // 外枠はカード全幅に合わせる
+                    .frame(maxHeight: .infinity, alignment: .bottom)
+                }
             }
         }
     }
@@ -1390,6 +1435,9 @@ private let PAYMENT_PAID_BAND_DEEP = Color(uiColor: UIColor { trait in
 
 /// 未払側の境界帯
 private struct PaymentUnpaidBoundaryBand: View {
+    /// 境界線側だけを少し丸める
+    private let boundaryCornerRadius: CGFloat = 10
+
     @Environment(\.colorScheme) private var colorScheme
 
     private var labelColor: Color {
@@ -1400,6 +1448,19 @@ private struct PaymentUnpaidBoundaryBand: View {
         colorScheme == .dark ? Color(uiColor: .secondarySystemGroupedBackground) : Color.white
     }
 
+    private var backgroundShape: some Shape {
+        // 下端だけ丸めて、境界線へ沈み込むように見せる
+        UnevenRoundedRectangle(
+            cornerRadii: .init(
+                topLeading: 0,
+                bottomLeading: boundaryCornerRadius,
+                bottomTrailing: boundaryCornerRadius,
+                topTrailing: 0
+            ),
+            style: .continuous
+        )
+    }
+
     var body: some View {
         Text("payment.section.unpaidBeforeDebit")
             .font(.subheadline.weight(.semibold))
@@ -1408,53 +1469,67 @@ private struct PaymentUnpaidBoundaryBand: View {
             .padding(.top, 8)
             .padding(.bottom, 8)
             .background(
-                // 上側は境界線へ向かって金茶が濃くなる
-                LinearGradient(
-                    colors: [
-                        topColor,
-                        PAYMENT_UNPAID_BAND.opacity(colorScheme == .dark ? 0.42 : 0.26),
-                        PAYMENT_UNPAID_BAND_DEEP.opacity(colorScheme == .dark ? 0.72 : 0.48),
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
+                backgroundShape
+                    .fill(
+                        // 上側は境界線へ向かって金茶が濃くなる
+                        LinearGradient(
+                            colors: [
+                                topColor,
+                                PAYMENT_UNPAID_BAND.opacity(colorScheme == .dark ? 0.42 : 0.26),
+                                PAYMENT_UNPAID_BAND_DEEP.opacity(colorScheme == .dark ? 0.72 : 0.48),
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
             )
     }
 }
 
 /// 未払/済みの本当の境界線
-private struct PaymentBoundaryGlowLine: View {
-    let reportsBoundary: Bool
+private struct PaymentBoundarySeparatorZone: View {
+    /// 境界線の役割
+    enum Position {
+        case single
+        case top
+        case bottom
+    }
 
-    @Environment(\.colorScheme) private var colorScheme
+    /// 境界線の左右端を少し内側へ寄せる
+    private let boundaryInset: CGFloat = 10
+    /// 境界はどちらの帯にも属さない専用レイヤーで描く
+    private let boundaryLineHeight: CGFloat = 1.6
+
+    let position: Position
 
     private var glowLineColor: Color {
-        colorScheme == .dark ? PAYMENT_BOUNDARY_AZUKI_CORE.opacity(0.96) : PAYMENT_BOUNDARY_AZUKI_CORE
+        // 境界線は濃い小豆色で区切りを強める
+        PAYMENT_BOUNDARY_AZUKI_CORE
+    }
+
+    private var reportsTopY: Bool {
+        position != .bottom
+    }
+
+    private var reportsBottomY: Bool {
+        position != .top
     }
 
     var body: some View {
-        // 中央は小豆色の芯線をまっすぐ見せる
         Rectangle()
             .fill(glowLineColor)
-            .frame(height: 2)
-            .shadow(color: PAYMENT_BOUNDARY_AZUKI_GLOW.opacity(colorScheme == .dark ? 0.40 : 0.24), radius: 1.5, x: 0, y: 0)
+            .frame(height: boundaryLineHeight)
+            .padding(.horizontal, boundaryInset)
+            // 境界線の上下端を、外枠色の切替位置として親へ伝える
             .background(
-                LinearGradient(
-                    colors: [
-                        PAYMENT_UNPAID_BAND_DEEP.opacity(colorScheme == .dark ? 0.14 : 0.08),
-                        .clear,
-                        PAYMENT_PAID_BAND_DEEP.opacity(colorScheme == .dark ? 0.14 : 0.08),
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
-            .background(
-                // 発光線の中央を、外枠色の切替位置として親へ伝える
                 GeometryReader { proxy in
+                    let frame = proxy.frame(in: .named("paymentCombinedCard"))
                     Color.clear.preference(
-                        key: PaymentBoundaryMidYPreferenceKey.self,
-                        value: reportsBoundary ? proxy.frame(in: .named("paymentCombinedCard")).midY : 0
+                        key: PaymentBoundaryEdgesPreferenceKey.self,
+                        value: PaymentBoundaryEdges(
+                            topY: reportsTopY ? frame.minY : 0,
+                            bottomY: reportsBottomY ? frame.maxY : 0
+                        )
                     )
                 }
             )
@@ -1463,6 +1538,9 @@ private struct PaymentBoundaryGlowLine: View {
 
 /// 引き落とし済み側の境界帯
 private struct PaymentPaidBoundaryBand: View {
+    /// 境界線側だけを少し丸める
+    private let boundaryCornerRadius: CGFloat = 10
+
     @Environment(\.colorScheme) private var colorScheme
 
     private var labelColor: Color {
@@ -1473,6 +1551,19 @@ private struct PaymentPaidBoundaryBand: View {
         colorScheme == .dark ? Color(uiColor: .secondarySystemGroupedBackground) : Color.white
     }
 
+    private var backgroundShape: some Shape {
+        // 上端だけ丸めて、境界線から抜けるように見せる
+        UnevenRoundedRectangle(
+            cornerRadii: .init(
+                topLeading: boundaryCornerRadius,
+                bottomLeading: 0,
+                bottomTrailing: 0,
+                topTrailing: boundaryCornerRadius
+            ),
+            style: .continuous
+        )
+    }
+
     var body: some View {
         Text("payment.section.paidAfterDebit")
             .font(.subheadline.weight(.semibold))
@@ -1481,28 +1572,42 @@ private struct PaymentPaidBoundaryBand: View {
             .padding(.top, 8)
             .padding(.bottom, 8)
             .background(
-                // 下側は境界線直下をやや濃くして下へ抜く
-                LinearGradient(
-                    colors: [
-                        PAYMENT_PAID_BAND_DEEP.opacity(colorScheme == .dark ? 0.52 : 0.28),
-                        PAYMENT_PAID_BAND.opacity(colorScheme == .dark ? 0.30 : 0.16),
-                        bottomColor,
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
+                backgroundShape
+                    .fill(
+                        // 下側は境界線直下をやや濃くして下へ抜く
+                        LinearGradient(
+                            colors: [
+                                PAYMENT_PAID_BAND_DEEP.opacity(colorScheme == .dark ? 0.52 : 0.28),
+                                PAYMENT_PAID_BAND.opacity(colorScheme == .dark ? 0.30 : 0.16),
+                                bottomColor,
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
             )
         .padding(.bottom, 6)
     }
 }
 
-private struct PaymentBoundaryMidYPreferenceKey: PreferenceKey {
-    static let defaultValue: CGFloat = 0
+/// 境界領域の上下端
+private struct PaymentBoundaryEdges: Equatable {
+    let topY: CGFloat
+    let bottomY: CGFloat
 
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+    static let zero = PaymentBoundaryEdges(topY: 0, bottomY: 0)
+}
+
+private struct PaymentBoundaryEdgesPreferenceKey: PreferenceKey {
+    static let defaultValue: PaymentBoundaryEdges = .zero
+
+    static func reduce(value: inout PaymentBoundaryEdges, nextValue: () -> PaymentBoundaryEdges) {
         let next = nextValue()
-        if 0 < next {
-            value = next
+        if 0 < next.topY {
+            value = PaymentBoundaryEdges(topY: next.topY, bottomY: value.bottomY)
+        }
+        if 0 < next.bottomY {
+            value = PaymentBoundaryEdges(topY: value.topY, bottomY: next.bottomY)
         }
     }
 }
