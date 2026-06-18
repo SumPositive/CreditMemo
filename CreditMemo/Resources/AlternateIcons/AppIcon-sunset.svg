@@ -55,9 +55,9 @@
   <!-- 缶バッジ本体 -->
   <g clip-path="url(#badgeCircle)">
     <!-- 3 色の帯（中央 200px、上下 300px ずつ） -->
-    <rect x="112" y="112" width="800" height="300" fill="#A8412B"/>
-    <rect x="112" y="412" width="800" height="200" fill="#E8D5B7"/>
-    <rect x="112" y="612" width="800" height="300" fill="#3D4F5C"/>
+    <rect x="112" y="112" width="800" height="300" fill="#FFD662"/>
+    <rect x="112" y="412" width="800" height="200" fill="#FF8C42"/>
+    <rect x="112" y="612" width="800" height="300" fill="#A03969"/>
 
     <!-- ドーム明暗（上→明、下→暗） -->
     <rect x="112" y="112" width="800" height="800" fill="url(#canDome)"/>

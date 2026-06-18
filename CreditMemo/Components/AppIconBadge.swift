@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// 引き落とし状況導線で使う共通バッジ
+/// 引き落とし状況導線で使う共通バッジ（缶バッジ風）
 /// トリコロール構成（上/中/下）。色は `Environment(\.badgeTheme)` から、
 /// 中央バンドの高さは `AppStorageKey.badgeMiddleHeight` から読み込んでライブ反映する
+/// 4 層のラジアルグラデ（ドーム明暗 + 上の反射 + 下の影 + 外周の縁）で立体感を出す
 struct AppIconBadge: View {
     let size: CGFloat
     /// 他の丸アイコンと見た目の密度を揃えるため少しだけ拡大する
@@ -17,13 +18,64 @@ struct AppIconBadge: View {
 
     var body: some View {
         let drawSize = size * visualScale
-        VStack(spacing: 0) {
-            Rectangle().fill(theme.topColor)
-                .frame(width: drawSize, height: bandHeight(in: drawSize))
-            Rectangle().fill(theme.middleColor)
-                .frame(width: drawSize, height: middleBandHeight(in: drawSize))
-            Rectangle().fill(theme.bottomColor)
-                .frame(width: drawSize, height: bandHeight(in: drawSize))
+        ZStack {
+            // 3 色の帯
+            VStack(spacing: 0) {
+                Rectangle().fill(theme.topColor)
+                    .frame(width: drawSize, height: bandHeight(in: drawSize))
+                Rectangle().fill(theme.middleColor)
+                    .frame(width: drawSize, height: middleBandHeight(in: drawSize))
+                Rectangle().fill(theme.bottomColor)
+                    .frame(width: drawSize, height: bandHeight(in: drawSize))
+            }
+
+            // ドーム: 全体に上明→下暗
+            RadialGradient(
+                stops: [
+                    .init(color: .white.opacity(0.30), location: 0),
+                    .init(color: .white.opacity(0.06), location: 0.55),
+                    .init(color: .black.opacity(0.18), location: 1)
+                ],
+                center: UnitPoint(x: 0.5, y: 0.335),
+                startRadius: 0,
+                endRadius: drawSize * 0.625
+            )
+
+            // 上の反射光
+            RadialGradient(
+                stops: [
+                    .init(color: .white.opacity(0.70), location: 0),
+                    .init(color: .white.opacity(0.20), location: 0.45),
+                    .init(color: .white.opacity(0), location: 1)
+                ],
+                center: UnitPoint(x: 0.5, y: 0.135),
+                startRadius: 0,
+                endRadius: drawSize * 0.375
+            )
+
+            // 下の影
+            RadialGradient(
+                stops: [
+                    .init(color: .black.opacity(0.38), location: 0),
+                    .init(color: .black.opacity(0.10), location: 0.6),
+                    .init(color: .black.opacity(0), location: 1)
+                ],
+                center: UnitPoint(x: 0.5, y: 0.885),
+                startRadius: 0,
+                endRadius: drawSize * 0.525
+            )
+
+            // 外周の縁
+            RadialGradient(
+                stops: [
+                    .init(color: .black.opacity(0), location: 0.86),
+                    .init(color: .black.opacity(0.30), location: 0.96),
+                    .init(color: .black.opacity(0.55), location: 1)
+                ],
+                center: .center,
+                startRadius: 0,
+                endRadius: drawSize * 0.5
+            )
         }
         .frame(width: drawSize, height: drawSize)
         .clipShape(Circle())

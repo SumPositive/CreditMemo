@@ -65,6 +65,17 @@
 		C31B5B152FD4007F0090CAEC /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = C31B5B142FD4007F0090CAEC /* GoogleService-Info.plist */; };
 		C342B3E82FE3762800BE9DEB /* BadgeTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = C342B3E62FE3762800BE9DEB /* BadgeTheme.swift */; };
 		C342B3EA2FE3765B00BE9DEB /* DisplayBadgeColorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = C342B3E92FE3765B00BE9DEB /* DisplayBadgeColorSheet.swift */; };
+		C342B3EC2FE3BD2E00BE9DEB /* AppIconSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = C342B3EB2FE3BD2E00BE9DEB /* AppIconSync.swift */; };
+		C342B41D2FE3BFC900BE9DEB /* AppIcon-chic@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = C342B4102FE3BFC900BE9DEB /* AppIcon-chic@2x.png */; };
+		C342B41E2FE3BFC900BE9DEB /* AppIcon-candy@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = C342B40D2FE3BFC900BE9DEB /* AppIcon-candy@2x.png */; };
+		C342B41F2FE3BFC900BE9DEB /* AppIcon-candy@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = C342B40E2FE3BFC900BE9DEB /* AppIcon-candy@3x.png */; };
+		C342B4212FE3BFC900BE9DEB /* AppIcon-japaneseEarth@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = C342B4172FE3BFC900BE9DEB /* AppIcon-japaneseEarth@3x.png */; };
+		C342B4222FE3BFC900BE9DEB /* AppIcon-sunset@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = C342B4192FE3BFC900BE9DEB /* AppIcon-sunset@2x.png */; };
+		C342B4232FE3BFC900BE9DEB /* AppIcon-chic@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = C342B4112FE3BFC900BE9DEB /* AppIcon-chic@3x.png */; };
+		C342B4252FE3BFC900BE9DEB /* AppIcon-french@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = C342B4142FE3BFC900BE9DEB /* AppIcon-french@3x.png */; };
+		C342B4262FE3BFC900BE9DEB /* AppIcon-french@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = C342B4132FE3BFC900BE9DEB /* AppIcon-french@2x.png */; };
+		C342B4272FE3BFC900BE9DEB /* AppIcon-japaneseEarth@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = C342B4162FE3BFC900BE9DEB /* AppIcon-japaneseEarth@2x.png */; };
+		C342B4282FE3BFC900BE9DEB /* AppIcon-sunset@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = C342B41A2FE3BFC900BE9DEB /* AppIcon-sunset@3x.png */; };
 		C736EED40B1697AC698B6F81 /* InvoiceListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D1DFD33101839DCB19540E9 /* InvoiceListView.swift */; };
 		CE6F6CD0071085C235BAF6F4 /* JSONExport.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2D12827F146761299C2F9A /* JSONExport.swift */; };
 		CF1F84FA70C44A2D7D0E4EDC /* PaymentListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C888720898CBE1F720F736D /* PaymentListView.swift */; };
@@ -151,6 +162,22 @@
 		C31B5B142FD4007F0090CAEC /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		C342B3E62FE3762800BE9DEB /* BadgeTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BadgeTheme.swift; sourceTree = "<group>"; };
 		C342B3E92FE3765B00BE9DEB /* DisplayBadgeColorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayBadgeColorSheet.swift; sourceTree = "<group>"; };
+		C342B3EB2FE3BD2E00BE9DEB /* AppIconSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppIconSync.swift; sourceTree = "<group>"; };
+		C342B40C2FE3BFC900BE9DEB /* AppIcon-candy.svg */ = {isa = PBXFileReference; lastKnownFileType = text; path = "AppIcon-candy.svg"; sourceTree = "<group>"; };
+		C342B40D2FE3BFC900BE9DEB /* AppIcon-candy@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-candy@2x.png"; sourceTree = "<group>"; };
+		C342B40E2FE3BFC900BE9DEB /* AppIcon-candy@3x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-candy@3x.png"; sourceTree = "<group>"; };
+		C342B40F2FE3BFC900BE9DEB /* AppIcon-chic.svg */ = {isa = PBXFileReference; lastKnownFileType = text; path = "AppIcon-chic.svg"; sourceTree = "<group>"; };
+		C342B4102FE3BFC900BE9DEB /* AppIcon-chic@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-chic@2x.png"; sourceTree = "<group>"; };
+		C342B4112FE3BFC900BE9DEB /* AppIcon-chic@3x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-chic@3x.png"; sourceTree = "<group>"; };
+		C342B4122FE3BFC900BE9DEB /* AppIcon-french.svg */ = {isa = PBXFileReference; lastKnownFileType = text; path = "AppIcon-french.svg"; sourceTree = "<group>"; };
+		C342B4132FE3BFC900BE9DEB /* AppIcon-french@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-french@2x.png"; sourceTree = "<group>"; };
+		C342B4142FE3BFC900BE9DEB /* AppIcon-french@3x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-french@3x.png"; sourceTree = "<group>"; };
+		C342B4152FE3BFC900BE9DEB /* AppIcon-japaneseEarth.svg */ = {isa = PBXFileReference; lastKnownFileType = text; path = "AppIcon-japaneseEarth.svg"; sourceTree = "<group>"; };
+		C342B4162FE3BFC900BE9DEB /* AppIcon-japaneseEarth@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-japaneseEarth@2x.png"; sourceTree = "<group>"; };
+		C342B4172FE3BFC900BE9DEB /* AppIcon-japaneseEarth@3x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-japaneseEarth@3x.png"; sourceTree = "<group>"; };
+		C342B4182FE3BFC900BE9DEB /* AppIcon-sunset.svg */ = {isa = PBXFileReference; lastKnownFileType = text; path = "AppIcon-sunset.svg"; sourceTree = "<group>"; };
+		C342B4192FE3BFC900BE9DEB /* AppIcon-sunset@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-sunset@2x.png"; sourceTree = "<group>"; };
+		C342B41A2FE3BFC900BE9DEB /* AppIcon-sunset@3x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-sunset@3x.png"; sourceTree = "<group>"; };
 		CA97A05301775C91BB87CE6F /* BankListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BankListView.swift; sourceTree = "<group>"; };
 		D6BD6FE99BF6A7C356696B78 /* BankEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BankEditView.swift; sourceTree = "<group>"; };
 		DAE1EBD323E4A4A04B0805E8 /* E3record.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = E3record.swift; sourceTree = "<group>"; };
@@ -268,6 +295,7 @@
 		5B155411FD36B0C994228CCD /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				C342B41B2FE3BFC900BE9DEB /* AlternateIcons */,
 				C31B5B142FD4007F0090CAEC /* GoogleService-Info.plist */,
 				461FBECA42994F0A6C9BEA37 /* Assets.xcassets */,
 				FA5C86233C4FE3247A2D008B /* Info.plist */,
@@ -347,9 +375,32 @@
 		C342B3E72FE3762800BE9DEB /* Theme */ = {
 			isa = PBXGroup;
 			children = (
+				C342B3EB2FE3BD2E00BE9DEB /* AppIconSync.swift */,
 				C342B3E62FE3762800BE9DEB /* BadgeTheme.swift */,
 			);
 			path = Theme;
+			sourceTree = "<group>";
+		};
+		C342B41B2FE3BFC900BE9DEB /* AlternateIcons */ = {
+			isa = PBXGroup;
+			children = (
+				C342B40C2FE3BFC900BE9DEB /* AppIcon-candy.svg */,
+				C342B40D2FE3BFC900BE9DEB /* AppIcon-candy@2x.png */,
+				C342B40E2FE3BFC900BE9DEB /* AppIcon-candy@3x.png */,
+				C342B40F2FE3BFC900BE9DEB /* AppIcon-chic.svg */,
+				C342B4102FE3BFC900BE9DEB /* AppIcon-chic@2x.png */,
+				C342B4112FE3BFC900BE9DEB /* AppIcon-chic@3x.png */,
+				C342B4122FE3BFC900BE9DEB /* AppIcon-french.svg */,
+				C342B4132FE3BFC900BE9DEB /* AppIcon-french@2x.png */,
+				C342B4142FE3BFC900BE9DEB /* AppIcon-french@3x.png */,
+				C342B4152FE3BFC900BE9DEB /* AppIcon-japaneseEarth.svg */,
+				C342B4162FE3BFC900BE9DEB /* AppIcon-japaneseEarth@2x.png */,
+				C342B4172FE3BFC900BE9DEB /* AppIcon-japaneseEarth@3x.png */,
+				C342B4182FE3BFC900BE9DEB /* AppIcon-sunset.svg */,
+				C342B4192FE3BFC900BE9DEB /* AppIcon-sunset@2x.png */,
+				C342B41A2FE3BFC900BE9DEB /* AppIcon-sunset@3x.png */,
+			);
+			path = AlternateIcons;
 			sourceTree = "<group>";
 		};
 		C54AACA7AAE085AE4CB2B941 /* About */ = {
@@ -585,6 +636,16 @@
 				C31B5B152FD4007F0090CAEC /* GoogleService-Info.plist in Resources */,
 				9A3B7A6325157E0900A17A10 /* InfoPlist.strings in Resources */,
 				3E1A55B3CA0F4B0D8D3C9F11 /* PrivacyInfo.xcprivacy in Resources */,
+				C342B41D2FE3BFC900BE9DEB /* AppIcon-chic@2x.png in Resources */,
+				C342B41E2FE3BFC900BE9DEB /* AppIcon-candy@2x.png in Resources */,
+				C342B41F2FE3BFC900BE9DEB /* AppIcon-candy@3x.png in Resources */,
+				C342B4212FE3BFC900BE9DEB /* AppIcon-japaneseEarth@3x.png in Resources */,
+				C342B4222FE3BFC900BE9DEB /* AppIcon-sunset@2x.png in Resources */,
+				C342B4232FE3BFC900BE9DEB /* AppIcon-chic@3x.png in Resources */,
+				C342B4252FE3BFC900BE9DEB /* AppIcon-french@3x.png in Resources */,
+				C342B4262FE3BFC900BE9DEB /* AppIcon-french@2x.png in Resources */,
+				C342B4272FE3BFC900BE9DEB /* AppIcon-japaneseEarth@2x.png in Resources */,
+				C342B4282FE3BFC900BE9DEB /* AppIcon-sunset@3x.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -646,6 +707,7 @@
 				C342B3EA2FE3765B00BE9DEB /* DisplayBadgeColorSheet.swift in Sources */,
 				2D70AB93C9F44E59B12E7D13 /* DeleteConfirmationDialog.swift in Sources */,
 				2D70AB95C9F44E59B12E7D15 /* AppIconBadge.swift in Sources */,
+				C342B3EC2FE3BD2E00BE9DEB /* AppIconSync.swift in Sources */,
 				2D70AB97C9F44E59B12E7D17 /* MemoEditor.swift in Sources */,
 				2D70AB99C9F44E59B12E7D19 /* EditShortcutCapsuleButton.swift in Sources */,
 				2D70AB9BC9F44E59B12E7D1B /* BeginnerHintView.swift in Sources */,

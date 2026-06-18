@@ -11,6 +11,11 @@ struct CardListView: View {
     @Environment(\.modelContext) private var context
     @AppStorage(AppStorageKey.userLevel) private var userLevel: UserLevel = .beginner
     @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
+    @AppStorage(AppStorageKey.badgePreset) private var badgePresetRaw: String = BadgePreset.japaneseEarth.rawValue
+
+    private var currentBadgePreset: BadgePreset {
+        BadgePreset(rawValue: badgePresetRaw) ?? .japaneseEarth
+    }
 
     @State private var showAddSheet    = false
     /// スワイプ「状況」で開く決済手段。設定されると引き落とし状況画面へ push する。
@@ -29,7 +34,7 @@ struct CardListView: View {
             Text("card.beginner.statusSwipeIntro")
                 .font(.body)
                 .fixedSize(horizontal: false, vertical: true)
-            beginnerSwipeHelpRow(imageName: "AppIconBadge", textKey: "card.beginner.statusSwipeText")
+            beginnerSwipeBadgeHelpRow(textKey: "card.beginner.statusSwipeText")
             beginnerSwipeHelpRow(imageName: "AddRecordIcon", textKey: "card.beginner.addPaymentSwipeText")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -42,6 +47,17 @@ struct CardListView: View {
                 .resizable()
                 .scaledToFit()
                 .frame(width: 34, height: 34)
+            Text(textKey)
+                .font(.body)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// 缶バッジ AppIconBadge 版（引き落とし状況スワイプの説明用）
+    private func beginnerSwipeBadgeHelpRow(textKey: LocalizedStringKey) -> some View {
+        HStack(alignment: .center, spacing: 12) {
+            AppIconBadge(size: 34)
             Text(textKey)
                 .font(.body)
                 .fixedSize(horizontal: false, vertical: true)
@@ -76,11 +92,12 @@ struct CardListView: View {
                     Button {
                         statusCard = card
                     } label: {
-                        // スワイプ用も共通バッジ画像を使う
-                        Label("", image: "AppIconBadge")
+                        // 缶バッジを original rendering で表示
+                        Image(currentBadgePreset.assetImageName)
+                            .renderingMode(.original)
                     }
-                    .tint(Color(uiColor: .systemBackground))
                     .accessibilityLabel(Text("card.action.status"))
+                    .tint(Color(uiColor: .systemGray5))
 
                     Button {
                         newPaymentCard = card

@@ -31,6 +31,15 @@ enum BadgePreset: String, CaseIterable, Identifiable {
         allCases.filter { $0 != .custom }
     }
 
+    /// Asset Catalog に登録された缶バッジ画像名（Image(badge.assetImageName) で参照）
+    /// .custom は japaneseEarth (デフォルトプリセット) にフォールバック
+    var assetImageName: String {
+        switch self {
+        case .custom: return "AppIconBadge-japaneseEarth"
+        default:      return "AppIconBadge-\(rawValue)"
+        }
+    }
+
     /// この preset の派生 BadgeTheme を取得。.custom は monoBlue を返すので使用側で個別処理
     var theme: BadgeTheme { BadgeTheme.from(preset: self) }
 }
@@ -166,7 +175,7 @@ struct BadgeTheme: Equatable {
 // MARK: - Environment
 
 private struct BadgeThemeKey: EnvironmentKey {
-    static let defaultValue: BadgeTheme = BadgePreset.monoBlue.theme
+    static let defaultValue: BadgeTheme = BadgePreset.japaneseEarth.theme
 }
 
 extension EnvironmentValues {

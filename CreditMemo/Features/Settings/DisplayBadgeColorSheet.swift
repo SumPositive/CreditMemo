@@ -5,7 +5,7 @@ import SwiftUI
 struct DisplayBadgeColorSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
-    @AppStorage(AppStorageKey.badgePreset) private var badgePresetRaw: String = BadgePreset.monoBlue.rawValue
+    @AppStorage(AppStorageKey.badgePreset) private var badgePresetRaw: String = BadgePreset.japaneseEarth.rawValue
     @AppStorage(AppStorageKey.badgeMiddleHeight) private var badgeMiddleHeight: Double = BadgeMiddleHeight.default
     @AppStorage(AppStorageKey.badgeCustomTopHex) private var customTopHex: String = "0A84FF"
     @AppStorage(AppStorageKey.badgeCustomMiddleHex) private var customMiddleHex: String = "9B4A44"

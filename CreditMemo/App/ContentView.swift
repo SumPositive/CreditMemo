@@ -16,7 +16,7 @@ struct ContentView: View {
     @AppStorage(AppStorageKey.openAddOnActive) private var openAddOnActive = false
     @AppStorage(AppStorageKey.openVoiceInputOnActive) private var openVoiceInputOnActive = false
     @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
-    @AppStorage(AppStorageKey.badgePreset) private var badgePresetRaw: String = BadgePreset.monoBlue.rawValue
+    @AppStorage(AppStorageKey.badgePreset) private var badgePresetRaw: String = BadgePreset.japaneseEarth.rawValue
     @AppStorage(AppStorageKey.badgeCustomTopHex) private var customTopHex: String = "0A84FF"
     @AppStorage(AppStorageKey.badgeCustomMiddleHex) private var customMiddleHex: String = "9B4A44"
     @AppStorage(AppStorageKey.badgeCustomBottomHex) private var customBottomHex: String = "3D5A80"
@@ -77,6 +77,12 @@ struct ContentView: View {
         }
         .onAppear {
             restoreDestinationIfNeeded()
+            // 起動時、保存されたプリセットに合わせてホーム画面アイコンを同期
+            AppIconSync.sync(to: BadgePreset(rawValue: badgePresetRaw) ?? .japaneseEarth)
+        }
+        .onChange(of: badgePresetRaw) { _, newValue in
+            // プリセット変更時にホーム画面アイコンを切替（iOS が確認アラートを表示）
+            AppIconSync.sync(to: BadgePreset(rawValue: newValue) ?? .japaneseEarth)
         }
         .onChange(of: selectedDestination) { _, newValue in
             // 文字サイズ切替で再生成されても戻れるように保持する

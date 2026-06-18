@@ -6,6 +6,11 @@ struct BankListView: View {
     @Environment(\.modelContext) private var context
     @AppStorage(AppStorageKey.userLevel) private var userLevel: UserLevel = .beginner
     @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
+    @AppStorage(AppStorageKey.badgePreset) private var badgePresetRaw: String = BadgePreset.japaneseEarth.rawValue
+
+    private var currentBadgePreset: BadgePreset {
+        BadgePreset(rawValue: badgePresetRaw) ?? .japaneseEarth
+    }
 
     @State private var showAddSheet    = false
     /// 左スワイプ「状況」で開く口座。設定されると引き落とし状況画面へ push する。
@@ -61,10 +66,12 @@ struct BankListView: View {
                     Button {
                         statusBank = bank
                     } label: {
-                        // スワイプ用も共通バッジ画像を使う
-                        Label("", image: "AppIconBadge")
+                        // 缶バッジを original rendering で表示
+                        Image(currentBadgePreset.assetImageName)
+                            .renderingMode(.original)
                     }
-                    .tint(Color(uiColor: .systemBackground))
+                    .accessibilityLabel(Text("card.action.status"))
+                    .tint(Color(uiColor: .systemGray5))
                     .accessibilityLabel(Text("card.action.status"))
                 }
             }
