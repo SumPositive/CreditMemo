@@ -1,106 +1,39 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" fill="none">
   <defs>
+    <!-- 背景: 小豆色 -->
     <linearGradient id="bgVertical" x1="512" y1="0" x2="512" y2="1024" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#9B4A44"/>
-      <stop offset="0.52" stop-color="#9B4A44"/>
       <stop offset="1" stop-color="#9B4A44"/>
     </linearGradient>
     <radialGradient id="bgGlowTop" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(512 280) rotate(90) scale(340 820)">
-      <stop offset="0" stop-color="#B5605A" stop-opacity="0.36"/>
+      <stop offset="0" stop-color="#B5605A" stop-opacity="0.32"/>
       <stop offset="1" stop-color="#B5605A" stop-opacity="0"/>
     </radialGradient>
     <radialGradient id="bgGlowBottom" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(512 800) rotate(90) scale(340 820)">
-      <stop offset="0" stop-color="#B5605A" stop-opacity="0.36"/>
+      <stop offset="0" stop-color="#B5605A" stop-opacity="0.32"/>
       <stop offset="1" stop-color="#B5605A" stop-opacity="0"/>
     </radialGradient>
 
-    <!-- 上側の帯 -->
-    <linearGradient id="topBand" x1="512" y1="160" x2="512" y2="512" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#C7961F" stop-opacity="0.08"/>
-      <stop offset="0.20" stop-color="#D5AB46" stop-opacity="0.22"/>
-      <stop offset="0.55" stop-color="#E3BA63" stop-opacity="0.54"/>
-      <stop offset="0.9726" stop-color="#F0D591" stop-opacity="0.98"/>
-      <stop offset="1" stop-color="#F0D591" stop-opacity="0.98"/>
-    </linearGradient>
-
-    <!-- 下側の帯 -->
-    <linearGradient id="bottomBand" x1="512" y1="512" x2="512" y2="864" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#F5EFE8" stop-opacity="0.98"/>
-      <stop offset="0.0274" stop-color="#F5EFE8" stop-opacity="0.98"/>
-      <stop offset="0.42" stop-color="#DDD6CE" stop-opacity="0.50"/>
-      <stop offset="0.80" stop-color="#BEB5AC" stop-opacity="0.22"/>
-      <stop offset="1" stop-color="#A29A93" stop-opacity="0.08"/>
-    </linearGradient>
-
-    <!-- 中央の小豆色ライン -->
-    <linearGradient id="centerGlow" x1="0" y1="512" x2="1024" y2="512" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#9B4A44"/>
-      <stop offset="1" stop-color="#9B4A44"/>
-    </linearGradient>
-
-    <filter id="lineGlow" x="-10%" y="-500%" width="120%" height="1100%" color-interpolation-filters="sRGB">
-      <feGaussianBlur stdDeviation="6"/>
-    </filter>
-
-    <!-- 帯の柔らかいにじみ -->
-    <filter id="bandGlow" x="-8%" y="-24%" width="116%" height="148%" color-interpolation-filters="sRGB">
-      <feGaussianBlur stdDeviation="24"/>
-    </filter>
-
-    <!-- 矢印の影を少しだけ出す -->
-    <filter id="arrowShadow" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
-      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#6F312D" flood-opacity="0.20"/>
-    </filter>
-
-    <filter id="grain" x="-20%" y="-20%" width="140%" height="140%">
-      <feTurbulence type="fractalNoise" baseFrequency="0.95" numOctaves="2" seed="11" result="noise"/>
-      <feColorMatrix in="noise" type="saturate" values="0"/>
-      <feComponentTransfer>
-        <feFuncA type="table" tableValues="0 0.032"/>
-      </feComponentTransfer>
-    </filter>
+    <!-- AppIconBadge と同形: 中央の円で 3 色帯をクリップ -->
+    <clipPath id="badgeCircle">
+      <circle cx="512" cy="512" r="400"/>
+    </clipPath>
   </defs>
 
-  <!-- 背景 -->
+  <!-- 背景: 小豆色＋上下の微発光 -->
   <rect width="1024" height="1024" fill="url(#bgVertical)"/>
   <rect width="1024" height="1024" fill="url(#bgGlowTop)"/>
   <rect width="1024" height="1024" fill="url(#bgGlowBottom)"/>
 
-  <!-- 境界帯 -->
-  <g filter="url(#bandGlow)">
-    <rect x="0" y="160" width="1024" height="352" fill="url(#topBand)"/>
-    <rect x="0" y="512" width="1024" height="352" fill="url(#bottomBand)"/>
+  <!-- 中央の AppIconBadge（モノブルー = デフォルトプリセット）-->
+  <!-- 円: r=400, 中央 (512,512), 高さ 800px -->
+  <!-- 中央バンド: 16/64 * 800 = 200px。上下バンド: 300px ずつ -->
+  <g clip-path="url(#badgeCircle)">
+    <!-- 上: 明るいブルー #5BB0FF -->
+    <rect x="112" y="112" width="800" height="300" fill="#5BB0FF"/>
+    <!-- 中: Apple ブルー #0A84FF -->
+    <rect x="112" y="412" width="800" height="200" fill="#0A84FF"/>
+    <!-- 下: 深ネイビー #003D80 -->
+    <rect x="112" y="612" width="800" height="300" fill="#003D80"/>
   </g>
-  <rect x="0" y="160" width="1024" height="352" fill="url(#topBand)"/>
-  <rect x="0" y="512" width="1024" height="352" fill="url(#bottomBand)"/>
-
-  <!-- 上側の矢印 -->
-  <g filter="url(#arrowShadow)">
-    <path d="M 512 250 L 512 356 M 440 322 L 512 406 L 584 322"
-          transform="translate(5 6)"
-          stroke="#FFF5DC" stroke-opacity="0.92" stroke-width="44"
-          stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-    <path d="M 512 250 L 512 356 M 440 322 L 512 406 L 584 322"
-          stroke="#0F0903" stroke-opacity="0.80" stroke-width="44"
-          stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-  </g>
-
-  <!-- 下側の矢印 -->
-  <g filter="url(#arrowShadow)">
-    <path d="M 512 774 L 512 668 M 440 702 L 512 618 L 584 702"
-          transform="translate(5 6)"
-          stroke="#FFF5DC" stroke-opacity="0.92" stroke-width="44"
-          stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-    <path d="M 512 774 L 512 668 M 440 702 L 512 618 L 584 702"
-          stroke="#0F0903" stroke-opacity="0.80" stroke-width="44"
-          stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-  </g>
-
-  <!-- 中央の境界線 -->
-  <g filter="url(#lineGlow)">
-    <rect x="0" y="505" width="1024" height="14" fill="url(#centerGlow)"/>
-  </g>
-  <rect x="0" y="507" width="1024" height="10" fill="url(#centerGlow)"/>
-
-  <rect width="1024" height="1024" filter="url(#grain)"/>
 </svg>

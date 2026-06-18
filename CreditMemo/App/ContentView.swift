@@ -16,6 +16,25 @@ struct ContentView: View {
     @AppStorage(AppStorageKey.openAddOnActive) private var openAddOnActive = false
     @AppStorage(AppStorageKey.openVoiceInputOnActive) private var openVoiceInputOnActive = false
     @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
+    @AppStorage(AppStorageKey.badgePreset) private var badgePresetRaw: String = BadgePreset.monoBlue.rawValue
+    @AppStorage(AppStorageKey.badgeCustomTopHex) private var customTopHex: String = "0A84FF"
+    @AppStorage(AppStorageKey.badgeCustomMiddleHex) private var customMiddleHex: String = "9B4A44"
+    @AppStorage(AppStorageKey.badgeCustomBottomHex) private var customBottomHex: String = "3D5A80"
+    @AppStorage(AppStorageKey.badgeCustomAuthoredMode) private var customAuthoredMode: String = "light"
+
+    private var currentBadgeTheme: BadgeTheme {
+        let preset = BadgePreset(rawValue: badgePresetRaw) ?? .monoBlue
+        if preset == .custom {
+            let mode: ColorScheme = customAuthoredMode == "dark" ? .dark : .light
+            return BadgeTheme.makeCustom(
+                topHex: customTopHex,
+                middleHex: customMiddleHex,
+                bottomHex: customBottomHex,
+                authoredIn: mode
+            )
+        }
+        return preset.theme
+    }
     @SceneStorage("content.selectedDestination") private var selectedDestinationRaw: String?
     @State private var selectedDestination: AppDestination?
     @State private var addRecordRefreshID = UUID()
@@ -71,6 +90,7 @@ struct ContentView: View {
             handleDeepLink(url)
         }
         .environment(editingState)
+        .environment(\.badgeTheme, currentBadgeTheme)
     }
 
     // MARK: - 特大: スプリットなし NavigationStack

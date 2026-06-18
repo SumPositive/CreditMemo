@@ -50,6 +50,7 @@ struct RecordEditView: View {
     @Environment(\.modelContext)    private var context
     @Environment(\.dismiss)         private var dismiss
     @Environment(AppEditingState.self) private var editingState
+    @Environment(\.badgeTheme)      private var badgeTheme
     @Query(sort: \E1card.nRow)      private var cards: [E1card]
     @Query(sort: \E8bank.nRow)      private var banks: [E8bank]
     @Query(sort: \E3record.dateUse, order: .reverse) private var pastRecords: [E3record]
@@ -868,7 +869,7 @@ private var isValid: Bool {
     /// 自動/手動の表示色
     private func dueDateModeColor(isLocked: Bool) -> Color {
         // 手動は済み・施錠と同じ緑、自動はアクセント色にそろえる
-        isLocked ? COLOR_PAID : .accentColor
+        isLocked ? badgeTheme.paidText : .accentColor
     }
 
     /// 支払方法を切り替え、不要になった分割ドラフトを整理する

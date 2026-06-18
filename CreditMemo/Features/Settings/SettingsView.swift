@@ -33,6 +33,7 @@ struct SettingsView: View {
     @Environment(\.modelContext) private var context
     @State private var showShareSheet  = false
     @State private var showImportPicker = false
+    @State private var showBadgeColorSheet = false
     @State private var exportedURL: URL?
     @State private var showDocsSheet = false
     @State private var showTipSheet = false
@@ -121,6 +122,25 @@ struct SettingsView: View {
                 }
 
                 Toggle(showCurrencySymbolLabel, isOn: $showCurrencySymbol)
+
+                Button {
+                    showBadgeColorSheet = true
+                } label: {
+                    HStack {
+                        Text("settings.badgeColor")
+                            .font(.subheadline)
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        AppIconBadge(size: 22)
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.tertiary)
+                    }
+                    // 設定行の見えている範囲をそのままタップ領域にする
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
             }
 
             Section("settings.panel.payment") {
@@ -251,6 +271,11 @@ struct SettingsView: View {
             } footer: {
                 settingsFooter
             }
+        }
+        .sheet(isPresented: $showBadgeColorSheet) {
+            DisplayBadgeColorSheet()
+                .appFontScale(fontScale)
+                .presentationBackground(Color(uiColor: .systemBackground))
         }
         .sheet(isPresented: $showTipSheet) {
             TipSheetView()

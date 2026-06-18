@@ -137,6 +137,7 @@ struct CardListView: View {
 
 private struct CardRow: View {
     let card: E1card
+    @Environment(\.badgeTheme) private var badgeTheme
     private var isEnglishLocale: Bool {
         (Bundle.main.preferredLocalizations.first ?? "en") == "en"
     }
@@ -149,7 +150,7 @@ private struct CardRow: View {
                 if card.sumUnpaid != .zero {
                     Text(card.sumUnpaid.currencyString())
                         .font(.subheadline.monospacedDigit())
-                        .foregroundStyle(COLOR_UNPAID)
+                        .foregroundStyle(badgeTheme.unpaidText)
                 }
             }
             HStack(spacing: 8) {

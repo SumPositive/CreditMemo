@@ -29,11 +29,8 @@ struct BankListView: View {
 
     private func beginnerStatusHelpRow(textKey: LocalizedStringKey) -> some View {
         HStack(alignment: .center, spacing: 12) {
-            // スワイプ用も共通バッジ画像を使う
-            Image("AppIconBadge")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 34, height: 34)
+            // スワイプ用も共通バッジを使う
+            AppIconBadge(size: 34)
             Text(textKey)
                 .font(.body)
                 .fixedSize(horizontal: false, vertical: true)

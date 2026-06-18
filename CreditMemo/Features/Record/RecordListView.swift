@@ -818,6 +818,8 @@ struct RecordSummaryRow: View {
     var amountOverride: Decimal? = nil
     var showsStatus: Bool = true
 
+    @Environment(\.badgeTheme) private var badgeTheme
+
     // 分割のどれか1つでも未払があれば未払表示にする
     private var isUnpaid: Bool {
         // 決済手段未選択などで請求パーツが無い場合は未払として扱う
@@ -837,7 +839,7 @@ struct RecordSummaryRow: View {
         displayAmount < 0 ? COLOR_AMOUNT_NEGATIVE : COLOR_AMOUNT_POSITIVE
     }
     private var statusTextColor: Color {
-        isUnpaid ? COLOR_UNPAID : COLOR_PAID
+        isUnpaid ? badgeTheme.unpaidText : badgeTheme.paidText
     }
     private var showsRepeatIcon: Bool {
         0 < record.nRepeat
@@ -894,7 +896,7 @@ struct RecordSummaryRow: View {
                         // 状態アイコンは控えめに表示する
                         Image(systemName: isUnpaid ? "arrow.down.circle.fill" : "arrow.up.circle.fill").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                             .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(isUnpaid ? COLOR_UNPAID_ICON : COLOR_PAID_ICON)
+                            .foregroundStyle(isUnpaid ? badgeTheme.topColor : badgeTheme.bottomColor)
                             .opacity(0.5)
                             .fixedSize(horizontal: true, vertical: false)
                     }

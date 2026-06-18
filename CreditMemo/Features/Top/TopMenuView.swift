@@ -11,6 +11,7 @@ struct TopMenuView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.badgeTheme) private var badgeTheme
     @AppStorage(AppStorageKey.userLevel) private var userLevel: UserLevel = .beginner
     @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
     @AppStorage(AppStorageKey.paymentWindowDays) private var paymentWindowDays = 15
@@ -136,7 +137,7 @@ struct TopMenuView: View {
                                             .fixedSize(horizontal: true, vertical: false)
                                         Text(recentUnpaidTotal.currencyString())
                                             .font(.callout.weight(.semibold))
-                                            .foregroundStyle(COLOR_UNPAID)
+                                            .foregroundStyle(badgeTheme.unpaidText)
                                             .fixedSize(horizontal: true, vertical: false)
                                     }
                                 }
@@ -156,7 +157,7 @@ struct TopMenuView: View {
                                         .fixedSize(horizontal: true, vertical: false)
                                     Text(recentUnpaidTotal.currencyString())
                                         .font(.callout.weight(.semibold))
-                                        .foregroundStyle(COLOR_UNPAID)
+                                        .foregroundStyle(badgeTheme.unpaidText)
                                         .lineLimit(1)
                                         .minimumScaleFactor(0.6)
                                         .fixedSize(horizontal: true, vertical: false)
@@ -176,7 +177,7 @@ struct TopMenuView: View {
                                     Spacer(minLength: 0)
                                     Text(recentUnpaidTotal.currencyString())
                                         .font(.callout.weight(.semibold))
-                                        .foregroundStyle(COLOR_UNPAID)
+                                        .foregroundStyle(badgeTheme.unpaidText)
                                         .lineLimit(1)
                                         .minimumScaleFactor(0.6)
                                         .fixedSize(horizontal: true, vertical: false)
