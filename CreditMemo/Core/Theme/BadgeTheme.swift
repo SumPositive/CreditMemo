@@ -9,7 +9,12 @@ enum BadgePreset: String, CaseIterable, Identifiable {
     case japaneseEarth // T4 ジャパニーズ・アース
     case chic          // T5 シック・モダン
     case candy         // T6 キャンディ
-    case custom        // ユーザー編集色
+    case ocean         // T7 海
+    case forest        // T8 森
+    case mono          // T9 モノクロ
+    case pastel        // T10 パステル
+    case berry         // T11 ベリー
+    case lagoon        // T12 ラグーン
 
     var id: String { rawValue }
 
@@ -22,25 +27,22 @@ enum BadgePreset: String, CaseIterable, Identifiable {
         case .japaneseEarth: "settings.badgePreset.japaneseEarth"
         case .chic:          "settings.badgePreset.chic"
         case .candy:         "settings.badgePreset.candy"
-        case .custom:        "settings.badgePreset.custom"
+        case .ocean:         "settings.badgePreset.ocean"
+        case .forest:        "settings.badgePreset.forest"
+        case .mono:          "settings.badgePreset.mono"
+        case .pastel:        "settings.badgePreset.pastel"
+        case .berry:         "settings.badgePreset.berry"
+        case .lagoon:        "settings.badgePreset.lagoon"
         }
     }
 
-    /// プリセットタイル用（.custom を除く 6 つ）
-    static var presetCases: [BadgePreset] {
-        allCases.filter { $0 != .custom }
-    }
+    /// プリセットタイル用（全 12 件）
+    static var presetCases: [BadgePreset] { allCases }
 
     /// Asset Catalog に登録された缶バッジ画像名（Image(badge.assetImageName) で参照）
-    /// .custom は japaneseEarth (デフォルトプリセット) にフォールバック
-    var assetImageName: String {
-        switch self {
-        case .custom: return "AppIconBadge-japaneseEarth"
-        default:      return "AppIconBadge-\(rawValue)"
-        }
-    }
+    var assetImageName: String { "AppIconBadge-\(rawValue)" }
 
-    /// この preset の派生 BadgeTheme を取得。.custom は monoBlue を返すので使用側で個別処理
+    /// この preset の派生 BadgeTheme を取得
     var theme: BadgeTheme { BadgeTheme.from(preset: self) }
 }
 
@@ -115,47 +117,61 @@ struct BadgeTheme: Equatable {
                 unpaidText:  dyn(light: 0xCC4877, dark: 0xFF89B5),
                 paidText:    dyn(light: 0x2D8FB8, dark: 0x7BD0EE)
             )
-        case .custom:
-            // .custom は ContentView 側で makeCustom を呼び出すこと。
-            // フォールバックとして monoBlue を返す
-            return Self.from(preset: .monoBlue)
+        case .ocean:
+            // 海と夕日。中央はゴールドの反射
+            return BadgeTheme(
+                topColor:    dyn(light: 0x4A8FBC, dark: 0x6CABD5),
+                middleColor: dyn(light: 0xFFC97A, dark: 0xFFD89A),
+                bottomColor: dyn(light: 0x1F4D6E, dark: 0x4A78A0),
+                unpaidText:  dyn(light: 0x2A6F95, dark: 0x6CABD5),
+                paidText:    dyn(light: 0x143850, dark: 0x6E96B8)
+            )
+        case .forest:
+            // 森。葉/樹幹/苔（中央は濃いブラウン）
+            return BadgeTheme(
+                topColor:    dyn(light: 0x5A8A3D, dark: 0x7CAA5E),
+                middleColor: dyn(light: 0x8B5A2B, dark: 0xA67A4A),
+                bottomColor: dyn(light: 0x3D4A2C, dark: 0x6E7E5C),
+                unpaidText:  dyn(light: 0x3F6B26, dark: 0x7CAA5E),
+                paidText:    dyn(light: 0x2A361E, dark: 0x88987A)
+            )
+        case .mono:
+            // 灰階。中央を中銀にして明度差を確保
+            return BadgeTheme(
+                topColor:    dyn(light: 0x5A5A5A, dark: 0xB8B8B8),
+                middleColor: dyn(light: 0x9C9C9C, dark: 0x5C5C5C),
+                bottomColor: dyn(light: 0x1F1F1F, dark: 0x6E6E6E),
+                unpaidText:  dyn(light: 0x3A3A3A, dark: 0xD0D0D0),
+                paidText:    dyn(light: 0x0F0F0F, dark: 0x9C9C9C)
+            )
+        case .pastel:
+            // 淡 3 色。中央をミントパステルに
+            return BadgeTheme(
+                topColor:    dyn(light: 0xFFC1CC, dark: 0xFFD0D8),
+                middleColor: dyn(light: 0xA8E6CF, dark: 0xBEEED9),
+                bottomColor: dyn(light: 0xC2DEFF, dark: 0xA8CFFA),
+                unpaidText:  dyn(light: 0xC97889, dark: 0xFFD0D8),
+                paidText:    dyn(light: 0x6E9AC9, dark: 0xA8CFFA)
+            )
+        case .berry:
+            // 果実。中央はビビッドベリー
+            return BadgeTheme(
+                topColor:    dyn(light: 0xA04088, dark: 0xC062A8),
+                middleColor: dyn(light: 0xE03A6E, dark: 0xF06080),
+                bottomColor: dyn(light: 0x5A1E5C, dark: 0x8C4A8E),
+                unpaidText:  dyn(light: 0x7A2C68, dark: 0xC062A8),
+                paidText:    dyn(light: 0x3D1240, dark: 0xA068A4)
+            )
+        case .lagoon:
+            // トロピカル。中央はコーラル（ターコイズの補色）
+            return BadgeTheme(
+                topColor:    dyn(light: 0x5DBFA8, dark: 0x7FD4BD),
+                middleColor: dyn(light: 0xFF8C5A, dark: 0xFFA67C),
+                bottomColor: dyn(light: 0x1E6F70, dark: 0x4A9899),
+                unpaidText:  dyn(light: 0x3D8A78, dark: 0x7FD4BD),
+                paidText:    dyn(light: 0x144C4D, dark: 0x6CB0B1)
+            )
         }
-    }
-
-    // MARK: - Custom theme construction
-
-    /// 3 色とその作成モードから動的 BadgeTheme を組み立てる。
-    /// 逆モードの色は明度自動調整される
-    static func makeCustom(
-        topHex: String,
-        middleHex: String,
-        bottomHex: String,
-        authoredIn: ColorScheme
-    ) -> BadgeTheme {
-        let topAuthored    = UIColor(hexString: topHex)    ?? .systemBlue
-        let middleAuthored = UIColor(hexString: middleHex) ?? .gray
-        let bottomAuthored = UIColor(hexString: bottomHex) ?? .systemRed
-
-        let topL    = authoredIn == .light ? topAuthored    : topAuthored.adjustedForOppositeMode()
-        let topD    = authoredIn == .dark  ? topAuthored    : topAuthored.adjustedForOppositeMode()
-        let midL    = authoredIn == .light ? middleAuthored : middleAuthored.adjustedForOppositeMode()
-        let midD    = authoredIn == .dark  ? middleAuthored : middleAuthored.adjustedForOppositeMode()
-        let botL    = authoredIn == .light ? bottomAuthored : bottomAuthored.adjustedForOppositeMode()
-        let botD    = authoredIn == .dark  ? bottomAuthored : bottomAuthored.adjustedForOppositeMode()
-
-        return BadgeTheme(
-            topColor:    dynamicColor(light: topL, dark: topD),
-            middleColor: dynamicColor(light: midL, dark: midD),
-            bottomColor: dynamicColor(light: botL, dark: botD),
-            unpaidText:  dynamicColor(light: topL.textContrasted(for: .light), dark: topD.textContrasted(for: .dark)),
-            paidText:    dynamicColor(light: botL.textContrasted(for: .light), dark: botD.textContrasted(for: .dark))
-        )
-    }
-
-    private static func dynamicColor(light: UIColor, dark: UIColor) -> Color {
-        Color(uiColor: UIColor { trait in
-            trait.userInterfaceStyle == .dark ? dark : light
-        })
     }
 
     /// 16進カラーをライト/ダーク両対応の動的 Color に
@@ -194,66 +210,3 @@ enum BadgeMiddleHeight {
     static let `default`: Double = 16
 }
 
-// MARK: - UIColor / Color hex 変換ヘルパー（カスタム配色専用）
-
-extension UIColor {
-    /// "RRGGBB" or "#RRGGBB" の hex 文字列から UIColor を作る
-    convenience init?(hexString: String) {
-        var hex = hexString.trimmingCharacters(in: .whitespacesAndNewlines)
-        if hex.hasPrefix("#") { hex.removeFirst() }
-        guard hex.count == 6, let value = UInt32(hex, radix: 16) else {
-            return nil
-        }
-        let r = CGFloat((value >> 16) & 0xFF) / 255
-        let g = CGFloat((value >> 8)  & 0xFF) / 255
-        let b = CGFloat(value & 0xFF)         / 255
-        self.init(red: r, green: g, blue: b, alpha: 1)
-    }
-
-    /// 現在の RGB を 6 桁 hex 文字列 ("RRGGBB", 大文字) に変換
-    func toHexString() -> String {
-        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
-        guard getRed(&r, green: &g, blue: &b, alpha: &a) else { return "000000" }
-        let R = Int(round(max(0, min(1, r)) * 255))
-        let G = Int(round(max(0, min(1, g)) * 255))
-        let B = Int(round(max(0, min(1, b)) * 255))
-        return String(format: "%02X%02X%02X", R, G, B)
-    }
-
-    /// 作成モードと逆モード向けに明度を自動調整した色を返す
-    func adjustedForOppositeMode() -> UIColor {
-        var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
-        guard getHue(&h, saturation: &s, brightness: &b, alpha: &a) else { return self }
-        let target: CGFloat
-        if b < 0.5 {
-            target = min(1.0, b + (1.0 - b) * 0.45)
-        } else {
-            target = max(0.0, b * 0.65)
-        }
-        return UIColor(hue: h, saturation: s, brightness: target, alpha: a)
-    }
-
-    /// 指定モードの背景に対してテキストとして読みやすい色にする
-    func textContrasted(for scheme: ColorScheme) -> UIColor {
-        var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
-        guard getHue(&h, saturation: &s, brightness: &b, alpha: &a) else { return self }
-        let target: CGFloat
-        if scheme == .light {
-            target = min(b, 0.42)
-        } else {
-            target = max(b, 0.72)
-        }
-        return UIColor(hue: h, saturation: s, brightness: target, alpha: a)
-    }
-}
-
-extension Color {
-    /// "RRGGBB" hex から Color を作る
-    init(hexString: String) {
-        if let ui = UIColor(hexString: hexString) {
-            self.init(uiColor: ui)
-        } else {
-            self.init(uiColor: .systemBlue)
-        }
-    }
-}

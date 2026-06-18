@@ -16,7 +16,12 @@ enum AppIconSync {
         case .sunset:        return "sunset"
         case .chic:          return "chic"
         case .candy:         return "candy"
-        case .custom:        return nil       // sync 側でスキップする想定。実質未使用
+        case .ocean:         return "ocean"
+        case .forest:        return "forest"
+        case .mono:          return "mono"
+        case .pastel:        return "pastel"
+        case .berry:         return "berry"
+        case .lagoon:        return "lagoon"
         }
     }
 
@@ -27,8 +32,6 @@ enum AppIconSync {
     static func sync(to preset: BadgePreset) {
         let app = UIApplication.shared
         guard app.supportsAlternateIcons else { return }
-        // カスタム時は直前のプリセットアイコンを維持（変更しない）
-        if preset == .custom { return }
         var desired = iconName(for: preset)
 
         // 希望の alternate PNG がバンドルに無ければプライマリに落とす

@@ -29,14 +29,6 @@ enum AppStorageKey {
     static let badgePreset           = "setting.display.badgePreset"
     /// 引き落とし状況バッジの中央バンド高さ（base size 64 換算で 8..24）
     static let badgeMiddleHeight     = "setting.display.badgeMiddleHeight"
-    /// カスタム配色: 上の色（hex 文字列 "RRGGBB"）
-    static let badgeCustomTopHex     = "setting.display.badgeCustomTopHex"
-    /// カスタム配色: 中の色
-    static let badgeCustomMiddleHex  = "setting.display.badgeCustomMiddleHex"
-    /// カスタム配色: 下の色
-    static let badgeCustomBottomHex  = "setting.display.badgeCustomBottomHex"
-    /// カスタム配色を作成したモード（"light" or "dark"）。逆モードの色は明度自動調整
-    static let badgeCustomAuthoredMode = "setting.display.badgeCustomAuthoredMode"
 }
 
 /// ユーザレベル

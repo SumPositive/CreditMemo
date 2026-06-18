@@ -1,52 +1,19 @@
 import SwiftUI
 
-/// 引き落とし状況の配色プリセットと、上/中/下の個別色 + 中央高さを編集するシート
+/// 引き落とし状況の配色プリセットと中央高さを編集するシート
 /// 設定 → 表示 → 引き落とし状況の配色 から開く
 struct DisplayBadgeColorSheet: View {
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.colorScheme) private var colorScheme
     @AppStorage(AppStorageKey.badgePreset) private var badgePresetRaw: String = BadgePreset.japaneseEarth.rawValue
     @AppStorage(AppStorageKey.badgeMiddleHeight) private var badgeMiddleHeight: Double = BadgeMiddleHeight.default
-    @AppStorage(AppStorageKey.badgeCustomTopHex) private var customTopHex: String = "0A84FF"
-    @AppStorage(AppStorageKey.badgeCustomMiddleHex) private var customMiddleHex: String = "9B4A44"
-    @AppStorage(AppStorageKey.badgeCustomBottomHex) private var customBottomHex: String = "3D5A80"
-    @AppStorage(AppStorageKey.badgeCustomAuthoredMode) private var customAuthoredMode: String = "light"
 
     private var selectedPreset: BadgePreset {
-        BadgePreset(rawValue: badgePresetRaw) ?? .monoBlue
-    }
-
-    /// 現在表示すべき theme（custom 含む）
-    private var previewTheme: BadgeTheme {
-        if selectedPreset == .custom {
-            let mode: ColorScheme = customAuthoredMode == "dark" ? .dark : .light
-            return BadgeTheme.makeCustom(
-                topHex: customTopHex,
-                middleHex: customMiddleHex,
-                bottomHex: customBottomHex,
-                authoredIn: mode
-            )
-        }
-        return selectedPreset.theme
-    }
-
-    private var displayedTopHex: String {
-        if selectedPreset == .custom { return customTopHex }
-        return UIColor(previewTheme.topColor).toHexString()
-    }
-    private var displayedMiddleHex: String {
-        if selectedPreset == .custom { return customMiddleHex }
-        return UIColor(previewTheme.middleColor).toHexString()
-    }
-    private var displayedBottomHex: String {
-        if selectedPreset == .custom { return customBottomHex }
-        return UIColor(previewTheme.bottomColor).toHexString()
+        BadgePreset(rawValue: badgePresetRaw) ?? .japaneseEarth
     }
 
     private let columns = [
         GridItem(.adaptive(minimum: 90, maximum: 140), spacing: 10)
     ]
-    private let rowHeight: CGFloat = 44
     private let cornerRadius: CGFloat = 12
 
     var body: some View {
@@ -55,7 +22,6 @@ struct DisplayBadgeColorSheet: View {
                 VStack(spacing: 14) {
                     previewSection
                     presetGrid
-                    colorRowsCard
                     middleHeightCard
                 }
                 .padding(.horizontal, 16)
@@ -77,7 +43,7 @@ struct DisplayBadgeColorSheet: View {
     private var previewSection: some View {
         VStack(spacing: 4) {
             AppIconBadge(size: 84)
-                .environment(\.badgeTheme, previewTheme)
+                .environment(\.badgeTheme, selectedPreset.theme)
             Text(LocalizedStringKey(selectedPreset.localizedKey))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
@@ -135,53 +101,6 @@ struct DisplayBadgeColorSheet: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: - Color Rows Card
-
-    private var colorRowsCard: some View {
-        VStack(spacing: 0) {
-            colorRow(titleKey: "settings.badgeBand.top", hexBinding: topColorBinding)
-            rowDivider
-            colorRow(titleKey: "settings.badgeBand.middle", hexBinding: middleColorBinding)
-            rowDivider
-            colorRow(titleKey: "settings.badgeBand.bottom", hexBinding: bottomColorBinding)
-        }
-        .background(
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(Color(uiColor: .secondarySystemGroupedBackground))
-        )
-    }
-
-    /// 44pt 高さ、行全体をタップで ColorPicker が開く
-    private func colorRow(titleKey: String, hexBinding: Binding<String>) -> some View {
-        ColorPicker(
-            selection: Binding(
-                get: { Color(hexString: hexBinding.wrappedValue) },
-                set: { newColor in
-                    switchToCustomIfNeeded()
-                    hexBinding.wrappedValue = UIColor(newColor).toHexString()
-                }
-            ),
-            supportsOpacity: false
-        ) {
-            HStack(spacing: 8) {
-                Text(LocalizedStringKey(titleKey))
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.primary)
-                Spacer()
-                Text(verbatim: "#" + hexBinding.wrappedValue.uppercased())
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.tertiary)
-            }
-            .contentShape(Rectangle())
-        }
-        .frame(height: rowHeight)
-        .padding(.horizontal, 16)
-    }
-
-    private var rowDivider: some View {
-        Divider().padding(.leading, 16)
-    }
-
     // MARK: - Middle Height Card
 
     private var middleHeightCard: some View {
@@ -213,32 +132,6 @@ struct DisplayBadgeColorSheet: View {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .fill(Color(uiColor: .secondarySystemGroupedBackground))
         )
-    }
-
-    // MARK: - Bindings
-
-    private var topColorBinding: Binding<String> {
-        Binding(get: { displayedTopHex }, set: { customTopHex = $0 })
-    }
-    private var middleColorBinding: Binding<String> {
-        Binding(get: { displayedMiddleHex }, set: { customMiddleHex = $0 })
-    }
-    private var bottomColorBinding: Binding<String> {
-        Binding(get: { displayedBottomHex }, set: { customBottomHex = $0 })
-    }
-
-    /// 編集開始時、プリセット選択中ならカスタムへ移行
-    /// 現在のプリセットの色を custom hex にコピーしてから .custom に切替
-    private func switchToCustomIfNeeded() {
-        guard selectedPreset != .custom else {
-            customAuthoredMode = colorScheme == .dark ? "dark" : "light"
-            return
-        }
-        customTopHex    = displayedTopHex
-        customMiddleHex = displayedMiddleHex
-        customBottomHex = displayedBottomHex
-        customAuthoredMode = colorScheme == .dark ? "dark" : "light"
-        badgePresetRaw = BadgePreset.custom.rawValue
     }
 }
 
