@@ -1038,9 +1038,9 @@ private extension E7payment {
 
 private struct PaymentCombinedCard: View {
     /// 確認待ちエリアは少し内側へ沈ませる
-    private let overdueHorizontalInset: CGFloat = 8
+    private let overdueHorizontalInset: CGFloat = 10
     /// 確認待ちエリアはほぼ角を立てる
-    private let overdueCornerRadius: CGFloat = 2
+    private let overdueCornerRadius: CGFloat = 3
 
     let upcomingItems: [PaymentDisplayItem]
     let overdueItems: [PaymentDisplayItem]
@@ -1103,7 +1103,7 @@ private struct PaymentCombinedCard: View {
             .overlay(
                 // 確認待ちエリアは小さな角丸で沈み込みを見せる
                 RoundedRectangle(cornerRadius: overdueCornerRadius, style: .continuous)
-                    .stroke(badgeTheme.middleColor.opacity(0.72), lineWidth: 1)
+                    .stroke(badgeTheme.middleColor.opacity(0.72), lineWidth: 4)
             )
         }
         // 余白を含めて枠線の外側を画面背景色に戻す
@@ -1437,15 +1437,14 @@ private struct PaymentUnpaidBoundaryBand: View {
             .background(
                 backgroundShape
                     .fill(
-                        // 上側は境界線へ向かって金茶が濃くなる
+                        // 境界線と同じ色から始めて、帯の継ぎ目を目立たなくする
                         LinearGradient(
                             colors: [
+                                badgeTheme.topColor,
                                 topColor,
-                                badgeTheme.topColor.opacity(colorScheme == .dark ? 0.42 : 0.26),
-                                badgeTheme.unpaidText.opacity(colorScheme == .dark ? 0.72 : 0.48),
                             ],
-                            startPoint: .top,
-                            endPoint: .bottom
+                            startPoint: .bottom,
+                            endPoint: .top
                         )
                     )
             )
@@ -1464,7 +1463,7 @@ private struct PaymentBoundarySeparatorZone: View {
     /// 境界線の左右端を少し内側へ寄せる
     private let boundaryInset: CGFloat = 10
     /// 境界はどちらの帯にも属さない専用レイヤーで描く
-    private let boundaryLineHeight: CGFloat = 3.0
+    private let boundaryLineHeight: CGFloat = 8.0
 
     let position: Position
     @Environment(\.badgeTheme) private var badgeTheme
@@ -1485,25 +1484,8 @@ private struct PaymentBoundarySeparatorZone: View {
     var body: some View {
         Rectangle()
             .fill(glowLineColor)
-            .frame(height: boundaryLineHeight)
-            .padding(.horizontal, boundaryInset)
-            // 左右端を絞り込み: 両端 20% をなだらかにフェードして枠線へ吸い込ませる
-            .mask(
-                LinearGradient(
-                    stops: [
-                        .init(color: .clear, location: 0),
-                        .init(color: .black.opacity(0.35), location: 0.08),
-                        .init(color: .black.opacity(0.85), location: 0.18),
-                        .init(color: .black, location: 0.26),
-                        .init(color: .black, location: 0.74),
-                        .init(color: .black.opacity(0.85), location: 0.82),
-                        .init(color: .black.opacity(0.35), location: 0.92),
-                        .init(color: .clear, location: 1),
-                    ],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-            )
+            .frame(height: position == .single ? boundaryLineHeight : boundaryLineHeight/2)
+            .padding(.horizontal, position == .single ? boundaryInset : 0)
             // 境界線の上下端を、外枠色の切替位置として親へ伝える
             .background(
                 GeometryReader { proxy in
@@ -1559,11 +1541,10 @@ private struct PaymentPaidBoundaryBand: View {
             .background(
                 backgroundShape
                     .fill(
-                        // 下側は境界線直下をやや濃くして下へ抜く
+                        // 境界線と同じ色から始めて、帯の継ぎ目を目立たなくする
                         LinearGradient(
                             colors: [
-                                badgeTheme.paidText.opacity(colorScheme == .dark ? 0.52 : 0.28),
-                                badgeTheme.bottomColor.opacity(colorScheme == .dark ? 0.30 : 0.16),
+                                badgeTheme.bottomColor,
                                 bottomColor,
                             ],
                             startPoint: .top,
