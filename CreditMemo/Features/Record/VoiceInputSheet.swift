@@ -83,6 +83,8 @@ struct VoiceInputSheet: View {
     @State private var didAutoRetry = false
     /// ユーザー操作（停止・適用・キャンセル）による .stopped 遷移かどうか
     @State private var userInitiatedStop = false
+    /// シミュレータでは音声処理を動かさず表示状態だけ切り替える
+    @State private var simulatorIsListening = false
 
     var body: some View {
         NavigationStack {
@@ -93,7 +95,8 @@ struct VoiceInputSheet: View {
                     previewArea
                 }
                 Spacer()
-                controlButton
+                // 操作ボタン廃止後も広告はシート下部に固定する
+                InlineAdBanner()
             }
             .padding()
             .navigationTitle("voice.input.title")
@@ -114,7 +117,10 @@ struct VoiceInputSheet: View {
                         .disabled(!canApply)
                 }
             }
-            .task { await startListening() }
+            .task {
+                // 起動元にかかわらずシート表示後に聞き取りを始める
+                await startListening()
+            }
             .onDisappear {
                 reportSessionIfNeeded(dismissalReason: "cancelled")
                 if case .listening = recognizer.state {
@@ -161,24 +167,32 @@ struct VoiceInputSheet: View {
     // MARK: - Sections
 
     @ViewBuilder private var statusArea: some View {
-        VStack(spacing: 10) {
-            Image(systemName: isListening ? "waveform" : "mic.fill")
-                .font(.system(size: 44))
-                .foregroundStyle(isListening ? .red : .secondary)
-                .symbolEffect(.pulse, isActive: isListening)
-            if currentTranscript.isEmpty {
-                Text(isListening ? "voice.listening" : "voice.tap.to.start")
-                    .foregroundStyle(.secondary)
-            } else {
-                Text(currentTranscript)
-                    .font(.body)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal)
+        Button {
+            guard !isListening else { return }
+            // 待機中のパネル全体をタップして聞き取りを開始する
+            retry()
+        } label: {
+            VStack(spacing: 10) {
+                Image(systemName: isListening ? "waveform" : "mic.fill")
+                    .font(.system(size: 44))
+                    .foregroundStyle(isListening ? .red : .secondary)
+                    .symbolEffect(.pulse, isActive: isListening)
+                if currentTranscript.isEmpty {
+                    Text(isListening ? "voice.listening" : "voice.tap.to.start")
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text(currentTranscript)
+                        .font(.body)
+                        .foregroundStyle(.primary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                }
             }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 24)
+            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 24)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
+        .buttonStyle(.plain)
     }
 
     @ViewBuilder private var voiceGuideArea: some View {
@@ -233,39 +247,19 @@ struct VoiceInputSheet: View {
         }
     }
 
-    @ViewBuilder private var controlButton: some View {
-        if isListening {
-            Button {
-                userInitiatedStop = true
-                recognizer.stop()
-            } label: {
-                Label("voice.stop", systemImage: "stop.fill")
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(.red)
-        } else {
-            Button {
-                retry()
-            } label: {
-                Label("voice.retry", systemImage: "mic.fill")
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-            }
-            .buttonStyle(.bordered)
-        }
-    }
-
     // MARK: - Helpers
 
     /// `.listening` だけでなく `.authorizing`（権限確認＋オーディオ準備中）も
     /// 「聞き取り中」扱いにして即座にユーザへ視覚フィードバックを返す
     private var isListening: Bool {
+        #if targetEnvironment(simulator)
+        return simulatorIsListening
+        #else
         switch recognizer.state {
         case .listening, .authorizing: return true
         default: return false
         }
+        #endif
     }
 
     private var currentTranscript: String {
@@ -316,6 +310,11 @@ struct VoiceInputSheet: View {
     // MARK: - Actions
 
     private func startListening() async {
+        #if targetEnvironment(simulator)
+        // シミュレータでは音声APIを開始せず聞き取り中のUIだけ表示する
+        simulatorIsListening = true
+        return
+        #else
         let hints = contextualHints()
         // 開始条件をセッション単位で記録する
         if telemetry.startCount == 0 {
@@ -337,6 +336,7 @@ struct VoiceInputSheet: View {
         }
 
         await recognizer.start(contextualStrings: hints)
+        #endif
     }
 
     /// transcript を丸ごとパースする
@@ -481,7 +481,12 @@ struct VoiceInputSheet: View {
         didTriggerSaveCommand = false
         didTriggerCancelCommand = false
         telemetry.usedSaveCommand = false
+        #if targetEnvironment(simulator)
+        // シミュレータでは表示状態だけ聞き取り中へ戻す
+        simulatorIsListening = true
+        #else
         Task { await startListening() }
+        #endif
     }
 
     /// メニューからカード手動選択。音声で検出無しならキーワード後の発話を学習トークンに据える

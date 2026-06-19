@@ -151,6 +151,7 @@ private struct CardCombinedCard: View {
     let onToggle: (CardPaymentGroup) -> Void
     let togglingPaymentIDs: Set<String>
 
+    @Environment(\.badgeTheme) private var badgeTheme
     @State private var boundaryMidY: CGFloat = 0
 
     /// ViewBuilder 内の型推論負荷を下げるため、添字付き配列を事前に作る
@@ -211,7 +212,7 @@ private struct CardCombinedCard: View {
                 ZStack {
                     // 境界線より上側の外枠は未払色
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(COLOR_UNPAID, lineWidth: 1.5)
+                        .stroke(badgeTheme.unpaidText, lineWidth: 1.5)
                         .mask(
                             Rectangle()
                                 .frame(width: proxy.size.width, height: splitY)
@@ -219,7 +220,7 @@ private struct CardCombinedCard: View {
                         )
                     // 境界線より下側の外枠は払済み色
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(COLOR_PAID, lineWidth: 1.5)
+                        .stroke(badgeTheme.paidText, lineWidth: 1.5)
                         .mask(
                             Rectangle()
                                 .frame(width: proxy.size.width, height: max(cardHeight - splitY, 0))
@@ -245,6 +246,7 @@ private struct CardGroupRow: View {
     let isToggling: Bool
     let onToggle: () -> Void
 
+    @Environment(\.badgeTheme) private var badgeTheme
     private var isPaid: Bool { group.payment.isPaid }
 
     var body: some View {
@@ -253,7 +255,7 @@ private struct CardGroupRow: View {
             Button(action: onToggle) {
                 Image(systemName: isPaid ? "arrow.up.circle.fill" : "arrow.down.circle.fill").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                     .font(.title2.weight(.bold))
-                    .foregroundStyle(isPaid ? COLOR_PAID : COLOR_UNPAID)
+                    .foregroundStyle(isPaid ? badgeTheme.bottomColor : badgeTheme.topColor)
                     .frame(minWidth: 34, minHeight: 34)
             }
             .disabled(isToggling)
@@ -333,10 +335,10 @@ private struct CardEmptyRow: View {
 
 private struct CardBoundaryMarker: View {
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.badgeTheme) private var badgeTheme
 
-    private var boundaryColor: Color {
-        colorScheme == .dark ? Color.white : Color.black
-    }
+    /// theme の中央色を構造線として使う
+    private var boundaryColor: Color { badgeTheme.middleColor }
 
     private var edgeHighlightOpacity: Double {
         colorScheme == .dark ? 0.44 : 0.26
@@ -355,7 +357,7 @@ private struct CardBoundaryMarker: View {
                 .padding(.vertical, 10)
                 .background(
                     LinearGradient(
-                        colors: [COLOR_UNPAID.opacity(edgeHighlightOpacity * 0.55), .clear],
+                        colors: [badgeTheme.unpaidText.opacity(edgeHighlightOpacity * 0.55), .clear],
                         startPoint: .top,
                         endPoint: .bottom
                     )
@@ -381,7 +383,7 @@ private struct CardBoundaryMarker: View {
                 .padding(.vertical, 10)
                 .background(
                     LinearGradient(
-                        colors: [.clear, COLOR_PAID.opacity(edgeHighlightOpacity * 0.55)],
+                        colors: [.clear, badgeTheme.paidText.opacity(edgeHighlightOpacity * 0.55)],
                         startPoint: .top,
                         endPoint: .bottom
                     )

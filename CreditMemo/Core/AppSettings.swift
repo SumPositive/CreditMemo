@@ -25,6 +25,10 @@ enum AppStorageKey {
     static let paymentWindowDays = "setting.paymentWindowDays"
     static let exportFormat          = "setting.exportFormat"
     static let showCurrencySymbol    = "setting.showCurrencySymbol"
+    /// 引き落とし状況の配色プリセット
+    static let badgePreset           = "setting.display.badgePreset"
+    /// 引き落とし状況バッジの中央バンド高さ（base size 64 換算で 8..24）
+    static let badgeMiddleHeight     = "setting.display.badgeMiddleHeight"
 }
 
 /// ユーザレベル

@@ -42,6 +42,7 @@ struct InvoiceListView: View {
 
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.badgeTheme) private var badgeTheme
     @AppStorage(AppStorageKey.userLevel) private var userLevel: UserLevel = .beginner
     @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
     @AppStorage(AppStorageKey.copySwipeHintDone) private var copySwipeHintDone = false
@@ -100,7 +101,7 @@ struct InvoiceListView: View {
     private func invoiceHelpIcon(isPaid: Bool) -> some View {
         // ヘルプ内の状態アイコンは追加アイコンと同じサイズに揃える
         Image(systemName: isPaid ? "arrow.up.circle.fill" : "arrow.down.circle.fill").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
-            .foregroundStyle(isPaid ? COLOR_PAID : COLOR_UNPAID)
+            .foregroundStyle(isPaid ? badgeTheme.bottomColor : badgeTheme.topColor)
             .font(.caption.weight(.semibold))
             .frame(width: 16, alignment: .center)
     }
@@ -342,7 +343,7 @@ struct InvoiceListView: View {
                 Spacer()
                 Text(currentDisplayAmount.currencyString())
                     .font(.headline.monospacedDigit())
-                    .foregroundStyle(displayIsPaid ? COLOR_PAID : COLOR_UNPAID)
+                    .foregroundStyle(displayIsPaid ? badgeTheme.paidText : badgeTheme.unpaidText)
             }
         }
     }
@@ -452,7 +453,7 @@ struct InvoiceListView: View {
                             Spacer()
                             Text(section.sumAmount.currencyString())
                                 .font(.subheadline.monospacedDigit().bold())
-                                .foregroundStyle(displayIsPaid ? COLOR_PAID : COLOR_UNPAID)
+                                .foregroundStyle(displayIsPaid ? badgeTheme.paidText : badgeTheme.unpaidText)
                         }
                     }
                 } header: {
@@ -725,12 +726,13 @@ private struct InvoiceCardSection: Identifiable {
 
 private struct InvoiceStatusIcon: View {
     let isPaid: Bool
+    @Environment(\.badgeTheme) private var badgeTheme
 
     var body: some View {
         // 引き落とし状況と同じ矢印アイコンを使う
         Image(systemName: isPaid ? "arrow.up.circle.fill" : "arrow.down.circle.fill").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
             .font(.title2.weight(.bold))
-            .foregroundStyle(isPaid ? COLOR_PAID : COLOR_UNPAID)
+            .foregroundStyle(isPaid ? badgeTheme.bottomColor : badgeTheme.topColor)
             .frame(minWidth: 34, minHeight: 34)
     }
 }
@@ -767,6 +769,7 @@ private struct PartRow: View {
     let onTogglePaid: () -> Void
     let onToggleCheck: () -> Void
     let onEdit: () -> Void
+    @Environment(\.badgeTheme) private var badgeTheme
     private var record: E3record? { part.e3record }
     private var isPaid: Bool { part.e2invoice?.isPaid ?? false }
     private var isChecked: Bool { part.isChecked }
@@ -782,7 +785,7 @@ private struct PartRow: View {
                     // 先頭に未払/済み切替ボタンを置く
                     Image(systemName: isPaid ? "arrow.up.circle.fill" : "arrow.down.circle.fill").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                         .font(.title2.weight(.bold))
-                        .foregroundStyle(isPaid ? COLOR_PAID : COLOR_UNPAID)
+                        .foregroundStyle(isPaid ? badgeTheme.bottomColor : badgeTheme.topColor)
                         .frame(minWidth: 34, minHeight: 34)
                 }
                 .buttonStyle(.plain)

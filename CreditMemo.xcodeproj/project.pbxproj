@@ -63,6 +63,9 @@
 		C31B5A812FCBD9940090CAEC /* JapaneseHoliday.swift in Sources */ = {isa = PBXBuildFile; fileRef = C31B5A802FCBD9940090CAEC /* JapaneseHoliday.swift */; };
 		C31B5A832FCC6F390090CAEC /* InlineAdBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = C31B5A822FCC6F390090CAEC /* InlineAdBanner.swift */; };
 		C31B5B152FD4007F0090CAEC /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = C31B5B142FD4007F0090CAEC /* GoogleService-Info.plist */; };
+		C342B3E82FE3762800BE9DEB /* BadgeTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = C342B3E62FE3762800BE9DEB /* BadgeTheme.swift */; };
+		C342B3EA2FE3765B00BE9DEB /* DisplayBadgeColorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = C342B3E92FE3765B00BE9DEB /* DisplayBadgeColorSheet.swift */; };
+		C342B3EC2FE3BD2E00BE9DEB /* AppIconSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = C342B3EB2FE3BD2E00BE9DEB /* AppIconSync.swift */; };
 		C736EED40B1697AC698B6F81 /* InvoiceListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D1DFD33101839DCB19540E9 /* InvoiceListView.swift */; };
 		CE6F6CD0071085C235BAF6F4 /* JSONExport.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2D12827F146761299C2F9A /* JSONExport.swift */; };
 		CF1F84FA70C44A2D7D0E4EDC /* PaymentListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C888720898CBE1F720F736D /* PaymentListView.swift */; };
@@ -147,6 +150,9 @@
 		C31B5A802FCBD9940090CAEC /* JapaneseHoliday.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JapaneseHoliday.swift; sourceTree = "<group>"; };
 		C31B5A822FCC6F390090CAEC /* InlineAdBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InlineAdBanner.swift; sourceTree = "<group>"; };
 		C31B5B142FD4007F0090CAEC /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		C342B3E62FE3762800BE9DEB /* BadgeTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BadgeTheme.swift; sourceTree = "<group>"; };
+		C342B3E92FE3765B00BE9DEB /* DisplayBadgeColorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayBadgeColorSheet.swift; sourceTree = "<group>"; };
+		C342B3EB2FE3BD2E00BE9DEB /* AppIconSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppIconSync.swift; sourceTree = "<group>"; };
 		CA97A05301775C91BB87CE6F /* BankListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BankListView.swift; sourceTree = "<group>"; };
 		D6BD6FE99BF6A7C356696B78 /* BankEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BankEditView.swift; sourceTree = "<group>"; };
 		DAE1EBD323E4A4A04B0805E8 /* E3record.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = E3record.swift; sourceTree = "<group>"; };
@@ -218,6 +224,7 @@
 				742137AD969F929BB3DDE928 /* Migration */,
 				723ED77D8D25A0CB8198B63B /* Models */,
 				F0AF934EEAE7E8689700F354 /* Services */,
+				C342B3E72FE3762800BE9DEB /* Theme */,
 			);
 			path = Core;
 			sourceTree = "<group>";
@@ -263,8 +270,8 @@
 		5B155411FD36B0C994228CCD /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				C31B5B142FD4007F0090CAEC /* GoogleService-Info.plist */,
 				461FBECA42994F0A6C9BEA37 /* Assets.xcassets */,
+				C31B5B142FD4007F0090CAEC /* GoogleService-Info.plist */,
 				FA5C86233C4FE3247A2D008B /* Info.plist */,
 				9A3B7A6225157E0900A17A10 /* InfoPlist.strings */,
 				17B4815A12B4099B3F8C2A8D /* Localizable.xcstrings */,
@@ -339,6 +346,15 @@
 			path = Import;
 			sourceTree = "<group>";
 		};
+		C342B3E72FE3762800BE9DEB /* Theme */ = {
+			isa = PBXGroup;
+			children = (
+				C342B3EB2FE3BD2E00BE9DEB /* AppIconSync.swift */,
+				C342B3E62FE3762800BE9DEB /* BadgeTheme.swift */,
+			);
+			path = Theme;
+			sourceTree = "<group>";
+		};
 		C54AACA7AAE085AE4CB2B941 /* About */ = {
 			isa = PBXGroup;
 			children = (
@@ -367,6 +383,7 @@
 		D386657FBB3427582EE0B29F /* Settings */ = {
 			isa = PBXGroup;
 			children = (
+				C342B3E92FE3765B00BE9DEB /* DisplayBadgeColorSheet.swift */,
 				75ECBB517883FD08C1A38217 /* SettingsView.swift */,
 			);
 			path = Settings;
@@ -629,8 +646,10 @@
 				EAB27B9B73D8E77F8F5188FA /* MigratingFromCoreData.swift in Sources */,
 				158FFDA181FBC568F5DBFAAB /* NumericKeypadView.swift in Sources */,
 				2D70AB91C9F44E59B12E7D11 /* StackedDateView.swift in Sources */,
+				C342B3EA2FE3765B00BE9DEB /* DisplayBadgeColorSheet.swift in Sources */,
 				2D70AB93C9F44E59B12E7D13 /* DeleteConfirmationDialog.swift in Sources */,
 				2D70AB95C9F44E59B12E7D15 /* AppIconBadge.swift in Sources */,
+				C342B3EC2FE3BD2E00BE9DEB /* AppIconSync.swift in Sources */,
 				2D70AB97C9F44E59B12E7D17 /* MemoEditor.swift in Sources */,
 				2D70AB99C9F44E59B12E7D19 /* EditShortcutCapsuleButton.swift in Sources */,
 				2D70AB9BC9F44E59B12E7D1B /* BeginnerHintView.swift in Sources */,
@@ -650,6 +669,7 @@
 				4531D860CDB0FDF2415DD421 /* View+ScalableTitle.swift in Sources */,
 				260F3E001BE44EBABDFC9258 /* View+TextTrimming.swift in Sources */,
 				BEE20000000000000000A1A1 /* VoiceAliasStore.swift in Sources */,
+				C342B3E82FE3762800BE9DEB /* BadgeTheme.swift in Sources */,
 				BEE20000000000000000A2A2 /* JapaneseNumberParser.swift in Sources */,
 				BEE20000000000000000A3A3 /* SpeechRecognizer.swift in Sources */,
 				BEE20000000000000000A4A4 /* VoiceInputParser.swift in Sources */,
@@ -851,6 +871,7 @@
 		983EEC013E74D95089D82CFF /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "AppIcon-french AppIcon-monoBlue AppIcon-sunset AppIcon-chic AppIcon-candy AppIcon-ocean AppIcon-forest AppIcon-mono AppIcon-pastel AppIcon-berry AppIcon-lagoon";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CURRENT_PROJECT_VERSION = 0;
@@ -875,6 +896,7 @@
 		AAC81ABBFDF3041914DBD2FB /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "AppIcon-french AppIcon-monoBlue AppIcon-sunset AppIcon-chic AppIcon-candy AppIcon-ocean AppIcon-forest AppIcon-mono AppIcon-pastel AppIcon-berry AppIcon-lagoon";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CURRENT_PROJECT_VERSION = 0;

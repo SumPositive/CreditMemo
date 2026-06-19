@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" fill="none">
+  <defs>
+    <!-- 背景 -->
+    <linearGradient id="bgVertical" x1="512" y1="0" x2="512" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#9B4A44"/>
+      <stop offset="1" stop-color="#9B4A44"/>
+    </linearGradient>
+    <radialGradient id="bgGlowTop" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(512 280) rotate(90) scale(340 820)">
+      <stop offset="0" stop-color="#B5605A" stop-opacity="0.32"/>
+      <stop offset="1" stop-color="#B5605A" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="bgGlowBottom" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(512 800) rotate(90) scale(340 820)">
+      <stop offset="0" stop-color="#B5605A" stop-opacity="0.32"/>
+      <stop offset="1" stop-color="#B5605A" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- 缶バッジ風: 全体的にドーム状の明暗 -->
+    <radialGradient id="canDome" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(512 380) scale(500 480)">
+      <stop offset="0" stop-color="white" stop-opacity="0.30"/>
+      <stop offset="0.55" stop-color="white" stop-opacity="0.06"/>
+      <stop offset="1" stop-color="black" stop-opacity="0.18"/>
+    </radialGradient>
+
+    <!-- 上の強いハイライト（光が反射しているグロー） -->
+    <radialGradient id="canTopShine" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(512 220) scale(300 180)">
+      <stop offset="0" stop-color="white" stop-opacity="0.70"/>
+      <stop offset="0.45" stop-color="white" stop-opacity="0.20"/>
+      <stop offset="1" stop-color="white" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- 下端の影（ドーム底部の陰） -->
+    <radialGradient id="canBottomShadow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(512 820) scale(420 240)">
+      <stop offset="0" stop-color="black" stop-opacity="0.38"/>
+      <stop offset="0.6" stop-color="black" stop-opacity="0.10"/>
+      <stop offset="1" stop-color="black" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- 外周の暗い縁（金属枠の影） -->
+    <radialGradient id="canRim" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(512 512) scale(400 400)">
+      <stop offset="0.86" stop-color="black" stop-opacity="0"/>
+      <stop offset="0.96" stop-color="black" stop-opacity="0.30"/>
+      <stop offset="1" stop-color="black" stop-opacity="0.55"/>
+    </radialGradient>
+
+    <clipPath id="badgeCircle">
+      <circle cx="512" cy="512" r="400"/>
+    </clipPath>
+  </defs>
+
+  <!-- 背景 -->
+  <rect width="1024" height="1024" fill="url(#bgVertical)"/>
+  <rect width="1024" height="1024" fill="url(#bgGlowTop)"/>
+  <rect width="1024" height="1024" fill="url(#bgGlowBottom)"/>
+
+  <!-- 缶バッジ本体 -->
+  <g clip-path="url(#badgeCircle)">
+    <!-- 3 色の帯（中央 200px、上下 300px ずつ） -->
+    <rect x="112" y="112" width="800" height="300" fill="#FFD662"/>
+    <rect x="112" y="412" width="800" height="200" fill="#FF8C42"/>
+    <rect x="112" y="612" width="800" height="300" fill="#A03969"/>
+
+    <!-- ドーム明暗（上→明、下→暗） -->
+    <rect x="112" y="112" width="800" height="800" fill="url(#canDome)"/>
+    <!-- 下端の影 -->
+    <rect x="112" y="112" width="800" height="800" fill="url(#canBottomShadow)"/>
+    <!-- 上のハイライト -->
+    <rect x="112" y="112" width="800" height="800" fill="url(#canTopShine)"/>
+    <!-- 外周の縁 -->
+    <rect x="112" y="112" width="800" height="800" fill="url(#canRim)"/>
+  </g>
+
+  <!-- 缶バッジ全体のドロップシャドウ（azuki 背景から浮き上がらせる） -->
+  <circle cx="512" cy="520" r="400" fill="none" stroke="black" stroke-opacity="0.18" stroke-width="2"/>
+</svg>

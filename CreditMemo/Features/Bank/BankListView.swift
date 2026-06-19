@@ -6,6 +6,11 @@ struct BankListView: View {
     @Environment(\.modelContext) private var context
     @AppStorage(AppStorageKey.userLevel) private var userLevel: UserLevel = .beginner
     @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
+    @AppStorage(AppStorageKey.badgePreset) private var badgePresetRaw: String = BadgePreset.japaneseEarth.rawValue
+
+    private var currentBadgePreset: BadgePreset {
+        BadgePreset(rawValue: badgePresetRaw) ?? .japaneseEarth
+    }
 
     @State private var showAddSheet    = false
     /// 左スワイプ「状況」で開く口座。設定されると引き落とし状況画面へ push する。
@@ -29,11 +34,8 @@ struct BankListView: View {
 
     private func beginnerStatusHelpRow(textKey: LocalizedStringKey) -> some View {
         HStack(alignment: .center, spacing: 12) {
-            // スワイプメニューと同じ画像で状況表示を説明する
-            Image("AppIconBadgeSwipe")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 34, height: 34)
+            // スワイプ用も共通バッジを使う
+            AppIconBadge(size: 34)
             Text(textKey)
                 .font(.body)
                 .fixedSize(horizontal: false, vertical: true)
@@ -64,9 +66,12 @@ struct BankListView: View {
                     Button {
                         statusBank = bank
                     } label: {
-                        Label("", image: "AppIconBadgeSwipe")
+                        // 缶バッジを original rendering で表示
+                        Image(currentBadgePreset.assetImageName)
+                            .renderingMode(.original)
                     }
-                    .tint(Color(uiColor: .systemBackground))
+                    .accessibilityLabel(Text("card.action.status"))
+                    .tint(Color(uiColor: .systemGray5))
                     .accessibilityLabel(Text("card.action.status"))
                 }
             }

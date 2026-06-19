@@ -33,6 +33,7 @@ struct SettingsView: View {
     @Environment(\.modelContext) private var context
     @State private var showShareSheet  = false
     @State private var showImportPicker = false
+    @State private var showBadgeColorSheet = false
     @State private var exportedURL: URL?
     @State private var showDocsSheet = false
     @State private var showTipSheet = false
@@ -44,6 +45,8 @@ struct SettingsView: View {
     @State private var isWorking = false
     @State private var progressMessage = ""
     @State private var progressHint = ""
+    @State private var progressCompleted: Int?
+    @State private var progressTotal: Int?
 
     private let paymentWindowOptions: [PaymentWindowOption] =
         (1...20).map { PaymentWindowOption(days: $0) } + [PaymentWindowOption(days: 30)]
@@ -121,6 +124,25 @@ struct SettingsView: View {
                 }
 
                 Toggle(showCurrencySymbolLabel, isOn: $showCurrencySymbol)
+
+                Button {
+                    showBadgeColorSheet = true
+                } label: {
+                    HStack {
+                        Text("settings.badgeColor")
+                            .font(.subheadline)
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        AppIconBadge(size: 22)
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.tertiary)
+                    }
+                    // 設定行の見えている範囲をそのままタップ領域にする
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
             }
 
             Section("settings.panel.payment") {
@@ -252,6 +274,11 @@ struct SettingsView: View {
                 settingsFooter
             }
         }
+        .sheet(isPresented: $showBadgeColorSheet) {
+            DisplayBadgeColorSheet()
+                .appFontScale(fontScale)
+                .presentationBackground(Color(uiColor: .systemBackground))
+        }
         .sheet(isPresented: $showTipSheet) {
             TipSheetView()
                 // シートにもアプリ内文字サイズ設定を明示適用する
@@ -340,8 +367,19 @@ struct SettingsView: View {
                     Color.black.opacity(0.24)
                         .ignoresSafeArea()
                     VStack(spacing: 10) {
-                        ProgressView()
-                            .controlSize(.large)
+                        if let progressCompleted,
+                           let progressTotal,
+                           0 < progressTotal {
+                            // 件数が分かる工程は到達位置をバーで示す
+                            ProgressView(
+                                value: Double(progressCompleted),
+                                total: Double(progressTotal)
+                            )
+                            .frame(maxWidth: 240)
+                        } else {
+                            ProgressView()
+                                .controlSize(.large)
+                        }
                         Text(progressMessage)
                             .font(.subheadline.weight(.semibold))
                             .multilineTextAlignment(.center)
@@ -426,6 +464,8 @@ struct SettingsView: View {
     private func exportJSON(style: JSONExport.OutputStyle) {
         Task { @MainActor in
             isWorking = true
+            progressCompleted = nil
+            progressTotal = nil
             progressMessage = exportPreparingText
             progressHint = exportHintText
             // オーバーレイ描画を先に反映する
@@ -455,6 +495,8 @@ struct SettingsView: View {
     private func importJSON(from url: URL) {
         Task { @MainActor in
             isWorking = true
+            progressCompleted = nil
+            progressTotal = nil
             progressHint = importHintText
             progressMessage = importPreparingText
             await Task.yield()
@@ -468,9 +510,11 @@ struct SettingsView: View {
             }
 
             do {
-                let result = try await JSONImport.importData(from: url, context: context) { phase in
+                let result = try await JSONImport.importData(from: url, context: context) { progress in
                     // 工程の説明文を逐次切り替える
-                    progressMessage = phase.message(locale: Locale.current)
+                    progressMessage = progress.message(locale: Locale.current)
+                    progressCompleted = progress.completed
+                    progressTotal = progress.total
                 }
                 alertItem = .raw(title: importDoneTitleText, message: importDoneMessage(result))
             } catch {
@@ -591,6 +635,8 @@ struct SettingsView: View {
     private func pruneOldRecords() {
         Task { @MainActor in
             isWorking = true
+            progressCompleted = nil
+            progressTotal = nil
             // 実行中の状態が伝わるように進行文言を更新する
             progressMessage = pruneOldRecordsProgressText
             progressHint = pruneOldRecordsProgressHintText

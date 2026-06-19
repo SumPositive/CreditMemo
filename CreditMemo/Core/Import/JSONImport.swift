@@ -148,8 +148,11 @@ enum JSONImport {
         case importingRecords
         case rebuildingBilling
         case applyingParts
-        case applyingStates
+        case applyingInvoiceStates
+        case applyingPaymentStates
+        case cleaningBilling
         case saving
+        case completed
 
         /// インポート進行テキスト（ja/en）
         func message(locale: Locale) -> String {
@@ -167,11 +170,30 @@ enum JSONImport {
                 return isJapanese ? "請求データを再構築中…" : "Rebuilding billing..."
             case .applyingParts:
                 return isJapanese ? "明細状態を反映中…" : "Applying part states..."
-            case .applyingStates:
-                return isJapanese ? "未払/済み状態を反映中…" : "Applying paid states..."
+            case .applyingInvoiceStates:
+                return isJapanese ? "請求状態を反映中…" : "Applying invoice states..."
+            case .applyingPaymentStates:
+                return isJapanese ? "支払状態を反映中…" : "Applying payment states..."
+            case .cleaningBilling:
+                return isJapanese ? "請求・支払データを整理中…" : "Cleaning up billing data..."
             case .saving:
                 return isJapanese ? "保存中…" : "Saving..."
+            case .completed:
+                return isJapanese ? "インポート完了" : "Import complete"
             }
+        }
+    }
+
+    struct Progress {
+        let phase: Phase
+        let completed: Int?
+        let total: Int?
+
+        /// 工程名に処理件数を加えて進行位置を示す
+        func message(locale: Locale) -> String {
+            let base = phase.message(locale: locale)
+            guard let completed, let total, 0 < total else { return base }
+            return "\(base)\n\(completed.formatted()) / \(total.formatted())"
         }
     }
 
@@ -188,19 +210,38 @@ enum JSONImport {
     static func importData(
         from url: URL,
         context: ModelContext,
-        onPhase: ((Phase) -> Void)? = nil
+        onProgress: ((Progress) -> Void)? = nil
     ) async throws -> Result {
-        onPhase?(.readingFile)
+        // 中断時に取込途中のデータが自動保存されないよう明示保存まで止める
+        let wasAutosaveEnabled = context.autosaveEnabled
+        context.autosaveEnabled = false
+        defer { context.autosaveEnabled = wasAutosaveEnabled }
+
+        func report(_ phase: Phase, completed: Int? = nil, total: Int? = nil) {
+            let progress = Progress(phase: phase, completed: completed, total: total)
+            onProgress?(progress)
+            // クラッシュ直前の工程と件数を診断情報へ残す
+            AppTelemetry.logImportProgress(
+                phase: String(describing: phase),
+                completed: completed,
+                total: total
+            )
+        }
+
+        report(.readingFile)
         await Task.yield()
         let data = try Data(contentsOf: url)
 
-        onPhase?(.decoding)
+        report(.decoding)
         await Task.yield()
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let payload = try decoder.decode(ImportData.self, from: data)
 
         do {
+            // 新規ストアの初期プリセットは完全バックアップの内容へ置き換える
+            try removeInitialSeedDataForFullRestoreIfNeeded(payload, context: context)
+
             let banks = context.fetchReporting(FetchDescriptor<E8bank>(), entity: "E8bank")
             let cards = context.fetchReporting(FetchDescriptor<E1card>(), entity: "E1card")
             let categories = context.fetchReporting(FetchDescriptor<E5tag>(), entity: "E5tag")
@@ -211,7 +252,7 @@ enum JSONImport {
             var tagByID = Dictionary(uniqueKeysWithValues: categories.map { ($0.id, $0) })
             var recordByID = Dictionary(uniqueKeysWithValues: records.map { ($0.id, $0) })
 
-            onPhase?(.importingMasters)
+            report(.importingMasters)
             await Task.yield()
             let importedBankCount = importBanks(payload.banks ?? [], bankByID: &bankByID, context: context)
             let importedCardCount = importCards(payload.cards ?? [], cardByID: &cardByID, bankByID: bankByID, context: context)
@@ -221,38 +262,61 @@ enum JSONImport {
                 tagByID: &tagByID, context: context
             )
 
-            onPhase?(.importingRecords)
+            report(.importingRecords, completed: 0, total: payload.records?.count ?? 0)
             await Task.yield()
-            let importedRecordCount = try importRecords(
+            let importedRecordCount = try await importRecords(
                 payload.records ?? [],
                 recordByID: &recordByID,
                 cardByID: cardByID,
                 tagByID: tagByID,
                 context: context
-            )
+            ) { completed, total in
+                report(.importingRecords, completed: completed, total: total)
+            }
 
             // record が入った場合や、状態 JSON を反映する場合は請求を正規状態へ作り直す
             if 0 < importedRecordCount || payload.parts != nil || payload.invoices != nil || payload.payments != nil {
-                onPhase?(.rebuildingBilling)
+                report(.rebuildingBilling, completed: 0, total: importedRecordCount)
                 await Task.yield()
-                RecordService.rebuildBilling(context: context)
+                await RecordService.rebuildBilling(context: context) { completed, total in
+                    report(.rebuildingBilling, completed: completed, total: total)
+                }
             }
 
-            onPhase?(.applyingParts)
+            report(.applyingParts, completed: 0, total: payload.parts?.count ?? 0)
             await Task.yield()
-            let appliedPartStateCount = try applyPartStates(payload.parts ?? [], context: context)
+            let appliedPartStateCount = try await applyPartStates(
+                payload.parts ?? [],
+                context: context
+            ) { completed, total in
+                report(.applyingParts, completed: completed, total: total)
+            }
 
-            onPhase?(.applyingStates)
+            report(.applyingInvoiceStates, completed: 0, total: payload.invoices?.count ?? 0)
             await Task.yield()
-            let appliedInvoiceStateCount = applyInvoiceStates(payload.invoices ?? [], context: context)
-            let appliedPaymentStateCount = applyPaymentStates(payload.payments ?? [], context: context)
+            let appliedInvoiceStateCount = await applyInvoiceStates(
+                payload.invoices ?? [],
+                context: context
+            ) { completed, total in
+                report(.applyingInvoiceStates, completed: completed, total: total)
+            }
+            report(.applyingPaymentStates, completed: 0, total: payload.payments?.count ?? 0)
+            let appliedPaymentStateCount = await applyPaymentStates(
+                payload.payments ?? [],
+                context: context
+            ) { completed, total in
+                report(.applyingPaymentStates, completed: completed, total: total)
+            }
+            report(.cleaningBilling)
+            await Task.yield()
             RecordService.cleanupOrphanBilling(context: context)
 
-            onPhase?(.saving)
+            report(.saving)
             await Task.yield()
             if context.hasChanges {
                 try context.save()
             }
+            report(.completed)
 
             return Result(
                 bankCount: importedBankCount,
@@ -268,6 +332,75 @@ enum JSONImport {
             context.rollback()
             throw error
         }
+    }
+
+    private static func removeInitialSeedDataForFullRestoreIfNeeded(
+        _ payload: ImportData,
+        context: ModelContext
+    ) throws {
+        // 一部データの追記ではなく、請求状態を含む完全バックアップだけを対象にする
+        guard payload.banks != nil,
+              payload.cards != nil,
+              payload.records != nil,
+              payload.invoices != nil,
+              payload.payments != nil else {
+            return
+        }
+
+        let records = try context.fetch(FetchDescriptor<E3record>())
+        let parts = try context.fetch(FetchDescriptor<E6part>())
+        let invoices = try context.fetch(FetchDescriptor<E2invoice>())
+        let payments = try context.fetch(FetchDescriptor<E7payment>())
+        guard records.isEmpty,
+              parts.isEmpty,
+              invoices.isEmpty,
+              payments.isEmpty else {
+            return
+        }
+
+        let banks = try context.fetch(FetchDescriptor<E8bank>())
+        let cards = try context.fetch(FetchDescriptor<E1card>())
+        let tags = try context.fetch(FetchDescriptor<E5tag>())
+        guard matchesInitialBanks(banks),
+              matchesInitialCards(cards),
+              matchesInitialTags(tags) else {
+            return
+        }
+
+        // IDの異なる初期プリセットを残すと同名マスタが重複するため先に除去する
+        cards.forEach { context.delete($0) }
+        tags.forEach { context.delete($0) }
+        banks.forEach { context.delete($0) }
+    }
+
+    private static func matchesInitialBanks(_ banks: [E8bank]) -> Bool {
+        let actualNames = banks.map(\.zName).sorted()
+        let initialNames = SeedData.bankPresetsForCurrentLocale().map(\.name).sorted()
+        return actualNames == initialNames
+            && banks.allSatisfy { $0.zNote.isEmpty && $0.e1cards.isEmpty && $0.e7payments.isEmpty }
+    }
+
+    private static func matchesInitialCards(_ cards: [E1card]) -> Bool {
+        let presets = SeedData.presetsForCurrentLocale()
+        let presetByName = Dictionary(uniqueKeysWithValues: presets.map { ($0.name, $0) })
+        guard cards.count == presets.count else { return false }
+        return cards.allSatisfy { card in
+            guard let preset = presetByName[card.zName] else { return false }
+            return card.zNote == preset.note
+                && card.nClosingDay == preset.closingDay
+                && card.nPayDay == preset.payDay
+                && card.nPayMonth == preset.payMonth
+                && card.e8bank == nil
+                && card.e2invoices.isEmpty
+                && card.e3records.isEmpty
+        }
+    }
+
+    private static func matchesInitialTags(_ tags: [E5tag]) -> Bool {
+        let actualNames = tags.map(\.zName).sorted()
+        let initialNames = SeedData.categoryPresetsForCurrentLocale().map(\.name).sorted()
+        return actualNames == initialNames
+            && tags.allSatisfy { $0.zNote.isEmpty && $0.e3records.isEmpty }
     }
 
     private static func importBanks(
@@ -345,9 +478,10 @@ enum JSONImport {
         recordByID: inout [String: E3record],
         cardByID: [String: E1card],
         tagByID: [String: E5tag],
-        context: ModelContext
-    ) throws -> Int {
-        for item in items {
+        context: ModelContext,
+        onProgress: ((Int, Int) -> Void)? = nil
+    ) async throws -> Int {
+        for (index, item) in items.enumerated() {
             let record = recordByID[item.id] ?? {
                 let value = E3record(id: item.id)
                 context.insert(value)
@@ -370,22 +504,48 @@ enum JSONImport {
             // tagIDs（新）→ categoryIDs（旧互換）→ categoryID（最旧互換）の順で読む
             let resolvedIDs = item.tagIDs ?? item.categoryIDs ?? item.categoryID.map { [$0] } ?? []
             record.e5tags = resolvedIDs.compactMap { tagByID[$0] }
+            let completed = index + 1
+            if completed.isMultiple(of: 50) || completed == items.count {
+                onProgress?(completed, items.count)
+                // 大量履歴でも画面の進行表示を更新できるようにする
+                await Task.yield()
+            }
         }
         return items.count
     }
 
     private static func applyPartStates(
         _ items: [PartData],
-        context: ModelContext
-    ) throws -> Int {
+        context: ModelContext,
+        onProgress: ((Int, Int) -> Void)? = nil
+    ) async throws -> Int {
         guard !items.isEmpty else { return 0 }
         let parts = context.fetchReporting(FetchDescriptor<E6part>(), entity: "E6part")
-        let partByRecordAndNo = Dictionary(
-            uniqueKeysWithValues: parts.compactMap { part -> (String, E6part)? in
-                guard let recordID = part.e3record?.id else { return nil }
-                return ("\(recordID)#\(part.nPartNo)", part)
+        var partByRecordAndNo: [String: E6part] = [:]
+        var duplicatePartCount = 0
+        for part in parts {
+            guard let recordID = part.e3record?.id else { continue }
+            let key = "\(recordID)#\(part.nPartNo)"
+            if partByRecordAndNo[key] == nil {
+                partByRecordAndNo[key] = part
+            } else {
+                // 重複明細があっても辞書生成でクラッシュせず先頭を採用する
+                duplicatePartCount += 1
             }
-        )
+        }
+        if 0 < duplicatePartCount {
+            let error = NSError(
+                domain: "CreditMemo.JSONImport",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "Duplicate billing parts detected during import"]
+            )
+            AppTelemetry.reportRecoverableError(
+                error,
+                operation: "applyPartStates",
+                category: "json_import",
+                detail: "duplicate_count=\(duplicatePartCount)"
+            )
+        }
         var amountByRecordID: [String: [Int16: Decimal]] = [:]
         for item in items {
             guard let recordID = item.recordID, let amountString = item.amount else { continue }
@@ -397,36 +557,42 @@ enum JSONImport {
         )
 
         var updatedCount = 0
-        for item in items {
-            guard let recordID = item.recordID else { continue }
-            guard let part = partByRecordAndNo["\(recordID)#\(Int16(item.partNo))"] else { continue }
+        for (index, item) in items.enumerated() {
+            if let recordID = item.recordID,
+               let part = partByRecordAndNo["\(recordID)#\(Int16(item.partNo))"] {
+                // 2回払いの手動配分は、合計が正しい場合だけ復元する
+                let amountKey = "\(recordID)#\(part.nPartNo)"
+                if let restored = validAmountByRecordAndNo[amountKey] {
+                    part.nAmount = restored
+                }
 
-            // 2回払いの手動配分は、合計が正しい場合だけ復元する
-            let amountKey = "\(recordID)#\(part.nPartNo)"
-            if let restored = validAmountByRecordAndNo[amountKey] {
-                part.nAmount = restored
+                let shouldLockDueDate = item.dueDateLocked ?? false
+                if let dueDate = item.dueDate {
+                    // 日付復元中だけ専用ロックを外し、移動後にエクスポート時の状態へ戻す
+                    part.isDueDateLocked = false
+                    RecordService.movePartDueDateWithoutCommit(part, date: dueDate, context: context)
+                }
+                part.isDueDateLocked = shouldLockDueDate
+                if let noCheck = item.noCheck {
+                    // チェック状態は支払日移動を妨げるため、日付復元後に反映する
+                    part.nNoCheck = Int16(noCheck)
+                }
+                updatedCount += 1
             }
-
-            let shouldLockDueDate = item.dueDateLocked ?? false
-            if let dueDate = item.dueDate {
-                // 日付復元中だけ専用ロックを外し、移動後にエクスポート時の状態へ戻す
-                part.isDueDateLocked = false
-                RecordService.movePartDueDateWithoutCommit(part, date: dueDate, context: context)
+            let completed = index + 1
+            if completed.isMultiple(of: 25) || completed == items.count {
+                onProgress?(completed, items.count)
+                await Task.yield()
             }
-            part.isDueDateLocked = shouldLockDueDate
-            if let noCheck = item.noCheck {
-                // チェック状態は支払日移動を妨げるため、日付復元後に反映する
-                part.nNoCheck = Int16(noCheck)
-            }
-            updatedCount += 1
         }
         return updatedCount
     }
 
     private static func applyInvoiceStates(
         _ items: [InvoiceData],
-        context: ModelContext
-    ) -> Int {
+        context: ModelContext,
+        onProgress: ((Int, Int) -> Void)? = nil
+    ) async -> Int {
         guard !items.isEmpty else { return 0 }
         let invoices = context.fetchReporting(FetchDescriptor<E2invoice>(), entity: "E2invoice")
         let invoiceGroups = Dictionary(grouping: invoices) {
@@ -434,12 +600,17 @@ enum JSONImport {
         }
 
         var updatedCount = 0
-        for item in items {
+        for (index, item) in items.enumerated() {
             let key = invoiceKey(cardID: item.cardID, date: item.date)
             let targetInvoices = (invoiceGroups[key] ?? []).filter { $0.isPaid != item.isPaid }
             for invoice in targetInvoices {
                 moveInvoice(invoice, toPaid: item.isPaid, context: context)
                 updatedCount += 1
+            }
+            let completed = index + 1
+            if completed.isMultiple(of: 25) || completed == items.count {
+                onProgress?(completed, items.count)
+                await Task.yield()
             }
         }
         return updatedCount
@@ -447,8 +618,9 @@ enum JSONImport {
 
     private static func applyPaymentStates(
         _ items: [PaymentData],
-        context: ModelContext
-    ) -> Int {
+        context: ModelContext,
+        onProgress: ((Int, Int) -> Void)? = nil
+    ) async -> Int {
         guard !items.isEmpty else { return 0 }
         let payments = context.fetchReporting(FetchDescriptor<E7payment>(), entity: "E7payment")
         let paymentGroups = Dictionary(grouping: payments) {
@@ -456,15 +628,19 @@ enum JSONImport {
         }
 
         var updatedCount = 0
-        for item in items {
+        for (index, item) in items.enumerated() {
             let key = paymentKey(bankID: item.bankID, date: item.date)
             let targetInvoices = (paymentGroups[key] ?? [])
                 .flatMap(\.e2invoices)
                 .filter { $0.isPaid != item.isPaid }
-            guard !targetInvoices.isEmpty else { continue }
             for invoice in targetInvoices {
                 moveInvoice(invoice, toPaid: item.isPaid, context: context)
                 updatedCount += 1
+            }
+            let completed = index + 1
+            if completed.isMultiple(of: 25) || completed == items.count {
+                onProgress?(completed, items.count)
+                await Task.yield()
             }
         }
         return updatedCount
@@ -557,9 +733,11 @@ enum JSONImport {
     }
 
     private static func setInvoiceState(_ invoice: E2invoice, isPaid: Bool) {
+        // 状態を外す前に決済手段を退避し、済み復元時の関連切れを防ぐ
+        let card = invoice.e1card
         invoice.e1paid = nil
         invoice.e1unpaid = nil
-        guard let card = invoice.e1card else { return }
+        guard let card else { return }
         if isPaid {
             invoice.e1paid = card
             return

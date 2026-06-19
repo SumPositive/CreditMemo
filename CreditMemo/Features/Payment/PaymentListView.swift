@@ -78,6 +78,16 @@ struct PaymentListView: View {
         !upcomingUnpaidPayments.isEmpty || !overdueUnpaidPayments.isEmpty || !paidPayments.isEmpty
     }
 
+    /// 未払エリアの上は未払行が2件以上ある場合だけ広告を表示する
+    private var shouldShowUnpaidTopAd: Bool {
+        2 <= upcomingItems.count
+    }
+
+    /// 済みエリアの下は済み行が2件以上ある場合だけ広告を表示する
+    private var shouldShowPaidBottomAd: Bool {
+        2 <= paidItems.count
+    }
+
     private var shouldCenterBoundaryOnScroll: Bool {
         // 行数が少ない時は境界中央より先頭表示を優先し、上側が隠れないようにする。
         2 < (upcomingItems.count + overdueItems.count) || 1 < paidItems.count
@@ -170,6 +180,10 @@ struct PaymentListView: View {
                                 Color.clear
                                     .frame(height: 1)
                                     .id(paymentTopAnchorID)
+                                if shouldShowUnpaidTopAd {
+                                    // 未払エリア外の上に広告を配置する
+                                    InlineAdBanner()
+                                }
                                 PaymentCombinedCard(
                                     upcomingItems: upcomingItems,
                                     overdueItems: overdueItems,
@@ -186,6 +200,10 @@ struct PaymentListView: View {
                                     paidFirstRowAnchorID: paidFirstRowAnchorID,
                                     onNavigateToDetail: { autoScrollEnabled = false }
                                 )
+                                if shouldShowPaidBottomAd {
+                                    // 済みエリア外の下に広告を配置する
+                                    InlineAdBanner()
+                                }
                             }
                             .padding(.horizontal, 16)
                             .padding(.vertical, 10)
@@ -1008,12 +1026,13 @@ private struct PaymentRow: View {
 
 private struct PaymentStatusPill: View {
     let isPaid: Bool
+    @Environment(\.badgeTheme) private var badgeTheme
 
     var body: some View {
         // セル内の先頭は大きい矢印アイコンのみで状態を示す
         Image(systemName: isPaid ? "arrow.up.circle.fill" : "arrow.down.circle.fill").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
             .font(.title2.weight(.bold))
-            .foregroundStyle(isPaid ? COLOR_PAID : COLOR_UNPAID)
+            .foregroundStyle(isPaid ? badgeTheme.bottomColor : badgeTheme.topColor)
             .frame(minWidth: 34, minHeight: 34)
     }
 }
@@ -1036,6 +1055,11 @@ private extension E7payment {
 }
 
 private struct PaymentCombinedCard: View {
+    /// 確認待ちエリアは少し内側へ沈ませる
+    private let overdueHorizontalInset: CGFloat = 10
+    /// 確認待ちエリアはほぼ角を立てる
+    private let overdueCornerRadius: CGFloat = 3
+
     let upcomingItems: [PaymentDisplayItem]
     let overdueItems: [PaymentDisplayItem]
     let paidItems: [PaymentDisplayItem]
@@ -1050,7 +1074,9 @@ private struct PaymentCombinedCard: View {
     let boundaryAnchorID: String
     let paidFirstRowAnchorID: String
     let onNavigateToDetail: () -> Void
-    @State private var boundaryMidY: CGFloat = 0
+    @Environment(\.badgeTheme) private var badgeTheme
+    @State private var boundaryTopY: CGFloat = 0
+    @State private var boundaryBottomY: CGFloat = 0
 
     /// ViewBuilder 内の型推論負荷を下げるため、表示用の添字付き配列を事前に作る
     private var indexedPaidItems: [(offset: Int, element: PaymentDisplayItem)] {
@@ -1062,34 +1088,39 @@ private struct PaymentCombinedCard: View {
 
     private var hasOverdue: Bool { !overdueItems.isEmpty }
 
-    /// インラインバナー広告は英語ロケールのみ表示。日本語ユーザーには出さない
-    private var shouldShowInlineAdBanner: Bool {
-        let lang = Locale.current.language.languageCode?.identifier ?? "en"
-        return lang != "ja"
-    }
-    private var overdueAccentColor: Color { Color(red: 0.78, green: 0.28, blue: 0.36) }
+    private var overdueAccentColor: Color { badgeTheme.middleColor }
 
     /// 引き落とし確認待ちセクション。
     /// body 内の式が複雑になり型推論がタイムアウトするため、サブビューに分離する
     @ViewBuilder
     private var overdueGroup: some View {
-        VStack(spacing: 0) {
-            PaymentOverdueHeader(tintColor: overdueAccentColor)
-            ForEach(indexedOverdueItems, id: \.element.id) { index, payment in
-                PaymentNavigationRow(
-                    item: payment,
-                    rowID: payment.id,
-                    isToggling: togglingPaymentIDs.contains(payment.id),
-                    onToggle: onToggle,
-                    onNavigateToDetail: onNavigateToDetail
-                )
-                if index + 1 < overdueItems.count {
-                    PaymentRowDivider()
+        HStack(spacing: 0) {
+            VStack(spacing: 0) {
+                PaymentOverdueHeader(tintColor: overdueAccentColor)
+                ForEach(indexedOverdueItems, id: \.element.id) { index, payment in
+                    PaymentNavigationRow(
+                        item: payment,
+                        rowID: payment.id,
+                        isToggling: togglingPaymentIDs.contains(payment.id),
+                        onToggle: onToggle,
+                        onNavigateToDetail: onNavigateToDetail
+                    )
+                    if index + 1 < overdueItems.count {
+                        PaymentRowDivider()
+                    }
                 }
             }
+            .frame(maxWidth: .infinity)
+            .background(overdueBackground)
+            .clipShape(RoundedRectangle(cornerRadius: overdueCornerRadius, style: .continuous))
+            .overlay(
+                // 確認待ちエリアは小さな角丸で沈み込みを見せる
+                RoundedRectangle(cornerRadius: overdueCornerRadius, style: .continuous)
+                    .stroke(badgeTheme.middleColor.opacity(0.72), lineWidth: 4)
+            )
         }
-        .background(overdueBackground)
-        .overlay(overdueSideBars)
+        // 余白を含めて枠線の外側を画面背景色に戻す
+        .background(Color(uiColor: .systemGroupedBackground))
     }
 
     /// 確認待ちエリアの背景グラデーション
@@ -1101,18 +1132,20 @@ private struct PaymentCombinedCard: View {
         )
     }
 
-    /// 確認待ちエリアの左右の警告色サイドバー
-    private var overdueSideBars: some View {
-        HStack(spacing: 0) {
-            Rectangle()
-                .fill(overdueAccentColor)
-                .frame(width: 3)
-            Spacer(minLength: 0)
-            Rectangle()
-                .fill(overdueAccentColor)
-                .frame(width: 3)
+    /// 確認待ちエリア全体は1つの塊として出し入れする
+    @ViewBuilder
+    private var overdueSection: some View {
+        VStack(spacing: 0) {
+            PaymentBoundarySeparatorZone(position: .top)
+            overdueGroup
+            PaymentBoundarySeparatorZone(position: .bottom)
         }
-        .opacity(0.82)
+        // 区切り線と確認待ち本体を同じ横幅でまとめる
+        .padding(.horizontal, overdueHorizontalInset)
+        // フェード中の枠線と内容のズレを抑える
+        .compositingGroup()
+        // 確認待ちは位置をずらさず、塊ごとフェードさせる
+        .transition(.opacity)
     }
 
     /// 済み側の区切り線表示可否
@@ -1128,9 +1161,14 @@ private struct PaymentCombinedCard: View {
             .animation(.easeInOut(duration: 0.22), value: upcomingItemIDs)
             .animation(.easeInOut(duration: 0.22), value: overdueItemIDs)
             .animation(.easeInOut(duration: 0.22), value: paidItemIDs)
-            .onPreferenceChange(PaymentBoundaryMidYPreferenceKey.self) { y in
-                if 0 < y {
-                    boundaryMidY = y
+            .onPreferenceChange(PaymentBoundaryEdgesPreferenceKey.self) { edges in
+                // 境界領域の上下端を保持して、外枠を帯から切り離して描く
+                // 座標も通常のレイアウト変化に追従させて、枠線だけ先走らないようにする
+                if 0 < edges.topY {
+                    boundaryTopY = edges.topY
+                }
+                if 0 < edges.bottomY {
+                    boundaryBottomY = edges.bottomY
                 }
             }
             .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 1)
@@ -1186,17 +1224,12 @@ private struct PaymentCombinedCard: View {
             .frame(height: 1)
             .id(boundaryAnchorID)
         PaymentUnpaidBoundaryBand()
-        PaymentBoundaryGlowLine(reportsBoundary: false)
         if hasOverdue {
-            // 引き落とし確認待ちが表示される時だけ、その上に AdMob バナーを差し込む。
-            // 表示対象は英語ロケールのみ（日本語ユーザーには出さない方針）
-            if shouldShowInlineAdBanner {
-                InlineAdBanner()
-                    .padding(.vertical, 4)
-            }
-            overdueGroup
+            overdueSection
+        } else {
+            PaymentBoundarySeparatorZone(position: .single)
+                .transition(.opacity)
         }
-        PaymentBoundaryGlowLine(reportsBoundary: true)
         PaymentPaidBoundaryBand()
     }
 
@@ -1244,22 +1277,43 @@ private struct PaymentCombinedCard: View {
     private var cardOuterStroke: some View {
         GeometryReader { proxy in
             let cardHeight = proxy.size.height
-            let unpaidPaidY = min(max(boundaryMidY, 0), cardHeight)
+            let clampedTopY = min(max(boundaryTopY, 0), cardHeight)
+            let clampedBottomY = min(max(boundaryBottomY, clampedTopY), cardHeight)
+            let upperHeight = max(clampedTopY, 0)
+            let lowerHeight = max(cardHeight - clampedBottomY, 0)
             ZStack {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(COLOR_UNPAID, lineWidth: 1.5)
-                    .mask(
-                        Rectangle()
-                            .frame(width: proxy.size.width, height: unpaidPaidY)
-                            .frame(maxHeight: .infinity, alignment: .top)
+                if 0 < upperHeight {
+                    // 未払エリアは全周の細線で囲む
+                    UnevenRoundedRectangle(
+                        cornerRadii: .init(
+                            topLeading: 16,
+                            bottomLeading: 10,
+                            bottomTrailing: 10,
+                            topTrailing: 16
+                        ),
+                        style: .continuous
                     )
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(COLOR_PAID, lineWidth: 1.5)
-                    .mask(
-                        Rectangle()
-                            .frame(width: proxy.size.width, height: max(cardHeight - unpaidPaidY, 0))
-                            .frame(maxHeight: .infinity, alignment: .bottom)
+                    .stroke(badgeTheme.unpaidText, lineWidth: 1)
+                    .frame(width: proxy.size.width, height: upperHeight)
+                    // 外枠はカード全幅に合わせる
+                    .frame(maxHeight: .infinity, alignment: .top)
+                }
+                if 0 < lowerHeight {
+                    // 済みエリアも全周の細線で囲む
+                    UnevenRoundedRectangle(
+                        cornerRadii: .init(
+                            topLeading: 10,
+                            bottomLeading: 16,
+                            bottomTrailing: 16,
+                            topTrailing: 10
+                        ),
+                        style: .continuous
                     )
+                    .stroke(badgeTheme.paidText, lineWidth: 1)
+                    .frame(width: proxy.size.width, height: lowerHeight)
+                    // 外枠はカード全幅に合わせる
+                    .frame(maxHeight: .infinity, alignment: .bottom)
+                }
             }
         }
     }
@@ -1330,10 +1384,10 @@ private struct PaymentOverdueHeader: View {
     let tintColor: Color
 
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.badgeTheme) private var badgeTheme
 
-    private var labelColor: Color {
-        colorScheme == .dark ? tintColor.opacity(0.92) : tintColor.opacity(0.88)
-    }
+    /// label は背景 tint と同色だと埋もれるので、theme の濃色（unpaidText）を流用
+    private var labelColor: Color { badgeTheme.unpaidText }
 
     var body: some View {
         Text("payment.section.overdue")
@@ -1353,14 +1407,31 @@ private struct PaymentOverdueHeader: View {
 
 /// 未払側の境界帯
 private struct PaymentUnpaidBoundaryBand: View {
+    /// 境界線側だけを少し丸める
+    private let boundaryCornerRadius: CGFloat = 10
+
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.badgeTheme) private var badgeTheme
 
     private var labelColor: Color {
-        colorScheme == .dark ? COLOR_UNPAID.opacity(0.95) : COLOR_UNPAID
+        badgeTheme.unpaidText
     }
 
     private var topColor: Color {
         colorScheme == .dark ? Color(uiColor: .secondarySystemGroupedBackground) : Color.white
+    }
+
+    private var backgroundShape: some Shape {
+        // 下端だけ丸めて、境界線へ沈み込むように見せる
+        UnevenRoundedRectangle(
+            cornerRadii: .init(
+                topLeading: 0,
+                bottomLeading: boundaryCornerRadius,
+                bottomTrailing: boundaryCornerRadius,
+                topTrailing: 0
+            ),
+            style: .continuous
+        )
     }
 
     var body: some View {
@@ -1371,65 +1442,67 @@ private struct PaymentUnpaidBoundaryBand: View {
             .padding(.top, 8)
             .padding(.bottom, 8)
             .background(
-                // 横帯の芯を少し濃くして未払境界を見やすくする
-                LinearGradient(
-                    colors: [
-                        topColor,
-                        COLOR_UNPAID.opacity(colorScheme == .dark ? 0.72 : 0.58),
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
+                backgroundShape
+                    .fill(
+                        // 境界線と同じ色から始めて、帯の継ぎ目を目立たなくする
+                        LinearGradient(
+                            colors: [
+                                badgeTheme.topColor,
+                                topColor,
+                            ],
+                            startPoint: .bottom,
+                            endPoint: .top
+                        )
+                    )
             )
     }
 }
 
 /// 未払/済みの本当の境界線
-private struct PaymentBoundaryGlowLine: View {
-    let reportsBoundary: Bool
+private struct PaymentBoundarySeparatorZone: View {
+    /// 境界線の役割
+    enum Position {
+        case single
+        case top
+        case bottom
+    }
 
-    @Environment(\.colorScheme) private var colorScheme
+    /// 境界線の左右端を少し内側へ寄せる
+    private let boundaryInset: CGFloat = 10
+    /// 境界はどちらの帯にも属さない専用レイヤーで描く
+    private let boundaryLineHeight: CGFloat = 8.0
+
+    let position: Position
+    @Environment(\.badgeTheme) private var badgeTheme
 
     private var glowLineColor: Color {
-        colorScheme == .dark ? Color.white.opacity(0.92) : Color.white
+        // 境界線は theme の中央色で区切りを強める
+        badgeTheme.middleColor
+    }
+
+    private var reportsTopY: Bool {
+        position != .bottom
+    }
+
+    private var reportsBottomY: Bool {
+        position != .top
     }
 
     var body: some View {
-        // アプリアイコン中央の発光ラインに合わせて
-        // 1) 横方向グラデを左右暗く中央明るく（端を 0.10 まで落とす）
-        // 2) ライン本体を高めに（4pt）、外側のグロウも強める
         Rectangle()
-            .fill(
-                LinearGradient(
-                    colors: [
-                        Color.white.opacity(0.10),
-                        glowLineColor,
-                        Color.white.opacity(0.10),
-                    ],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-            )
-            .frame(height: 2)
-            .shadow(color: Color.white.opacity(colorScheme == .dark ? 0.75 : 0.55), radius: 4, x: 0, y: 0)
-            .shadow(color: Color.white.opacity(colorScheme == .dark ? 0.45 : 0.30), radius: 2, x: 0, y: 0)
+            .fill(glowLineColor)
+            .frame(height: position == .single ? boundaryLineHeight : boundaryLineHeight/2)
+            .padding(.horizontal, position == .single ? boundaryInset : 0)
+            // 境界線の上下端を、外枠色の切替位置として親へ伝える
             .background(
-                LinearGradient(
-                    colors: [
-                        COLOR_UNPAID.opacity(colorScheme == .dark ? 0.20 : 0.10),
-                        .clear,
-                        COLOR_PAID.opacity(colorScheme == .dark ? 0.20 : 0.10),
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
-            .background(
-                // 発光線の中央を、外枠色の切替位置として親へ伝える
                 GeometryReader { proxy in
+                    let frame = proxy.frame(in: .named("paymentCombinedCard"))
                     Color.clear.preference(
-                        key: PaymentBoundaryMidYPreferenceKey.self,
-                        value: reportsBoundary ? proxy.frame(in: .named("paymentCombinedCard")).midY : 0
+                        key: PaymentBoundaryEdgesPreferenceKey.self,
+                        value: PaymentBoundaryEdges(
+                            topY: reportsTopY ? frame.minY : 0,
+                            bottomY: reportsBottomY ? frame.maxY : 0
+                        )
                     )
                 }
             )
@@ -1438,14 +1511,31 @@ private struct PaymentBoundaryGlowLine: View {
 
 /// 引き落とし済み側の境界帯
 private struct PaymentPaidBoundaryBand: View {
+    /// 境界線側だけを少し丸める
+    private let boundaryCornerRadius: CGFloat = 10
+
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.badgeTheme) private var badgeTheme
 
     private var labelColor: Color {
-        colorScheme == .dark ? COLOR_PAID.opacity(0.95) : COLOR_PAID
+        badgeTheme.paidText
     }
 
     private var bottomColor: Color {
         colorScheme == .dark ? Color(uiColor: .secondarySystemGroupedBackground) : Color.white
+    }
+
+    private var backgroundShape: some Shape {
+        // 上端だけ丸めて、境界線から抜けるように見せる
+        UnevenRoundedRectangle(
+            cornerRadii: .init(
+                topLeading: boundaryCornerRadius,
+                bottomLeading: 0,
+                bottomTrailing: 0,
+                topTrailing: boundaryCornerRadius
+            ),
+            style: .continuous
+        )
     }
 
     var body: some View {
@@ -1456,27 +1546,41 @@ private struct PaymentPaidBoundaryBand: View {
             .padding(.top, 8)
             .padding(.bottom, 8)
             .background(
-                // 横帯の芯を少し濃くして済み境界を見やすくする
-                LinearGradient(
-                    colors: [
-                        COLOR_PAID.opacity(colorScheme == .dark ? 0.72 : 0.58),
-                        bottomColor,
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
+                backgroundShape
+                    .fill(
+                        // 境界線と同じ色から始めて、帯の継ぎ目を目立たなくする
+                        LinearGradient(
+                            colors: [
+                                badgeTheme.bottomColor,
+                                bottomColor,
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
             )
         .padding(.bottom, 6)
     }
 }
 
-private struct PaymentBoundaryMidYPreferenceKey: PreferenceKey {
-    static let defaultValue: CGFloat = 0
+/// 境界領域の上下端
+private struct PaymentBoundaryEdges: Equatable {
+    let topY: CGFloat
+    let bottomY: CGFloat
 
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+    static let zero = PaymentBoundaryEdges(topY: 0, bottomY: 0)
+}
+
+private struct PaymentBoundaryEdgesPreferenceKey: PreferenceKey {
+    static let defaultValue: PaymentBoundaryEdges = .zero
+
+    static func reduce(value: inout PaymentBoundaryEdges, nextValue: () -> PaymentBoundaryEdges) {
         let next = nextValue()
-        if 0 < next {
-            value = next
+        if 0 < next.topY {
+            value = PaymentBoundaryEdges(topY: next.topY, bottomY: value.bottomY)
+        }
+        if 0 < next.bottomY {
+            value = PaymentBoundaryEdges(topY: value.topY, bottomY: next.bottomY)
         }
     }
 }
@@ -1633,12 +1737,14 @@ private struct PaymentUnpaidGrouped {
 }
 
 private struct PaymentSectionSeparator: View {
+    @Environment(\.badgeTheme) private var badgeTheme
+
     var body: some View {
         Rectangle()
             .fill(
                 LinearGradient(
                     // 将来/次の区切り線は下側を濃くして境界の向きを反転する
-                    colors: [.clear, COLOR_UNPAID.opacity(0.35)],
+                    colors: [.clear, badgeTheme.unpaidText.opacity(0.35)],
                     startPoint: .top,
                     endPoint: .bottom
                 )
@@ -1652,6 +1758,7 @@ private struct PaymentSectionSeparator: View {
 private struct PaymentPeriodFooter: View {
     let title: String
     let amount: Decimal
+    @Environment(\.badgeTheme) private var badgeTheme
 
     var body: some View {
         HStack(spacing: 8) {
@@ -1665,7 +1772,7 @@ private struct PaymentPeriodFooter: View {
             Spacer(minLength: 0)
             Text(amount.currencyString())
                 .font(.subheadline.monospacedDigit())
-                .foregroundStyle(COLOR_UNPAID)
+                .foregroundStyle(badgeTheme.unpaidText)
                 .lineLimit(1)
                 .fixedSize(horizontal: true, vertical: false)
         }

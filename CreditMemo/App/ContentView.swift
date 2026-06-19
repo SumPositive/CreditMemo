@@ -16,6 +16,12 @@ struct ContentView: View {
     @AppStorage(AppStorageKey.openAddOnActive) private var openAddOnActive = false
     @AppStorage(AppStorageKey.openVoiceInputOnActive) private var openVoiceInputOnActive = false
     @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
+    @AppStorage(AppStorageKey.badgePreset) private var badgePresetRaw: String = BadgePreset.japaneseEarth.rawValue
+    @AppStorage(AppStorageKey.badgeMiddleHeight) private var badgeMiddleHeight: Double = BadgeMiddleHeight.default
+
+    private var currentBadgeTheme: BadgeTheme {
+        (BadgePreset(rawValue: badgePresetRaw) ?? .japaneseEarth).theme
+    }
     @SceneStorage("content.selectedDestination") private var selectedDestinationRaw: String?
     @State private var selectedDestination: AppDestination?
     @State private var addRecordRefreshID = UUID()
@@ -58,6 +64,15 @@ struct ContentView: View {
         }
         .onAppear {
             restoreDestinationIfNeeded()
+            // 起動時、保存されたプリセットに合わせてホーム画面アイコンを同期
+            let preset = BadgePreset(rawValue: badgePresetRaw) ?? .japaneseEarth
+            AppIconSync.sync(to: preset)
+            // 現在の選択分布を確認できるよう匿名属性へ同期する
+            AppTelemetry.syncBadgeDisplaySetting(preset: preset, middleHeight: badgeMiddleHeight)
+        }
+        .onChange(of: badgePresetRaw) { _, newValue in
+            // プリセット変更時にホーム画面アイコンを切替（iOS が確認アラートを表示）
+            AppIconSync.sync(to: BadgePreset(rawValue: newValue) ?? .japaneseEarth)
         }
         .onChange(of: selectedDestination) { _, newValue in
             // 文字サイズ切替で再生成されても戻れるように保持する
@@ -71,6 +86,7 @@ struct ContentView: View {
             handleDeepLink(url)
         }
         .environment(editingState)
+        .environment(\.badgeTheme, currentBadgeTheme)
     }
 
     // MARK: - 特大: スプリットなし NavigationStack

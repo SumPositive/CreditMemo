@@ -151,6 +151,23 @@ enum AppTelemetry {
         #endif
     }
 
+    /// インポートの最終到達工程をCrashlyticsの診断情報へ残す
+    static func logImportProgress(
+        phase: String,
+        completed: Int?,
+        total: Int?
+    ) {
+        #if canImport(FirebaseCrashlytics)
+        let crashlytics = Crashlytics.crashlytics()
+        let completedValue = completed ?? -1
+        let totalValue = total ?? -1
+        crashlytics.log("json_import phase=\(phase) completed=\(completedValue) total=\(totalValue)")
+        crashlytics.setCustomValue(limited(phase), forKey: "json_import_phase")
+        crashlytics.setCustomValue(completedValue, forKey: "json_import_completed")
+        crashlytics.setCustomValue(totalValue, forKey: "json_import_total")
+        #endif
+    }
+
     static func reportVoiceInputSession(_ telemetry: VoiceInputSessionTelemetry) {
         let parameters = voiceInputSessionParameters(telemetry)
 
@@ -184,6 +201,36 @@ enum AppTelemetry {
 
         #if canImport(FirebaseAnalytics)
         Analytics.logEvent("voice_input_hint_candidate", parameters: parameters)
+        #endif
+    }
+
+    /// 引き落とし状況の現在の配色設定を匿名属性として同期する
+    static func syncBadgeDisplaySetting(
+        preset: BadgePreset,
+        middleHeight: Double
+    ) {
+        #if canImport(FirebaseAnalytics)
+        Analytics.setUserProperty(preset.rawValue, forName: "badge_preset")
+        Analytics.setUserProperty(String(Int(middleHeight)), forName: "badge_middle_height")
+        #endif
+    }
+
+    /// 引き落とし状況の配色設定変更を匿名イベントとして記録する
+    static func reportBadgeDisplaySettingChange(
+        preset: BadgePreset,
+        middleHeight: Double,
+        changedField: String
+    ) {
+        syncBadgeDisplaySetting(preset: preset, middleHeight: middleHeight)
+
+        let parameters: [String: Any] = [
+            "preset": limited(preset.rawValue),
+            "middle_height": Int(middleHeight),
+            "changed_field": limited(changedField)
+        ]
+
+        #if canImport(FirebaseAnalytics)
+        Analytics.logEvent("badge_display_setting", parameters: parameters)
         #endif
     }
 

@@ -11,6 +11,7 @@ struct TopMenuView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.badgeTheme) private var badgeTheme
     @AppStorage(AppStorageKey.userLevel) private var userLevel: UserLevel = .beginner
     @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
     @AppStorage(AppStorageKey.paymentWindowDays) private var paymentWindowDays = 15
@@ -80,16 +81,12 @@ struct TopMenuView: View {
 
     private var supportsVoiceInput: Bool {
         guard enableVoiceInput else { return false }
+        #if targetEnvironment(simulator)
+        // シミュレータでは音声認識を使わずシートのデザインだけ確認可能にする
+        return true
+        #else
         // 端末ロケールが SFSpeechRecognizer に対応しているか
         return SpeechRecognizer.supports()
-    }
-
-    private var canOpenVoiceInputSheet: Bool {
-        #if targetEnvironment(simulator)
-        // シミュレータでは音声入力シートがクラッシュするため開かない
-        return false
-        #else
-        return true
         #endif
     }
 
@@ -136,7 +133,7 @@ struct TopMenuView: View {
                                             .fixedSize(horizontal: true, vertical: false)
                                         Text(recentUnpaidTotal.currencyString())
                                             .font(.callout.weight(.semibold))
-                                            .foregroundStyle(COLOR_UNPAID)
+                                            .foregroundStyle(badgeTheme.unpaidText)
                                             .fixedSize(horizontal: true, vertical: false)
                                     }
                                 }
@@ -156,7 +153,7 @@ struct TopMenuView: View {
                                         .fixedSize(horizontal: true, vertical: false)
                                     Text(recentUnpaidTotal.currencyString())
                                         .font(.callout.weight(.semibold))
-                                        .foregroundStyle(COLOR_UNPAID)
+                                        .foregroundStyle(badgeTheme.unpaidText)
                                         .lineLimit(1)
                                         .minimumScaleFactor(0.6)
                                         .fixedSize(horizontal: true, vertical: false)
@@ -176,7 +173,7 @@ struct TopMenuView: View {
                                     Spacer(minLength: 0)
                                     Text(recentUnpaidTotal.currencyString())
                                         .font(.callout.weight(.semibold))
-                                        .foregroundStyle(COLOR_UNPAID)
+                                        .foregroundStyle(badgeTheme.unpaidText)
                                         .lineLimit(1)
                                         .minimumScaleFactor(0.6)
                                         .fixedSize(horizontal: true, vertical: false)
@@ -266,7 +263,6 @@ struct TopMenuView: View {
     @ViewBuilder
     private func voiceRecordRow() -> some View {
         Button {
-            guard canOpenVoiceInputSheet else { return }
             // 通常メニューから開いた時の起動元を記録する
             voiceInputSource = "menu"
             showVoiceRecordSheet = true
@@ -307,20 +303,8 @@ struct TopMenuView: View {
     private func openVoiceInputSheetIfNeeded() {
         guard openVoiceInputOnActive else { return }
 
-        // シミュレータではクラッシュ回避のためフラグだけ消す
-        guard canOpenVoiceInputSheet else {
-            openVoiceInputOnActive = false
-            return
-        }
-
-        // 端末が未対応なら主メニュー表示だけにする
-        guard SpeechRecognizer.supports() else {
-            openVoiceInputOnActive = false
-            return
-        }
-
-        // 設定 OFF なら主メニューまでで止める
-        guard enableVoiceInput else {
+        // 設定 OFF または端末未対応なら主メニュー表示だけにする
+        guard supportsVoiceInput else {
             openVoiceInputOnActive = false
             return
         }
