@@ -20,6 +20,80 @@ enum RecordService {
         var partDueDateByPartNo: [Int16: Date] = [:]
     }
 
+    /// 全件再構築中の請求・支払検索をメモリ上で再利用する
+    @MainActor
+    private final class BillingRebuildLookup {
+        private var invoiceByKey: [String: E2invoice] = [:]
+        private var paymentByKey: [String: E7payment] = [:]
+
+        init(context: ModelContext) {
+            let invoices = context.fetchReporting(FetchDescriptor<E2invoice>(), entity: "E2invoice")
+            for invoice in invoices {
+                let key = RecordService.invoiceKey(
+                    cardID: invoice.e1card?.id,
+                    date: invoice.date,
+                    isPaid: invoice.isPaid
+                )
+                // 重複は後続の整合性整理で統合するため先頭を再利用する
+                if invoiceByKey[key] == nil {
+                    invoiceByKey[key] = invoice
+                }
+            }
+
+            let payments = context.fetchReporting(FetchDescriptor<E7payment>(), entity: "E7payment")
+            for payment in payments {
+                let key = RecordService.paymentKey(
+                    bankID: payment.e8bank?.id,
+                    date: payment.date,
+                    isPaid: payment.e8paid != nil
+                )
+                if paymentByKey[key] == nil {
+                    paymentByKey[key] = payment
+                }
+            }
+        }
+
+        func invoice(
+            card: E1card?,
+            date: Date,
+            isPaid: Bool,
+            context: ModelContext
+        ) -> E2invoice {
+            let day = Calendar.current.startOfDay(for: date)
+            let key = RecordService.invoiceKey(cardID: card?.id, date: day, isPaid: isPaid)
+            if let invoiceByKeyValue = invoiceByKey[key] {
+                return invoiceByKeyValue
+            }
+
+            let invoice = E2invoice(date: day)
+            RecordService.setInvoiceCard(invoice, card: card, isPaid: isPaid)
+            context.insert(invoice)
+            invoiceByKey[key] = invoice
+            return invoice
+        }
+
+        func payment(
+            date: Date,
+            bank: E8bank?,
+            isPaid: Bool,
+            context: ModelContext
+        ) -> E7payment {
+            let day = Calendar.current.startOfDay(for: date)
+            // 口座未選択は物理的な所属を持たないため未払側のキーへ寄せる
+            let physicalIsPaid = bank == nil ? false : isPaid
+            let key = RecordService.paymentKey(bankID: bank?.id, date: day, isPaid: physicalIsPaid)
+            if let paymentByKeyValue = paymentByKey[key] {
+                return paymentByKeyValue
+            }
+
+            let payment = E7payment(date: day)
+            RecordService.setPaymentBank(payment, bank: bank, isPaid: physicalIsPaid)
+            context.insert(payment)
+            paymentByKey[key] = payment
+            return payment
+        }
+    }
+
     /// 起動時整合性チェックの検出結果
     struct BillingIntegrityReport {
         var orphanPartCount = 0
@@ -702,18 +776,53 @@ enum RecordService {
 
     // MARK: - Rebuild
 
-    static func rebuildBilling(context: ModelContext) {
+    static func rebuildBilling(
+        context: ModelContext,
+        onProgress: ((Int, Int) -> Void)? = nil
+    ) async {
         let recordDesc = FetchDescriptor<E3record>(sortBy: [SortDescriptor(\E3record.dateUse)])
         let records = context.fetchReporting(recordDesc, entity: "E3record")
-        for record in records {
-            rebuildBilling(for: record, context: context)
+        // 全件処理では同じ請求・支払をDBから繰り返し検索しない
+        let lookup = BillingRebuildLookup(context: context)
+        for (index, record) in records.enumerated() {
+            // 全件再構築中は重い全体集計を明細ごとに繰り返さない
+            rebuildBilling(
+                for: record,
+                recalculateAfterRebuild: false,
+                lookup: lookup,
+                context: context
+            )
+            let completed = index + 1
+            if completed.isMultiple(of: 25) || completed == records.count {
+                onProgress?(completed, records.count)
+                // 長いインポート中も進行表示と操作応答を止めない
+                await Task.yield()
+            }
         }
+        // 全明細を作り終えてから請求と支払を一度だけ正規化する
         cleanupOrphanBilling(context: context)
     }
 
     static func rebuildBilling(
         for record: E3record,
         partAmountOverridesByPartNo: [Int16: Decimal] = [:],
+        recalculateAfterRebuild: Bool = true,
+        context: ModelContext
+    ) {
+        rebuildBilling(
+            for: record,
+            partAmountOverridesByPartNo: partAmountOverridesByPartNo,
+            recalculateAfterRebuild: recalculateAfterRebuild,
+            lookup: nil,
+            context: context
+        )
+    }
+
+    private static func rebuildBilling(
+        for record: E3record,
+        partAmountOverridesByPartNo: [Int16: Decimal] = [:],
+        recalculateAfterRebuild: Bool,
+        lookup: BillingRebuildLookup?,
         context: ModelContext
     ) {
         let snapshot = snapshot(for: record)
@@ -742,24 +851,42 @@ enum RecordService {
             ] ?? snapshot.invoicePaidByKey[
                 invoiceKey(cardID: record.e1card?.id, date: billingDate, isPaid: false)
             ] ?? false
-            let invoice = findOrCreateInvoice(
-                card: record.e1card,
-                date: billingDate,
-                fallbackInvoicePaid: invoicePaid,
-                fallbackPaymentPaid: snapshot.paymentPaidByKey[
-                    paymentKey(bankID: bank?.id, date: billingDate, isPaid: invoicePaid)
-                ],
-                context: context
-            )
-            let payment = findOrCreatePayment(
-                date: billingDate,
-                bank: bank,
-                isPaid: invoice.isPaid,
-                fallbackPaid: snapshot.paymentPaidByKey[
-                    paymentKey(bankID: bank?.id, date: billingDate, isPaid: invoice.isPaid)
-                ],
-                context: context
-            )
+            let invoice: E2invoice
+            let payment: E7payment
+            if let lookup {
+                // 全件再構築では事前取得した辞書から請求・支払を引く
+                invoice = lookup.invoice(
+                    card: record.e1card,
+                    date: billingDate,
+                    isPaid: invoicePaid,
+                    context: context
+                )
+                payment = lookup.payment(
+                    date: billingDate,
+                    bank: bank,
+                    isPaid: invoice.isPaid,
+                    context: context
+                )
+            } else {
+                invoice = findOrCreateInvoice(
+                    card: record.e1card,
+                    date: billingDate,
+                    fallbackInvoicePaid: invoicePaid,
+                    fallbackPaymentPaid: snapshot.paymentPaidByKey[
+                        paymentKey(bankID: bank?.id, date: billingDate, isPaid: invoicePaid)
+                    ],
+                    context: context
+                )
+                payment = findOrCreatePayment(
+                    date: billingDate,
+                    bank: bank,
+                    isPaid: invoice.isPaid,
+                    fallbackPaid: snapshot.paymentPaidByKey[
+                        paymentKey(bankID: bank?.id, date: billingDate, isPaid: invoice.isPaid)
+                    ],
+                    context: context
+                )
+            }
             // 口座変更時は既存invoiceでも支払先を最新のpaymentへ張り替える
             if invoice.e7payment?.id != payment.id {
                 // SwiftData は逆参照（oldPayment.e2invoices）を自動更新しないため明示的に除去する
@@ -792,7 +919,9 @@ enum RecordService {
             ] ?? false
             touchedPaymentKeys.insert(paymentKey(bankID: record.e1card?.e8bank?.id, date: day, isPaid: paid))
         }
-        recalculateTouchedBilling(cardIDs: touchedCardIDs, paymentKeys: touchedPaymentKeys, context: context)
+        if recalculateAfterRebuild {
+            recalculateTouchedBilling(cardIDs: touchedCardIDs, paymentKeys: touchedPaymentKeys, context: context)
+        }
     }
 
     private static func validatedPartAmountOverrides(

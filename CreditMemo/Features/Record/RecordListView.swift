@@ -360,6 +360,12 @@ struct RecordListView: View {
                 }
             }
 
+            if filtered.isEmpty && !hasMoreRecords && !isLoadingRecords {
+                // 全件取得後に0件が確定した場合だけ空状態を表示する
+                ContentUnavailableView("label.empty", systemImage: "list.bullet")
+                    .listRowSeparator(.hidden)
+            }
+
             if hasMoreRecords {
                 HStack {
                     Spacer()

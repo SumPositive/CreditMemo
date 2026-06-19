@@ -1528,13 +1528,15 @@ AppIconBadge から配色を見直したい。上/中/下のトリコロール�
 2.4.0 新機能
 - 音声入力：音声で新しい決済（金額とラベル）を入力して保存できます
 - Siriに対応：「Hey Siri クレメモで音声入力」と言えば音声入力が始まります
-- 引き落とし状況（アイコン）の配色をプリセット12種類から選択できます
+- 引き落とし状況とアイコンの配色を12種類のプリセットから選択できます
+- Jsonインポートを改善
 enに翻訳して
 -----
-2.4.0 What's New
-- Voice Input: Add and save a new payment with your voice by speaking the amount and label
-- Siri Support: Say "Hey Siri, voice input with CrediMemo" to start voice input
-
+What’s New in 2.4.0
+- Voice Input: Create and save a payment by speaking the amount and label
+- Siri Support: Say “Hey Siri, start voice input in CrediMemo” to begin
+- Choose from 12 color presets for payment status and app icons
+- Improved JSON import reliability
 --------------------------------------------
 2.5.0
 

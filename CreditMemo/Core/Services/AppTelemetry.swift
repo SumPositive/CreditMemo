@@ -151,6 +151,23 @@ enum AppTelemetry {
         #endif
     }
 
+    /// インポートの最終到達工程をCrashlyticsの診断情報へ残す
+    static func logImportProgress(
+        phase: String,
+        completed: Int?,
+        total: Int?
+    ) {
+        #if canImport(FirebaseCrashlytics)
+        let crashlytics = Crashlytics.crashlytics()
+        let completedValue = completed ?? -1
+        let totalValue = total ?? -1
+        crashlytics.log("json_import phase=\(phase) completed=\(completedValue) total=\(totalValue)")
+        crashlytics.setCustomValue(limited(phase), forKey: "json_import_phase")
+        crashlytics.setCustomValue(completedValue, forKey: "json_import_completed")
+        crashlytics.setCustomValue(totalValue, forKey: "json_import_total")
+        #endif
+    }
+
     static func reportVoiceInputSession(_ telemetry: VoiceInputSessionTelemetry) {
         let parameters = voiceInputSessionParameters(telemetry)
 
