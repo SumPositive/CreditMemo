@@ -187,6 +187,36 @@ enum AppTelemetry {
         #endif
     }
 
+    /// 引き落とし状況の現在の配色設定を匿名属性として同期する
+    static func syncBadgeDisplaySetting(
+        preset: BadgePreset,
+        middleHeight: Double
+    ) {
+        #if canImport(FirebaseAnalytics)
+        Analytics.setUserProperty(preset.rawValue, forName: "badge_preset")
+        Analytics.setUserProperty(String(Int(middleHeight)), forName: "badge_middle_height")
+        #endif
+    }
+
+    /// 引き落とし状況の配色設定変更を匿名イベントとして記録する
+    static func reportBadgeDisplaySettingChange(
+        preset: BadgePreset,
+        middleHeight: Double,
+        changedField: String
+    ) {
+        syncBadgeDisplaySetting(preset: preset, middleHeight: middleHeight)
+
+        let parameters: [String: Any] = [
+            "preset": limited(preset.rawValue),
+            "middle_height": Int(middleHeight),
+            "changed_field": limited(changedField)
+        ]
+
+        #if canImport(FirebaseAnalytics)
+        Analytics.logEvent("badge_display_setting", parameters: parameters)
+        #endif
+    }
+
     private static func analyticsParameters(_ result: RecordService.BillingIntegrityRepairResult) -> [String: Any] {
         var parameters: [String: Any] = [
             "before_issue_count": result.before.issueCount,

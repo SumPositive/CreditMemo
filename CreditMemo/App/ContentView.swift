@@ -17,6 +17,7 @@ struct ContentView: View {
     @AppStorage(AppStorageKey.openVoiceInputOnActive) private var openVoiceInputOnActive = false
     @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
     @AppStorage(AppStorageKey.badgePreset) private var badgePresetRaw: String = BadgePreset.japaneseEarth.rawValue
+    @AppStorage(AppStorageKey.badgeMiddleHeight) private var badgeMiddleHeight: Double = BadgeMiddleHeight.default
 
     private var currentBadgeTheme: BadgeTheme {
         (BadgePreset(rawValue: badgePresetRaw) ?? .japaneseEarth).theme
@@ -64,7 +65,10 @@ struct ContentView: View {
         .onAppear {
             restoreDestinationIfNeeded()
             // 起動時、保存されたプリセットに合わせてホーム画面アイコンを同期
-            AppIconSync.sync(to: BadgePreset(rawValue: badgePresetRaw) ?? .japaneseEarth)
+            let preset = BadgePreset(rawValue: badgePresetRaw) ?? .japaneseEarth
+            AppIconSync.sync(to: preset)
+            // 現在の選択分布を確認できるよう匿名属性へ同期する
+            AppTelemetry.syncBadgeDisplaySetting(preset: preset, middleHeight: badgeMiddleHeight)
         }
         .onChange(of: badgePresetRaw) { _, newValue in
             // プリセット変更時にホーム画面アイコンを切替（iOS が確認アラートを表示）

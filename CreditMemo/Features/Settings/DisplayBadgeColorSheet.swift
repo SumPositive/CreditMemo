@@ -75,7 +75,14 @@ struct DisplayBadgeColorSheet: View {
     private func presetTile(_ preset: BadgePreset) -> some View {
         let isSelected = preset == selectedPreset
         return Button {
+            guard preset != selectedPreset else { return }
             badgePresetRaw = preset.rawValue
+            // 選択されたプリセットと現在の中央高さを匿名で記録する
+            AppTelemetry.reportBadgeDisplaySettingChange(
+                preset: preset,
+                middleHeight: badgeMiddleHeight,
+                changedField: "preset"
+            )
         } label: {
             VStack(spacing: 4) {
                 AppIconBadge(size: 44)
@@ -124,6 +131,14 @@ struct DisplayBadgeColorSheet: View {
                 Text(verbatim: "\(Int(BadgeMiddleHeight.min))").font(.caption2)
             } maximumValueLabel: {
                 Text(verbatim: "\(Int(BadgeMiddleHeight.max))").font(.caption2)
+            } onEditingChanged: { isEditing in
+                guard !isEditing else { return }
+                // ドラッグ終了時だけ送信し、連続イベントを避ける
+                AppTelemetry.reportBadgeDisplaySettingChange(
+                    preset: selectedPreset,
+                    middleHeight: badgeMiddleHeight,
+                    changedField: "middle_height"
+                )
             }
         }
         .padding(.horizontal, 16)
