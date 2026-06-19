@@ -1163,12 +1163,15 @@ private struct PaymentCombinedCard: View {
             .animation(.easeInOut(duration: 0.22), value: paidItemIDs)
             .onPreferenceChange(PaymentBoundaryEdgesPreferenceKey.self) { edges in
                 // 境界領域の上下端を保持して、外枠を帯から切り離して描く
-                // 座標も通常のレイアウト変化に追従させて、枠線だけ先走らないようにする
-                if 0 < edges.topY {
-                    boundaryTopY = edges.topY
-                }
-                if 0 < edges.bottomY {
-                    boundaryBottomY = edges.bottomY
+                // 確認待ちエリアの出し入れと同じカーブで境界位置も補間し
+                // 外枠だけが先にスナップして「内容と枠線が別々に動く」見え方を防ぐ
+                withAnimation(.easeInOut(duration: 0.22)) {
+                    if 0 < edges.topY {
+                        boundaryTopY = edges.topY
+                    }
+                    if 0 < edges.bottomY {
+                        boundaryBottomY = edges.bottomY
+                    }
                 }
             }
             .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 1)
