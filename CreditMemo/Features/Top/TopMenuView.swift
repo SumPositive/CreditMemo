@@ -81,16 +81,12 @@ struct TopMenuView: View {
 
     private var supportsVoiceInput: Bool {
         guard enableVoiceInput else { return false }
+        #if targetEnvironment(simulator)
+        // シミュレータでは音声認識を使わずシートのデザインだけ確認可能にする
+        return true
+        #else
         // 端末ロケールが SFSpeechRecognizer に対応しているか
         return SpeechRecognizer.supports()
-    }
-
-    private var canOpenVoiceInputSheet: Bool {
-        #if targetEnvironment(simulator)
-        // シミュレータでは音声入力シートがクラッシュするため開かない
-        return false
-        #else
-        return true
         #endif
     }
 
@@ -267,7 +263,6 @@ struct TopMenuView: View {
     @ViewBuilder
     private func voiceRecordRow() -> some View {
         Button {
-            guard canOpenVoiceInputSheet else { return }
             // 通常メニューから開いた時の起動元を記録する
             voiceInputSource = "menu"
             showVoiceRecordSheet = true
@@ -308,20 +303,8 @@ struct TopMenuView: View {
     private func openVoiceInputSheetIfNeeded() {
         guard openVoiceInputOnActive else { return }
 
-        // シミュレータではクラッシュ回避のためフラグだけ消す
-        guard canOpenVoiceInputSheet else {
-            openVoiceInputOnActive = false
-            return
-        }
-
-        // 端末が未対応なら主メニュー表示だけにする
-        guard SpeechRecognizer.supports() else {
-            openVoiceInputOnActive = false
-            return
-        }
-
-        // 設定 OFF なら主メニューまでで止める
-        guard enableVoiceInput else {
+        // 設定 OFF または端末未対応なら主メニュー表示だけにする
+        guard supportsVoiceInput else {
             openVoiceInputOnActive = false
             return
         }
