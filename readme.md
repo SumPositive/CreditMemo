@@ -173,39 +173,56 @@
 
 ## トランザクション方針
 
-SwiftData には DB トリガやストアドプロシージャーはないため、更新責務は `RecordService` に集約します
+SwiftData には DB トリガやストアドプロシージャーはないため、永続化と派生データの整合は **Service 層に集約** します。View / ViewModel から `ModelContext` の更新系 API を直接呼ばないのが基本ルールです。
 
-### 基本原則
+### 基本原則（最重要）
 
+- **永続化を伴う操作は必ず Service 経由**で行う
+  - View / ViewModel / その他レイヤーから `context.insert(_:)` / `context.delete(_:)` / `context.save()` を直接呼ばない
+  - 例外（後述）に該当しない場合、これは設計違反として扱う
 - 1 回のユーザー操作 = 1 回のサービス呼び出し = 1 回の `context.save()`
-- View から `E2invoice` や `E7payment` を直接更新しない
-- 派生データの再構築や所属移動は、必ずサービス層でまとめて行う
-- 途中で `context.save()` しない
+- 派生データ（`E2invoice` / `E7payment` / `E6part`）の再構築や所属移動は、サービス内で完結させる
+- サービスの途中で `context.save()` を挟まず、終端で 1 回だけ行う
+- バッチ処理（履歴大量再構築など）でバッチごとに保存する場合は、各バッチを「小さな 1 操作」とみなし、失敗時は `context.rollback()` で巻き戻す
+
+### Service 一覧と責務範囲
+
+| Service | 対象 | 主な API |
+|---|---|---|
+| `RecordService` | `E3record` / `E6part` / `E2invoice` / `E7payment` / 集計値 | `save` / `delete` / `setInvoicesPaid` / `setPartPaid` / `setPartDueDate` / `cleanupOrphanBilling` / `checkBillingIntegrity` / `rebuildBilling` |
+| `CardService` | `E1card` の CRUD（派生影響を含む） | `create` / `applyEdits`（口座/締日/支払日変更時の再構築まで） / `delete` |
+| `BankService` | `E8bank` の CRUD（派生影響を含む） | `create` / `delete`（配下カード参照解除 + payment 整理まで） |
+| `JSONImport` / `JSONExport` | 全モデル一括の入出力 | `importData(from:context:)` / `exportData(context:style:)` |
 
 ### 主な処理単位
 
-- `save(record)`
-  - `E3record` の保存
-  - `E6part` の再構築
-  - `E2invoice / E7payment` の再配置
-  - 集計値更新
-  - 最後に `context.save()`
-- `delete(record)`
-  - `E3record` の削除
-  - 関連 `E6part` の削除
-  - 空になった `E2invoice / E7payment` の掃除
-  - 集計値更新
-  - 最後に `context.save()`
-- `move invoice / payment paid state`
-  - `paid / unpaid` 所属の付け替え
-  - 必要に応じた繰り返し明細の生成
-  - 集計値更新
-  - 最後に `context.save()`
+- `RecordService.save(record)`
+  - `E3record` の保存、`E6part` の再構築、`E2invoice / E7payment` の再配置、集計値更新、最後に `context.save()`
+- `RecordService.delete(record)`
+  - `E3record` の削除、関連 `E6part` の削除、空になった `E2invoice / E7payment` の掃除、集計値更新、最後に `context.save()`
+- `RecordService.setInvoicesPaid` / `setInvoicePaid` / `setPartPaid`
+  - `paid / unpaid` 所属の付け替え、必要に応じた繰り返し明細の生成、集計値更新、最後に `context.save()`
+- `CardService.applyEdits`
+  - カードのフィールド更新、口座/締日/支払日変更時は配下 `E3record` のバッチ再構築 + `cleanupOrphanBilling`、最後に `context.save()`
+- `CardService.delete` / `BankService.delete`
+  - 派生 invoice / payment の組み直し、孤児掃除、本体削除、最後に `context.save()`
+
+### View 側の許容パターン
+
+以下だけ、View から `context` の更新系 API を呼んでよい（実装現状とも一致）:
+
+1. **マスタの軽量編集（rename / メモ更新）** — `E5tag` / `E8bank` / `E1card` の `zName` / `zNote` 等、派生影響のないプロパティ変更は、View で代入してから SwiftData の autosave に任せる
+2. **`E5tag` の作成・削除** — タグは `E3record.e5tags` への影響が `@Relationship(deleteRule: .nullify)` で吸収されるため、`TagEditView` で `context.insert` / `context.delete` を呼ぶ運用を許容する
+3. **`context.insert` 直後の Service 呼び出し** — `RecordService.save(record)` に渡すために、その直前に `context.insert(record)` を呼ぶのは許容する。永続化責務は Service が持つ
+
+これら以外の `context.insert` / `context.delete` / `context.save` を View に書きたくなったら、まず該当 Service の API を探し、無ければ Service に新設する。
 
 ### 実装上の注意
 
 - `willSave` / `didSave` に業務ロジックを分散させない
 - 派生値はサービス層で明示的に再計算する
+- 進捗 UI が必要なバッチ処理は、Service が `(completed, total)` を返すコールバックを受け取り、View は表示のみを担う（例: `CardService.applyEdits(... onBillingProgress:)`）
+- 規律確認は `grep -rn "context\.insert\|context\.delete\|context\.save" Features` で目視する。新規追加箇所は Service へ寄せる
 - 旧データ互換のためモデルに残っている要素と、新規運用で使う要素を混同しない
 
 ## migration 方針
@@ -275,8 +292,9 @@ SwiftData には DB トリガやストアドプロシージャーはないため
 
 ### サービス層へ更新責務を集約
 
-- 保存、削除、未払/済み切替は `RecordService` に集約しました
-- View から `invoice / payment` を直接更新しない前提です
+- 保存、削除、未払/済み切替は `RecordService` に集約しています
+- カード・口座の CRUD（派生影響含む）は `CardService` / `BankService` に集約しています
+- View から `invoice / payment` を直接更新しない前提です（許容パターンは「トランザクション方針」参照）
 - `context.save()` はサービス終端で 1 回だけ行う方針です
 
 ### 重複 `invoice / payment` の正規化

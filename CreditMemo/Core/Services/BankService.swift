@@ -1,9 +1,25 @@
 import Foundation
 import SwiftData
 
-/// 引き落とし口座の削除処理
+/// 引き落とし口座の作成・削除処理
 @MainActor
 enum BankService {
+    /// 新規口座を 1 件作成して保存する
+    @discardableResult
+    static func create(
+        zName: String,
+        zNote: String = "",
+        nRow: Int32 = 0,
+        context: ModelContext
+    ) throws -> E8bank {
+        let bank = E8bank(zName: zName, zNote: zNote, nRow: nRow)
+        context.insert(bank)
+        if context.hasChanges {
+            try context.save()
+        }
+        return bank
+    }
+
     static func delete(_ bank: E8bank, context: ModelContext) throws {
         let cards = Array(bank.e1cards)
         var touchedRecords: [E3record] = []

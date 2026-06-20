@@ -503,40 +503,70 @@ struct CardEditView: View {
         let savingPayMonth: Int16 = usesAfterDays ? 0 : payMonth
 
         if let card {
-            let needsBillingRebuild =
-                card.e8bank?.id != selectedBank?.id ||
-                card.nClosingDay != closingDay ||
-                card.nPayDay != savingPayDay ||
-                card.nPayMonth != savingPayMonth
-            card.zName       = name
-            card.zNote       = note
-            card.nClosingDay = closingDay
-            card.nPayDay     = savingPayDay
-            card.nPayMonth   = savingPayMonth
-            // ボーナス月は廃止し、常に未設定(0)で保存する
-            card.nBonus1      = 0
-            card.nBonus2      = 0
-            card.e8bank       = selectedBank
-            card.dateUpdate   = Date()
-            if needsBillingRebuild {
-                await rebuildBillingForCard(card)
-            }
-        } else {
-            // 新規追加は一覧先頭へ出すため、最小rowよりさらに小さい値を採用する
-            let row = Int32((allCards.map { Int($0.nRow) }.min() ?? 1) - 1)
-            let c = E1card(
-                zName: name, zNote: note, nRow: row,
-                nClosingDay: closingDay, nPayDay: savingPayDay, nPayMonth: savingPayMonth,
-                nBonus1: 0, nBonus2: 0,
-                dateUpdate: Date()
+            await applyCardEdits(
+                card: card,
+                name: name,
+                note: note,
+                closingDay: closingDay,
+                payDay: savingPayDay,
+                payMonth: savingPayMonth
             )
-            c.e8bank = selectedBank
-            context.insert(c)
-        }
-        if context.hasChanges {
-            context.saveReporting(operation: "CardEditView.deleteCard")
+        } else {
+            do {
+                // 新規追加は一覧先頭へ出すため、最小rowよりさらに小さい値を採用する
+                let row = Int32((allCards.map { Int($0.nRow) }.min() ?? 1) - 1)
+                _ = try CardService.create(
+                    zName: name,
+                    zNote: note,
+                    nRow: row,
+                    nClosingDay: closingDay,
+                    nPayDay: savingPayDay,
+                    nPayMonth: savingPayMonth,
+                    bank: selectedBank,
+                    context: context
+                )
+            } catch {
+                appLog(.error, "決済手段の追加に失敗しました: \(error)")
+                return
+            }
         }
         dismiss()
+    }
+
+    private func applyCardEdits(
+        card: E1card,
+        name: String,
+        note: String,
+        closingDay: Int16,
+        payDay: Int16,
+        payMonth: Int16
+    ) async {
+        // 編集中は進捗バーを表示し、Service 側のバッチ通知に追従する
+        isRebuildingBilling = true
+        rebuildCompletedCount = 0
+        rebuildTargetCount = 0
+        defer {
+            isRebuildingBilling = false
+            rebuildCompletedCount = 0
+            rebuildTargetCount = 0
+        }
+        do {
+            try await CardService.applyEdits(
+                to: card,
+                zName: name,
+                zNote: note,
+                nClosingDay: closingDay,
+                nPayDay: payDay,
+                nPayMonth: payMonth,
+                bank: selectedBank,
+                context: context
+            ) { completed, total in
+                rebuildCompletedCount = completed
+                rebuildTargetCount = total
+            }
+        } catch {
+            rebuildError = error.localizedDescription
+        }
     }
 
     /// 削除確認後に呼ぶ。`CardService.delete` で関連 invoice/payment まで掃除する。
@@ -561,79 +591,6 @@ struct CardEditView: View {
                 }
             }
         }
-    }
-
-    @MainActor
-    private func rebuildBillingForCard(_ card: E1card) async {
-        // 請求日に影響する変更だけ、その決済手段配下の履歴へ限定して再構築する
-        let records = fetchRecords(for: card)
-        let batchSize = 50
-        isRebuildingBilling = true
-        rebuildCompletedCount = 0
-        rebuildTargetCount = records.count
-
-        var batch: [E3record] = []
-        for record in records {
-            batch.append(record)
-            if batchSize <= batch.count {
-                do {
-                    try rebuildBillingBatch(batch)
-                } catch {
-                    // バッチ保存失敗: context を巻き戻してリビルドを中断する
-                    context.rollback()
-                    isRebuildingBilling = false
-                    rebuildCompletedCount = 0
-                    rebuildTargetCount = 0
-                    rebuildError = error.localizedDescription
-                    return
-                }
-                rebuildCompletedCount += batch.count
-                batch.removeAll(keepingCapacity: true)
-                // 描画更新を挟み、フリーズ感を減らす
-                await Task.yield()
-            }
-        }
-        if !batch.isEmpty {
-            do {
-                try rebuildBillingBatch(batch)
-            } catch {
-                context.rollback()
-                isRebuildingBilling = false
-                rebuildCompletedCount = 0
-                rebuildTargetCount = 0
-                rebuildError = error.localizedDescription
-                return
-            }
-            rebuildCompletedCount += batch.count
-        }
-        // ぶら下がり請求/支払だけ最後に掃除する
-        RecordService.cleanupOrphanBilling(context: context)
-        if context.hasChanges {
-            context.saveReporting(operation: "CardEditView.save")
-        }
-        isRebuildingBilling = false
-        rebuildCompletedCount = 0
-        rebuildTargetCount = 0
-    }
-
-    private func rebuildBillingBatch(_ records: [E3record]) throws {
-        // バッチ単位で保存し、長時間ブロックを抑える
-        for record in records {
-            RecordService.rebuildBilling(for: record, context: context)
-        }
-        if context.hasChanges {
-            try context.save()
-        }
-    }
-
-    private func fetchRecords(for card: E1card) -> [E3record] {
-        let cardID = card.id
-        let descriptor = FetchDescriptor<E3record>(
-            predicate: #Predicate<E3record> { $0.e1card?.id == cardID },
-            sortBy: [SortDescriptor(\E3record.dateUse)]
-        )
-        // 逆参照配列だけに頼ると、SwiftData の関係同期が遅れた履歴を取りこぼすことがある
-        return context.fetchReporting(descriptor, entity: "E3record")
     }
 
     // MARK: - Bank Picker

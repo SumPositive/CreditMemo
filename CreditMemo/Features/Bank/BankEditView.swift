@@ -218,12 +218,18 @@ struct BankEditView: View {
         guard !name.isEmpty && !hasDuplicateName else { return }
         let note = zNote.trimmedNoteEdges
         if let bank {
+            // rename / メモ更新は autosave 経由で反映する（派生影響なし）
             bank.zName = name
             bank.zNote = note
         } else {
-            // 新規追加は一覧先頭へ出すため、最小rowよりさらに小さい値を採用する
-            let row = Int32((allBanks.map { Int($0.nRow) }.min() ?? 1) - 1)
-            context.insert(E8bank(zName: name, zNote: note, nRow: row))
+            do {
+                // 新規追加は一覧先頭へ出すため、最小rowよりさらに小さい値を採用する
+                let row = Int32((allBanks.map { Int($0.nRow) }.min() ?? 1) - 1)
+                _ = try BankService.create(zName: name, zNote: note, nRow: row, context: context)
+            } catch {
+                appLog(.error, "口座の追加に失敗しました: \(error)")
+                return
+            }
         }
         dismiss()
     }

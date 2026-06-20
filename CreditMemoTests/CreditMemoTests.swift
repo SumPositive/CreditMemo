@@ -1,8 +1,8 @@
 import Testing
-@testable import PayNote
+@testable import CreditMemo
 
 struct CreditMemoTests {
-    @Test func placeholder() async throws {
-        // TODO: add unit tests
+    @Test func smokePlaceholder() async throws {
+        // 主要テストは DataIntegrity / Robustness / JSONRoundTrip / Efficiency に分割
     }
 }
