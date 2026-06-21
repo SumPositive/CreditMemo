@@ -5,8 +5,8 @@ import Testing
 
 @MainActor
 struct EfficiencyTests {
-    // 200件を 1 枚のカードに保存しても、請求は重複せず月単位にまとまる
-    @Test func bulkSaveDoesNotDuplicateBilling() throws {
+    @Test("200件を 1 枚のカードに保存しても、請求は重複せず月単位にまとまる")
+    func bulkSaveDoesNotDuplicateBilling() throws {
         let context = try TestStore.makeContext()
         let bank = TestFixtures.makeBank(name: "口座", in: context)
         let card = TestFixtures.makeCard(name: "カード", bank: bank, in: context)
@@ -45,8 +45,8 @@ struct EfficiencyTests {
         #expect(report.hasIssue == false)
     }
 
-    // Export → Import 往復が緩い時間閾値（30 秒）内で完了する
-    @Test func roundTripWithinReasonableTime() async throws {
+    @Test("Export → Import 往復が緩い時間閾値（30 秒）内で完了する")
+    func roundTripWithinReasonableTime() async throws {
         let sourceContext = try TestStore.makeContext()
         let bank = TestFixtures.makeBank(name: "口座", in: sourceContext)
         let card = TestFixtures.makeCard(name: "カード", bank: bank, in: sourceContext)

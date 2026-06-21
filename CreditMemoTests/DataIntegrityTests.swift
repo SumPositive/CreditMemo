@@ -5,8 +5,8 @@ import Testing
 
 @MainActor
 struct DataIntegrityTests {
-    // 1件の保存で E3record / E6part / E2invoice / E7payment が想定どおり生成される
-    @Test func singleRecordSaveCreatesBilling() throws {
+    @Test("1件の保存で E3record / E6part / E2invoice / E7payment が想定どおり生成される")
+    func singleRecordSaveCreatesBilling() throws {
         let context = try TestStore.makeContext()
         let bank = TestFixtures.makeBank(name: "メイン口座", in: context)
         let card = TestFixtures.makeCard(name: "Visa", bank: bank, in: context)
@@ -39,8 +39,8 @@ struct DataIntegrityTests {
         #expect(report.hasIssue == false)
     }
 
-    // 同じカード・同じ請求月の2件は1つの請求にまとまる
-    @Test func samePeriodInvoicesAreMerged() throws {
+    @Test("同じカード・同じ請求月の2件は1つの請求にまとまる")
+    func samePeriodInvoicesAreMerged() throws {
         let context = try TestStore.makeContext()
         let bank = TestFixtures.makeBank(name: "口座", in: context)
         let card = TestFixtures.makeCard(name: "カードA", bank: bank, in: context)
@@ -72,8 +72,8 @@ struct DataIntegrityTests {
         #expect(report.hasIssue == false)
     }
 
-    // 異なる口座へぶら下がるカードの請求は、別の E7payment にまとまる
-    @Test func differentBanksProduceSeparatePayments() throws {
+    @Test("異なる口座へぶら下がるカードの請求は、別の E7payment にまとまる")
+    func differentBanksProduceSeparatePayments() throws {
         let context = try TestStore.makeContext()
         let bankA = TestFixtures.makeBank(name: "A口座", in: context)
         let bankB = TestFixtures.makeBank(name: "B口座", in: context)
@@ -103,8 +103,8 @@ struct DataIntegrityTests {
         #expect(report.hasIssue == false)
     }
 
-    // 未払 → 済み切替で関係（e1paid/e1unpaid）が排他的に切り替わる
-    @Test func togglePaidUpdatesRelationships() throws {
+    @Test("未払 → 済み切替で invoice / payment の所属が排他的に切り替わる")
+    func togglePaidUpdatesRelationships() throws {
         let context = try TestStore.makeContext()
         let bank = TestFixtures.makeBank(name: "口座", in: context)
         let card = TestFixtures.makeCard(name: "カード", bank: bank, in: context)
@@ -148,8 +148,8 @@ struct DataIntegrityTests {
         #expect(report.invoiceMissingPaymentCount == 0)
     }
 
-    // 不正な nPayType は保存時点で一括払いに正規化される
-    @Test func invalidPayTypeIsNormalized() throws {
+    @Test("不正な nPayType は保存時点で一括払いに正規化される")
+    func invalidPayTypeIsNormalized() throws {
         let context = try TestStore.makeContext()
         let card = TestFixtures.makeCard(name: "カード", in: context)
         let record = E3record(

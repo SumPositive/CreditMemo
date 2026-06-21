@@ -5,8 +5,8 @@ import Testing
 
 @MainActor
 struct CardServiceTests {
-    // 新規カードを Service で作成すると、context に保存される
-    @Test func createInsertsAndSavesCard() throws {
+    @Test("新規カードを Service で作成すると、context に保存される")
+    func createInsertsAndSavesCard() throws {
         let context = try TestStore.makeContext()
         let bank = TestFixtures.makeBank(name: "口座", in: context)
 
@@ -27,8 +27,8 @@ struct CardServiceTests {
         #expect(report.hasIssue == false)
     }
 
-    // 引き落とし口座を変更すると、配下の請求が新口座の payment へ再配置される
-    @Test func applyEditsReassignsPaymentsOnBankChange() async throws {
+    @Test("引き落とし口座を変更すると、配下の請求が新口座の payment へ再配置される")
+    func applyEditsReassignsPaymentsOnBankChange() async throws {
         let context = try TestStore.makeContext()
         let bankA = TestFixtures.makeBank(name: "A口座", in: context)
         let bankB = TestFixtures.makeBank(name: "B口座", in: context)
@@ -61,8 +61,8 @@ struct CardServiceTests {
         #expect(report.hasIssue == false)
     }
 
-    // 締日変更で請求の日付（≒キー）が変わり、古い請求は消えて新しい請求にまとまる
-    @Test func applyEditsRebuildsBillingOnClosingDayChange() async throws {
+    @Test("締日変更で請求の日付（≒キー）が変わり、古い請求は消えて新しい請求にまとまる")
+    func applyEditsRebuildsBillingOnClosingDayChange() async throws {
         let context = try TestStore.makeContext()
         let bank = TestFixtures.makeBank(name: "口座", in: context)
         let card = TestFixtures.makeCard(
@@ -105,8 +105,8 @@ struct CardServiceTests {
         #expect(report.hasIssue == false)
     }
 
-    // 進捗コールバックがバッチごとに呼ばれる（小規模データではバッチ未満で末尾1回のみ）
-    @Test func applyEditsReportsProgress() async throws {
+    @Test("進捗コールバックがバッチごとに呼ばれる（小規模データではバッチ未満で末尾1回のみ）")
+    func applyEditsReportsProgress() async throws {
         let context = try TestStore.makeContext()
         let bankA = TestFixtures.makeBank(name: "A", in: context)
         let bankB = TestFixtures.makeBank(name: "B", in: context)

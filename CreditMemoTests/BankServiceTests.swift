@@ -5,8 +5,8 @@ import Testing
 
 @MainActor
 struct BankServiceTests {
-    // 新規口座を Service で作成すると、context に保存される
-    @Test func createInsertsAndSavesBank() throws {
+    @Test("新規口座を Service で作成すると、context に保存される")
+    func createInsertsAndSavesBank() throws {
         let context = try TestStore.makeContext()
         let bank = try BankService.create(zName: "新口座", context: context)
         let stored = try context.fetch(FetchDescriptor<E8bank>())
@@ -14,8 +14,8 @@ struct BankServiceTests {
         #expect(bank.zName == "新口座")
     }
 
-    // 口座削除で、配下カードの参照は外れ、関連支払も解消される
-    @Test func deleteRemovesBankAndDetachesCards() throws {
+    @Test("口座削除で、配下カードの参照は外れ、関連支払も解消される")
+    func deleteRemovesBankAndDetachesCards() throws {
         let context = try TestStore.makeContext()
         let bank = TestFixtures.makeBank(name: "削除予定", in: context)
         let card = TestFixtures.makeCard(name: "カード", bank: bank, in: context)

@@ -5,8 +5,8 @@ import Testing
 
 @MainActor
 struct RobustnessTests {
-    // 削除すると孤児の請求・支払が掃除される
-    @Test func deleteRecordRemovesOrphanBilling() throws {
+    @Test("決済を削除すると孤児の請求・支払も掃除される")
+    func deleteRecordRemovesOrphanBilling() throws {
         let context = try TestStore.makeContext()
         let bank = TestFixtures.makeBank(name: "口座", in: context)
         let card = TestFixtures.makeCard(name: "カード", bank: bank, in: context)
@@ -31,8 +31,8 @@ struct RobustnessTests {
         #expect(report.hasIssue == false)
     }
 
-    // カードの引き落とし口座を変更すると、過去請求も新口座の E7payment に再配置される
-    @Test func cardBankChangeReassignsPayments() throws {
+    @Test("カードの引き落とし口座を変更すると、過去請求も新口座の E7payment に再配置される")
+    func cardBankChangeReassignsPayments() throws {
         let context = try TestStore.makeContext()
         let bankA = TestFixtures.makeBank(name: "A口座", in: context)
         let bankB = TestFixtures.makeBank(name: "B口座", in: context)
@@ -62,8 +62,8 @@ struct RobustnessTests {
         #expect(report.hasIssue == false)
     }
 
-    // cleanupOrphanBilling は冪等（連続呼び出しで状態が変わらない）
-    @Test func cleanupOrphanBillingIsIdempotent() throws {
+    @Test("cleanupOrphanBilling は冪等（連続呼び出しで状態が変わらない）")
+    func cleanupOrphanBillingIsIdempotent() throws {
         let context = try TestStore.makeContext()
         let bank = TestFixtures.makeBank(name: "口座", in: context)
         let card = TestFixtures.makeCard(name: "カード", bank: bank, in: context)
@@ -86,8 +86,8 @@ struct RobustnessTests {
         #expect(report.hasIssue == false)
     }
 
-    // 同一の (日付 + 口座 + 状態) を持つ重複 payment を作っても normalize で 1 件に統合される
-    @Test func duplicatePaymentsAreNormalized() throws {
+    @Test("同一の (日付 + 口座 + 状態) を持つ重複 payment は normalize で 1 件に統合される")
+    func duplicatePaymentsAreNormalized() throws {
         let context = try TestStore.makeContext()
         let bank = TestFixtures.makeBank(name: "口座", in: context)
         let card = TestFixtures.makeCard(name: "カード", bank: bank, in: context)
@@ -115,8 +115,8 @@ struct RobustnessTests {
         #expect(report.hasIssue == false)
     }
 
-    // 古い履歴のまとめ削除で、対象だけが消えて整合性は保たれる
-    @Test func deleteRecordsOlderThanYears() throws {
+    @Test("古い履歴のまとめ削除で、対象だけが消えて整合性は保たれる")
+    func deleteRecordsOlderThanYears() throws {
         let context = try TestStore.makeContext()
         let bank = TestFixtures.makeBank(name: "口座", in: context)
         let card = TestFixtures.makeCard(name: "カード", bank: bank, in: context)

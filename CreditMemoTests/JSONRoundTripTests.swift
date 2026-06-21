@@ -5,8 +5,8 @@ import Testing
 
 @MainActor
 struct JSONRoundTripTests {
-    // Export → 新コンテナへ Import で件数・関係・状態が等価
-    @Test func fullRoundTripPreservesDataset() async throws {
+    @Test("Export → 新コンテナへ Import で件数・関係・状態が等価")
+    func fullRoundTripPreservesDataset() async throws {
         let sourceContext = try TestStore.makeContext()
         let bankA = TestFixtures.makeBank(name: "口座A", in: sourceContext)
         let bankB = TestFixtures.makeBank(name: "口座B", in: sourceContext)
@@ -62,8 +62,8 @@ struct JSONRoundTripTests {
         #expect(report.hasIssue == false)
     }
 
-    // 同じ JSON を 2 度取り込んでも重複しない（id 単位 upsert）
-    @Test func reimportingSameJSONIsIdempotent() async throws {
+    @Test("同じ JSON を 2 度取り込んでも重複しない（id 単位 upsert）")
+    func reimportingSameJSONIsIdempotent() async throws {
         let sourceContext = try TestStore.makeContext()
         let bank = TestFixtures.makeBank(name: "口座", in: sourceContext)
         let card = TestFixtures.makeCard(name: "カード", bank: bank, in: sourceContext)
@@ -88,8 +88,8 @@ struct JSONRoundTripTests {
         #expect(report.hasIssue == false)
     }
 
-    // マスタ（口座）だけの部分 JSON を受け入れる
-    @Test func partialJSONMastersOnly() async throws {
+    @Test("マスタ（口座）だけの部分 JSON を受け入れる")
+    func partialJSONMastersOnly() async throws {
         let json = """
         {
           "banks": [
@@ -111,8 +111,8 @@ struct JSONRoundTripTests {
         #expect(banks.contains { $0.id == "bank-1" })
     }
 
-    // N日後型 (closingDay=0) で payMonth が非0で来ても、現行正規形 0 に整形される
-    @Test func cardBillingFormNormalizedOnImport() async throws {
+    @Test("N日後型 (closingDay=0) で payMonth が非0で来ても、現行正規形 0 に整形される")
+    func cardBillingFormNormalizedOnImport() async throws {
         // closingDay=0 / payMonth=2 の不整合を含む JSON
         let json = """
         {
@@ -140,8 +140,8 @@ struct JSONRoundTripTests {
         #expect(card.nPayMonth == 0)
     }
 
-    // 旧 JSON の "categories" キーを "tags" として取り込む
-    @Test func legacyCategoriesAreImportedAsTags() async throws {
+    @Test("旧 JSON の categories キーを tags として取り込む")
+    func legacyCategoriesAreImportedAsTags() async throws {
         let json = """
         {
           "categories": [

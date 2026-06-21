@@ -1551,6 +1551,8 @@ JSON Export/Import を利用したテストも含めたい
 
 XcodeGenは、codexかclaude codeが導入したものだと思うけど、まだしばらくはXcode管理で統一したい。readme.mdなどにも明示しておいて
 
+テストコードを　@Test("日本語の説明文") + 英語の関数名　というスタイルに統一したい
+
 
 
 -----------
