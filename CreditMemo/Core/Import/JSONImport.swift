@@ -230,10 +230,12 @@ enum JSONImport {
 
         report(.readingFile)
         await Task.yield()
+        try Task.checkCancellation()
         let data = try Data(contentsOf: url)
 
         report(.decoding)
         await Task.yield()
+        try Task.checkCancellation()
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let payload = try decoder.decode(ImportData.self, from: data)
@@ -254,6 +256,7 @@ enum JSONImport {
 
             report(.importingMasters)
             await Task.yield()
+            try Task.checkCancellation()
             let importedBankCount = importBanks(payload.banks ?? [], bankByID: &bankByID, context: context)
             let importedCardCount = importCards(payload.cards ?? [], cardByID: &cardByID, bankByID: bankByID, context: context)
             // tags（新）または categories（旧JSON互換）のどちらかを読み込む
@@ -278,7 +281,7 @@ enum JSONImport {
             if 0 < importedRecordCount || payload.parts != nil || payload.invoices != nil || payload.payments != nil {
                 report(.rebuildingBilling, completed: 0, total: importedRecordCount)
                 await Task.yield()
-                await RecordService.rebuildBilling(context: context) { completed, total in
+                try await RecordService.rebuildBilling(context: context) { completed, total in
                     report(.rebuildingBilling, completed: completed, total: total)
                 }
             }
@@ -294,14 +297,14 @@ enum JSONImport {
 
             report(.applyingInvoiceStates, completed: 0, total: payload.invoices?.count ?? 0)
             await Task.yield()
-            let appliedInvoiceStateCount = await applyInvoiceStates(
+            let appliedInvoiceStateCount = try await applyInvoiceStates(
                 payload.invoices ?? [],
                 context: context
             ) { completed, total in
                 report(.applyingInvoiceStates, completed: completed, total: total)
             }
             report(.applyingPaymentStates, completed: 0, total: payload.payments?.count ?? 0)
-            let appliedPaymentStateCount = await applyPaymentStates(
+            let appliedPaymentStateCount = try await applyPaymentStates(
                 payload.payments ?? [],
                 context: context
             ) { completed, total in
@@ -309,10 +312,12 @@ enum JSONImport {
             }
             report(.cleaningBilling)
             await Task.yield()
+            try Task.checkCancellation()
             RecordService.cleanupOrphanBilling(context: context)
 
             report(.saving)
             await Task.yield()
+            try Task.checkCancellation()
             if context.hasChanges {
                 try context.save()
             }
@@ -482,6 +487,8 @@ enum JSONImport {
         onProgress: ((Int, Int) -> Void)? = nil
     ) async throws -> Int {
         for (index, item) in items.enumerated() {
+            // 大量Importを利用者が中断できるよう各要素で確認する
+            try Task.checkCancellation()
             let record = recordByID[item.id] ?? {
                 let value = E3record(id: item.id)
                 context.insert(value)
@@ -558,6 +565,8 @@ enum JSONImport {
 
         var updatedCount = 0
         for (index, item) in items.enumerated() {
+            // 明細状態の復元中もキャンセルを受け付ける
+            try Task.checkCancellation()
             if let recordID = item.recordID,
                let part = partByRecordAndNo["\(recordID)#\(Int16(item.partNo))"] {
                 // 2回払いの手動配分は、合計が正しい場合だけ復元する
@@ -596,7 +605,7 @@ enum JSONImport {
         _ items: [InvoiceData],
         context: ModelContext,
         onProgress: ((Int, Int) -> Void)? = nil
-    ) async -> Int {
+    ) async throws -> Int {
         guard !items.isEmpty else { return 0 }
         let invoices = context.fetchReporting(FetchDescriptor<E2invoice>(), entity: "E2invoice")
         let invoiceGroups = Dictionary(grouping: invoices) {
@@ -605,6 +614,8 @@ enum JSONImport {
 
         var updatedCount = 0
         for (index, item) in items.enumerated() {
+            // 請求状態の復元中もキャンセルを受け付ける
+            try Task.checkCancellation()
             let key = invoiceKey(cardID: item.cardID, date: item.date)
             let targetInvoices = (invoiceGroups[key] ?? []).filter { $0.isPaid != item.isPaid }
             for invoice in targetInvoices {
@@ -624,7 +635,7 @@ enum JSONImport {
         _ items: [PaymentData],
         context: ModelContext,
         onProgress: ((Int, Int) -> Void)? = nil
-    ) async -> Int {
+    ) async throws -> Int {
         guard !items.isEmpty else { return 0 }
         let payments = context.fetchReporting(FetchDescriptor<E7payment>(), entity: "E7payment")
         let paymentGroups = Dictionary(grouping: payments) {
@@ -633,6 +644,8 @@ enum JSONImport {
 
         var updatedCount = 0
         for (index, item) in items.enumerated() {
+            // 支払状態の復元中もキャンセルを受け付ける
+            try Task.checkCancellation()
             let key = paymentKey(bankID: item.bankID, date: item.date)
             let targetInvoices = (paymentGroups[key] ?? [])
                 .flatMap(\.e2invoices)

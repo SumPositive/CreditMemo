@@ -779,12 +779,14 @@ enum RecordService {
     static func rebuildBilling(
         context: ModelContext,
         onProgress: ((Int, Int) -> Void)? = nil
-    ) async {
+    ) async throws {
         let recordDesc = FetchDescriptor<E3record>(sortBy: [SortDescriptor(\E3record.dateUse)])
         let records = context.fetchReporting(recordDesc, entity: "E3record")
         // 全件処理では同じ請求・支払をDBから繰り返し検索しない
         let lookup = BillingRebuildLookup(context: context)
         for (index, record) in records.enumerated() {
+            // 長時間処理をキャンセルした場合は保存前に呼び出し元へ戻す
+            try Task.checkCancellation()
             // 全件再構築中は重い全体集計を明細ごとに繰り返さない
             rebuildBilling(
                 for: record,
