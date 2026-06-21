@@ -825,6 +825,19 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = (
+					"AppIcon-french",
+					"AppIcon-monoBlue",
+					"AppIcon-sunset",
+					"AppIcon-chic",
+					"AppIcon-candy",
+					"AppIcon-ocean",
+					"AppIcon-forest",
+					"AppIcon-mono",
+					"AppIcon-pastel",
+					"AppIcon-berry",
+					"AppIcon-lagoon",
+				);
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CURRENT_PROJECT_VERSION = 1;
 				INFOPLIST_FILE = CreditMemo/Resources/Info.plist;
@@ -958,6 +971,19 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = (
+					"AppIcon-french",
+					"AppIcon-monoBlue",
+					"AppIcon-sunset",
+					"AppIcon-chic",
+					"AppIcon-candy",
+					"AppIcon-ocean",
+					"AppIcon-forest",
+					"AppIcon-mono",
+					"AppIcon-pastel",
+					"AppIcon-berry",
+					"AppIcon-lagoon",
+				);
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CURRENT_PROJECT_VERSION = 1;
 				INFOPLIST_FILE = CreditMemo/Resources/Info.plist;

@@ -77,6 +77,8 @@ struct DisplayBadgeColorSheet: View {
         return Button {
             guard preset != selectedPreset else { return }
             badgePresetRaw = preset.rawValue
+            // シート表示中でも選択直後にホーム画面アイコンへ反映する
+            AppIconSync.sync(to: preset)
             // 選択されたプリセットと現在の中央高さを匿名で記録する
             AppTelemetry.reportBadgeDisplaySettingChange(
                 preset: preset,

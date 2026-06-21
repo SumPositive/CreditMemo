@@ -2,6 +2,16 @@
 
 この `readme.md` は、開発者向けの設計メモです
 
+## Xcodeプロジェクト管理方針
+
+- 本プロジェクトはXcode管理で運用する
+- `CreditMemo.xcodeproj`をプロジェクト設定の正本とする
+- ターゲット、Build Settings、Build Phases、Asset Catalogなどの設定変更はXcodeから行う
+- `project.pbxproj`はXcodeが更新した内容をそのままGit管理する
+- XcodeGenは使用しない
+- `project.yml`からXcodeプロジェクトを再生成しない
+- ファイル追加時はXcode上のTarget Membershipも確認する
+
 ## プロジェクト名とアプリ名の使い分け
 
 本プロジェクトでは、プロジェクト識別子と公開アプリ名を **意図的に揃えず別物として運用** します。

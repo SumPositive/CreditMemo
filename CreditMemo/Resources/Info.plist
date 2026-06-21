@@ -8,6 +8,31 @@
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIcons</key>
 	<dict>
+		<key>CFBundleAlternateIcons</key>
+		<dict>
+			<key>AppIcon-berry</key>
+			<dict><key>CFBundleIconName</key><string>AppIcon-berry</string></dict>
+			<key>AppIcon-candy</key>
+			<dict><key>CFBundleIconName</key><string>AppIcon-candy</string></dict>
+			<key>AppIcon-chic</key>
+			<dict><key>CFBundleIconName</key><string>AppIcon-chic</string></dict>
+			<key>AppIcon-forest</key>
+			<dict><key>CFBundleIconName</key><string>AppIcon-forest</string></dict>
+			<key>AppIcon-french</key>
+			<dict><key>CFBundleIconName</key><string>AppIcon-french</string></dict>
+			<key>AppIcon-lagoon</key>
+			<dict><key>CFBundleIconName</key><string>AppIcon-lagoon</string></dict>
+			<key>AppIcon-mono</key>
+			<dict><key>CFBundleIconName</key><string>AppIcon-mono</string></dict>
+			<key>AppIcon-monoBlue</key>
+			<dict><key>CFBundleIconName</key><string>AppIcon-monoBlue</string></dict>
+			<key>AppIcon-ocean</key>
+			<dict><key>CFBundleIconName</key><string>AppIcon-ocean</string></dict>
+			<key>AppIcon-pastel</key>
+			<dict><key>CFBundleIconName</key><string>AppIcon-pastel</string></dict>
+			<key>AppIcon-sunset</key>
+			<dict><key>CFBundleIconName</key><string>AppIcon-sunset</string></dict>
+		</dict>
 		<key>CFBundlePrimaryIcon</key>
 		<dict>
 			<key>CFBundleIconName</key>
@@ -18,6 +43,31 @@
 	</dict>
 	<key>CFBundleIcons~ipad</key>
 	<dict>
+		<key>CFBundleAlternateIcons</key>
+		<dict>
+			<key>AppIcon-berry</key>
+			<dict><key>CFBundleIconName</key><string>AppIcon-berry</string></dict>
+			<key>AppIcon-candy</key>
+			<dict><key>CFBundleIconName</key><string>AppIcon-candy</string></dict>
+			<key>AppIcon-chic</key>
+			<dict><key>CFBundleIconName</key><string>AppIcon-chic</string></dict>
+			<key>AppIcon-forest</key>
+			<dict><key>CFBundleIconName</key><string>AppIcon-forest</string></dict>
+			<key>AppIcon-french</key>
+			<dict><key>CFBundleIconName</key><string>AppIcon-french</string></dict>
+			<key>AppIcon-lagoon</key>
+			<dict><key>CFBundleIconName</key><string>AppIcon-lagoon</string></dict>
+			<key>AppIcon-mono</key>
+			<dict><key>CFBundleIconName</key><string>AppIcon-mono</string></dict>
+			<key>AppIcon-monoBlue</key>
+			<dict><key>CFBundleIconName</key><string>AppIcon-monoBlue</string></dict>
+			<key>AppIcon-ocean</key>
+			<dict><key>CFBundleIconName</key><string>AppIcon-ocean</string></dict>
+			<key>AppIcon-pastel</key>
+			<dict><key>CFBundleIconName</key><string>AppIcon-pastel</string></dict>
+			<key>AppIcon-sunset</key>
+			<dict><key>CFBundleIconName</key><string>AppIcon-sunset</string></dict>
+		</dict>
 		<key>CFBundlePrimaryIcon</key>
 		<dict>
 			<key>CFBundleIconName</key>
