@@ -160,6 +160,254 @@ struct JSONRoundTripTests {
         #expect(Set(tags.map(\.id)) == Set(["tag-1", "tag-2"]))
     }
 
+    // 業務上の全フィールドと関連をExport後のImportで維持する
+    @Test func detailedRoundTripPreservesAllDomainValues() async throws {
+        let sourceContext = try TestStore.makeContext()
+        let bank = E8bank(id: "bank-detail", zName: "口座🏦", zNote: "口座\nメモ", nRow: 7)
+        let card = E1card(
+            id: "card-detail",
+            zName: "カード💳",
+            zNote: "カード\nメモ",
+            nRow: 8,
+            nClosingDay: 15,
+            nPayDay: 10,
+            nPayMonth: 1,
+            nBonus1: 6,
+            nBonus2: 12
+        )
+        let tagA = E5tag(id: "tag-a", zName: "食費🍙", zNote: "タグA", sortName: "食費🍙")
+        let tagB = E5tag(id: "tag-b", zName: "重要", zNote: "タグB", sortName: "重要")
+        let record = E3record(
+            id: "record-detail",
+            dateUse: TestStore.date(2024, 2, 29),
+            dateUpdate: TestStore.date(2024, 3, 1),
+            zName: "利用店\n二行目",
+            zNote: "絵文字✅",
+            nAmount: 1_001,
+            nPayType: PayType.twoPayments.rawValue,
+            nRepeat: 0
+        )
+        card.e8bank = bank
+        record.e1card = card
+        record.e5tags = [tagA, tagB]
+        sourceContext.insert(bank)
+        sourceContext.insert(card)
+        sourceContext.insert(tagA)
+        sourceContext.insert(tagB)
+        sourceContext.insert(record)
+        try RecordService.save(
+            record,
+            partDueDateOverridesByPartNo: [
+                1: TestStore.date(2024, 4, 8),
+                2: TestStore.date(2024, 5, 9)
+            ],
+            partAmountOverridesByPartNo: [1: 400, 2: 601],
+            partDueDateLockOverridesByPartNo: [1: true, 2: false],
+            context: sourceContext
+        )
+        let sourceParts = record.e6parts.sorted { $0.nPartNo < $1.nPartNo }
+        sourceParts[0].nInterest = 12.34
+        sourceParts[0].nNoCheck = 0
+        sourceParts[1].nInterest = 56.78
+        // ISO 8601で完全一致できる固定時刻へ戻す
+        record.dateUpdate = TestStore.date(2024, 3, 1)
+        try sourceContext.save()
+        let firstInvoice = try #require(sourceParts[0].e2invoice)
+        try RecordService.setInvoicesPaid([firstInvoice], isPaid: true, context: sourceContext)
+        // Import末尾と同じ正規化を行い、派生集計値を同条件で比較する
+        RecordService.cleanupOrphanBilling(context: sourceContext)
+        if sourceContext.hasChanges {
+            try sourceContext.save()
+        }
+        // 支払済み処理後に設定し、繰り返し履歴の自動生成を避ける
+        record.nRepeat = 3
+        record.dateUpdate = TestStore.date(2024, 3, 1)
+        try sourceContext.save()
+        let expected = try domainSnapshot(sourceContext)
+
+        let data = try await JSONExport.exportData(context: sourceContext, style: .compact)
+        let url = try writeTempJSON(data)
+        defer { try? FileManager.default.removeItem(at: url) }
+        let targetContext = try TestStore.makeContext()
+
+        _ = try await JSONImport.importData(from: url, context: targetContext)
+
+        let actual = try domainSnapshot(targetContext)
+        // 不一致時に対象エンティティを特定できるよう項目単位で比較する
+        #expect(actual.banks == expected.banks)
+        #expect(actual.cards == expected.cards)
+        #expect(actual.tags == expected.tags)
+        #expect(actual.records == expected.records)
+        #expect(actual.parts == expected.parts)
+        #expect(actual.invoices == expected.invoices)
+        #expect(actual.payments == expected.payments)
+        #expect(RecordService.checkBillingIntegrity(context: targetContext).hasIssue == false)
+    }
+
+    // 合計が正しい2回払いの手動配分だけを復元する
+    @Test func validTwoPaymentAmountsAreRestored() async throws {
+        let context = try TestStore.makeContext()
+        let url = try writeTempJSON(
+            Data(twoPaymentJSON(firstAmount: "400", secondAmount: "601").utf8)
+        )
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        _ = try await JSONImport.importData(from: url, context: context)
+
+        let parts = try context.fetch(FetchDescriptor<E6part>()).sorted { $0.nPartNo < $1.nPartNo }
+        #expect(parts.map(\.nAmount) == [400, 601])
+    }
+
+    // 欠損、不一致、0、負数、総額以上の配分は既定配分へ戻す
+    @Test func invalidTwoPaymentAmountsAreRejected() async throws {
+        let invalidAmounts: [(String?, String?)] = [
+            ("400", nil),
+            ("400", "400"),
+            ("0", "1001"),
+            ("-1", "1002"),
+            ("1001", "0")
+        ]
+
+        for amounts in invalidAmounts {
+            let context = try TestStore.makeContext()
+            let url = try writeTempJSON(
+                Data(twoPaymentJSON(firstAmount: amounts.0, secondAmount: amounts.1).utf8)
+            )
+            defer { try? FileManager.default.removeItem(at: url) }
+
+            _ = try await JSONImport.importData(from: url, context: context)
+
+            let parts = try context.fetch(FetchDescriptor<E6part>()).sorted { $0.nPartNo < $1.nPartNo }
+            #expect(parts.map(\.nAmount) == [500, 501])
+        }
+    }
+
+    // 一括払いへ2回分の状態が渡されても金額を上書きしない
+    @Test func twoPaymentAmountsAreIgnoredForLumpSumRecord() async throws {
+        let json = twoPaymentJSON(firstAmount: "400", secondAmount: "601")
+            .replacingOccurrences(of: "\"payType\":2", with: "\"payType\":1")
+        let context = try TestStore.makeContext()
+        let url = try writeTempJSON(Data(json.utf8))
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        _ = try await JSONImport.importData(from: url, context: context)
+
+        let parts = try context.fetch(FetchDescriptor<E6part>())
+        #expect(parts.count == 1)
+        #expect(parts.first?.nAmount == 1_001)
+    }
+
+    // 月末、うるう日、年末年始の日付を時刻ずれなく往復する
+    @Test func dateBoundariesRemainStableThroughRoundTrip() async throws {
+        let sourceContext = try TestStore.makeContext()
+        let card = TestFixtures.makeCard(
+            name: "月末カード",
+            closingDay: 29,
+            payDay: 29,
+            payMonth: 1,
+            in: sourceContext
+        )
+        let dates = [
+            TestStore.date(2024, 2, 29),
+            TestStore.date(2026, 1, 31),
+            TestStore.date(2026, 12, 31)
+        ]
+        for (index, date) in dates.enumerated() {
+            _ = try TestFixtures.saveRecord(
+                amount: Decimal(index + 1),
+                label: "境界\(index)",
+                dateUse: date,
+                card: card,
+                in: sourceContext
+            )
+        }
+        let expectedDates = try dateSnapshot(sourceContext)
+        let data = try await JSONExport.exportData(context: sourceContext, style: .compact)
+        let url = try writeTempJSON(data)
+        defer { try? FileManager.default.removeItem(at: url) }
+        let targetContext = try TestStore.makeContext()
+
+        _ = try await JSONImport.importData(from: url, context: targetContext)
+
+        #expect(try dateSnapshot(targetContext) == expectedDates)
+    }
+
+    // 部分Importのnullと空配列で既存の口座、カード、タグ関連を解除する
+    @Test func partialImportClearsExistingRelationships() async throws {
+        let context = try TestStore.makeContext()
+        let bank = E8bank(id: "bank-partial", zName: "口座")
+        let card = E1card(id: "card-partial", zName: "カード")
+        let tag = E5tag(id: "tag-partial", zName: "タグ", sortName: "タグ")
+        let record = E3record(
+            id: "record-partial",
+            dateUse: TestStore.date(2026, 4, 1),
+            zName: "履歴",
+            nAmount: 100
+        )
+        card.e8bank = bank
+        record.e1card = card
+        record.e5tags = [tag]
+        context.insert(bank)
+        context.insert(card)
+        context.insert(tag)
+        context.insert(record)
+        try RecordService.save(record, context: context)
+
+        let json = """
+        {
+          "cards": [
+            {"id":"card-partial","name":"カード","note":"","row":0,"closingDay":20,"payDay":27,"payMonth":1,"bonus1":0,"bonus2":0,"bankID":null}
+          ],
+          "records": [
+            {"id":"record-partial","dateUse":"2026-04-01T00:00:00Z","name":"履歴","note":"","amount":"100","payType":1,"repeatMonths":0,"cardID":null,"tagIDs":[]}
+          ]
+        }
+        """
+        let url = try writeTempJSON(Data(json.utf8))
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        _ = try await JSONImport.importData(from: url, context: context)
+
+        let updatedCard = try #require(try context.fetch(FetchDescriptor<E1card>()).first)
+        let updatedRecord = try #require(try context.fetch(FetchDescriptor<E3record>()).first)
+        #expect(updatedCard.e8bank == nil)
+        #expect(updatedRecord.e1card == nil)
+        #expect(updatedRecord.e5tags.isEmpty)
+        #expect(RecordService.checkBillingIntegrity(context: context).hasIssue == false)
+    }
+
+    // invoiceとpaymentの状態が競合した場合は後段のpaymentを優先する
+    @Test func paymentStateWinsWhenImportedStatesConflict() async throws {
+        let json = """
+        {
+          "banks": [{"id":"bank-conflict","name":"口座","note":"","row":0}],
+          "cards": [
+            {"id":"card-conflict","name":"カード","note":"","row":0,"closingDay":0,"payDay":0,"payMonth":0,"bonus1":0,"bonus2":0,"bankID":"bank-conflict"}
+          ],
+          "records": [
+            {"id":"record-conflict","dateUse":"2026-04-01T00:00:00Z","name":"履歴","note":"","amount":"100","payType":1,"repeatMonths":0,"cardID":"card-conflict","tagIDs":[]}
+          ],
+          "invoices": [
+            {"id":"invoice-conflict","date":"2026-04-01T00:00:00Z","isPaid":false,"cardID":"card-conflict","paymentID":"payment-conflict"}
+          ],
+          "payments": [
+            {"id":"payment-conflict","date":"2026-04-01T00:00:00Z","bankID":"bank-conflict","isPaid":true}
+          ]
+        }
+        """
+        let context = try TestStore.makeContext()
+        let url = try writeTempJSON(Data(json.utf8))
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        _ = try await JSONImport.importData(from: url, context: context)
+
+        let invoice = try #require(try context.fetch(FetchDescriptor<E2invoice>()).first)
+        let payment = try #require(try context.fetch(FetchDescriptor<E7payment>()).first)
+        #expect(invoice.isPaid == true)
+        #expect(payment.isPaid == true)
+        #expect(payment.e8paid?.id == "bank-conflict")
+    }
+
     // 不正な数値で失敗した場合は、途中まで追加した全データを破棄する
     @Test func invalidDecimalRollsBackEntireImport() async throws {
         let context = try TestStore.makeContext()
@@ -438,6 +686,70 @@ struct JSONRoundTripTests {
         return url
     }
 
+    // 2回払いの復元条件を検証する最小バックアップを生成する
+    private func twoPaymentJSON(firstAmount: String?, secondAmount: String?) -> String {
+        var parts: [String] = []
+        if let firstAmount {
+            parts.append("{\"recordID\":\"record-two\",\"partNo\":1,\"amount\":\"\(firstAmount)\"}")
+        }
+        if let secondAmount {
+            parts.append("{\"recordID\":\"record-two\",\"partNo\":2,\"amount\":\"\(secondAmount)\"}")
+        }
+        let json = """
+        {
+          "cards": [
+            {"id":"card-two","name":"カード","note":"","row":0,"closingDay":20,"payDay":27,"payMonth":1,"bonus1":0,"bonus2":0,"bankID":null}
+          ],
+          "records": [
+            {"id":"record-two","dateUse":"2026-04-01T00:00:00Z","name":"2回払い","note":"","amount":"1001","payType":2,"repeatMonths":0,"cardID":"card-two","tagIDs":[]}
+          ],
+          "parts": [\(parts.joined(separator: ","))]
+        }
+        """
+        return json
+    }
+
+    // 派生IDを除き、Export対象の業務値と関連を比較する
+    private func domainSnapshot(_ context: ModelContext) throws -> DomainSnapshot {
+        let banks = try context.fetch(FetchDescriptor<E8bank>())
+        let cards = try context.fetch(FetchDescriptor<E1card>())
+        let tags = try context.fetch(FetchDescriptor<E5tag>())
+        let records = try context.fetch(FetchDescriptor<E3record>())
+        let parts = try context.fetch(FetchDescriptor<E6part>())
+        let invoices = try context.fetch(FetchDescriptor<E2invoice>())
+        let payments = try context.fetch(FetchDescriptor<E7payment>())
+        return DomainSnapshot(
+            banks: banks.map { "\($0.id)|\($0.zName)|\($0.zNote)|\($0.nRow)" }.sorted(),
+            cards: cards.map {
+                "\($0.id)|\($0.zName)|\($0.zNote)|\($0.nRow)|\($0.nClosingDay)|\($0.nPayDay)|\($0.nPayMonth)|\($0.nBonus1)|\($0.nBonus2)|\($0.e8bank?.id ?? "")"
+            }.sorted(),
+            tags: tags.map { "\($0.id)|\($0.zName)|\($0.zNote)" }.sorted(),
+            records: records.map {
+                let tagIDs = $0.e5tags.map(\.id).sorted().joined(separator: ",")
+                return "\($0.id)|\($0.dateUse.timeIntervalSince1970)|\($0.dateUpdate?.timeIntervalSince1970 ?? 0)|\($0.zName)|\($0.zNote)|\($0.nAmount)|\($0.nPayType)|\($0.nRepeat)|\($0.e1card?.id ?? "")|\(tagIDs)"
+            }.sorted(),
+            parts: parts.map {
+                "\($0.e3record?.id ?? "")|\($0.nPartNo)|\($0.nAmount)|\($0.nInterest)|\($0.nNoCheck)|\($0.e2invoice?.date.timeIntervalSince1970 ?? 0)|\($0.isDueDateLocked)"
+            }.sorted(),
+            invoices: invoices.map {
+                "\($0.e1card?.id ?? "")|\($0.date.timeIntervalSince1970)|\($0.isPaid)|\($0.sumAmount)|\($0.sumNoCheck)"
+            }.sorted(),
+            payments: payments.map {
+                "\($0.e8bank?.id ?? "")|\($0.date.timeIntervalSince1970)|\($0.isPaid)|\($0.sumAmount)|\($0.sumNoCheck)"
+            }.sorted()
+        )
+    }
+
+    // 利用日と請求日だけを抽出し、境界日の時刻ずれを検出する
+    private func dateSnapshot(_ context: ModelContext) throws -> DateSnapshot {
+        let records = try context.fetch(FetchDescriptor<E3record>())
+        let parts = try context.fetch(FetchDescriptor<E6part>())
+        return DateSnapshot(
+            useDates: records.map { $0.dateUse.timeIntervalSince1970 }.sorted(),
+            dueDates: parts.compactMap { $0.e2invoice?.date.timeIntervalSince1970 }.sorted()
+        )
+    }
+
     private func counts(_ context: ModelContext) throws -> Counts {
         Counts(
             banks: try context.fetch(FetchDescriptor<E8bank>()).count,
@@ -490,6 +802,21 @@ struct JSONRoundTripTests {
         let parts: Int
         let invoices: Int
         let payments: Int
+    }
+
+    private struct DomainSnapshot: Equatable {
+        let banks: [String]
+        let cards: [String]
+        let tags: [String]
+        let records: [String]
+        let parts: [String]
+        let invoices: [String]
+        let payments: [String]
+    }
+
+    private struct DateSnapshot: Equatable {
+        let useDates: [TimeInterval]
+        let dueDates: [TimeInterval]
     }
 
     private struct DatabaseSnapshot: Equatable {

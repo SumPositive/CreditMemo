@@ -565,6 +565,10 @@ enum JSONImport {
                 if let restored = validAmountByRecordAndNo[amountKey] {
                     part.nAmount = restored
                 }
+                if let interestString = item.interest {
+                    // Exportした分割払い利息を欠落させず復元する
+                    part.nInterest = try decimalValue(interestString)
+                }
 
                 let shouldLockDueDate = item.dueDateLocked ?? false
                 if let dueDate = item.dueDate {
