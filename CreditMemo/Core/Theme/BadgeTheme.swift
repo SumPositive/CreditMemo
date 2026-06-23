@@ -205,7 +205,7 @@ extension EnvironmentValues {
 
 /// 中央バンドの高さ範囲（base size = 64 の場合）
 enum BadgeMiddleHeight {
-    static let min: Double = 8
+    static let min: Double = 4
     static let max: Double = 24
     static let `default`: Double = 16
 }

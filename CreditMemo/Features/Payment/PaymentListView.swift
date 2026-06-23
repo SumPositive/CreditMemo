@@ -1511,11 +1511,16 @@ private struct PaymentBoundarySeparatorZone: View {
 
     /// 境界線の左右端を少し内側へ寄せる
     private let boundaryInset: CGFloat = 10
-    /// 境界はどちらの帯にも属さない専用レイヤーで描く
-    private let boundaryLineHeight: CGFloat = 8.0
 
     let position: Position
     @Environment(\.badgeTheme) private var badgeTheme
+    /// 設定シートのスライダーで決めた中央バンド高さ。境界線はこの 1/2 を採用する
+    @AppStorage(AppStorageKey.badgeMiddleHeight) private var badgeMiddleHeight: Double = BadgeMiddleHeight.default
+
+    /// 境界はどちらの帯にも属さない専用レイヤーで描く
+    private var boundaryLineHeight: CGFloat {
+        CGFloat(badgeMiddleHeight) / 2
+    }
 
     private var glowLineColor: Color {
         // 境界線は theme の中央色で区切りを強める
