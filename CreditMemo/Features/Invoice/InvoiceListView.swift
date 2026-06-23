@@ -6,6 +6,15 @@
 import SwiftUI
 import SwiftData
 
+/// 引き落とし状況のフィルタを引き継いで、配下の明細一覧でも同じ絞り込みを適用する
+struct InvoiceListFilter: Equatable {
+    enum Scope: Equatable {
+        case card(String)  // E1card.id
+        case bank(String)  // E8bank.id
+    }
+    let scope: Scope
+}
+
 struct InvoiceListView: View {
     private let payment: E7payment?
     /// `init(displayItem:)` 経由で渡される請求書スナップショット。
@@ -15,6 +24,8 @@ struct InvoiceListView: View {
     private let displayAmount: Decimal
     private let displayIsPaid: Bool
     private let showsBankHeader: Bool
+    /// 引き落とし状況からのフィルタ。nil の時は絞り込まない
+    private let invoiceFilter: InvoiceListFilter?
 
     /// 表示対象の請求書。`reloadKey` で `.id()` リセットされたタイミングで、
     /// context から再フェッチして最新を取り直す。
@@ -24,14 +35,29 @@ struct InvoiceListView: View {
     private var invoices: [E2invoice] {
         let dayStart = Calendar.current.startOfDay(for: displayDate)
         guard let nextDay = Calendar.current.date(byAdding: .day, value: 1, to: dayStart) else {
-            return payment?.e2invoices ?? staticInvoices ?? []
+            return applyFilter(payment?.e2invoices ?? staticInvoices ?? [])
         }
         let descriptor = FetchDescriptor<E2invoice>(
             predicate: #Predicate<E2invoice> { dayStart <= $0.date && $0.date < nextDay }
         )
         let fetched = context.fetchReporting(descriptor, entity: "E2invoice")
-        let sameStateInvoices = fetched.filter { $0.isPaid == displayIsPaid }
-        return sameStateInvoices.isEmpty ? (staticInvoices ?? payment?.e2invoices ?? []) : sameStateInvoices
+        let sameStateInvoices = applyFilter(fetched.filter { $0.isPaid == displayIsPaid })
+        return sameStateInvoices.isEmpty
+            ? applyFilter(staticInvoices ?? payment?.e2invoices ?? [])
+            : sameStateInvoices
+    }
+
+    /// 状況画面のフィルタに合わせて、明細一覧の対象も同じ条件で絞り込む
+    private func applyFilter(_ invoices: [E2invoice]) -> [E2invoice] {
+        guard let scope = invoiceFilter?.scope else {
+            return invoices
+        }
+        switch scope {
+        case .card(let cardID):
+            return invoices.filter { $0.e1card?.id == cardID }
+        case .bank(let bankID):
+            return invoices.filter { $0.e7payment?.e8bank?.id == bankID }
+        }
     }
 
     private var currentDisplayAmount: Decimal {
@@ -64,7 +90,7 @@ struct InvoiceListView: View {
     /// 「まとめて変更」シートで選択中の日付
     @State private var bulkChangeDraftDate: Date = Date()
 
-    init(payment: E7payment) {
+    init(payment: E7payment, filter: InvoiceListFilter? = nil) {
         self.payment = payment
         // payment 経由ではライブな e2invoices を参照するため、スナップショットは保持しない
         self.staticInvoices = nil
@@ -72,15 +98,17 @@ struct InvoiceListView: View {
         self.displayAmount = payment.sumAmount
         self.displayIsPaid = payment.isPaid
         self.showsBankHeader = true
+        self.invoiceFilter = filter
     }
 
-    init(displayItem: PaymentDisplayItem) {
+    init(displayItem: PaymentDisplayItem, filter: InvoiceListFilter? = nil) {
         self.payment = displayItem.detailPayment
         self.staticInvoices = displayItem.invoices
         self.displayDate = displayItem.date
         self.displayAmount = displayItem.amount
         self.displayIsPaid = displayItem.isPaid
         self.showsBankHeader = false
+        self.invoiceFilter = filter
     }
 
     // MARK: New Payment Button

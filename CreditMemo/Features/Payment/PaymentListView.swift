@@ -192,6 +192,7 @@ struct PaymentListView: View {
                                     overdueItemIDs: overdueItemIDs,
                                     paidItemIDs: paidItemIDs,
                                     unpaidGrouped: unpaidGrouped,
+                                    invoiceFilter: currentInvoiceFilter,
                                     onToggle: togglePaid,
                                     togglingPaymentIDs: togglingPaymentIDs,
                                     hasMorePaid: hasMorePaid,
@@ -539,7 +540,8 @@ struct PaymentListView: View {
                     amount: invoices.reduce(Decimal.zero) { $0 + $1.sumAmount },
                     isPaid: isPaid,
                     invoices: invoices,
-                    detailPayment: payment
+                    detailPayment: payment,
+                    invoiceFilter: payment.e8bank.map { .init(scope: .bank($0.id)) }
                 )
             }
             .sorted { $1.date < $0.date }
@@ -549,7 +551,8 @@ struct PaymentListView: View {
                 invoices: invoices,
                 isPaid: isPaid,
                 key: { invoice in "date-\(dayKey(invoice.date))" },
-                title: { _ in dateGroupTitleText }
+                title: { _ in dateGroupTitleText },
+                filter: { _ in nil }
             )
         case .card:
             let invoices = payments.flatMap { filteredInvoices(in: $0.e2invoices) }
@@ -557,8 +560,23 @@ struct PaymentListView: View {
                 invoices: invoices,
                 isPaid: isPaid,
                 key: { invoice in "card-\(dayKey(invoice.date))-\(invoice.e1card?.id ?? "__no_card__")" },
-                title: { invoice in invoice.e1card?.zName ?? NSLocalizedString("payment.card.noSelection", comment: "") }
+                title: { invoice in invoice.e1card?.zName ?? NSLocalizedString("payment.card.noSelection", comment: "") },
+                filter: { invoice in invoice.e1card.map { .init(scope: .card($0.id)) } }
             )
+        }
+    }
+
+    /// 状況画面の絞り込みを、配下の明細一覧 (InvoiceListView) にも引き継ぐ
+    private var currentInvoiceFilter: InvoiceListFilter? {
+        switch filterMode {
+        case .all:
+            return nil
+        case .card:
+            guard let id = selectedCard?.id else { return nil }
+            return InvoiceListFilter(scope: .card(id))
+        case .bank:
+            guard let id = selectedBank?.id else { return nil }
+            return InvoiceListFilter(scope: .bank(id))
         }
     }
 
@@ -592,14 +610,20 @@ struct PaymentListView: View {
         invoices: [E2invoice],
         isPaid: Bool,
         key: (E2invoice) -> String,
-        title: (E2invoice) -> String
+        title: (E2invoice) -> String,
+        filter: (E2invoice) -> InvoiceListFilter?
     ) -> [PaymentDisplayItem] {
         var buckets: [String: [E2invoice]] = [:]
         var titles: [String: String] = [:]
+        var filters: [String: InvoiceListFilter?] = [:]
         for invoice in invoices {
             let bucketKey = key(invoice)
             buckets[bucketKey, default: []].append(invoice)
             titles[bucketKey] = title(invoice)
+            // 同じバケット内の要素は同じフィルタを返す前提（カードID／口座ID）
+            if filters[bucketKey] == nil {
+                filters[bucketKey] = filter(invoice)
+            }
         }
         return buckets.map { bucketKey, bucketInvoices in
             let date = bucketInvoices.map(\.date).min() ?? Date()
@@ -610,7 +634,8 @@ struct PaymentListView: View {
                 amount: bucketInvoices.reduce(Decimal.zero) { $0 + $1.sumAmount },
                 isPaid: isPaid,
                 invoices: bucketInvoices,
-                detailPayment: uniquePayment(in: bucketInvoices)
+                detailPayment: uniquePayment(in: bucketInvoices),
+                invoiceFilter: filters[bucketKey] ?? nil
             )
         }
         .sorted { $1.date < $0.date }
@@ -707,6 +732,9 @@ struct PaymentDisplayItem: Identifiable {
     let isPaid: Bool
     let invoices: [E2invoice]
     let detailPayment: E7payment?
+    /// 集計軸が手段別/口座別のとき、その行が表す対象を子画面 (InvoiceListView) へ引き継ぐ
+    /// 日付別グループや「未選択」は nil
+    let invoiceFilter: InvoiceListFilter?
 
     var includesUnselectedCard: Bool {
         invoices.contains { $0.e1card == nil }
@@ -1067,6 +1095,7 @@ private struct PaymentCombinedCard: View {
     let overdueItemIDs: [String]
     let paidItemIDs: [String]
     let unpaidGrouped: PaymentUnpaidGrouped
+    let invoiceFilter: InvoiceListFilter?
     let onToggle: (PaymentDisplayItem) -> Void
     let togglingPaymentIDs: Set<String>
     let hasMorePaid: Bool
@@ -1102,6 +1131,7 @@ private struct PaymentCombinedCard: View {
                         item: payment,
                         rowID: payment.id,
                         isToggling: togglingPaymentIDs.contains(payment.id),
+                        invoiceFilter: invoiceFilter,
                         onToggle: onToggle,
                         onNavigateToDetail: onNavigateToDetail
                     )
@@ -1211,6 +1241,7 @@ private struct PaymentCombinedCard: View {
                 item: payment,
                 rowID: payment.id,
                 isToggling: togglingPaymentIDs.contains(payment.id),
+                invoiceFilter: invoiceFilter,
                 onToggle: onToggle,
                 onNavigateToDetail: onNavigateToDetail
             )
@@ -1248,6 +1279,7 @@ private struct PaymentCombinedCard: View {
                     item: payment,
                     rowID: index == 0 ? paidFirstRowAnchorID : payment.id,
                     isToggling: togglingPaymentIDs.contains(payment.id),
+                    invoiceFilter: invoiceFilter,
                     onToggle: onToggle,
                     onNavigateToDetail: onNavigateToDetail
                 )
@@ -1340,13 +1372,20 @@ private struct PaymentNavigationRow: View {
     let item: PaymentDisplayItem
     let rowID: String
     let isToggling: Bool
+    /// 画面全体の絞り込み（ユーザーが手動で指定した手段/口座）
+    let invoiceFilter: InvoiceListFilter?
     let onToggle: (PaymentDisplayItem) -> Void
     let onNavigateToDetail: () -> Void
+
+    /// 集計軸由来の行フィルタを優先し、なければ画面全体の絞り込みを適用する
+    private var effectiveFilter: InvoiceListFilter? {
+        item.invoiceFilter ?? invoiceFilter
+    }
 
     var body: some View {
         if let detailPayment = item.detailPayment {
             NavigationLink {
-                InvoiceListView(payment: detailPayment)
+                InvoiceListView(payment: detailPayment, filter: effectiveFilter)
                     .onAppear { onNavigateToDetail() }
             } label: {
                 PaymentRow(item: item, isToggling: isToggling) {
@@ -1360,7 +1399,7 @@ private struct PaymentNavigationRow: View {
         } else {
             NavigationLink {
                 // 複数支払を束ねた行は、口座を出さない明細画面で開く
-                InvoiceListView(displayItem: item)
+                InvoiceListView(displayItem: item, filter: effectiveFilter)
                     .onAppear { onNavigateToDetail() }
             } label: {
                 PaymentRow(item: item, isToggling: isToggling) {
