@@ -3,6 +3,14 @@ import SwiftData
 import Testing
 @testable import CreditMemo
 
+// 数千件規模のスケーリング計測テストは、実機の jetsam メモリ上限を超えて
+// SIGKILL (exit 9) になるため、メモリ潤沢なシミュレータ専用で実行する。
+// 実機では計測値もサーマル等で不安定なので、性能退行検出はシミュレータ/CI に任せる
+private let runsHeavyScalingTests = TestEnvironment.isSimulator
+
+// 大量データを扱う計測テストは、並列実行で複数の巨大コンテナが同時に
+// メモリ常駐すると SIGKILL (exit 9) を招くため、直列実行に固定する
+@Suite(.serialized)
 @MainActor
 struct EfficiencyTests {
     @Test("200件を 1 枚のカードに保存しても、請求は重複せず月単位にまとまる")
@@ -79,7 +87,9 @@ struct EfficiencyTests {
     }
 
     // 2,000件のImport、Export、再Importを実用的な時間と容量で処理する
-    @Test func largeDatasetRoundTripAndReimportRemainEfficient() async throws {
+    // 2 つの ModelContext を同時に保持するため、実機メモリ上限を避けてシミュレータ専用
+    @Test(.enabled(if: runsHeavyScalingTests))
+    func largeDatasetRoundTripAndReimportRemainEfficient() async throws {
         let recordCount = 2_000
         let inputData = largeImportData(recordCount: recordCount)
         let inputURL = try writeTempJSON(inputData)
@@ -118,7 +128,9 @@ struct EfficiencyTests {
     }
 
     // 件数を2倍にしても処理時間が二次関数的に悪化しない
-    @Test func importTimeScalesWithoutQuadraticRegression() async throws {
+    // 1,000/2,000 件を連続生成するため、実機メモリ上限を避けてシミュレータ専用
+    @Test(.enabled(if: runsHeavyScalingTests))
+    func importTimeScalesWithoutQuadraticRegression() async throws {
         // 初回実行時のランタイム初期化を計測外へ出す
         _ = try await measuredImport(recordCount: 10)
         let oneThousand = try await measuredImport(recordCount: 1_000)

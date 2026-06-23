@@ -62,6 +62,7 @@
 		B75EEE3CAEB7AB78F2CB5681 /* MigratingFromCoreData.swift in Sources */ = {isa = PBXBuildFile; fileRef = D127ACB4C390D17DB98D1E2F /* MigratingFromCoreData.swift */; };
 		BC76FD63B00A75AE72C028BB /* JSONExport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D32984FA64D225EB42CC1A4 /* JSONExport.swift */; };
 		C3196B1E74525FBA26098A1C /* View+ScalableTitle.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAF54A44CEADADFC65FDBAD3 /* View+ScalableTitle.swift */; };
+		C39F94DC2FEA974000873586 /* TestEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = C39F94DB2FEA974000873586 /* TestEnvironment.swift */; };
 		C3B88D7C752156C24F085A6E /* EditShortcutCapsuleButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B5525175B4413CA409A0F10 /* EditShortcutCapsuleButton.swift */; };
 		C3ECE81CD3F9F2D58DE2CC00 /* GoogleMobileAds in Frameworks */ = {isa = PBXBuildFile; productRef = 89E194455AE3BC909B357E64 /* GoogleMobileAds */; };
 		C57ADA9A2E61C90333FC31CF /* JapaneseHoliday.swift in Sources */ = {isa = PBXBuildFile; fileRef = 066A1D4A637608B10B9ACE11 /* JapaneseHoliday.swift */; };
@@ -171,6 +172,7 @@
 		B3D0DA9E8CA885EBFC0C4D17 /* E8bank.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = E8bank.swift; sourceTree = "<group>"; };
 		B616AD7BE55B29AF478E7561 /* BankService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BankService.swift; sourceTree = "<group>"; };
 		C1EC73DA35378F10AD112E8D /* SplitPayListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplitPayListView.swift; sourceTree = "<group>"; };
+		C39F94DB2FEA974000873586 /* TestEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestEnvironment.swift; sourceTree = "<group>"; };
 		C88CDBC613768DE5DDC3EA8E /* CardServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardServiceTests.swift; sourceTree = "<group>"; };
 		CA178EA89015430E9475246A /* AZPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AZPicker.swift; sourceTree = "<group>"; };
 		CAF54A44CEADADFC65FDBAD3 /* View+ScalableTitle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+ScalableTitle.swift"; sourceTree = "<group>"; };
@@ -462,6 +464,7 @@
 		CFA602C1C12E74789D2D7737 /* Support */ = {
 			isa = PBXGroup;
 			children = (
+				C39F94DB2FEA974000873586 /* TestEnvironment.swift */,
 				92285F000E6AEFF8979BCA79 /* TestFixtures.swift */,
 				8574C59269C2D9481FB34C03 /* TestStore.swift */,
 			);
@@ -644,6 +647,7 @@
 				6AEF2FECDB743E7E193152D5 /* BankServiceTests.swift in Sources */,
 				ADBDCC132EEDEE2C5D666790 /* CardServiceTests.swift in Sources */,
 				2F928C471CA14771E557763A /* CreditMemoTests.swift in Sources */,
+				C39F94DC2FEA974000873586 /* TestEnvironment.swift in Sources */,
 				CBCAE2CD6CA8CA94D630AE2D /* DataIntegrityTests.swift in Sources */,
 				1379AF56C15CDD90134180AD /* EfficiencyTests.swift in Sources */,
 				D8E2B639AC10635DDF19B901 /* JSONRoundTripTests.swift in Sources */,
