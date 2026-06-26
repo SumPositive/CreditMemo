@@ -267,6 +267,9 @@ struct JSONRoundTripTests {
             ("-1", "1002"),
             ("1001", "0")
         ]
+        // 既定配分は通貨小数桁に依存する（円=500/501、2桁通貨=500.5/500.5）。
+        // ロケール非依存にするため、本番と同じ計算で期待値を求める
+        let expectedDefault = BillingService.twoPaymentAmounts(total: 1001)
 
         for amounts in invalidAmounts {
             let context = try TestStore.makeContext()
@@ -278,7 +281,7 @@ struct JSONRoundTripTests {
             _ = try await JSONImport.importData(from: url, context: context)
 
             let parts = try context.fetch(FetchDescriptor<E6part>()).sorted { $0.nPartNo < $1.nPartNo }
-            #expect(parts.map(\.nAmount) == [500, 501])
+            #expect(parts.map(\.nAmount) == expectedDefault)
         }
     }
 
