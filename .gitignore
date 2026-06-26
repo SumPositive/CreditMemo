@@ -96,3 +96,5 @@ playground.xcworkspace
 
 # Swift Package Manager
 # Package.resolved
+# XcodeGen は使用しない（Xcode 管理に一本化）。誤って再生成されても追跡しない
+project.yml

@@ -768,9 +768,18 @@ private struct InvoiceStatusIcon: View {
 private struct PartLockIcon: View {
     let isLocked: Bool
 
+    /// 施錠アイコン名。端末に存在する時だけ理想の checkmark 付きを使い、
+    /// 未収録の iOS では確実に存在する lock.fill へフォールバックする。
+    /// （未収録名を直接渡すと Image が無描画になり「アイコンが消える」不具合になるため）
+    private var symbolName: String {
+        guard isLocked else { return "lock.open.fill" }
+        let preferred = "lock.badge.checkmark.fill"
+        return UIImage(systemName: preferred) != nil ? preferred : "lock.fill"
+    }
+
     var body: some View {
         // 施錠済みはチェック付きの標準アイコンで示す
-        Image(systemName: isLocked ? "lock.badge.checkmark.fill" : "lock.open.fill")
+        Image(systemName: symbolName)
             .foregroundStyle(isLocked ? Color(.systemGreen) : Color(.systemGray3))
             .imageScale(.large)
             .dynamicTypeSize(...DynamicTypeSize.xxxLarge)

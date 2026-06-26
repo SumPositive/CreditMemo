@@ -26,8 +26,13 @@
 
 ![Platform](https://img.shields.io/badge/platform-iOS%2018%2B-blue)
 ![Swift](https://img.shields.io/badge/Swift-6-orange)
-![Version](https://img.shields.io/badge/version-2.4.0-brightgreen)
+![Version](https://img.shields.io/badge/version-2.4.1-brightgreen)
 [![App Store](https://img.shields.io/badge/App%20Store-Download-blue)](https://apps.apple.com/us/app/id432458298)
+
+## バージョン 2.4.1 の主な変更
+
+- **絞り込みの引き継ぎ不具合を修正**
+  - 引き落とし状況の絞り込み条件（手段別 / 口座別）が、配下の引き落とし明細に反映されない不具合を修正
 
 ## バージョン 2.4.0 の主な変更
 
