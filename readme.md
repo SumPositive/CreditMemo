@@ -26,8 +26,14 @@
 
 ![Platform](https://img.shields.io/badge/platform-iOS%2018%2B-blue)
 ![Swift](https://img.shields.io/badge/Swift-6-orange)
-![Version](https://img.shields.io/badge/version-2.4.1-brightgreen)
+![Version](https://img.shields.io/badge/version-2.4.2-brightgreen)
 [![App Store](https://img.shields.io/badge/App%20Store-Download-blue)](https://apps.apple.com/us/app/id432458298)
+
+## バージョン 2.4.2 の主な変更
+
+- **ロックアイコンが消える不具合を修正**
+  - 引き落とし明細でロックすると施錠アイコンが空白になりアンロックできない不具合を修正
+  - 原因は施錠アイコンに iOS 26 追加の SF Symbol (`lock.badge.checkmark.fill`) を使っており、iOS 18〜25 では未収録で無描画になっていたこと。端末に無い場合は `lock.fill` へフォールバックするよう修正
 
 ## バージョン 2.4.1 の主な変更
 

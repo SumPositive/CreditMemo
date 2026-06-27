@@ -1170,11 +1170,15 @@ private struct AdMobBannerView: View {
                 RoundedRectangle(cornerRadius: 12)
                     .fill(Color(uiColor: .tertiarySystemBackground))
             )
+            .overlay {
+                // 読み込み中はバナー領域に重ねて表示し、レイアウト高さを変えない
+                if isLoading {
+                    ProgressView(String(localized: "support.ad.loading"))
+                        .font(.caption)
+                }
+            }
 
-            if isLoading {
-                ProgressView(String(localized: "support.ad.loading"))
-                    .font(.caption)
-            } else if errorMessage != nil {
+            if !isLoading, errorMessage != nil {
                 Button(String(localized: "common.reload")) {
                     reloadToken = UUID()
                     isLoading = true
