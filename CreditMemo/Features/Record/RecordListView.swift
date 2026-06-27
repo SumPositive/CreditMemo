@@ -328,10 +328,12 @@ struct RecordListView: View {
                 .padding(.vertical, 2)
             }
             .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 2, trailing: 16))
-            // 一度もコピーしていない時は、リスト先頭に「左へスワイプ」ヒントを出す
-            if !copySwipeHintDone && !filtered.isEmpty {
+            // 初心者モードで一度もコピーしていない時だけ、「左へスワイプ」ヒントを出す
+            if userLevel == .beginner && !copySwipeHintDone && !filtered.isEmpty {
                 CopySwipeHint()
                     .listRowSeparator(.hidden)
+                    // 上のコントロールとの間のセクション余白を詰める
+                    .listRowInsets(EdgeInsets(top: -8, leading: 16, bottom: 2, trailing: 16))
             }
             ForEach(filtered) { record in
                 Button {
@@ -378,6 +380,10 @@ struct RecordListView: View {
                 }
             }
         }
+        // 条件パネル下のセクション間余白を詰める
+        .listSectionSpacing(.compact)
+        // 条件パネル上（ナビゲーション下）の余白を詰める
+        .contentMargins(.top, 8, for: .scrollContent)
         .scalableNavigationTitle("record.list.title") {
             Image(systemName: "list.bullet.circle.fill")
                 .foregroundStyle(Color.cyan)
