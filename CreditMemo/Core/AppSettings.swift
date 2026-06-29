@@ -234,6 +234,15 @@ enum AppDateFormat {
         return date.formatted(.dateTime.month().day().weekday(.abbreviated))
     }
 
+    /// 自動ロケールのテンプレート方式フォーマッタ。
+    /// フィールドの並び順・区切り記号は地域（en_US は月→日、独仏西などは日→月）に追従する
+    private static func autoTemplateFormatter(_ template: String) -> DateFormatter {
+        let formatter = DateFormatter()
+        formatter.locale = .autoupdatingCurrent
+        formatter.setLocalizedDateFormatFromTemplate(template)
+        return formatter
+    }
+
     private static let jaYearWeekdayFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "ja_JP")
@@ -241,53 +250,23 @@ enum AppDateFormat {
         return formatter
     }()
 
-    private static let enYearWeekdayTwoLineFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = .autoupdatingCurrent
-        formatter.dateFormat = "yyyy EEE"
-        return formatter
-    }()
-    private static let yearFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = .autoupdatingCurrent
-        formatter.dateFormat = "yyyy"
-        return formatter
-    }()
-
-    private static let monthDayFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = .autoupdatingCurrent
-        formatter.dateFormat = "M/d"
-        return formatter
-    }()
+    // en を含む非 ja ロケールは並び順を地域へ追従させる
+    private static let enYearWeekdayTwoLineFormatter = autoTemplateFormatter("yyyyEEE")
+    private static let yearFormatter = autoTemplateFormatter("yyyy")
+    private static let monthDayFormatter = autoTemplateFormatter("Md")
     private static let jaWeekdayFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "ja_JP")
         formatter.dateFormat = "E"
         return formatter
     }()
-    private static let enWeekdayFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = .autoupdatingCurrent
-        formatter.dateFormat = "EEE"
-        return formatter
-    }()
+    private static let enWeekdayFormatter = autoTemplateFormatter("EEE")
     private static let jaMonthDayWeekdayFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "ja_JP")
         formatter.dateFormat = "M/d(E)"
         return formatter
     }()
-    private static let enMonthDayWeekdayFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = .autoupdatingCurrent
-        formatter.dateFormat = "M/d(EEE)"
-        return formatter
-    }()
-    private static let enSingleLineFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = .autoupdatingCurrent
-        formatter.dateFormat = "EEE, M/d yyyy"
-        return formatter
-    }()
+    private static let enMonthDayWeekdayFormatter = autoTemplateFormatter("MdEEE")
+    private static let enSingleLineFormatter = autoTemplateFormatter("yyyyMdEEE")
 }
