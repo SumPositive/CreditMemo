@@ -341,7 +341,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Speichern fehlgeschlagen."
+            "value": "Speicherfehler"
           }
         },
         "zh-Hans": {
@@ -1298,7 +1298,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "＋ Neues Konto hinzufügen"
+            "value": "＋ Konto hinzufügen"
           }
         },
         "zh-Hans": {
@@ -1617,7 +1617,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aufladung (spätere Abbuchung)"
+            "value": "Später abbuchen"
           }
         },
         "zh-Hans": {
@@ -1646,13 +1646,13 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Debit (am selben Tag)"
+            "value": "Debit (heute)"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "借记（当天）"
+            "value": "扣款（当天）"
           }
         }
       }
@@ -2632,7 +2632,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Abschluss Monatsende"
+            "value": "Monatsende"
           }
         },
         "zh-Hans": {
@@ -2922,7 +2922,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Datenbank zurücksetzen"
+            "value": "DB zurücksetzen"
           }
         },
         "zh-Hans": {
@@ -3420,7 +3420,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "(Kopiert) Zum Bearbeiten tippen"
+            "value": "(Kopie) Bearbeiten"
           }
         },
         "zh-Hans": {
@@ -3449,7 +3449,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "(Hinzugefügt) Zum Bearbeiten tippen"
+            "value": "(Neu) Bearbeiten"
           }
         },
         "zh-Hans": {
@@ -3507,7 +3507,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zum Bearbeiten tippen"
+            "value": "Zum Bearbeiten"
           }
         },
         "zh-Hans": {
@@ -4001,7 +4001,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Überspringen (beim nächsten Start erneut)"
+            "value": "Überspringen (später)"
           }
         },
         "zh-Hans": {
@@ -4146,7 +4146,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Als bezahlt markieren"
+            "value": "Als bezahlt"
           }
         },
         "zh-Hans": {
@@ -4726,7 +4726,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Als bezahlt markieren"
+            "value": "Als bezahlt"
           }
         },
         "zh-Hans": {
@@ -5770,7 +5770,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Abbuchungsdatum"
+            "value": "Fälligkeit"
           }
         },
         "zh-Hans": {
@@ -5799,7 +5799,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Abbuchungsdatum gesperrt"
+            "value": "Datum gesperrt"
           }
         },
         "zh-Hans": {
@@ -5886,7 +5886,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nächstes Fälligkeitsdatum"
+            "value": "Nächster Zahltag"
           }
         },
         "zh-Hans": {
@@ -5915,7 +5915,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vorheriges Fälligkeitsdatum"
+            "value": "Voriger Zahltag"
           }
         },
         "zh-Hans": {
@@ -5973,7 +5973,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Abbuchungsdatum automatisch berechnet"
+            "value": "Datum automatisch"
           }
         },
         "zh-Hans": {
@@ -6031,7 +6031,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zahlung bearbeiten"
+            "value": "Zahlung ändern"
           }
         },
         "zh-Hans": {
@@ -6613,7 +6613,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Später korrigieren"
+            "value": "Später beheben"
           }
         },
         "zh-Hans": {
@@ -7686,7 +7686,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aufräumen abgeschlossen"
+            "value": "Aufräumen fertig"
           }
         },
         "zh-Hans": {
@@ -7802,7 +7802,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nach dem Hinzufügen einer neuen Zahlung"
+            "value": "Nach neuer Zahlung"
           }
         },
         "zh-Hans": {
@@ -7889,7 +7889,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Datum & Methode behalten"
+            "value": "Datum & Methode"
           }
         },
         "zh-Hans": {
@@ -8063,7 +8063,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tastenfeld bei neuer Zahlung automatisch öffnen"
+            "value": "Ziffernfeld auto öffnen"
           }
         },
         "zh-Hans": {
@@ -8701,7 +8701,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mit einem Trinkgeld unterstützen"
+            "value": "Trinkgeld geben"
           }
         },
         "zh-Hans": {
@@ -8788,13 +8788,13 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "In 2 Raten verwenden"
+            "value": "2 Raten nutzen"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "使用分 2 次"
+            "value": "使用分两次"
           }
         }
       }
@@ -8817,7 +8817,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Einen Eintrag in zwei geplante Abbuchungen aufteilen"
+            "value": "Eintrag auf zwei Abbuchungen teilen"
           }
         },
         "zh-Hans": {
@@ -8875,7 +8875,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Spracheingabe verwenden [β]"
+            "value": "Spracheingabe [β]"
           }
         },
         "zh-Hans": {
@@ -9832,7 +9832,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Alle Daten exportieren"
+            "value": "Alles exportieren"
           }
         },
         "zh-Hans": {
@@ -9890,7 +9890,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Neue Zahlung beim Fortsetzen öffnen"
+            "value": "Neue Zahlung beim Start"
           }
         },
         "zh-Hans": {
@@ -9919,7 +9919,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Entwickler unterstützen"
+            "value": "Entwickler-Support"
           }
         },
         "zh-Hans": {
@@ -10064,7 +10064,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Abbuchungszeitraum"
+            "value": "Debit-Zeitraum"
           }
         },
         "zh-Hans": {
@@ -10093,13 +10093,13 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kaufmännisches Runden"
+            "value": "Banker-Rundung"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "银行家舍入"
+            "value": "偶数舍入"
           }
         }
       }
@@ -10180,13 +10180,13 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Abbuchungsdatum: an Feiertagen auf nächsten Werktag verschieben"
+            "value": "Abbuchung: Feiertage verschieben"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "扣款日：遇周末或假日顺延至次日"
+            "value": "扣款日：假日顺延"
           }
         }
       }
@@ -10383,13 +10383,13 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Geschäft bearbeiten"
+            "value": "Shop bearbeiten"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "编辑商店"
+            "value": "编辑店铺"
           }
         }
       }
@@ -10847,7 +10847,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Es wird Ton abgespielt!"
+            "value": "Ton wird abgespielt!"
           }
         },
         "zh-Hans": {
@@ -11108,7 +11108,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mit einem Trinkgeld unterstützen"
+            "value": "Trinkgeld geben"
           }
         },
         "zh-Hans": {

@@ -799,6 +799,8 @@ private var isValid: Bool {
                 .font(.body.weight(.regular))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
+                // 独語など長い訳でも欠けないよう少し縮小を許容する
+                .minimumScaleFactor(0.8)
 
             Button {
                 onTapDate?()
@@ -807,6 +809,9 @@ private var isValid: Bool {
                     .font(.body)
                     // 編集可能な時はアクセントカラー、固定時は通常色で見せる
                     .foregroundStyle(onTapDate == nil ? Color.primary : Color.accentColor)
+                    // 長い日付表記でも改行せず1行に収め、必要なら縮小する（2回払い行と同じ扱い）
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
             }
             .buttonStyle(.plain)
             .disabled(onTapDate == nil)
