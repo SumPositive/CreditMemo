@@ -473,10 +473,11 @@ struct PaymentListView: View {
         isLoadingMorePaid = false
     }
 
-    /// 当日以降の未払は通常表示の対象として全件読む
+    /// 翌日以降の未払は通常表示の対象として全件読む（本日は確認待ち側に含める）
     private func fetchUpcomingUnpaidPayments() -> [E7payment] {
         let today = Calendar.current.startOfDay(for: Date())
-        let predicate = #Predicate<E7payment> { today <= $0.date }
+        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: today) ?? today
+        let predicate = #Predicate<E7payment> { tomorrow <= $0.date }
         let descriptor = FetchDescriptor<E7payment>(
             predicate: predicate,
             sortBy: [SortDescriptor(\E7payment.date, order: .reverse)]
@@ -485,11 +486,12 @@ struct PaymentListView: View {
         return context.fetchReporting(descriptor, entity: "E7payment").filter { !$0.isPaid }
     }
 
-    /// 前日以前の未払は最大件数だけ表示する
+    /// 本日以前の未払は最大件数だけ表示する（確認待ち）
     private func fetchOverdueUnpaidPayments(limit: Int) -> [E7payment] {
         let today = Calendar.current.startOfDay(for: Date())
+        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: today) ?? today
         let startDate = paymentStatusStartDate
-        let predicate = #Predicate<E7payment> { startDate <= $0.date && $0.date < today }
+        let predicate = #Predicate<E7payment> { startDate <= $0.date && $0.date < tomorrow }
         let descriptor = FetchDescriptor<E7payment>(
             predicate: predicate,
             sortBy: [SortDescriptor(\E7payment.date, order: .reverse)]
