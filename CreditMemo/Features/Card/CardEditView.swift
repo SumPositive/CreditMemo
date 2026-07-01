@@ -100,13 +100,13 @@ struct CardEditView: View {
         return currentDraft() != base
     }
     private var billingModeCycleText: LocalizedStringKey {
-        isEnglishLocale ? "Closing/Payment Day" : "締日/支払日型"
+        "card.billingType.cycle"
     }
     private var billingModeAfterDaysText: LocalizedStringKey {
-        isEnglishLocale ? "N Days" : "N日後型"
+        "card.billingType.afterDays"
     }
     private var billingModeTitleText: LocalizedStringKey {
-        isEnglishLocale ? "Billing Type" : "請求方式"
+        "card.billingType.title"
     }
     private var bankOptions: [BankSelection] {
         [.none, .addNew] + banks.map { .existing($0.id) }
@@ -674,9 +674,12 @@ struct CardEditView: View {
     private func daysLaterLabel(_ selection: DaysLaterSelection) -> some View {
         // 0日は利用日払いとして表示する
         if selection.value == 0 {
-            Text(isEnglishLocale ? "0 Days (Use Date)" : "0日後（利用日払）")
+            Text("card.afterDays.zero")
         } else {
-            Text(isEnglishLocale ? "\(selection.value) Days Later" : "\(selection.value)日後")
+            Text(String.localizedStringWithFormat(
+                String(localized: "card.afterDays.count"),
+                Int(selection.value)
+            ))
         }
     }
 
