@@ -665,7 +665,8 @@ private var isValid: Bool {
                 .foregroundStyle(.secondary)
             Spacer(minLength: 8)
             Picker("record.payCount.title", selection: payCountBinding) {
-                ForEach(PayCount.min...PayCount.max, id: \.self) { n in
+                // 回数の多い順（12→1）で表示する
+                ForEach((PayCount.min...PayCount.max).reversed(), id: \.self) { n in
                     Text(PayCount.localizedLabel(n)).tag(n)
                 }
             }
