@@ -17,7 +17,11 @@ struct TopMenuView: View {
     @AppStorage(AppStorageKey.paymentWindowDays) private var paymentWindowDays = 15
     @AppStorage(AppStorageKey.enableVoiceInput)  private var enableVoiceInput = true
     @AppStorage(AppStorageKey.openVoiceInputOnActive) private var openVoiceInputOnActive = false
+    // 音声入力の保存後も「新しい決済入力後」設定を適用する
+    @AppStorage(AppStorageKey.afterSaveAction)   private var afterSaveAction: AfterSaveAction = .goBack
     @State private var showVoiceRecordSheet = false
+    /// 音声保存成功時に、シート dismiss 後へ持ち越す保存後アクション
+    @State private var pendingVoiceAfterSave: AfterSaveAction?
     @State private var voiceInputSource = "menu"
 
     @Query(sort: \E7payment.date, order: .reverse)
@@ -213,7 +217,7 @@ struct TopMenuView: View {
                     .foregroundStyle(.tertiary)
             }
         }
-        .sheet(isPresented: $showVoiceRecordSheet) {
+        .sheet(isPresented: $showVoiceRecordSheet, onDismiss: { handleVoiceAfterSave() }) {
             VoiceInputSheet(
                 cards: cards,
                 currentAmount: 0,
@@ -312,6 +316,22 @@ struct TopMenuView: View {
         showVoiceRecordSheet = true
     }
 
+    /// 音声入力シートが閉じた後、「新しい決済入力後」設定に応じて動く
+    private func handleVoiceAfterSave() {
+        guard let action = pendingVoiceAfterSave else { return }
+        pendingVoiceAfterSave = nil
+        switch action {
+        case .goBack:
+            break
+        case .continuous, .sameDayCard:
+            // 続けて音声入力できるよう、シートを開き直す
+            DispatchQueue.main.async { showVoiceRecordSheet = true }
+        case .showHistory:
+            // 決済一覧へ遷移する
+            selectedDestination = .recordList
+        }
+    }
+
     private func saveVoiceRecord(_ payload: VoiceApplyPayload) {
         let amount = (payload.amount ?? .zero).roundedAmount()
         guard 0 < amount else { return }
@@ -326,6 +346,8 @@ struct TopMenuView: View {
                 context: context
             )
             commitVoiceLearning(payload: payload, savedCard: payload.card)
+            // 保存成功時のみ「新しい決済入力後」設定を dismiss 後に適用する
+            pendingVoiceAfterSave = afterSaveAction
             AppTelemetry.reportVoiceInputSave(
                 VoiceInputSaveTelemetry(
                     source: payload.source,
