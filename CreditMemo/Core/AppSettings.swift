@@ -181,6 +181,13 @@ final class AppEditingState {
 
 /// アプリ全体で使う日付表示フォーマット
 enum AppDateFormat {
+    /// 年を先頭に読む大エンディアン文化（日本語・中国語・韓国語）かどうか。
+    /// 段組み日付で「年→月日→曜日」順にするか「曜日→月日→年」順にするかの判定に使う。
+    static var usesYearFirstLayout: Bool {
+        guard let code = Locale.current.language.languageCode?.identifier else { return false }
+        return ["ja", "zh", "ko"].contains(code)
+    }
+
     /// 単体表示: 年
     static func yearText(_ date: Date) -> String {
         yearFormatter.string(from: date)
@@ -214,13 +221,14 @@ enum AppDateFormat {
         return date.formatted(.dateTime.weekday(.abbreviated))
     }
 
-    /// 1行表示: 年 月/日(曜)
+    /// 1行表示の日付
     static func singleLineText(_ date: Date) -> String {
-        if Locale.current.identifier.hasPrefix("en") {
-            // en 1行表示: "EEE, M/d yyyy"
-            return enSingleLineFormatter.string(from: date)
+        if usesYearFirstLayout {
+            // 日中韓（大エンディアン）: 年 → 月日(曜)
+            return "\(yearText(date)) \(monthDayWeekdayText(date))"
         }
-        return "\(yearText(date)) \(monthDayWeekdayText(date))"
+        // 西欧(en/de/fr/es…): 年の位置も含めて地域の並びに任せる（独 "Fr., 5.6.2026" 等）
+        return westernSingleLineFormatter.string(from: date)
     }
 
     /// 1行表示用: 月/日(曜)
@@ -252,7 +260,13 @@ enum AppDateFormat {
 
     // en を含む非 ja ロケールは並び順を地域へ追従させる
     private static let enYearWeekdayTwoLineFormatter = autoTemplateFormatter("yyyyEEE")
-    private static let yearFormatter = autoTemplateFormatter("yyyy")
+    // 年のみは並び順の問題がなく、ja テンプレートだと「2026年」になるため数字だけの固定書式にする
+    private static let yearFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = .autoupdatingCurrent
+        formatter.dateFormat = "yyyy"
+        return formatter
+    }()
     private static let monthDayFormatter = autoTemplateFormatter("Md")
     private static let jaWeekdayFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -268,5 +282,6 @@ enum AppDateFormat {
         return formatter
     }()
     private static let enMonthDayWeekdayFormatter = autoTemplateFormatter("MdEEE")
-    private static let enSingleLineFormatter = autoTemplateFormatter("yyyyMdEEE")
+    // 西欧の1行表示。年・月日・曜日の並びを地域へ完全に委ねる（年は末尾に来る）
+    private static let westernSingleLineFormatter = autoTemplateFormatter("yyyyMdEEE")
 }

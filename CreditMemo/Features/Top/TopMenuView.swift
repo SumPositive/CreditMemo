@@ -111,7 +111,7 @@ struct TopMenuView: View {
             // 集計
             Section {
                 NavigationLink(value: AppDestination.paymentList) {
-                    HStack {
+                    HStack(spacing: 12) {
                         ScaledMenuBadge()
                             .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                         // タイトル / 直近計 / 金額 を、入る範囲で 1段→2段→3段 と段を増やして表示する
@@ -402,7 +402,9 @@ private struct ScaledMenuBadge: View {
     @ScaledMetric(relativeTo: .body) private var size: CGFloat = 20
 
     var body: some View {
+        // AppIconBadge は視覚的に size×1.14 の円で描くため、その分の幅を確保して
+        // 隣のラベルへはみ出さないようにする（他アイコン行と間隔を揃える）
         AppIconBadge(size: size)
-            .frame(width: size)
+            .frame(width: size * 1.14)
     }
 }
