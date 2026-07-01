@@ -83,43 +83,51 @@ enum BillingService {
 
     /// E3record の各 E6part に対応する支払日リストを返す
     static func partDates(record: E3record, card: E1card) -> [Date] {
-        (0..<partCount(for: record.payType)).map {
+        (0..<record.payCount).map {
             billingDate(useDate: record.dateUse, card: card, partOffset: $0)
         }
     }
 
     /// E3record の各 E6part に対応する支払日リストを返す（未選択対応）
     static func partDates(record: E3record, card: E1card?) -> [Date] {
-        (0..<partCount(for: record.payType)).map {
+        (0..<record.payCount).map {
             billingDate(useDate: record.dateUse, card: card, partOffset: $0)
         }
     }
 
     /// E3record の各 E6part に対応する金額リストを返す
     static func partAmounts(record: E3record) -> [Decimal] {
-        switch record.payType {
-        case .lumpSum:
-            return [record.nAmount]
-        case .twoPayments:
-            return twoPaymentAmounts(total: record.nAmount)
-        }
+        installmentAmounts(total: record.nAmount, count: record.payCount)
     }
 
-    /// 2回払いの初期配分を返す。端数は旧アプリに合わせて2回目へ寄せる
-    static func twoPaymentAmounts(total: Decimal, locale: Locale = .current) -> [Decimal] {
+    /// N 回払いの初期配分を返す。均等割し、端数は初回へ寄せる（初回調整）。
+    /// カード分割・BNPL の一般的な慣行に合わせ、初回を高く以降を均等にする。
+    /// count <= 1 のときは総額 1 件（一括）を返す。
+    static func installmentAmounts(total: Decimal, count: Int, locale: Locale = .current) -> [Decimal] {
+        let n = max(1, count)
         let roundedTotal = total.roundedAmount(locale: locale)
-        let minorUnits = roundedTotal.minorUnits(locale: locale)
-        let firstMinorUnits = Decimal((minorUnits as NSDecimalNumber).int64Value / 2)
-        let first = Decimal.fromMinorUnits(firstMinorUnits, locale: locale)
-        let second = roundedTotal - first
-        return [first, second]
+        if n == 1 {
+            return [roundedTotal]
+        }
+        let totalMinor = (roundedTotal.minorUnits(locale: locale) as NSDecimalNumber).int64Value
+        let baseMinor = totalMinor / Int64(n)
+        let remainderMinor = totalMinor - baseMinor * Int64(n)
+        var amounts: [Decimal] = []
+        for index in 0..<n {
+            // 端数（remainder）は初回に寄せ、2 回目以降は均等にする
+            let minor = index == 0 ? baseMinor + remainderMinor : baseMinor
+            amounts.append(Decimal.fromMinorUnits(Decimal(minor), locale: locale))
+        }
+        return amounts
     }
 
-    static func partCount(for payType: PayType) -> Int {
-        switch payType {
-        case .lumpSum:     return 1
-        case .twoPayments: return 2
-        }
+    /// 後方互換のため 2 回払いのショートカットを残す
+    static func twoPaymentAmounts(total: Decimal, locale: Locale = .current) -> [Decimal] {
+        installmentAmounts(total: total, count: 2, locale: locale)
+    }
+
+    static func partCount(for record: E3record) -> Int {
+        record.payCount
     }
 
     // MARK: - Japanese Holiday Shift

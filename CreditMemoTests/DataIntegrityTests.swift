@@ -148,7 +148,7 @@ struct DataIntegrityTests {
         #expect(report.invoiceMissingPaymentCount == 0)
     }
 
-    @Test("不正な nPayType は保存時点で一括払いに正規化される")
+    @Test("範囲外の nPayType は 1...12 にクランプされる")
     func invalidPayTypeIsNormalized() throws {
         let context = try TestStore.makeContext()
         let card = TestFixtures.makeCard(name: "カード", in: context)
@@ -162,7 +162,8 @@ struct DataIntegrityTests {
         context.insert(record)
         try RecordService.save(record, context: context)
 
-        #expect(record.nPayType == PayType.lumpSum.rawValue)
+        // 99 は上限 12 にクランプされる（1 回=一括, 2..12=分割）
+        #expect(record.nPayType == Int16(PayCount.max))
         let report = RecordService.checkBillingIntegrity(context: context)
         #expect(report.invalidPayTypeCount == 0)
     }

@@ -681,24 +681,35 @@ enum JSONImport {
     ) -> [String: Decimal] {
         var validAmounts: [String: Decimal] = [:]
         for (recordID, amountsByPartNo) in amountByRecordID {
-            guard amountsByPartNo.count == 2,
-                  let first = amountsByPartNo[1],
-                  let second = amountsByPartNo[2],
-                  let record = partByRecordAndNo["\(recordID)#1"]?.e3record,
-                  record.payType == .twoPayments else {
+            guard let record = partByRecordAndNo["\(recordID)#1"]?.e3record else {
+                continue
+            }
+            let count = record.payCount
+            // 分割払い（2回以上）で、全回分の手動配分が揃っているものだけ採用する
+            guard count >= 2, amountsByPartNo.count == count else {
                 continue
             }
             let total = record.nAmount.roundedAmount()
-            guard 1 < total,
-                  0 < first,
-                  0 < second,
-                  first < total,
-                  second < total,
-                  first + second == total else {
+            guard 1 < total else {
                 continue
             }
-            validAmounts["\(recordID)#1"] = first
-            validAmounts["\(recordID)#2"] = second
+            var perPart: [(Int16, Decimal)] = []
+            var sum = Decimal.zero
+            var valid = true
+            for partNo in 1...count {
+                guard let value = amountsByPartNo[Int16(partNo)], 0 < value, value < total else {
+                    valid = false
+                    break
+                }
+                perPart.append((Int16(partNo), value))
+                sum += value
+            }
+            guard valid, sum == total else {
+                continue
+            }
+            for (partNo, value) in perPart {
+                validAmounts["\(recordID)#\(partNo)"] = value
+            }
         }
         return validAmounts
     }

@@ -184,7 +184,7 @@ struct JSONRoundTripTests {
             zName: "利用店\n二行目",
             zNote: "絵文字✅",
             nAmount: 1_001,
-            nPayType: PayType.twoPayments.rawValue,
+            nPayType: 2,
             nRepeat: 0
         )
         card.e8bank = bank

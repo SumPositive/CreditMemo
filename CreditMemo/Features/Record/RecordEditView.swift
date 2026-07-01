@@ -66,7 +66,7 @@ struct RecordEditView: View {
     @State private var zName:      String   = ""
     @State private var zNote:      String   = ""
     @State private var nAmount:    Decimal  = 0
-    @State private var payType:    PayType  = .lumpSum
+    @State private var payCount:   Int      = 1
     @State private var nRepeat:    Int16    = 0
     @State private var selectedCard:        E1card?
     @State private var selectedBankForCard: E8bank?
@@ -129,8 +129,8 @@ struct RecordEditView: View {
     }
 private var isValid: Bool {
         if nAmount == 0 { return false }
-        // 2回払いは1円以上を2つに分けるため、最低2円相当を必要にする
-        if payType == .twoPayments && nAmount.roundedAmount() <= 1 { return false }
+        // 分割払いは各回に1円以上を配分するため、回数相当の最低額を必要にする
+        if payCount >= 2 && nAmount.roundedAmount() < Decimal(payCount) { return false }
         // 引き落とし日固定モードでは、決済手段未選択だと請求が作られず明細画面に出ないため、必須にする
         if presetDueDate != nil && selectedCard == nil { return false }
         return true
@@ -638,8 +638,8 @@ private var isValid: Bool {
     @ViewBuilder private var dueDateSection: some View {
         if isNew {
             Section {
-                if shouldShowPayTypeSelector {
-                    payTypeSelector
+                if shouldShowPayCountPicker {
+                    payCountPicker
                 }
                 ForEach(paymentPartNumbers, id: \.self) { partNo in
                     paymentPartRow(partNo: partNo, allowsDateEdit: true)
@@ -657,59 +657,60 @@ private var isValid: Bool {
         }
     }
 
-    /// 引き落とし日セクション内の一括/2回払い切り替え
-    private var payTypeSelector: some View {
+    /// 支払回数の選択（1回=一括 〜 12回）
+    private var payCountPicker: some View {
         HStack(spacing: 8) {
-            ForEach(availablePayTypes, id: \.self) { type in
-                Button {
-                    applyPayType(type)
-                } label: {
-                    Text(LocalizedStringKey(type.localizedKey))
-                        .font(.body.weight(payType == type ? .semibold : .regular))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(payType == type ? Color.accentColor.opacity(0.16) : Color.clear)
-                        .foregroundStyle(payType == type ? Color.accentColor : Color.primary)
-                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .stroke(payType == type ? Color.accentColor.opacity(0.7) : Color(.separator), lineWidth: 1)
-                        }
+            Text("record.payCount.title")
+                .font(.body)
+                .foregroundStyle(.secondary)
+            Spacer(minLength: 8)
+            Picker("record.payCount.title", selection: payCountBinding) {
+                ForEach(PayCount.min...PayCount.max, id: \.self) { n in
+                    Text(PayCount.localizedLabel(n)).tag(n)
                 }
-                .buttonStyle(.plain)
-                .disabled(isCoreFieldsLocked)
             }
+            .pickerStyle(.menu)
+            .labelsHidden()
+            // コア項目ロック、または手動の引き落とし日があるときは回数変更を禁止する
+            .disabled(isPayCountChangeDisabled)
         }
     }
 
-    /// 2回払いを選べる状態か。既存2回払いは設定OFFでも表示を維持する
-    private var shouldShowPayTypeSelector: Bool {
-        enableTwoPayments || payType == .twoPayments
+    private var payCountBinding: Binding<Int> {
+        Binding(
+            get: { payCount },
+            set: { applyPayCount($0) }
+        )
     }
 
-    /// 設定に応じて支払方法の選択肢を絞る
-    private var availablePayTypes: [PayType] {
-        if enableTwoPayments || payType == .twoPayments {
-            return PayType.allCases
+    /// 支払回数ピッカーを出す状態か。既存の分割払いは設定OFFでも表示を維持する
+    private var shouldShowPayCountPicker: Bool {
+        enableTwoPayments || payCount >= 2
+    }
+
+    /// コア項目ロック、または手動の引き落とし日が1つでもあれば回数変更不可
+    private var isPayCountChangeDisabled: Bool {
+        isCoreFieldsLocked || hasAnyManualDueDate
+    }
+
+    /// いずれかの回で引き落とし日を手動指定/固定しているか
+    private var hasAnyManualDueDate: Bool {
+        if partDueDateLockOverridesByPartNo.values.contains(true) { return true }
+        if !partDueDateOverridesByPartNo.isEmpty { return true }
+        if case .edit(let record) = mode, record.e6parts.contains(where: { $0.isDueDateLocked }) {
+            return true
         }
-        return [.lumpSum]
+        return false
     }
 
-    /// 現在の支払方法に応じた表示対象の回数
+    /// 現在の支払回数に応じた表示対象の回番号（1..N）
     private var paymentPartNumbers: [Int16] {
-        switch payType {
-        case .lumpSum:
-            return [1]
-        case .twoPayments:
-            return [1, 2]
-        }
+        (1...max(1, payCount)).map { Int16($0) }
     }
 
     /// 引き落とし日と分割金額を表示する行
     @ViewBuilder private func paymentPartRow(partNo: Int16, allowsDateEdit: Bool) -> some View {
-        if payType == .lumpSum {
+        if payCount <= 1 {
             dueDateLockRow(
                 date: displayedPartDueDate(partNo: partNo),
                 isLocked: isDisplayedPartLocked(partNo: partNo),
@@ -781,7 +782,7 @@ private var isValid: Bool {
                 .minimumScaleFactor(0.65)
         }
         .buttonStyle(.plain)
-        .disabled(!canEditPartAmount)
+        .disabled(!canEditPartAmount(partNo: partNo))
     }
 
     /// 引き落とし日（支払日）の共通行：日付（タップで変更）＋ ロックアイコン。
@@ -877,53 +878,74 @@ private var isValid: Bool {
         isLocked ? badgeTheme.paidText : .accentColor
     }
 
-    /// 支払方法を切り替え、不要になった分割ドラフトを整理する
-    private func applyPayType(_ type: PayType) {
-        guard payType != type else { return }
-        payType = type
+    /// 支払回数を切り替え、不要になった分割ドラフトを整理する
+    private func applyPayCount(_ newCount: Int) {
+        let clamped = min(max(newCount, PayCount.min), PayCount.max)
+        guard payCount != clamped else { return }
+        payCount = clamped
         prunePaymentPartDrafts()
-        if type == .lumpSum {
+        if payCount <= 1 {
             // 一括に戻したら分割専用の金額ドラフトを破棄する
             partAmountOverridesByPartNo.removeAll()
         } else {
-            // 2回払いでも繰り返し設定は保持し、分割金額だけ整える
+            // 分割でも繰り返し設定は保持し、分割金額だけ整える
             normalizePartAmountOverridesIfNeeded()
         }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
-    /// 支払方法に存在しない回のドラフトを取り除く
+    /// 支払回数に存在しない回のドラフトを取り除く
     private func prunePaymentPartDrafts() {
         let validPartNumbers = Set(paymentPartNumbers)
         partDueDateOverridesByPartNo = partDueDateOverridesByPartNo.filter { validPartNumbers.contains($0.key) }
         partDueDateLockOverridesByPartNo = partDueDateLockOverridesByPartNo.filter { validPartNumbers.contains($0.key) }
         partDueDateCycleShiftByPartNo = partDueDateCycleShiftByPartNo.filter { validPartNumbers.contains($0.key) }
+        partAmountOverridesByPartNo = partAmountOverridesByPartNo.filter { validPartNumbers.contains($0.key) }
     }
 
-    /// 分割金額を編集できる状態か
-    private var canEditPartAmount: Bool {
-        if payType != .twoPayments { return false }
-        if isCoreFieldsLocked { return false }
-        return 1 < nAmount.roundedAmount()
-    }
-
-    /// 分割金額入力の上限
+    /// 編集中の回で入力できる分割金額の上限。他回に最低1ずつ残す
     private var editablePartAmountUpperBound: Decimal {
-        max(Decimal(1), nAmount.roundedAmount() - 1)
+        let total = nAmount.roundedAmount()
+        let n = payCount
+        guard n >= 2, let partNo = editingPartNoForAmount, Int(partNo) < n else {
+            return max(Decimal(1), total - 1)
+        }
+        var others = Decimal.zero
+        for i in 1..<n where Int16(i) != partNo {
+            others += displayedPartAmount(partNo: Int16(i))
+        }
+        // 最終回にも最低1残す
+        return max(Decimal(1), total - others - 1)
     }
 
-    /// 指定回の表示用金額
+    /// 指定回の分割金額を編集できるか。最終回は残額のため編集不可
+    private func canEditPartAmount(partNo: Int16) -> Bool {
+        guard payCount >= 2 else { return false }
+        if isCoreFieldsLocked { return false }
+        if Int(partNo) >= payCount { return false }
+        // 各回に最低1を配れるだけの総額が必要
+        return nAmount.roundedAmount() >= Decimal(payCount)
+    }
+
+    /// 指定回の表示用金額。最終回は残額（総額 − 他回合計）を吸収する
     private func displayedPartAmount(partNo: Int16) -> Decimal {
+        let total = nAmount.roundedAmount()
+        let n = payCount
+        if n >= 2 && Int(partNo) == n {
+            var others = Decimal.zero
+            for i in 1..<n { others += displayedPartAmount(partNo: Int16(i)) }
+            return max(total - others, 0)
+        }
         if let override = partAmountOverridesByPartNo[partNo] {
             return override
         }
         if !isNew,
-           initialDraft?.payType == payType,
+           initialDraft?.payCount == payCount,
            initialDraft?.nAmount == nAmount,
            let existing = existingPart(partNo: partNo) {
             return existing.nAmount
         }
-        let amounts = BillingService.twoPaymentAmounts(total: nAmount)
+        let amounts = BillingService.installmentAmounts(total: total, count: n)
         let index = Int(partNo) - 1
         guard 0 <= index, index < amounts.count else { return .zero }
         return amounts[index]
@@ -931,41 +953,52 @@ private var isValid: Bool {
 
     /// 金額タップ時に分割金額入力を開く
     private func openPartAmountPad(partNo: Int16) {
-        guard canEditPartAmount else { return }
+        guard canEditPartAmount(partNo: partNo) else { return }
         editingPartNoForAmount = partNo
         showPartAmountPad = true
     }
 
-    /// 分割金額を片方へ入れ、もう片方へ差額を反映する
+    /// 指定回の金額を確定する。最終回が残額を吸収するよう配分し直す
     private func applyPartAmount(_ rawValue: Decimal) {
         guard let partNo = editingPartNoForAmount else { return }
         let total = nAmount.roundedAmount()
-        guard 1 < total else { return }
-        let positiveValue = rawValue < 0 ? -rawValue : rawValue
-        let clamped = min(max(positiveValue.roundedAmount(), 1), total - 1)
-        if partNo == 1 {
-            partAmountOverridesByPartNo[1] = clamped
-            partAmountOverridesByPartNo[2] = total - clamped
-        } else {
-            partAmountOverridesByPartNo[1] = total - clamped
-            partAmountOverridesByPartNo[2] = clamped
-        }
+        let n = payCount
+        guard n >= 2, Decimal(n) <= total, Int(partNo) < n else { return }
+        // 1..N-1 を現在の表示値で埋める（最終回は残額のため保持しない）
+        var values: [Int16: Decimal] = [:]
+        for i in 1..<n { values[Int16(i)] = displayedPartAmount(partNo: Int16(i)) }
+        // 編集対象を除いた他回の合計。最終回にも最低1残す
+        let others = values.filter { $0.key != partNo }.values.reduce(Decimal.zero, +)
+        let upper = max(Decimal(1), total - others - 1)
+        let positive = rawValue < 0 ? -rawValue : rawValue
+        let clamped = min(max(positive.roundedAmount(), 1), upper)
+        values[partNo] = clamped
+        partAmountOverridesByPartNo = values
     }
 
     /// 金額変更で手動配分が範囲外になった時だけ補正する
     private func normalizePartAmountOverridesIfNeeded() {
-        guard payType == .twoPayments else { return }
+        guard payCount >= 2 else { return }
         let total = nAmount.roundedAmount()
-        guard 1 < total else {
+        let n = payCount
+        guard Decimal(n) <= total else {
             partAmountOverridesByPartNo.removeAll()
             return
         }
         if partAmountOverridesByPartNo.isEmpty {
             return
         }
-        let first = min(max(displayedPartAmount(partNo: 1), 1), total - 1)
-        partAmountOverridesByPartNo[1] = first
-        partAmountOverridesByPartNo[2] = total - first
+        // 1..N-1 を現在値でクランプし直し、最終回は残額で吸収させる
+        var values: [Int16: Decimal] = [:]
+        var running = Decimal.zero
+        for i in 1..<n {
+            // 残りの回（最終回含む）に最低1ずつ残す
+            let maxForThis = max(Decimal(1), total - running - Decimal(n - i))
+            let value = min(max(displayedPartAmount(partNo: Int16(i)), 1), maxForThis)
+            values[Int16(i)] = value
+            running += value
+        }
+        partAmountOverridesByPartNo = values
     }
 
     /// 指定回の表示用引き落とし日
@@ -973,7 +1006,7 @@ private var isValid: Bool {
         if let override = partDueDateOverridesByPartNo[partNo] {
             return normalizedPartDueDate(partNo: partNo, proposedDate: override)
         }
-        if !isNew, initialDraft?.payType == payType, let existing = existingPart(partNo: partNo) {
+        if !isNew, initialDraft?.payCount == payCount, let existing = existingPart(partNo: partNo) {
             return normalizedPartDueDate(partNo: partNo, proposedDate: existing.e2invoice?.date ?? Date())
         }
         if isNew && partNo == 1 && dueDateLocked {
@@ -990,15 +1023,15 @@ private var isValid: Bool {
         return normalizedPartDueDate(partNo: partNo, proposedDate: computed)
     }
 
-    /// 2回目の支払日は必ず1回目の翌日以降にする
+    /// 各回の支払日は必ず前の回の翌日以降にする
     private func normalizedPartDueDate(partNo: Int16, proposedDate: Date) -> Date {
         let cal = Calendar.current
         let day = cal.startOfDay(for: proposedDate)
-        guard payType == .twoPayments, partNo == 2 else { return day }
-        let firstDate = cal.startOfDay(for: rawPartDueDate(partNo: 1))
-        let minimumSecondDate = cal.date(byAdding: .day, value: 1, to: firstDate) ?? firstDate
-        if day < minimumSecondDate {
-            return minimumSecondDate
+        guard payCount >= 2, partNo >= 2 else { return day }
+        let prevDate = cal.startOfDay(for: rawPartDueDate(partNo: partNo - 1))
+        let minimumDate = cal.date(byAdding: .day, value: 1, to: prevDate) ?? prevDate
+        if day < minimumDate {
+            return minimumDate
         }
         return day
     }
@@ -1008,7 +1041,7 @@ private var isValid: Bool {
         if let override = partDueDateOverridesByPartNo[partNo] {
             return Calendar.current.startOfDay(for: override)
         }
-        if !isNew, initialDraft?.payType == payType, let existing = existingPart(partNo: partNo) {
+        if !isNew, initialDraft?.payCount == payCount, let existing = existingPart(partNo: partNo) {
             return Calendar.current.startOfDay(for: existing.e2invoice?.date ?? Date())
         }
         if isNew && partNo == 1 && dueDateLocked {
@@ -1026,7 +1059,7 @@ private var isValid: Bool {
 
     /// 1回目変更で2回目以降になった時は2回目を翌月へ送る
     private func adjustSecondPartDateAfterFirstChange(_ firstDate: Date) {
-        guard payType == .twoPayments else { return }
+        guard payCount >= 2 else { return }
         let cal = Calendar.current
         let firstDay = cal.startOfDay(for: firstDate)
         let secondDay = cal.startOfDay(for: rawPartDueDate(partNo: 2))
@@ -1061,7 +1094,7 @@ private var isValid: Bool {
 
     /// 表示用ロック状態
     private func isDisplayedPartLocked(partNo: Int16) -> Bool {
-        if !isNew, initialDraft?.payType == payType, let part = existingPart(partNo: partNo) {
+        if !isNew, initialDraft?.payCount == payCount, let part = existingPart(partNo: partNo) {
             return (part.e2invoice?.isPaid ?? false) || effectivePartDueDateLocked(part)
         }
         if isNew && partNo == 1 {
@@ -1079,21 +1112,21 @@ private var isValid: Bool {
         showPartDatePicker = true
     }
 
-    /// 2回目の日付ピッカーは1回目の翌日以降に制限する
+    /// 各回の日付ピッカーは前の回の翌日以降に制限する
     private var partDueDateAvailableRange: ClosedRange<Date> {
         let partNo = editingPart?.nPartNo ?? editingPartNoForDueDate
-        guard payType == .twoPayments, partNo == 2 else {
+        guard payCount >= 2, let partNo, partNo >= 2 else {
             return APP_MIN_DATE...APP_MAX_DATE
         }
-        let minimumSecondDate = Calendar.current.date(
+        let minimumDate = Calendar.current.date(
             byAdding: .day,
             value: 1,
-            to: displayedPartDueDate(partNo: 1)
+            to: displayedPartDueDate(partNo: partNo - 1)
         ) ?? APP_MIN_DATE
-        if APP_MAX_DATE < minimumSecondDate {
+        if APP_MAX_DATE < minimumDate {
             return APP_MAX_DATE...APP_MAX_DATE
         }
-        return minimumSecondDate...APP_MAX_DATE
+        return minimumDate...APP_MAX_DATE
     }
 
     /// 保存前の仮明細も含めてロックを切り替える
@@ -1119,9 +1152,9 @@ private var isValid: Bool {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
-    /// 回数ラベル
-    private func partLabel(_ partNo: Int16) -> LocalizedStringKey {
-        partNo == 1 ? "record.part.first" : "record.part.second"
+    /// 回数ラベル（%lld回目）
+    private func partLabel(_ partNo: Int16) -> String {
+        String.localizedStringWithFormat(String(localized: "record.part.number"), Int(partNo))
     }
 
     /// 仮明細経由（引き落とし明細の「+」やコピー）かどうか。
@@ -1344,8 +1377,8 @@ private var isValid: Bool {
     @ViewBuilder private var partPaymentSection: some View {
         if !isNew {
             Section {
-                if shouldShowPayTypeSelector {
-                    payTypeSelector
+                if shouldShowPayCountPicker {
+                    payCountPicker
                 }
                 ForEach(paymentPartNumbers, id: \.self) { partNo in
                     paymentPartRow(partNo: partNo, allowsDateEdit: canManuallyEditPartNo(partNo))
@@ -1635,8 +1668,8 @@ private var isValid: Bool {
             selectedCard = presetCard
             selectedBankForCard = presetCard?.e8bank
             keepBankPickerRowVisible = selectedCard != nil && selectedBankForCard == nil
-            // 新規作成は一括払いから開始する
-            payType = .lumpSum
+            // 新規作成は一括（1回）から開始する
+            payCount = 1
             // 引き落とし明細などから引き落とし日を指定された場合は、その日でロック状態で開始する
             if let presetDueDate {
                 dueDateLocked = true
@@ -1649,8 +1682,8 @@ private var isValid: Bool {
             zName        = source.zName
             zNote        = source.zNote
             nAmount      = copySourceAmount ? source.nAmount : 0
-            // コピー新規は設定ONの時だけ2回払いも引き継ぐ
-            payType      = enableTwoPayments ? source.payType : .lumpSum
+            // コピー新規は設定ONの時だけ分割回数も引き継ぐ
+            payCount     = enableTwoPayments ? source.payCount : 1
             nRepeat      = source.nRepeat
             selectedCard = source.e1card
             selectedBankForCard = source.e1card?.e8bank
@@ -1667,7 +1700,7 @@ private var isValid: Bool {
             zName              = r.zName
             zNote              = r.zNote
             nAmount            = r.nAmount
-            payType            = r.payType
+            payCount           = r.payCount
             nRepeat            = r.nRepeat
             selectedCard       = r.e1card
             selectedBankForCard = r.e1card?.e8bank
@@ -1684,7 +1717,7 @@ private var isValid: Bool {
         let bankChanged = initialDraft?.bankID != selectedBankForCard?.id
         let billingChanged = initialDraft?.dateUse != dateUse
             || initialDraft?.nAmount != nAmount
-            || initialDraft?.payType != payType
+            || initialDraft?.payCount != payCount
             || initialDraft?.cardID != selectedCard?.id
             || bankChanged
         switch mode {
@@ -1692,7 +1725,7 @@ private var isValid: Bool {
             // 保存直前にだけマスタへ口座変更を反映する
             selectedCard?.e8bank = selectedBankForCard
             let r = E3record(dateUse: dateUse, zName: usePoint, zNote: note,
-                             nAmount: nAmount, nPayType: payType.rawValue, nRepeat: nRepeat)
+                             nAmount: nAmount, nPayType: Int16(payCount), nRepeat: nRepeat)
             r.e1card = selectedCard
             r.e5tags = selectedCategories
             context.insert(r)
@@ -1750,7 +1783,7 @@ private var isValid: Bool {
             // 保存直前にだけマスタへ口座変更を反映する
             selectedCard?.e8bank = selectedBankForCard
             r.dateUse = dateUse; r.zName = usePoint; r.zNote = note
-            r.nAmount = nAmount; r.nPayType = payType.rawValue; r.nRepeat = nRepeat
+            r.nAmount = nAmount; r.nPayType = Int16(payCount); r.nRepeat = nRepeat
             r.e1card = selectedCard
             r.e5tags = selectedCategories
             do {
@@ -1927,14 +1960,15 @@ private var isValid: Bool {
     }
 
     private func displayedPartAmountOverridesForSave() -> [Int16: Decimal] {
-        guard payType == .twoPayments else { return [:] }
+        guard payCount >= 2 else { return [:] }
         let total = nAmount.roundedAmount()
-        guard 1 < total else { return [:] }
-        // 2回払いは表示中の配分を保存へ渡し、再構築後も金額を保つ
-        return [
-            1: displayedPartAmount(partNo: 1),
-            2: displayedPartAmount(partNo: 2)
-        ]
+        guard Decimal(payCount) <= total else { return [:] }
+        // 分割払いは表示中の配分（1..N）を保存へ渡し、再構築後も金額を保つ
+        var dict: [Int16: Decimal] = [:]
+        for i in 1...payCount {
+            dict[Int16(i)] = displayedPartAmount(partNo: Int16(i))
+        }
+        return dict
     }
 
     private func applyPartDueDateLockOverridesForSave(to record: E3record) {
@@ -1996,7 +2030,7 @@ private var isValid: Bool {
         zName = ""
         zNote = ""
         nAmount = 0
-        payType = .lumpSum
+        payCount = 1
         nRepeat = 0
         partDueDateOverridesByPartNo.removeAll()
         partAmountOverridesByPartNo.removeAll()
@@ -2038,13 +2072,13 @@ private var isValid: Bool {
 
     private struct DraftState: Equatable {
         let dateUse: Date; let zName: String; let zNote: String; let nAmount: Decimal
-        let payType: PayType; let nRepeat: Int16
+        let payCount: Int; let nRepeat: Int16
         let cardID: String?; let bankID: String?; let categoryIDs: [String]
     }
 
     private func currentDraft() -> DraftState {
         DraftState(dateUse: dateUse, zName: zName, zNote: zNote, nAmount: nAmount,
-                   payType: payType, nRepeat: nRepeat,
+                   payCount: payCount, nRepeat: nRepeat,
                    cardID: selectedCard?.id,
                    bankID: selectedBankForCard?.id,
                    categoryIDs: selectedCategories.map(\.id).sorted())

@@ -38,7 +38,7 @@ struct SplitPayListView: View {
                     }
                 }
                 LabeledContent("record.field.payType") {
-                    Text(LocalizedStringKey(record.payType.localizedKey))
+                    Text(PayCount.localizedLabel(record.payCount))
                 }
             }
 

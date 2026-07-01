@@ -152,7 +152,7 @@ enum RecordService {
             zName: label,
             zNote: "",
             nAmount: amount,
-            nPayType: PayType.lumpSum.rawValue,
+            nPayType: 1,
             nRepeat: 0
         )
         record.e1card = card
@@ -930,23 +930,26 @@ enum RecordService {
         for record: E3record,
         overridesByPartNo: [Int16: Decimal]
     ) -> [Int16: Decimal] {
-        guard record.payType == .twoPayments,
-              overridesByPartNo.count == 2,
-              let first = overridesByPartNo[1],
-              let second = overridesByPartNo[2] else {
+        let count = record.payCount
+        guard count >= 2, overridesByPartNo.count == count else {
             return [:]
         }
         let total = record.nAmount.roundedAmount()
-        guard 1 < total,
-              0 < first,
-              0 < second,
-              first < total,
-              second < total,
-              first + second == total else {
+        guard 1 < total else {
+            return [:]
+        }
+        var sum = Decimal.zero
+        for partNo in 1...count {
+            guard let value = overridesByPartNo[Int16(partNo)], 0 < value, value < total else {
+                return [:]
+            }
+            sum += value
+        }
+        guard sum == total else {
             return [:]
         }
         // Service 境界で不正な分割金額を捨て、集計不整合を防ぐ
-        return [1: first, 2: second]
+        return overridesByPartNo
     }
 
     // MARK: - Recalculate
