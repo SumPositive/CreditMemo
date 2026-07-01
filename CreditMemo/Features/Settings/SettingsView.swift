@@ -1345,17 +1345,18 @@ private extension SettingsView {
         formatter.numberStyle = .currency
         formatter.locale = .current
         let symbol = formatter.currencySymbol ?? ""
-        let isJapanese = Locale.current.language.languageCode?.identifier == "ja"
-        return isJapanese ? "通貨記号(\(symbol))を表示する" : "Show Currency Symbol (\(symbol))"
+        return String.localizedStringWithFormat(
+            String(localized: "settings.showCurrencySymbol.format"),
+            symbol
+        )
     }
 
     /// 集計期間ラベル
     func windowLabel(_ days: Int) -> String {
-        let isJapanese = Locale.current.language.languageCode?.identifier == "ja"
         if days == 30 {
-            return isJapanese ? "1ヶ月" : "1 Month"
+            return String(localized: "unit.oneMonth")
         }
-        return isJapanese ? "\(days)日" : "\(days) Days"
+        return String.localizedStringWithFormat(String(localized: "unit.days"), days)
     }
 }
 

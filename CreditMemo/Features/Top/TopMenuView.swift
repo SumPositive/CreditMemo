@@ -49,12 +49,11 @@ struct TopMenuView: View {
     }
 
     private var recentWindowLabel: String {
-        let windowText = paymentWindowLabel(max(1, min(paymentWindowDays, 60)))
-        let isJapanese = Locale.current.language.languageCode?.identifier == "ja"
-        if isJapanese {
-            return "直近\(windowText)合計"
-        }
-        return "Recent \(windowText) Total"
+        let days = max(1, min(paymentWindowDays, 60))
+        return String.localizedStringWithFormat(
+            String(localized: "payment.window.recentDaysTotal"),
+            days
+        )
     }
 
     private var hasOverdueUnpaidPayments: Bool {
@@ -293,11 +292,6 @@ struct TopMenuView: View {
                     .allowsTightening(true)
             }
         }
-    }
-
-    private func paymentWindowLabel(_ days: Int) -> String {
-        let isJapanese = Locale.current.language.languageCode?.identifier == "ja"
-        return isJapanese ? "\(days)日" : "\(days) Days"
     }
 
     private func openVoiceInputSheetIfNeeded() {

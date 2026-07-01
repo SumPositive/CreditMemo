@@ -836,8 +836,7 @@ private struct PaymentFilterStatusBar: View {
     }
 
     private func windowLabel(_ days: Int) -> String {
-        let isJapanese = Locale.current.language.languageCode?.identifier == "ja"
-        return isJapanese ? "\(days)日" : "\(days) Days"
+        String.localizedStringWithFormat(String(localized: "unit.days"), days)
     }
 
     private var filterSelection: Binding<PaymentFilterMode> {
@@ -1685,40 +1684,35 @@ private struct PaymentUnpaidSummaries {
     }
 
     static func localizedCurrentTitle(windowDays: Int) -> String {
-        let isJapanese = Locale.current.language.languageCode?.identifier == "ja"
         if windowDays == 30 {
-            return isJapanese ? "1ヶ月の引き落とし合計" : "Current 1-Month Total"
+            return String(localized: "payment.window.currentMonthTotal")
         }
-        return isJapanese ? "\(windowDays)日間の引き落とし合計" : "Current \(windowDays)-Day Total"
+        return String.localizedStringWithFormat(String(localized: "payment.window.currentDaysTotal"), windowDays)
     }
 
     static func localizedNextTitle(windowDays: Int) -> String {
-        let isJapanese = Locale.current.language.languageCode?.identifier == "ja"
         if windowDays == 30 {
-            return isJapanese ? "次の1ヶ月の引き落とし合計" : "Next 1-Month Total"
+            return String(localized: "payment.window.nextMonthTotal")
         }
-        return isJapanese ? "次の\(windowDays)日間の引き落とし合計" : "Next \(windowDays)-Day Total"
+        return String.localizedStringWithFormat(String(localized: "payment.window.nextDaysTotal"), windowDays)
     }
 
     static func localizedFutureTitle() -> String {
-        let isJapanese = Locale.current.language.languageCode?.identifier == "ja"
-        return isJapanese ? "将来の引き落とし合計" : "Future Total"
+        String(localized: "payment.window.futureTotal")
     }
 
     static func localizedCurrentSummaryTitle(windowDays: Int) -> String {
-        let isJapanese = Locale.current.language.languageCode?.identifier == "ja"
         if windowDays == 30 {
-            return isJapanese ? "直近1ヶ月合計" : "Recent 1-Month Total"
+            return String(localized: "payment.window.recentMonthTotal")
         }
-        return isJapanese ? "直近\(windowDays)日合計" : "Recent \(windowDays)-Day Total"
+        return String.localizedStringWithFormat(String(localized: "payment.window.recentDaysTotal"), windowDays)
     }
 
     static func localizedNextSummaryTitle(windowDays: Int) -> String {
-        let isJapanese = Locale.current.language.languageCode?.identifier == "ja"
         if windowDays == 30 {
-            return isJapanese ? "次の1ヶ月合計" : "Next 1-Month Total"
+            return String(localized: "payment.window.nextMonthSummary")
         }
-        return isJapanese ? "次の\(windowDays)日合計" : "Next \(windowDays)-Day Total"
+        return String.localizedStringWithFormat(String(localized: "payment.window.nextDaysSummary"), windowDays)
     }
 }
 
