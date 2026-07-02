@@ -549,26 +549,17 @@ struct SettingsView: View {
 
     /// インポートボタン文言
     private var importButtonText: String {
-        if Locale.current.language.languageCode?.identifier == "ja" {
-            return "データをインポートする"
-        }
-        return "Import Data"
+        String(localized: "settings.import.button")
     }
 
     /// インポート開始時の説明文
     private var importPreparingText: String {
-        if Locale.current.language.languageCode?.identifier == "ja" {
-            return "インポート準備中…"
-        }
-        return "Preparing import..."
+        String(localized: "settings.import.preparing")
     }
 
     /// インポート中の補足説明
     private var importHintText: String {
-        if Locale.current.language.languageCode?.identifier == "ja" {
-            return "不足している配列キーは無視し、含まれるデータだけを取り込みます"
-        }
-        return "Missing sections are ignored. Only included data will be imported."
+        String(localized: "settings.import.hint")
     }
 
     /// 3年超履歴削除ボタン文言
@@ -593,42 +584,27 @@ struct SettingsView: View {
 
     /// 共通エラータイトル
     private var errorTitleText: String {
-        if Locale.current.language.languageCode?.identifier == "ja" {
-            return "エラー"
-        }
-        return "Error"
+        String(localized: "common.error")
     }
 
     /// インポート完了タイトル
     private var importDoneTitleText: String {
-        if Locale.current.language.languageCode?.identifier == "ja" {
-            return "インポート完了"
-        }
-        return "Import Complete"
+        String(localized: "settings.import.done.title")
     }
 
     /// インポート完了メッセージ
     private func importDoneMessage(_ result: JSONImport.Result) -> String {
-        if Locale.current.language.languageCode?.identifier == "ja" {
-            return """
-            口座 \(result.bankCount) 件
-            決済手段 \(result.cardCount) 件
-            タグ \(result.tagCount) 件
-            決済履歴 \(result.recordCount) 件
-            明細状態反映 \(result.partStateCount) 件
-            請求状態反映 \(result.invoiceStateCount) 件
-            支払状態反映 \(result.paymentStateCount) 件
-            """
-        }
-        return """
-        Accounts: \(result.bankCount)
-        Payment Methods: \(result.cardCount)
-        Tags: \(result.tagCount)
-        Records: \(result.recordCount)
-        Part States: \(result.partStateCount)
-        Invoice States: \(result.invoiceStateCount)
-        Payment States: \(result.paymentStateCount)
-        """
+        // Xcodeの参照検出に乗るよう、完了メッセージ全体を1キーで管理する
+        return String.localizedStringWithFormat(
+            String(localized: "settings.import.done.message"),
+            result.bankCount,
+            result.cardCount,
+            result.tagCount,
+            result.recordCount,
+            result.partStateCount,
+            result.invoiceStateCount,
+            result.paymentStateCount
+        )
     }
 
     /// 3年超履歴削除を実行する
