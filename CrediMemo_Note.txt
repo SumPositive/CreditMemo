@@ -1621,19 +1621,17 @@ zh-Hans を廃止して、ko,zh-Hant に対応したい
 
 DialSplitで行った　fastlaneによるメタデータとスクリーンショットの生成とアップロードを行えるようにしたい
 
+N回払い：jaだけは従来通り２回までに制限する
 
-
-
-DialSplitで行った　fastlaneによるメタデータとスクリーンショットの生成とアップロードを行えるようにしたい
 ------------------------------------AppStore 更新
 2.5.0 新機能
-- N回支払い：最大12回まで分割できます。利息や手数料は計算しません
+- N回支払い：最大12回まで分割できます。利息や手数料は計算しません　＜＜＜jaは従来通りなので不要
 - ロケール de,ko,zh-Hant に対応しました
 - 引き落とし確認待ちの条件を「本日以前の未払」に改善しました
 -----
 fastlane メタデータを生成する
 /Users/sumpositive/GitLocal/CreditMemo/fastlane/metadata/ja/release_notes.txt を更新
-fastlane/metadata/ja/を他言語翻訳する
+fastlane/metadata/ja/を他言語翻訳して
 cd /Users/sumpositive/GitLocal/CreditMemo
 fastlane preview_metadata
 確認後、アップロードする

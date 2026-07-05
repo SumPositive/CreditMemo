@@ -7,6 +7,24 @@ enum PayCount {
     static let min: Int = 1
     static let max: Int = 12
 
+    /// 日本語(ja)表示時に、新規入力で選べる分割回数の上限（安全策）。
+    /// 旧アプリからの移行ユーザー向けに、日本語では従来どおり 2 回までに留める。
+    static let japaneseNewMax: Int = 2
+
+    /// 支払回数ピッカーで選べる上限を返す（純粋関数・UI非依存でテスト可能）。
+    /// - isJapanese: アプリ表示言語が日本語か
+    /// - currentCount: 編集中レコードの現在の支払回数（新規は 1）
+    ///
+    /// 日本語では新規入力を japaneseNewMax(=2) までに絞るが、編集中レコードが
+    /// 既にそれより多ければ（旧データ・移行データ）その値までは選べるようにして
+    /// 既存編集を妨げない。日本語以外は常に max(=12)。
+    /// いずれも下限は min(=1)、上限は max(=12) に収める。
+    static func upperBound(isJapanese: Bool, currentCount: Int) -> Int {
+        let base = isJapanese ? japaneseNewMax : max
+        let bound = Swift.max(base, currentCount)
+        return Swift.min(Swift.max(bound, min), max)
+    }
+
     /// 「N回払い」表示文字列。1回は一括払い表記にする
     static func localizedLabel(_ count: Int) -> String {
         if count <= 1 {

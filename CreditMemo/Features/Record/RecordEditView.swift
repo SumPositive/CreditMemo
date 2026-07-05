@@ -665,7 +665,14 @@ private var isValid: Bool {
         }
     }
 
-    /// 支払回数の選択（1回=一括 〜 12回）
+    /// 支払回数ピッカーで選べる上限。ロジックは PayCount.upperBound（純粋関数）に委譲。
+    /// 日本語表示では新規入力を 2 回までに留める安全策（既存の3回以上は編集可能）。
+    private var payCountUpperBound: Int {
+        let isJapanese = Locale.current.language.languageCode?.identifier == "ja"
+        return PayCount.upperBound(isJapanese: isJapanese, currentCount: payCount)
+    }
+
+    /// 支払回数の選択（1回=一括 〜 上限）
     private var payCountPicker: some View {
         HStack(spacing: 8) {
             Text("record.payCount.title")
@@ -673,8 +680,8 @@ private var isValid: Bool {
                 .foregroundStyle(.secondary)
             Spacer(minLength: 8)
             Picker("record.payCount.title", selection: payCountBinding) {
-                // 回数の多い順（12→1）で表示する
-                ForEach((PayCount.min...PayCount.max).reversed(), id: \.self) { n in
+                // 回数の多い順（上限→1）で表示する
+                ForEach((PayCount.min...payCountUpperBound).reversed(), id: \.self) { n in
                     Text(PayCount.localizedLabel(n)).tag(n)
                 }
             }

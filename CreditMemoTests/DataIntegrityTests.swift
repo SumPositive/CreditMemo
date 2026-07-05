@@ -167,4 +167,39 @@ struct DataIntegrityTests {
         let report = RecordService.checkBillingIntegrity(context: context)
         #expect(report.invalidPayTypeCount == 0)
     }
+
+    // MARK: - PayCount.upperBound（ja=2回制限の安全策）
+
+    @Test("日本語以外では支払回数の上限は常に 12（従来どおり）")
+    func payCountUpperBoundNonJapaneseIsAlwaysMax() {
+        // 新規(1回)でも既存(何回でも)でも、ja でなければ 12 まで選べる
+        #expect(PayCount.upperBound(isJapanese: false, currentCount: 1) == PayCount.max)
+        #expect(PayCount.upperBound(isJapanese: false, currentCount: 2) == PayCount.max)
+        #expect(PayCount.upperBound(isJapanese: false, currentCount: 12) == PayCount.max)
+    }
+
+    @Test("日本語の新規入力は 2 回まで（従来どおりの安全策）")
+    func payCountUpperBoundJapaneseNewIsTwo() {
+        // 新規（現在値=1）では 2 回までに絞る
+        #expect(PayCount.upperBound(isJapanese: true, currentCount: 1) == PayCount.japaneseNewMax)
+        #expect(PayCount.japaneseNewMax == 2)
+    }
+
+    @Test("日本語でも既存が3回以上ならその回数まで選べる（既存編集を妨げない）")
+    func payCountUpperBoundJapaneseKeepsExistingHigherCount() {
+        // 既存 3回 → 3 まで、5回 → 5 まで、12回 → 12 まで許容
+        #expect(PayCount.upperBound(isJapanese: true, currentCount: 3) == 3)
+        #expect(PayCount.upperBound(isJapanese: true, currentCount: 5) == 5)
+        #expect(PayCount.upperBound(isJapanese: true, currentCount: 12) == 12)
+    }
+
+    @Test("upperBound は常に 1...12 の範囲に収まる（不正入力の防御）")
+    func payCountUpperBoundStaysWithinModelRange() {
+        // 現在値が 0 や負でも下限 1 未満にはならない
+        #expect(PayCount.upperBound(isJapanese: true, currentCount: 0) == PayCount.japaneseNewMax)
+        #expect(PayCount.upperBound(isJapanese: false, currentCount: 0) == PayCount.max)
+        // 現在値が 12 超（移行データの異常値）でも上限 12 で頭打ち
+        #expect(PayCount.upperBound(isJapanese: true, currentCount: 99) == PayCount.max)
+        #expect(PayCount.upperBound(isJapanese: false, currentCount: 99) == PayCount.max)
+    }
 }
