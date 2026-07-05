@@ -1,0 +1,56 @@
+# fastlane snapshot 設定（CreditMemo）
+# ------------------------------------------------------------
+# まずは「少数カット × 少数言語 × 1デバイス」で仕組みを検証する構成。
+# 動作確認できたら languages / devices / カットを増やして本番展開する。
+#
+# App Store 必須サイズ:
+#   - iPhone 6.9": iPhone 17 Pro Max（1320x2868）
+#   - iPad 13":    iPad Pro 13-inch (M5)  … 審査必須枠。iPhone が埋まってから追加
+#
+# 【注意】UITest ターゲット CreditMemoUITests の IPHONEOS_DEPLOYMENT_TARGET は 18.0。
+# DialSplit（26.5）と違い、シミュレータの iOS ランタイム要件は緩い。
+# それでも devices([...]) の名前は `xcrun simctl list devices` に出る名前と一致必須。
+
+# iPhone 6.9" と iPad 13" の両方を撮る（4カット × 5言語 × 2デバイス）。
+devices([
+  "iPhone 17 Pro Max",
+  "iPad Pro 13-inch (M5)"
+])
+
+# 片方だけ撮りたい場合はどちらかをコメントアウトする。
+
+# 言語コード = 出力フォルダ名（App Store のロケール名に一致させる）かつ -AppleLanguages。
+# 言語切替は SnapshotHelper が language.txt（=この値）で行う。値は CreditMemo の
+# .lproj 名と一致させること（例 "zh-Hant"。"zh-Hant-TW" 等に変えると .lproj に
+# マッチせず言語が切り替わらない）。
+# CreditMemo は 5 言語対応: ja, en-US, de-DE, ko, zh-Hant
+languages(["ja","en-US","de-DE","ko","zh-Hant"])
+
+# 検証中はまず 2 言語に絞ってもよい:
+# languages(["ja","en-US"])
+
+# 撮影対象スキーム
+scheme("CreditMemo")
+
+# 撮影用 UITest を明示指定する。
+# TestPlan 経由だと UITest が実行されず snapshot() が呼ばれない（結果0枚）ことがあるため、
+# 撮影対象を UITest のメソッドに固定する。
+only_testing(["CreditMemoUITests/CreditMemoUITests/testTakeScreenshots"])
+
+# 出力先。deliver がここから拾う
+output_directory("./fastlane/screenshots")
+
+# 撮影ごとに端末フレーム画像はここでは付けない（frameit は別途）
+# iPhone/iPad 両方を全カット撮り直すので、古いファイルを消してクリーンに出力する。
+# （手動で保管したいカットは無いため true でよい）
+clear_previous_screenshots(true)
+
+# 起動を安定させる
+stop_after_first_error(true)
+concurrent_simulators(false)
+
+# --- シミュレータ起動失敗（Clone の launch-failed / RequestDenied）対策 ---
+# USB上のXcodeでクローン起動が拒否されることがあるため、リトライを増やす。
+# 失敗が続く場合は、実行前に `xcrun simctl shutdown all` +
+# `sudo killall -9 com.apple.CoreSimulator.CoreSimulatorService` でクリーンにする。
+number_of_retries(3)

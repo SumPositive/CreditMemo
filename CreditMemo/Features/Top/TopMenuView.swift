@@ -187,6 +187,8 @@ struct TopMenuView: View {
                     }
                 }
                 .tag(AppDestination.paymentList)
+                // fastlane snapshot 用: 他のメニュー行と同じ命名で識別子を付ける
+                .accessibilityIdentifier("menu.\(AppDestination.paymentList.rawValue)")
             }
 
             // マスタメニューは初心者/達人に関係なく常時表示する
@@ -261,6 +263,9 @@ struct TopMenuView: View {
             }
         }
         .tag(dest)
+        // fastlane snapshot 用: ローカライズ文言に依存せず行を特定できるよう
+        // 言語非依存の識別子を付ける（例 "menu.addRecord"）。
+        .accessibilityIdentifier("menu.\(dest.rawValue)")
     }
 
     @ViewBuilder

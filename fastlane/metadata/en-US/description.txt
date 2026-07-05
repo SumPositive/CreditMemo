@@ -1,0 +1,26 @@
+A memo app for later debits
+
+CrediMemo records and manages payments across every method — credit cards, debit cards, e-money and more. Version 2 was rebuilt from the ground up with the latest iOS technology for smooth performance and easy operation.
+
+[Easy-on-the-eyes design]
+Choose from four text sizes: Auto, Standard, Large, and Extra Large. The setting applies across the whole app — entry screens, selection sheets, even the help pages — for a display that's kind to your eyes.
+
+[Debit management]
+See "before debit" and "already debited" on one screen. Totals are shown across three periods: current, next, and future. Switch payment status with a single button.
+
+[Fast entry]
+When you enter a new payment, "Quote from History" automatically suggests similar past records. Unfilled fields such as label, payment method, and tags are filled in together, cutting the number of entry steps dramatically.
+
+[Recording payments]
+Record amount, date used, payment method, label, tags, and notes all at once. For recurring payments, you can also use repeat settings.
+
+[Organize with tags]
+Set multiple tags freely to categorize. Combine them with filters by card, by date, or "has blanks."
+
+[Data management]
+Supports export and import in JSON format. Use it to migrate data when you change devices or to keep an external backup.
+
+Great for people who:
+- Juggle several cards and find managing debit dates a hassle
+- Want simple, hands-on management without automatic linking
+- Are looking for an app with large, easy-to-read text

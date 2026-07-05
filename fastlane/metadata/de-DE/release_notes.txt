@@ -1,0 +1,4 @@
+Neu in 2.5.0
+- Ratenzahlung: bis zu 12 Raten. Zinsen und Gebühren werden nicht berechnet.
+- Sprachen de, ko und zh-Hant hinzugefügt.
+- Bedingung „wartet auf Abbuchungsbestätigung" zu „offen bis einschließlich heute" verbessert.

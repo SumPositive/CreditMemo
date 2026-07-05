@@ -32,6 +32,23 @@ struct AppMain: App {
         // default.store → CreditMemo.store へのリネーム（名前を明示化した際の既存ユーザー対応）
         Self.renameDefaultStoreIfNeeded()
 
+        // fastlane snapshot 撮影時（DEBUG限定）は in-memory ストアにサンプルを入れて撮る。
+        // 実ストアやマイグレーションには触れない。
+        if SnapshotSeed.isActive {
+            let config = AppModelContainerFactory.makeConfiguration(isStoredInMemoryOnly: true)
+            storeURL = config.url
+            do {
+                let container = try AppModelContainerFactory.makeContainer(configuration: config)
+                SnapshotSeed.seedIfNeeded(context: container.mainContext)
+                sharedModelContainer = container
+                containerError = nil
+            } catch {
+                sharedModelContainer = nil
+                containerError = error
+            }
+            return
+        }
+
         let config = AppModelContainerFactory.makeConfiguration()
         storeURL = config.url
         do {
@@ -125,6 +142,8 @@ struct AppMain: App {
                 guard didStartMigration == false else { return }
                 didStartMigration = true
                 guard let container = sharedModelContainer else { return }
+                // snapshot 撮影時は in-memory の既シード済みストアなので移行は不要
+                if SnapshotSeed.isActive { return }
                 isMigrating = true
                 migrationMessage = AppLaunchProgressText.message(locale: Locale.current, key: .migrationPreparing)
                 await Task.yield()

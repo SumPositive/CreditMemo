@@ -6,7 +6,7 @@
 ._*
 
 # Custom folder icons
-Icon
+Icon
 
 # Volume root files
 .DocumentRevisions-V100
@@ -98,3 +98,16 @@ playground.xcworkspace
 # Package.resolved
 # XcodeGen は使用しない（Xcode 管理に一本化）。誤って再生成されても追跡しない
 project.yml
+
+### fastlane
+# API キー・秘密情報（絶対にコミットしない）
+fastlane/.env
+*.p8
+
+# 実行時の生成物
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/screenshots/screenshots.html
+fastlane/test_output
+

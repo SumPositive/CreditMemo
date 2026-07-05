@@ -1,0 +1,6 @@
+app_identifier("com.azukid.AzCreditS1")
+# Apple ID (Team ID) と itc_team_id は API キー方式では不要な場合が多い。
+# 必要になったら以下のコメントを外して設定する。
+# apple_id("your-apple-id@example.com")
+# team_id("XXXXXXXXXX")       # Developer Portal Team ID
+# itc_team_id("XXXXXXXXX")    # App Store Connect Team ID

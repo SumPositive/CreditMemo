@@ -1,0 +1,4 @@
+What's new in 2.5.0
+- Installment payments: split into up to 12 payments. Interest and fees are not calculated.
+- Added locales de, ko, and zh-Hant.
+- Improved the "awaiting debit confirmation" condition to "unpaid on or before today."

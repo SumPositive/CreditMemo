@@ -51,6 +51,7 @@ struct RecordEditView: View {
     @Environment(\.dismiss)         private var dismiss
     @Environment(AppEditingState.self) private var editingState
     @Environment(\.badgeTheme)      private var badgeTheme
+    @Environment(\.horizontalSizeClass) private var hSizeClass
     @Query(sort: \E1card.nRow)      private var cards: [E1card]
     @Query(sort: \E8bank.nRow)      private var banks: [E8bank]
     @Query(sort: \E3record.dateUse, order: .reverse) private var pastRecords: [E3record]
@@ -380,8 +381,15 @@ private var isValid: Bool {
                 hasInitialized = true
                 // 新規追加で金額が未入力かつ設定ONのときだけテンキーを自動表示する。
                 // コピー新規（.addCopy）は金額がコピー済みなので自動表示しない。
-                if isNew && nAmount == 0 && autoOpenAmountPad {
+                // fastlane snapshot 撮影時はフォーム本体を見せたいのでテンキーを自動表示しない。
+                if isNew && nAmount == 0 && autoOpenAmountPad && !SnapshotSeed.isActive {
                     DispatchQueue.main.async { showAmountPad = true }
+                }
+                // fastlane snapshot 撮影時、画面が狭い iPhone(compact) では
+                // 「決済一覧からコピー」を畳んでタグ・繰り返し・メモまで見せる。
+                // iPad(regular) は画面が広く開いたままでも下まで映るので開いた状態を保つ。
+                if SnapshotSeed.isActive && hSizeClass == .compact {
+                    isSimilarExpanded = false
                 }
             }
         }

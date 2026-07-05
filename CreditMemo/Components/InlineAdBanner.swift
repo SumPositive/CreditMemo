@@ -18,9 +18,14 @@ struct InlineAdBanner: View {
 
     var body: some View {
         #if canImport(GoogleMobileAds)
-        InlineAdBannerRepresentable(adUnitID: INLINE_AD_BANNER_UNIT_ID)
-            .frame(height: height)
-            .frame(maxWidth: .infinity)
+        // fastlane snapshot 撮影時は広告バナーを出さない（ストア掲載画像に広告を写さない）
+        if SnapshotSeed.isActive {
+            EmptyView()
+        } else {
+            InlineAdBannerRepresentable(adUnitID: INLINE_AD_BANNER_UNIT_ID)
+                .frame(height: height)
+                .frame(maxWidth: .infinity)
+        }
         #else
         EmptyView()
         #endif

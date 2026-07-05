@@ -1,0 +1,18 @@
+# CreditMemo — App Store 配信の共通設定（deliver）
+#
+# 【重要】ここには「メタデータ／スクショで挙動が変わる項目」は書かない。
+# 理由: Deliverfile はグローバル設定で、各レーンの deliver(...) 引数と競合する。
+#       特に skip_screenshots / overwrite_screenshots をここに固定すると、
+#       upload_screenshots レーンで overwrite: true を渡しても Deliverfile 側の
+#       false が効いてしまい、既存スクショを消さずに追加＝重複が発生した。
+#       → skip_screenshots / skip_metadata / overwrite_screenshots / force は
+#         Fastfile の各レーン側だけで指定する（このファイルには書かない）。
+
+# App Store Connect の審査には出さない（保存のみ）。これは常に共通なのでここでよい。
+submit_for_review(false)
+
+# バイナリ(ipa)はアップロードしない（このプロジェクトはメタデータ/スクショ専用運用）
+skip_binary_upload(true)
+
+# 対象アプリ
+app_identifier("com.azukid.AzCreditS1")

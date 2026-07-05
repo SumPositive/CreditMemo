@@ -1,0 +1,26 @@
+Eine Merk-App für spätere Abbuchungen
+
+CrediMemo erfasst und verwaltet Zahlungen aller Art – Kreditkarten, Debitkarten, E-Geld und mehr. Version 2 wurde mit der neuesten iOS-Technik von Grund auf neu entwickelt, für flüssige Leistung und einfache Bedienung.
+
+[Augenfreundliches Design]
+Wähle aus vier Textgrößen: Automatisch, Standard, Groß und Sehr groß. Die Einstellung gilt für die gesamte App – Eingabemasken, Auswahlblätter, sogar die Hilfeseiten – für eine augenschonende Darstellung.
+
+[Abbuchungsverwaltung]
+Sieh „vor der Abbuchung" und „bereits abgebucht" auf einem Bildschirm. Summen werden für drei Zeiträume angezeigt: aktuell, nächster und zukünftig. Wechsle den Zahlungsstatus mit einem einzigen Knopf.
+
+[Schnelle Eingabe]
+Bei der Eingabe einer neuen Zahlung schlägt „Aus Verlauf übernehmen" automatisch ähnliche frühere Einträge vor. Leere Felder wie Bezeichnung, Zahlungsmethode und Tags werden zusammen ausgefüllt und sparen viele Eingabeschritte.
+
+[Zahlungen erfassen]
+Erfasse Betrag, Nutzungsdatum, Zahlungsmethode, Bezeichnung, Tags und Notizen auf einmal. Für wiederkehrende Zahlungen gibt es auch Wiederholungseinstellungen.
+
+[Mit Tags ordnen]
+Vergib beliebig viele Tags zur Kategorisierung. Kombiniere sie mit Filtern nach Karte, nach Datum oder „enthält Lücken".
+
+[Datenverwaltung]
+Export und Import im JSON-Format werden unterstützt. Nutze es zur Datenübertragung beim Gerätewechsel oder für ein externes Backup.
+
+Ideal für alle, die:
+- Mehrere Karten nutzen und die Verwaltung der Abbuchungstage lästig finden
+- Ohne automatische Verknüpfung einfach von Hand verwalten möchten
+- Eine App mit großer, gut lesbarer Schrift suchen

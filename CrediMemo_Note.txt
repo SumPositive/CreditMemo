@@ -1616,17 +1616,35 @@ en/de/zh-Hansに翻訳して
 「決済履歴を表示する」を「決済一覧を表示する」に変更
 設定：新しい決済入力後の設定を、音声で新しい決済入力後にも適用する
 N回払いの回数選択肢一覧を降順に表示したい
-
 zh-Hans を廃止して、ko,zh-Hant に対応したい
+公開アプリパネル、取扱説明の言語ロケールを ja,de,en,ko,zh-Hant に対応したい
+
+DialSplitで行った　fastlaneによるメタデータとスクリーンショットの生成とアップロードを行えるようにしたい
 
 
----------------------------------------
+
+
+DialSplitで行った　fastlaneによるメタデータとスクリーンショットの生成とアップロードを行えるようにしたい
+------------------------------------AppStore 更新
 2.5.0 新機能
 - N回支払い：最大12回まで分割できます。利息や手数料は計算しません
-- 
-enに翻訳して
+- ロケール de,ko,zh-Hant に対応しました
+- 引き落とし確認待ちの条件を「本日以前の未払」に改善しました
 -----
-2.5.0 本日公開、README.mdの開発メモ、公開アプリパネル、取扱説明（jp/en）を更新してほしい。
----------------------------------------
-
+fastlane メタデータを生成する
+/Users/sumpositive/GitLocal/CreditMemo/fastlane/metadata/ja/release_notes.txt を更新
+fastlane/metadata/ja/を他言語翻訳する
+cd /Users/sumpositive/GitLocal/CreditMemo
+fastlane preview_metadata
+確認後、アップロードする
+fastlane upload_metadata
+-----
+fastlane スクリーンショットを生成する
+cd /Users/sumpositive/GitLocal/CreditMemo
+fastlane screenshots
+確認後、アップロードする
+fastlane upload_screenshots
+-----
+2.5.0 本日公開、README.mdの開発メモ、公開アプリパネル、取扱説明を更新したい
+--------------------------------
 
