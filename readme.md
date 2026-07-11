@@ -16,18 +16,40 @@
 
 本プロジェクトでは、プロジェクト識別子と公開アプリ名を **意図的に揃えず別物として運用** します。
 
-- **`CreditMemo`** — プロジェクト名・フォルダ名・Xcode target・Swift コード上の識別子・SwiftData ストア名 (`Application Support/CreditMemo.store`)・GitHub リポジトリ名
-- **`CrediMemo` / `クレメモ`** — App Store 上の公開アプリ名・取扱説明のユーザー向け本文・UI 文言・アイコン alt などユーザーが目にする表記
+- **`CreditMemo`** — プロジェクト名・フォルダ名・Xcode target・Swift コード上の識別子・SwiftData ストア名 (`Application Support/CreditMemo.store`)・GitHub リポジトリ名・取扱説明の URL パス (`.../CreditMemo/creditmemo.html`)
+- **`Debita`（en）/ `クレメモ`（ja）** — App Store 上の公開アプリ名・取扱説明のユーザー向け本文・UI 文言（`app.name`）・アイコン alt などユーザーが目にする表記
 
-理由は、`CreditMemo.store` を改名すると既存ユーザーの SwiftData ストアとの互換性が失われるためです。内部識別子（フォルダ・コード・ストア名）は据え置き、ユーザー向け表記だけ `CrediMemo` / `クレメモ` に揃えます。混在は仕様であり、リファクタリングで自動的に統一しないでください。
+理由は、`CreditMemo.store` を改名すると既存ユーザーの SwiftData ストアとの互換性が失われるためです。内部識別子（フォルダ・コード・ストア名・リポジトリ名・URL パス）は据え置き、ユーザー向け表記だけロケール別（en=`Debita` / ja=`クレメモ`）に揃えます。混在は仕様であり、リファクタリングで自動的に統一しないでください。
+
+### 公開名の変遷（en）
+
+2.5.0 まで en 公開名は `CrediMemo`（さらに旧くは移植元 `PayNote`）でした。2.6.0 で en 公開名を **`Debita`** に改名します（サブタイトル: `Payment & Balance Tracker`）。ja は一貫して `クレメモ`。
+
+- **Siri 起動フレーズ**は `AppShortcut` の `\(.applicationName)` 参照で、`Info.plist` の `INAlternativeAppNames` に `Debita`（読み: デビタ）/ `デビタ` / `クレメモ` / `CrediMemo` を登録済み。これにより **「Debita」「デビタ」「クレメモ」「CrediMemo」のいずれで呼んでも** 音声起動できます（コード側 `phrases` は変更不要）。
+- **keywords** には移行期の検索対策として `Debita,CrediMemo,...` を併記（旧々名 `PayNote` は削除）。
+- 内部名 `CreditMemo` は Xcode 上でも据え置くため、`CFBundleName = $(PRODUCT_NAME)` は `CreditMemo` のままです。
 
 **User Guide**  
 [English](https://azukid.com/en/sumpo/CreditMemo/creditmemo.html) / [日本語](https://azukid.com/jp/sumpo/CreditMemo/creditmemo.html)
 
 ![Platform](https://img.shields.io/badge/platform-iOS%2018%2B-blue)
 ![Swift](https://img.shields.io/badge/Swift-6-orange)
-![Version](https://img.shields.io/badge/version-2.4.2-brightgreen)
+![Version](https://img.shields.io/badge/version-2.5.0-brightgreen)
 [![App Store](https://img.shields.io/badge/App%20Store-Download-blue)](https://apps.apple.com/us/app/id432458298)
+
+## バージョン 2.5.0 の主な変更
+
+- **N回払い（分割払い）を拡張**
+  - 決済編集の「引き落とし（支払）」で、一括／2回払いに代えて `1回〜12回` の回数をリスト選択できる（既定は1回）
+  - 明細の1つでも手動で引き落とし日を変更していると回数変更は不可（誤操作防止）
+  - `ja` ロケールだけは従来仕様を維持し、最大 2回 に制限する
+- **ロケール追加: `de` / `ko` / `zh-Hant`**
+  - ドイツ語・韓国語・繁体中国語に対応（従来の `ja` / `en` に加えて計 5 ロケール）
+  - 日付の並び順は各ロケールに追従する
+- **引き落とし確認待ちの判定を改善**
+  - 引き落とし確認待ち（過ぎた未払）の条件を「前日以前の未払」から **「本日以前の未払」** に変更
+  - 引き落とし日当日の未払も確認対象に含めるようにした
+- その他、表示と操作性の見直し・軽微な不具合修正
 
 ## バージョン 2.4.2 の主な変更
 

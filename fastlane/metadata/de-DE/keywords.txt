@@ -1,1 +1,1 @@
-PayNote,Crememo,Kreditkarte,Debitkarte,Zahlung,Abbuchung,Ausgaben,Geld,Haushaltsbuch,Raten,E-Geld
+Debita,CrediMemo,Kreditkarte,Debitkarte,Zahlung,Abbuchung,Ausgaben,Geld,Haushaltsbuch,Raten,E-Geld

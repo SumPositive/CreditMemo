@@ -1,1 +1,1 @@
-PayNote,Crememo,credit card,debit card,payment,debit,expenses,money,budget,installment
+Debita,CrediMemo,credit card,debit card,payment,debit,expenses,money,budget,installment

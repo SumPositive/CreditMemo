@@ -3,7 +3,34 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDisplayName</key>
-	<string>CrediMemo</string>
+	<string>Debita</string>
+	<key>INAlternativeAppNames</key>
+	<array>
+		<dict>
+			<key>INAlternativeAppName</key>
+			<string>Debita</string>
+			<key>INAlternativeAppNamePronunciationHint</key>
+			<string>デビタ</string>
+		</dict>
+		<dict>
+			<key>INAlternativeAppName</key>
+			<string>デビタ</string>
+			<key>INAlternativeAppNamePronunciationHint</key>
+			<string>でびた</string>
+		</dict>
+		<dict>
+			<key>INAlternativeAppName</key>
+			<string>クレメモ</string>
+			<key>INAlternativeAppNamePronunciationHint</key>
+			<string>くれめも</string>
+		</dict>
+		<dict>
+			<key>INAlternativeAppName</key>
+			<string>CrediMemo</string>
+			<key>INAlternativeAppNamePronunciationHint</key>
+			<string>くれめも</string>
+		</dict>
+	</array>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIcons</key>

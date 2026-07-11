@@ -1,6 +1,6 @@
 A memo app for later debits
 
-CrediMemo records and manages payments across every method — credit cards, debit cards, e-money and more. Version 2 was rebuilt from the ground up with the latest iOS technology for smooth performance and easy operation.
+Debita records and manages payments across every method — credit cards, debit cards, e-money and more. Version 2 was rebuilt from the ground up with the latest iOS technology for smooth performance and easy operation.
 
 [Easy-on-the-eyes design]
 Choose from four text sizes: Auto, Standard, Large, and Extra Large. The setting applies across the whole app — entry screens, selection sheets, even the help pages — for a display that's kind to your eyes.
