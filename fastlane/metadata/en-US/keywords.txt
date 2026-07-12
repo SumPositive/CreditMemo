@@ -1,1 +1,1 @@
-Debita,CrediMemo,credit card,debit card,payment,debit,expenses,money,budget,installment
+Deferin,CrediMemo,credit card,debit card,payment,debit,expenses,money,budget,installment

@@ -430,13 +430,13 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Debita"
+            "value": "Deferin"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Debita"
+            "value": "Deferin"
           }
         },
         "ja": {
@@ -448,13 +448,13 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "Debita"
+            "value": "Deferin"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Debita"
+            "value": "Deferin"
           }
         }
       }
@@ -11706,13 +11706,13 @@
         "de": {
           "stringUnit": {
             "state": "needs_review",
-            "value": "Erfasse eine in mehrere Raten (1–12) aufgeteilte Zahlung. Die Beträge werden standardmäßig gleichmäßig verteilt, und du kannst jede Rate manuell anpassen.\n\nIst dies aus, wird die Ratenzahlung für neue Einträge ausgeblendet. Vorhandene Einträge bleiben gültig.\n\nFür Bonus- oder Sonderzahlungstermine das Abbuchungsdatum manuell ändern. Debita berechnet weder Zinsen noch Gebühren, nutze dies also nur für zins- und gebührenfreie Pläne."
+            "value": "Erfasse eine in mehrere Raten (1–12) aufgeteilte Zahlung. Die Beträge werden standardmäßig gleichmäßig verteilt, und du kannst jede Rate manuell anpassen.\n\nIst dies aus, wird die Ratenzahlung für neue Einträge ausgeblendet. Vorhandene Einträge bleiben gültig.\n\nFür Bonus- oder Sonderzahlungstermine das Abbuchungsdatum manuell ändern. Deferin berechnet weder Zinsen noch Gebühren, nutze dies also nur für zins- und gebührenfreie Pläne."
           }
         },
         "en": {
           "stringUnit": {
             "state": "needs_review",
-            "value": "Record a payment split into several installments (1–12). Amounts are divided evenly by default, and you can adjust each one manually.\n\nTurning this off hides installments for new records. Existing installment records stay valid.\n\nFor bonus or special payment dates, change the debit date manually. Debita does not calculate interest or fees, so use this only for interest-free, fee-free plans."
+            "value": "Record a payment split into several installments (1–12). Amounts are divided evenly by default, and you can adjust each one manually.\n\nTurning this off hides installments for new records. Existing installment records stay valid.\n\nFor bonus or special payment dates, change the debit date manually. Deferin does not calculate interest or fees, so use this only for interest-free, fee-free plans."
           }
         },
         "ja": {
@@ -11724,13 +11724,13 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "記錄拆分為多期（1–12 期）的付款。金額預設平均分配，也可手動調整每一期。\n\n關閉後，新記錄將不顯示分期。已有的分期記錄仍然有效。\n\n獎金或特殊付款日請手動更改扣款日期。Debita 不計算利息或手續費，請僅用於無息無手續費的計劃。"
+            "value": "記錄拆分為多期（1–12 期）的付款。金額預設平均分配，也可手動調整每一期。\n\n關閉後，新記錄將不顯示分期。已有的分期記錄仍然有效。\n\n獎金或特殊付款日請手動更改扣款日期。Deferin 不計算利息或手續費，請僅用於無息無手續費的計劃。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "결제를 여러 번(1~12회)으로 나누어 기록할 수 있습니다. 금액은 기본적으로 균등 분할되며 각 회차를 수동으로 조정할 수도 있습니다.\n\n끄면 새 기록에서 분할 결제가 숨겨집니다. 이미 저장한 분할 결제는 그대로 유효합니다.\n\n보너스 결제일은 출금일을 수동으로 변경하세요. Debita는 이자나 수수료를 계산하지 않으므로 무이자·무수수료 계획에만 사용하세요."
+            "value": "결제를 여러 번(1~12회)으로 나누어 기록할 수 있습니다. 금액은 기본적으로 균등 분할되며 각 회차를 수동으로 조정할 수도 있습니다.\n\n끄면 새 기록에서 분할 결제가 숨겨집니다. 이미 저장한 분할 결제는 그대로 유효합니다.\n\n보너스 결제일은 출금일을 수동으로 변경하세요. Deferin는 이자나 수수료를 계산하지 않으므로 무이자·무수수료 계획에만 사용하세요."
           }
         }
       }

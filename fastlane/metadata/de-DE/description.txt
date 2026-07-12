@@ -1,6 +1,6 @@
 Eine Merk-App für spätere Abbuchungen
 
-Debita erfasst und verwaltet Zahlungen aller Art – Kreditkarten, Debitkarten, E-Geld und mehr. Version 2 wurde mit der neuesten iOS-Technik von Grund auf neu entwickelt, für flüssige Leistung und einfache Bedienung.
+Deferin erfasst und verwaltet Zahlungen aller Art – Kreditkarten, Debitkarten, E-Geld und mehr. Version 2 wurde mit der neuesten iOS-Technik von Grund auf neu entwickelt, für flüssige Leistung und einfache Bedienung.
 
 [Augenfreundliches Design]
 Wähle aus vier Textgrößen: Automatisch, Standard, Groß und Sehr groß. Die Einstellung gilt für die gesamte App – Eingabemasken, Auswahlblätter, sogar die Hilfeseiten – für eine augenschonende Darstellung.

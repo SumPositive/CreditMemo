@@ -1,1 +1,1 @@
-Debita,CrediMemo,Kreditkarte,Debitkarte,Zahlung,Abbuchung,Ausgaben,Geld,Haushaltsbuch,Raten,E-Geld
+Deferin,CrediMemo,Kreditkarte,Debitkarte,Zahlung,Abbuchung,Ausgaben,Geld,Haushaltsbuch,Raten,E-Geld

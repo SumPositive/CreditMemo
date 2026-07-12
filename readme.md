@@ -17,16 +17,16 @@
 本プロジェクトでは、プロジェクト識別子と公開アプリ名を **意図的に揃えず別物として運用** します。
 
 - **`CreditMemo`** — プロジェクト名・フォルダ名・Xcode target・Swift コード上の識別子・SwiftData ストア名 (`Application Support/CreditMemo.store`)・GitHub リポジトリ名・取扱説明の URL パス (`.../CreditMemo/creditmemo.html`)
-- **`Debita`（en）/ `クレメモ`（ja）** — App Store 上の公開アプリ名・取扱説明のユーザー向け本文・UI 文言（`app.name`）・アイコン alt などユーザーが目にする表記
+- **`Deferin`（en）/ `クレメモ`（ja）** — App Store 上の公開アプリ名・取扱説明のユーザー向け本文・UI 文言（`app.name`）・アイコン alt などユーザーが目にする表記
 
-理由は、`CreditMemo.store` を改名すると既存ユーザーの SwiftData ストアとの互換性が失われるためです。内部識別子（フォルダ・コード・ストア名・リポジトリ名・URL パス）は据え置き、ユーザー向け表記だけロケール別（en=`Debita` / ja=`クレメモ`）に揃えます。混在は仕様であり、リファクタリングで自動的に統一しないでください。
+理由は、`CreditMemo.store` を改名すると既存ユーザーの SwiftData ストアとの互換性が失われるためです。内部識別子（フォルダ・コード・ストア名・リポジトリ名・URL パス）は据え置き、ユーザー向け表記だけロケール別（en=`Deferin` / ja=`クレメモ`）に揃えます。混在は仕様であり、リファクタリングで自動的に統一しないでください。
 
 ### 公開名の変遷（en）
 
-2.5.0 まで en 公開名は `CrediMemo`（さらに旧くは移植元 `PayNote`）でした。2.6.0 で en 公開名を **`Debita`** に改名します（サブタイトル: `Payment & Balance Tracker`）。ja は一貫して `クレメモ`。
+2.5.0 まで en 公開名は `CrediMemo`（さらに旧くは移植元 `PayNote`）でした。2.6.0 で en 公開名を **`Deferin`** に改名します（`defer` = 後日に繰り延べる、の造語。サブタイトル: `Payment & Balance Tracker`）。ja は一貫して `クレメモ`。
 
-- **Siri 起動フレーズ**は `AppShortcut` の `\(.applicationName)` 参照で、`Info.plist` の `INAlternativeAppNames` に `Debita`（読み: デビタ）/ `デビタ` / `クレメモ` / `CrediMemo` を登録済み。これにより **「Debita」「デビタ」「クレメモ」「CrediMemo」のいずれで呼んでも** 音声起動できます（コード側 `phrases` は変更不要）。
-- **keywords** には移行期の検索対策として `Debita,CrediMemo,...` を併記（旧々名 `PayNote` は削除）。
+- **Siri 起動フレーズ**は `AppShortcut` の `\(.applicationName)` 参照。表示名 `Deferin` は `.applicationName` で自動的に反応するため別名には含めず、`Info.plist` の `INAlternativeAppNames` には旧名・読み仮名の `ディファリン` / `クレメモ` / `CrediMemo` の **3件**を登録（`INAlternativeAppNames` は **最大3件まで**の制約あり）。これにより **「Deferin」「ディファリン」「クレメモ」「CrediMemo」のいずれで呼んでも** 音声起動できます（コード側 `phrases` は変更不要）。
+- **keywords** には移行期の検索対策として `Deferin,CrediMemo,...` を併記（旧々名 `PayNote` は削除）。
 - 内部名 `CreditMemo` は Xcode 上でも据え置くため、`CFBundleName = $(PRODUCT_NAME)` は `CreditMemo` のままです。
 
 **User Guide**  

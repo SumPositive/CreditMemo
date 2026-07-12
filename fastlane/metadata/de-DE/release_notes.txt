@@ -1,3 +1,3 @@
-Neu in 2.5.0
-- Ratenzahlung: bis zu 12 Raten. Zinsen und Gebühren werden nicht berechnet.
-- Bedingung „wartet auf Abbuchungsbestätigung" zu „offen bis einschließlich heute" verbessert.
+Neu in 2.5.1
+- Die App wurde in „Deferin" umbenannt.
+- Siri funktioniert auch mit den alten Namen: Sag „Deferin", „CrediMemo" oder „Crememo", um die Spracheingabe zu starten.

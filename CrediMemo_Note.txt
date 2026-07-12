@@ -1632,24 +1632,30 @@ N回払い：jaだけは従来通り２回までに制限する
 fastlane メタデータを更新して
 2.5.0 7/6公開、README.mdの開発メモ、公開アプリパネル、取扱説明を更新したい
 -----
-cd /Users/sumpositive/GitLocal/Packlin
+cd /Users/sumpositive/GitLocal/CreditMemo
 fastlane preview_metadata       # メタ 確認 >[y]反映
 fastlane upload_metadata        # メタ 反映
 fastlane screenshots            # スクショ 生成確認
 fastlane upload_screenshots     # スクショ Upload
 ------------------------------------------------
 
+"Defer" 単体の評価
+defer = 後に延ばす、繰り延べる。会計英語の "deferred payment"（後払い・繰延支払） はこのアプリの定義そのもの
+欧米人に「後日に回す＝後払い」が辞書どおり正確に伝わる。Debita の「即時誤認」問題が完全に解消
+「クレカ・電子決済含む後日支払」という要件にピタリ
 
+Siri 起動フレーズ（4系統に反応）
+INAlternativeAppNames を Deferin 用に更新：Deferin / ディファリン / クレメモ / CrediMemo のいずれで呼んでも起動します（コードの phrases は \(.applicationName) 参照のまま変更不要）。
 
 --------------------------------
 2.5.1 新機能
-- enアプリ名を "Debita" に変更しました。「Hey Siri デビタで音声入力」も使えます
-- 
+- enアプリ名を "Deferin" に変更しました。「Hey Siri デビタで音声入力」も使えます
+- Siri 起動フレーズ：Deferin / ディファリン / クレメモ / CrediMemo のいずれで呼んでも起動します
 -----
 fastlane メタデータを更新して
 2.5.1 本日公開、README.mdの開発メモ、公開アプリパネル、取扱説明を更新して
 -----
-cd /Users/sumpositive/GitLocal/Packlin
+cd /Users/sumpositive/GitLocal/CreditMemo
 fastlane preview_metadata       # メタ 確認 >[y]反映
 fastlane upload_metadata        # メタ 反映
 fastlane screenshots            # スクショ 生成確認

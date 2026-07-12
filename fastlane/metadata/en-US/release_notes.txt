@@ -1,3 +1,3 @@
-What's new in 2.5.0
-- Installment payments: split into up to 12 payments. Interest and fees are not calculated.
-- Improved the "awaiting debit confirmation" condition to "unpaid on or before today."
+What's new in 2.5.1
+- Renamed the app to "Deferin."
+- Siri still works with the old names too: say "Deferin," "CrediMemo," or "Crememo" to start voice input.
