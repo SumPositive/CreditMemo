@@ -77,7 +77,7 @@ struct InvoiceListView: View {
     @State private var draftPayments: [InvoiceDraftPayment] = []
     /// タップされた仮明細から開く新規決済シート
     @State private var editingDraftPayment: InvoiceDraftPayment?
-    /// この画面内だけで保持する、保存前のコピー仮明細（金額0）。
+    /// この画面内だけで保持する、保存前のコピー仮明細（元明細の金額を引き継ぐ）。
     /// 編集保存されると消えて、通常の明細として現れる
     @State private var draftCopies: [InvoiceDraftCopy] = []
     /// タップされたコピー仮明細から開く編集シート
@@ -163,7 +163,7 @@ struct InvoiceListView: View {
         return draftPayments.filter { $0.card?.id == card.id }
     }
 
-    /// スワイプ操作から、その明細行と同じ内容のコピー仮明細を金額0で追加する。
+    /// スワイプ操作から、その明細行と同じ内容（金額を含む）のコピー仮明細を追加する。
     /// 実データへの保存は、ユーザーが仮明細をタップして編集→保存したタイミングで行う
     private func duplicatePart(_ part: E6part) {
         guard let source = part.e3record else { return }
@@ -588,7 +588,7 @@ struct InvoiceListView: View {
             .appFontScale(fontScale)
             .presentationBackground(Color(uiColor: .systemBackground))
         }
-        // コピー仮明細をタップすると、金額0のコピー新規シートを開く
+        // コピー仮明細をタップすると、元明細の金額も引き継いだコピー新規シートを開く
         .sheet(item: $editingDraftCopy) { draft in
             NavigationStack {
                 RecordEditView(
@@ -599,8 +599,7 @@ struct InvoiceListView: View {
                     },
                     forceDismissOnNewSave: true,
                     presetDueDate: draft.dueDate,
-                    presetIsPaid: draft.isPaid,
-                    copySourceAmount: false
+                    presetIsPaid: draft.isPaid
                 )
             }
             .appFontScale(fontScale)
@@ -620,7 +619,7 @@ private struct InvoiceDraftPayment: Identifiable {
 }
 
 /// スワイプ「コピー」で生成される、保存前のコピー仮明細
-/// 金額以外は元レコードからコピーする
+/// 金額を含めて元レコードからコピーする
 struct InvoiceDraftCopy: Identifiable, Equatable {
     let id = UUID()
     let source: E3record
@@ -634,8 +633,8 @@ struct InvoiceDraftCopy: Identifiable, Equatable {
     }
 }
 
-/// 金額0で追加されたコピー仮明細セル。決済一覧の RecordDraftCopyRow と同じく
-/// RecordSummaryRow を流用し、タグと ¥0 も含めて表示する。
+/// 元明細の金額を引き継いだコピー仮明細セル。決済一覧の RecordDraftCopyRow と同じく
+/// RecordSummaryRow を流用し、タグと金額も含めて表示する。
 /// 編集保存されると消えて、通常の明細として現れる
 private struct InvoiceDraftCopyRow: View {
     let draft: InvoiceDraftCopy
@@ -647,15 +646,18 @@ private struct InvoiceDraftCopyRow: View {
                 RecordSummaryRow(
                     record: draft.source,
                     // 仮明細セルには利用日を表示する（引き落とし日ではなく）
+                    // 金額は元明細の値を表示する（コピー）
                     dateOverride: draft.useDate,
-                    amountOverride: 0,
                     showsStatus: false
                 )
             }
             .buttonStyle(.plain)
+            // 案内文は2行構成。右寄せのまま複数行を明示する
             Text("invoice.copied.tapToEdit")
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(.blue)
+                .multilineTextAlignment(.trailing)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.vertical, 4)
         .padding(.horizontal, 6)

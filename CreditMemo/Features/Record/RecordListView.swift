@@ -397,14 +397,13 @@ struct RecordListView: View {
                 case .edit(let record):
                     RecordEditView(mode: .edit(record))
                 case .draftCopy(let draft):
-                    // 仮コピーは金額0から編集してもらい、保存後は仮明細を消す
+                    // 仮コピーは元明細の金額も引き継ぎ、保存後は仮明細を消す
                     RecordEditView(
                         mode: .addCopy(draft.source),
                         onSaved: { _ in
                             removeDraftCopy(draft)
                         },
-                        forceDismissOnNewSave: true,
-                        copySourceAmount: false
+                        forceDismissOnNewSave: true
                     )
                 }
             }
@@ -786,26 +785,29 @@ private enum RecordSheetTarget: Identifiable {
     }
 }
 
-/// 金額0で追加されたコピー仮明細を、編集待ちとして少し目立たせるセル
+/// 元明細の金額を引き継いだコピー仮明細を、編集待ちとして少し目立たせるセル
 private struct RecordDraftCopyRow: View {
     let draft: RecordDraftCopy
     let onEdit: () -> Void
 
     var body: some View {
-        // 引き落とし明細の PartRow と同じ「（コピー）タップして編集」レイアウトに揃える：
-        // 本体セルを上に置き、その下に独立した行として右寄せで案内文を表示する
+        // 引き落とし明細の PartRow と同じ「（仮明細）タップして編集」レイアウトに揃える：
+        // 本体セルを上に置き、その下に独立した行として右寄せで案内文（2行）を表示する
+        // 金額は元明細の値を表示し（コピー）、日付だけ今日に置き換える
         VStack(alignment: .trailing, spacing: 4) {
             Button(action: onEdit) {
                 RecordSummaryRow(
                     record: draft.source,
-                    dateOverride: draft.dateUse,
-                    amountOverride: 0
+                    dateOverride: draft.dateUse
                 )
             }
             .buttonStyle(.plain)
+            // 案内文は2行構成。右寄せのまま複数行を明示する
             Text("invoice.copied.tapToEdit")
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(.blue)
+                .multilineTextAlignment(.trailing)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.vertical, 4)
         .padding(.horizontal, 6)

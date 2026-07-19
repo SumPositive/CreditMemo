@@ -4312,31 +4312,31 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "(Kopie) Bearbeiten"
+            "value": "(Entwurf) Tippen zum Bearbeiten und Speichern\nOhne Speichern schließen verwirft diesen Entwurf"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "(Copied) Tap to edit"
+            "value": "(Draft) Tap to edit and save\nClose without saving to discard this draft"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "（コピー）タップして編集"
+            "value": "（仮明細）タップして編集・保存してください\nこの仮明細は自動的に消えます"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "(복사됨) 탭하여 편집"
+            "value": "(임시 내역) 탭하여 편집·저장하세요\n저장하지 않고 닫으면 이 임시 내역은 사라집니다"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "（已複製）點選編輯"
+            "value": "（暫存明細）點選以編輯並儲存\n未儲存即關閉將捨棄此暫存明細"
           }
         }
       }

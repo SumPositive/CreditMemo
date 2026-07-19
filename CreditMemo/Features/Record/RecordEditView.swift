@@ -44,8 +44,6 @@ struct RecordEditView: View {
     var presetIsPaid = false
     /// メインメニューの「新しい決済」から開いた場合のみ true。決済一覧からコピーセクションの表示に使う
     var isFromMainMenu: Bool = false
-    /// コピー新規でコピー元の金額も引き継ぐか。決済一覧の仮コピーでは金額0から編集してもらう
-    var copySourceAmount = true
 
     @Environment(\.modelContext)    private var context
     @Environment(\.dismiss)         private var dismiss
@@ -386,7 +384,7 @@ private var isValid: Bool {
                 // 「決済一覧からコピー」は前回の手動開閉を引き継いで開く
                 isSimilarExpanded = similarSectionExpandedStored
                 // 新規追加で金額が未入力かつ設定ONのときだけテンキーを自動表示する。
-                // コピー新規（.addCopy）は金額がコピー済みなので自動表示しない。
+                // コピー新規（.addCopy）は金額を引き継ぐため nAmount != 0 となり自動表示されない。
                 // fastlane snapshot 撮影時はフォーム本体を見せたいのでテンキーを自動表示しない。
                 if isNew && nAmount == 0 && autoOpenAmountPad && !SnapshotSeed.isActive {
                     DispatchQueue.main.async { showAmountPad = true }
@@ -1705,7 +1703,8 @@ private var isValid: Bool {
             draftDateUse = dateUse
             zName        = source.zName
             zNote        = source.zNote
-            nAmount      = copySourceAmount ? source.nAmount : 0
+            // コピー新規は元明細の金額も引き継ぐ
+            nAmount      = source.nAmount
             // コピー新規は設定ONの時だけ分割回数も引き継ぐ
             payCount     = enableTwoPayments ? source.payCount : 1
             nRepeat      = source.nRepeat
