@@ -1,3 +1,5 @@
-Neu in 2.5.1
-- Die App wurde in „Deferin" umbenannt.
-- Siri funktioniert auch mit den alten Namen: Sag „Deferin", „CrediMemo" oder „Crememo", um die Spracheingabe zu starten.
+Neu in 2.5.2
+- Neue Einstellung „Beim Start öffnen": Nichts tun, Hauptmenü, Neue Zahlung per Sprache, Neue Zahlung oder Zahlungsliste.
+- Beim Kopieren einer Zahlung wird jetzt auch der Betrag übernommen.
+- Der Bereich „Aus Liste kopieren" merkt sich nun, ob er geöffnet oder geschlossen war.
+- Klarere Hinweise zu nicht gespeicherten kopierten Entwürfen.

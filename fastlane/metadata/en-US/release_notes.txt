@@ -1,3 +1,5 @@
-What's new in 2.5.1
-- Renamed the app to "Deferin."
-- Siri still works with the old names too: say "Deferin," "CrediMemo," or "Crememo" to start voice input.
+What's new in 2.5.2
+- Added an "Open on launch" setting: choose Do Nothing, Main Menu, New Payment by Voice, New Payment, or Payment List.
+- Copying a payment now carries over the amount too.
+- The "Copy from list" panel now remembers whether you left it open or closed.
+- Clearer guidance around unsaved copied drafts.

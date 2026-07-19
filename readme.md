@@ -23,7 +23,7 @@
 
 ### 公開名の変遷（en）
 
-2.5.0 まで en 公開名は `CrediMemo`（さらに旧くは移植元 `PayNote`）でした。2.6.0 で en 公開名を **`Deferin`** に改名します（`defer` = 後日に繰り延べる、の造語。サブタイトル: `Payment & Balance Tracker`）。ja は一貫して `クレメモ`。
+2.5.0 まで en 公開名は `CrediMemo`（さらに旧くは移植元 `PayNote`）でした。2.5.1 で en 公開名を **`Deferin`** に改名しました（`defer` = 後日に繰り延べる、の造語。サブタイトル: `Payment & Balance Tracker`）。ja は一貫して `クレメモ`。
 
 - **Siri 起動フレーズ**は `AppShortcut` の `\(.applicationName)` 参照。表示名 `Deferin` は `.applicationName` で自動的に反応するため別名には含めず、`Info.plist` の `INAlternativeAppNames` には旧名・読み仮名の `ディファリン` / `クレメモ` / `CrediMemo` の **3件**を登録（`INAlternativeAppNames` は **最大3件まで**の制約あり）。これにより **「Deferin」「ディファリン」「クレメモ」「CrediMemo」のいずれで呼んでも** 音声起動できます（コード側 `phrases` は変更不要）。
 - **keywords** には移行期の検索対策として `Deferin,CrediMemo,...` を併記（旧々名 `PayNote` は削除）。
@@ -34,8 +34,31 @@
 
 ![Platform](https://img.shields.io/badge/platform-iOS%2018%2B-blue)
 ![Swift](https://img.shields.io/badge/Swift-6-orange)
-![Version](https://img.shields.io/badge/version-2.5.0-brightgreen)
+![Version](https://img.shields.io/badge/version-2.5.2-brightgreen)
 [![App Store](https://img.shields.io/badge/App%20Store-Download-blue)](https://apps.apple.com/us/app/id432458298)
+
+## バージョン 2.5.2 の主な変更
+
+- **設定「起動時に開く」を追加**
+  - 従来の「起動時に 新しい決済 を開く」ON/OFF スイッチを、プルダウン選択に一般化
+  - 選択肢: `何もしない`（既定）/ `主画面` / `音声で新しい決済` / `新しい決済` / `決済一覧`
+  - 音声非対応の端末・ロケールでは「音声で新しい決済」を選択肢から除外
+  - 旧 `openAddOnActive`（ON）は初回起動時に `新しい決済` へ一度だけ移行し、従来挙動を維持
+  - 編集中・既に目的画面が開いている場合は割り込まない（従来どおり）
+- **明細コピー（仮明細）の改善**
+  - 決済一覧・引き落とし明細のスワイプコピーで、金額も元明細から引き継ぐようにした（従来は金額 0 から入力）
+  - 仮明細セルに元明細の金額を表示。「タップして編集」の編集待ち演出は維持
+  - 案内文を「（仮明細）タップして編集・保存してください / この仮明細は自動的に消えます」に変更し、保存前であることを明記
+- **「決済一覧からコピー」欄の開閉状態を保持**
+  - 新しい決済画面の「決済一覧からコピー（類似決済）」セクションを手動で畳むと、次に開いた時も畳まれた状態で開く
+  - 類似決済を選んだ後の自動折りたたみは、その画面限りで保存対象外
+
+## バージョン 2.5.1 の主な変更
+
+- **en 公開アプリ名を `CrediMemo` → `Deferin` に改名**（ja は `クレメモ` のまま）
+  - 内部識別子・ストア名・リポジトリ・URL パスは据え置き、ユーザー向け表記のみ変更
+  - Siri 起動: 「Deferin」「ディファリン」「クレメモ」「CrediMemo」のいずれでも音声入力を起動できる
+  - keywords に移行期の検索対策として旧名を併記
 
 ## バージョン 2.5.0 の主な変更
 
