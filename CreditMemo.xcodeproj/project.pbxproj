@@ -177,6 +177,7 @@
 		C1EC73DA35378F10AD112E8D /* SplitPayListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplitPayListView.swift; sourceTree = "<group>"; };
 		C3562CFA2FF90C3300539096 /* SnapshotHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotHelper.swift; sourceTree = "<group>"; };
 		C39F94DB2FEA974000873586 /* TestEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestEnvironment.swift; sourceTree = "<group>"; };
+		C3EF8FB6300D2F30001297FA /* CreditMemo.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = CreditMemo.xctestplan; sourceTree = "<group>"; };
 		C88CDBC613768DE5DDC3EA8E /* CardServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardServiceTests.swift; sourceTree = "<group>"; };
 		CA178EA89015430E9475246A /* AZPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AZPicker.swift; sourceTree = "<group>"; };
 		CAF54A44CEADADFC65FDBAD3 /* View+ScalableTitle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+ScalableTitle.swift"; sourceTree = "<group>"; };
@@ -221,6 +222,7 @@
 		185F173D4FD7DC1E5B8713DE = {
 			isa = PBXGroup;
 			children = (
+				C3EF8FB6300D2F30001297FA /* CreditMemo.xctestplan */,
 				5BF6F9312390400A2350360E /* CreditMemo */,
 				B1B8F7CE5AD29AEF9D48FF19 /* CreditMemoTests */,
 				B4117C93253BD81B36EE73A0 /* CreditMemoUITests */,

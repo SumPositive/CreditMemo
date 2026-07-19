@@ -1,0 +1,37 @@
+{
+  "configurations" : [
+    {
+      "id" : "15038A15-391F-4551-8922-BB2964A69B2C",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "performanceAntipatternCheckerEnabled" : true,
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:CreditMemo.xcodeproj",
+      "identifier" : "476BF29E563FFF97615D6381",
+      "name" : "CreditMemo"
+    }
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:CreditMemo.xcodeproj",
+        "identifier" : "B1534378F67F2DFB9CED0693",
+        "name" : "CreditMemoTests"
+      }
+    },
+    {
+      "enabled" : false,
+      "target" : {
+        "containerPath" : "container:CreditMemo.xcodeproj",
+        "identifier" : "A0820EB30EACC0FB3D5FF45F",
+        "name" : "CreditMemoUITests"
+      }
+    }
+  ],
+  "version" : 1
+}
