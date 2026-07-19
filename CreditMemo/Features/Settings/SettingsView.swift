@@ -20,7 +20,7 @@ struct SettingsView: View {
     @AppStorage(AppStorageKey.appearanceMode)    private var appearanceMode: AppearanceMode = .automatic
     @AppStorage(AppStorageKey.fontScale)         private var fontScale: FontScale = .system
     @AppStorage(AppStorageKey.afterSaveAction)   private var afterSaveAction: AfterSaveAction = .goBack
-    @AppStorage(AppStorageKey.openAddOnActive)   private var openAddOnActive = false
+    @AppStorage(AppStorageKey.launchAction)      private var launchActionRaw = LaunchAction.none.rawValue
     @AppStorage(AppStorageKey.autoOpenAmountPad) private var autoOpenAmountPad = true
     @AppStorage(AppStorageKey.enableTwoPayments) private var enableTwoPayments = false
     @AppStorage(AppStorageKey.enableVoiceInput)  private var enableVoiceInput = true
@@ -60,6 +60,21 @@ struct SettingsView: View {
             get: { exportFormat },
             set: { exportFormatRaw = $0.rawValue }
         )
+    }
+
+    private var launchActionBinding: Binding<LaunchAction> {
+        Binding(
+            get: { LaunchAction(rawValue: launchActionRaw) ?? .none },
+            set: { launchActionRaw = $0.rawValue }
+        )
+    }
+
+    /// 端末・ロケールで音声入力が使えない場合は「音声で新しい決済」を除外する
+    private var launchActionOptions: [LaunchAction] {
+        guard SpeechRecognizer.supports() else {
+            return LaunchAction.allCases.filter { $0 != .voiceNewPayment }
+        }
+        return LaunchAction.allCases
     }
 
     private var dropdownDynamicTypeSize: DynamicTypeSize? {
@@ -159,8 +174,22 @@ struct SettingsView: View {
                     .disabled(!enableVoiceInput)
                 }
 
-                Toggle(isOn: $openAddOnActive) {
-                    settingTitle("settings.openAddOnActive", help: "settings.help.openAddOnActive")
+                VStack(alignment: .leading, spacing: 8) {
+                    AZAdaptiveControlRow {
+                        settingTitle("settings.launchAction", help: "settings.help.launchAction")
+                            .fixedSize(horizontal: false, vertical: true)
+                    } control: {
+                        AZDropdownPicker(
+                            options: launchActionOptions,
+                            selection: launchActionBinding,
+                            isExpanded: dropdownBinding(.launchAction),
+                            minWidth: 210,
+                            popoverDynamicTypeSize: dropdownDynamicTypeSize
+                        ) { action in
+                            Text(LocalizedStringKey(action.localizedKey))
+                        }
+                    }
+                    .zIndex(expandedDropdown == .launchAction ? 60 : 0)
                 }
 
                 Toggle(isOn: $autoOpenAmountPad) {
@@ -652,6 +681,7 @@ struct SettingsView: View {
 private enum SettingsDropdownKind {
     case afterSave
     case paymentWindow
+    case launchAction
 }
 
 private struct PaymentWindowOption: Hashable, Identifiable {

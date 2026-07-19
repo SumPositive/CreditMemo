@@ -1658,9 +1658,29 @@ fastlane メタデータを更新して
 cd /Users/sumpositive/GitLocal/CreditMemo
 fastlane preview_metadata       # メタ 確認 >[y]反映
 fastlane upload_metadata        # メタ 反映
+---
 fastlane screenshots            # スクショ 生成確認
 fastlane upload_screenshots     # スクショ Upload
 ------------------------------------------------
 
+設定：起動時に新しい決済を開く：「起動時に開く」に変更し、スイッチをプルダウンメニュー [何もしない,主画面,音声で新しい決裁,新しい決裁,決裁一覧]（デフォルト：何もしない）にする
 
 
+
+
+--------------------------------
+2.6.0 新機能
+- 
+- 
+- 
+-----
+fastlane メタデータを更新して
+2.6.0 審査中、README.mdの開発メモ、公開アプリパネル、取扱説明を更新して
+-----
+cd /Users/sumpositive/GitLocal/CreditMemo
+fastlane preview_metadata       # メタ 確認 >[y]反映
+fastlane upload_metadata        # メタ 反映
+---
+fastlane screenshots            # スクショ 生成確認
+fastlane upload_screenshots     # スクショ Upload
+------------------------------------------------

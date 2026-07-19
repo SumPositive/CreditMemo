@@ -9,6 +9,8 @@ enum AppStorageKey {
     static let tagSortMode       = "setting.tagSortMode"
     static let afterSaveAction   = "setting.afterSaveAction"
     static let openAddOnActive   = "setting.openAddOnActive"
+    /// 起動（再表示）時に自動で開く画面の選択。旧 openAddOnActive を包含する
+    static let launchAction      = "setting.launchAction"
     /// Siri 起動後に音声入力シートを自動で開く
     static let openVoiceInputOnActive = "setting.openVoiceInputOnActive"
     static let autoOpenAmountPad = "setting.autoOpenAmountPad"
@@ -149,6 +151,43 @@ enum AfterSaveAction: String, CaseIterable, Identifiable {
         case .sameDayCard: "settings.afterSave.sameDayCard"
         case .showHistory: "settings.afterSave.showHistory"
         }
+    }
+}
+
+/// 起動（フォアグラウンド復帰）時に自動で開く画面
+/// 旧・真偽値設定 openAddOnActive を包含し、選択肢に一般化したもの
+enum LaunchAction: String, CaseIterable, Identifiable {
+    case none            = "none"            // 何もしない（既定）
+    case mainMenu        = "mainMenu"        // 主画面へ戻す
+    case voiceNewPayment = "voiceNewPayment" // 音声で新しい決済
+    case newPayment      = "newPayment"      // 新しい決済
+    case paymentList     = "paymentList"     // 決済一覧
+
+    var id: String { rawValue }
+
+    var localizedKey: String {
+        switch self {
+        case .none:            "settings.launchAction.none"
+        case .mainMenu:        "settings.launchAction.mainMenu"
+        case .voiceNewPayment: "settings.launchAction.voiceNewPayment"
+        case .newPayment:      "settings.launchAction.newPayment"
+        case .paymentList:     "settings.launchAction.paymentList"
+        }
+    }
+
+    /// 旧設定 openAddOnActive からの移行を含めて現在値を解決する。
+    /// - 新キーが保存済みならそれを採用
+    /// - 未保存かつ旧設定が ON なら .newPayment（旧挙動を維持）
+    /// - それ以外は .none
+    static func resolve(defaults: UserDefaults = .standard) -> LaunchAction {
+        if let raw = defaults.string(forKey: AppStorageKey.launchAction),
+           let action = LaunchAction(rawValue: raw) {
+            return action
+        }
+        if defaults.bool(forKey: AppStorageKey.openAddOnActive) {
+            return .newPayment
+        }
+        return .none
     }
 }
 

@@ -13,8 +13,12 @@ struct ContentView: View {
 
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @AppStorage(AppStorageKey.openAddOnActive) private var openAddOnActive = false
+    @AppStorage(AppStorageKey.launchAction) private var launchActionRaw = LaunchAction.none.rawValue
     @AppStorage(AppStorageKey.openVoiceInputOnActive) private var openVoiceInputOnActive = false
+
+    private var launchAction: LaunchAction {
+        LaunchAction(rawValue: launchActionRaw) ?? .none
+    }
     @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
     @AppStorage(AppStorageKey.badgePreset) private var badgePresetRaw: String = BadgePreset.japaneseEarth.rawValue
     @AppStorage(AppStorageKey.badgeMiddleHeight) private var badgeMiddleHeight: Double = BadgeMiddleHeight.default
@@ -63,6 +67,7 @@ struct ContentView: View {
             }
         }
         .onAppear {
+            migrateLaunchActionIfNeeded()
             restoreDestinationIfNeeded()
             // 起動時、保存されたプリセットに合わせてホーム画面アイコンを同期
             let preset = BadgePreset(rawValue: badgePresetRaw) ?? .japaneseEarth
@@ -116,12 +121,7 @@ struct ContentView: View {
             }
         }
         .onChange(of: scenePhase) { _, newPhase in
-            guard newPhase == .active, openAddOnActive else { return }
-            // 既に新規追加画面が開いている、または編集中の場合は何もしない
-            guard !stackPath.contains(.addRecord) else { return }
-            guard !editingState.isEditingInProgress else { return }
-            addRecordRefreshID = UUID()
-            stackPath = [.addRecord]
+            performLaunchAction(newPhase: newPhase, isStackLayout: true)
         }
     }
 
@@ -159,12 +159,75 @@ struct ContentView: View {
             }
         }
         .onChange(of: scenePhase) { _, newPhase in
-            guard newPhase == .active, openAddOnActive else { return }
-            // 既に新規追加画面が開いている、または編集中の場合は何もしない
-            guard selectedDestination != .addRecord else { return }
-            guard !editingState.isEditingInProgress else { return }
-            addRecordRefreshID = UUID()
-            selectedDestination = .addRecord
+            performLaunchAction(newPhase: newPhase, isStackLayout: false)
+        }
+    }
+
+    // MARK: - 起動時アクション
+
+    /// フォアグラウンド復帰時、設定に応じて自動で画面を開く。
+    /// 編集中や既に目的の画面が開いている場合は何もしない（従来挙動を踏襲）。
+    private func performLaunchAction(newPhase: ScenePhase, isStackLayout: Bool) {
+        guard newPhase == .active else { return }
+        // 編集中はどのアクションでも割り込まない
+        guard !editingState.isEditingInProgress else { return }
+
+        switch launchAction {
+        case .none:
+            return
+
+        case .mainMenu:
+            // 主画面（メインメニュー）へ戻す
+            if isStackLayout {
+                guard !stackPath.isEmpty else { return }
+                stackPath = []
+            } else {
+                guard selectedDestination != nil else { return }
+                selectedDestination = nil
+            }
+
+        case .voiceNewPayment:
+            // 主メニューへ戻してから音声入力シートを開かせる（TopMenuView が拾う）
+            openVoiceInputOnActive = true
+            if isStackLayout {
+                stackPath = []
+            } else {
+                selectedDestination = nil
+            }
+
+        case .newPayment:
+            // 既に新規追加画面が開いている場合は何もしない
+            if isStackLayout {
+                guard !stackPath.contains(.addRecord) else { return }
+                addRecordRefreshID = UUID()
+                stackPath = [.addRecord]
+            } else {
+                guard selectedDestination != .addRecord else { return }
+                addRecordRefreshID = UUID()
+                selectedDestination = .addRecord
+            }
+
+        case .paymentList:
+            // 決済一覧（決済履歴）を開く
+            if isStackLayout {
+                guard stackPath.last != .recordList else { return }
+                stackPath = [.recordList]
+            } else {
+                guard selectedDestination != .recordList else { return }
+                selectedDestination = .recordList
+            }
+        }
+    }
+
+    /// 旧・真偽値設定 openAddOnActive を新しい launchAction へ一度だけ移行する
+    private func migrateLaunchActionIfNeeded() {
+        let defaults = UserDefaults.standard
+        guard defaults.string(forKey: AppStorageKey.launchAction) == nil else { return }
+        let resolved = LaunchAction.resolve(defaults: defaults)
+        // 旧設定が ON だった場合のみ新キーを書き込み、旧挙動を維持する。
+        // OFF（＝既定 .none）はキー未設定のまま既定値で扱う。
+        if resolved != .none {
+            launchActionRaw = resolved.rawValue
         }
     }
 }
