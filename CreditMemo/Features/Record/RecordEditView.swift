@@ -116,7 +116,11 @@ struct RecordEditView: View {
     @State private var cachedLatestCard: E1card?
     @State private var cachedCategoryByID: [String: E5tag] = [:]
     @State private var scrollToTopRequest = 0
+    /// 「決済一覧からコピー」セクションの表示上の開閉状態（この画面表示中のみ有効）。
+    /// 画面表示時に保存値で初期化する。自動折りたたみ（類似選択後・snapshot）はここだけ変える。
     @State private var isSimilarExpanded = true
+    /// 手動トグルで確定した開閉状態の保存先。次に新しい決済を開いた時の初期値になる。
+    @AppStorage(AppStorageKey.similarSectionExpanded) private var similarSectionExpandedStored = true
     @FocusState private var isUsePointFocused: Bool
     @FocusState private var focusNote: Bool
     private let formTopAnchorID = "record-form-top"
@@ -379,6 +383,8 @@ private var isValid: Bool {
                 loadFields()
                 initialDraft = currentDraft()
                 hasInitialized = true
+                // 「決済一覧からコピー」は前回の手動開閉を引き継いで開く
+                isSimilarExpanded = similarSectionExpandedStored
                 // 新規追加で金額が未入力かつ設定ONのときだけテンキーを自動表示する。
                 // コピー新規（.addCopy）は金額がコピー済みなので自動表示しない。
                 // fastlane snapshot 撮影時はフォーム本体を見せたいのでテンキーを自動表示しない。
@@ -1650,6 +1656,8 @@ private var isValid: Bool {
                     withAnimation(.easeInOut(duration: 0.2)) {
                         isSimilarExpanded.toggle()
                     }
+                    // 手動での開閉だけを保存し、次に開いた時の初期状態にする
+                    similarSectionExpandedStored = isSimilarExpanded
                 }
             }
         }

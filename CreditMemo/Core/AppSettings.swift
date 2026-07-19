@@ -22,6 +22,9 @@ enum AppStorageKey {
     static let shareVoiceInputDiagnostics = "setting.shareVoiceInputDiagnostics"
     /// 「左へスワイプでコピー」のヒントを使用済みにしたか。コピーを1度でも行えば true
     static let copySwipeHintDone = "setting.copySwipeHintDone"
+    /// 新しい決済画面「決済一覧からコピー（類似決済）」セクションの開閉状態を保持する。
+    /// 一度畳めば次回以降も畳んだまま開く。既定は展開（true）
+    static let similarSectionExpanded = "setting.similarSectionExpanded"
     /// 引き落とし日が土日祝なら翌営業日へ繰り下げる（日本ロケール・締日/支払日型のみ）
     static let shiftDueDateOffHoliday = "setting.shiftDueDateOffHoliday"
     static let paymentWindowDays = "setting.paymentWindowDays"
