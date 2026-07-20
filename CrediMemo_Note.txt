@@ -1690,4 +1690,16 @@ fastlane upload_metadata        # メタ 反映
 ---
 fastlane screenshots            # スクショ 生成確認
 fastlane upload_screenshots     # スクショ Upload
+-----
+2.5.2 本日公開、公開アプリパネル、取扱説明を更新して
 ------------------------------------------------
+
+
+
+
+
+
+
+
+
+
