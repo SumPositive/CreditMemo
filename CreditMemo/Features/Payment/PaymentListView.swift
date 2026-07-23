@@ -24,8 +24,8 @@ struct PaymentListView: View {
     @State private var overdueItemIDs: [String] = []
     @State private var paidItemIDs: [String] = []
     @State private var unpaidGrouped = PaymentUnpaidGrouped(sections: [])
-    @State private var allPaidCount = 0
-    @State private var isLoadingMorePaid = false
+    /// 済みを過去へ何日前まで表示しているか（90日単位で広げる）
+    @State private var paidWindowDays = 90
     @State private var groupMode: PaymentGroupMode = .date
     @State private var filterMode: PaymentFilterMode = .all
     @State private var selectedBank: E8bank?
@@ -33,6 +33,9 @@ struct PaymentListView: View {
     @State private var showBankPicker = false
     @State private var showCardPicker = false
     @State private var isInitialLoading = true
+
+    /// 済みを過去へ遡る表示窓の刻み（日）。90日ごとに区切り「さらに過去を見る」を出す
+    private let pruneBoundaryDays = 90
 
     /// 外部から起動時の絞り込みを指定するためのイニシャライザ。
     /// 例：決済手段一覧／口座一覧の「状況」スワイプ／ボタンから渡された値で絞り込んだ状態で開く。
@@ -58,7 +61,6 @@ struct PaymentListView: View {
     /// 一覧をフェードで切り替える。初期表示は 0（隠した状態）から開始。
     @State private var contentOpacity: Double = 0
     private let paymentMoveAnimation = Animation.easeInOut(duration: 0.55)
-    private let pageSize = 100
     private let overduePageSize = 100
     private let paymentTopAnchorID = "payment-top-anchor"
     private let paymentBoundaryAnchorID = "payment-boundary-anchor"
@@ -70,8 +72,19 @@ struct PaymentListView: View {
         return Calendar.current.date(byAdding: .year, value: -1, to: today) ?? today
     }
 
+    /// 済みの全件（日付降順）。90日窓のフィルタ元にする。
+    /// 済みは件数が限られるため一括保持し、窓を広げるだけで遡れるようにする。
+    @State private var allPaidPaymentsCache: [E7payment] = []
+
+    /// 現在の90日窓より古い済みがまだあるか（区切りを出すか＝つづけて見る可否）
     private var hasMorePaid: Bool {
-        paidPayments.count < allPaidCount
+        paidPayments.count < allPaidPaymentsCache.count
+    }
+
+    /// 現在の窓の下限（この日時より前は「これより古い」）
+    private var paidWindowCutoff: Date {
+        let today = Calendar.current.startOfDay(for: Date())
+        return Calendar.current.date(byAdding: .day, value: -paidWindowDays, to: today) ?? today
     }
 
     private var hasAnyPayments: Bool {
@@ -196,7 +209,8 @@ struct PaymentListView: View {
                                     onToggle: togglePaid,
                                     togglingPaymentIDs: togglingPaymentIDs,
                                     hasMorePaid: hasMorePaid,
-                                    onLoadMorePaid: loadMorePaidIfNeeded,
+                                    onLoadMorePaid: expandPaidWindow,
+                                    paidWindowDays: paidWindowDays,
                                     boundaryAnchorID: paymentBoundaryAnchorID,
                                     paidFirstRowAnchorID: paidFirstRowAnchorID,
                                     onNavigateToDetail: { autoScrollEnabled = false }
@@ -243,10 +257,13 @@ struct PaymentListView: View {
             }
         }
         .onAppear {
+            // 詳細から戻ったとき（autoScrollEnabled が OFF）は、ユーザーが広げた
+            // 済みの表示窓を保つ。初回・条件変更時（ON）は窓を90日へ戻す。
+            let keepWindow = !autoScrollEnabled
             // 重い SwiftData クエリ群を次の runloop に逃がし、
             // ナビゲーションタイトル（principal ToolbarItem）の描画を遅延させない
             DispatchQueue.main.async {
-                loadInitialPayments()
+                loadInitialPayments(resetWindow: !keepWindow)
             }
             // 詳細から戻ったとき（autoScrollEnabled が OFF）は復元タスクを立てる。
             // タスクが発火すれば scrollToInitialPosition 内で ON へ戻るため、タイムアウトは保険
@@ -312,14 +329,26 @@ struct PaymentListView: View {
         }
     }
 
-    /// 未払は「今後」と「過去」で分け、済みはページ単位で読む
-    private func loadInitialPayments() {
+    /// 未払は「今後」と「過去」で分け、済みは90日窓で読む（過去へ遡って表示できるよう全件保持）。
+    /// - resetWindow: 済みの表示窓を90日へ戻すか。詳細から戻ったときは false にして
+    ///   ユーザーが「つづけて見る」で広げた窓を保つ。
+    private func loadInitialPayments(resetWindow: Bool = true) {
         upcomingUnpaidPayments = fetchUpcomingUnpaidPayments()
         overdueUnpaidPayments = fetchOverdueUnpaidPayments(limit: overduePageSize)
-        allPaidCount = fetchPaidCount()
-        paidPayments = fetchPaidPayments(offset: 0, limit: pageSize)
+        // 済みは全件（日付降順）を読み、現在の窓で切り出す
+        if resetWindow {
+            paidWindowDays = 90
+        }
+        allPaidPaymentsCache = fetchAllPaidPaymentsSorted()
+        applyPaidWindow()
         rebuildDisplayItems()
         isInitialLoading = false
+    }
+
+    /// 90日窓（今日〜paidWindowDays日前）の済みを切り出して paidPayments に反映する
+    private func applyPaidWindow() {
+        let cutoff = paidWindowCutoff
+        paidPayments = allPaidPaymentsCache.filter { cutoff <= $0.date }
     }
 
     private func scrollToInitialPosition(proxy: ScrollViewProxy) async {
@@ -448,29 +477,43 @@ struct PaymentListView: View {
         }
     }
 
-    /// 現在の済み表示件数を保ったまま再読込する
+    /// 現在の90日窓を保ったまま再読込する（削除・状態変更後）
     private func reloadPaymentsKeepingPaidPage() {
-        let currentPaidCount = paidPayments.count
         upcomingUnpaidPayments = fetchUpcomingUnpaidPayments()
         overdueUnpaidPayments = fetchOverdueUnpaidPayments(limit: overduePageSize)
-        allPaidCount = fetchPaidCount()
-        let nextLimit = max(pageSize, currentPaidCount)
-        paidPayments = fetchPaidPayments(offset: 0, limit: nextLimit)
+        allPaidPaymentsCache = fetchAllPaidPaymentsSorted()
+        applyPaidWindow()
         rebuildDisplayItems()
     }
 
-    private func loadMorePaidIfNeeded() {
+    /// 「つづけて見る」：済みの表示窓を過去へ広げる。
+    /// 次の90日区間にデータが無ければ、次にデータがある日を含む窓まで一気に飛ばす。
+    /// 窓の下限は常に90日の倍数に揃える（区切りの「xxx日前です」も90日単位になる）。
+    private func expandPaidWindow() {
         if !hasMorePaid {
             return
         }
-        if isLoadingMorePaid {
+        let today = Calendar.current.startOfDay(for: Date())
+        // 現在の窓より古い最も新しい済みの日付（＝次に見せたいデータ）
+        let cutoff = paidWindowCutoff
+        guard let nextDate = allPaidPaymentsCache
+            .map(\.date)
+            .filter({ $0 < cutoff })
+            .max()
+        else {
+            // 古い済みが無ければ最小刻みだけ広げて終端させる
+            paidWindowDays += pruneBoundaryDays
+            applyPaidWindow()
+            rebuildDisplayItems()
             return
         }
-        isLoadingMorePaid = true
-        let nextPage = fetchPaidPayments(offset: paidPayments.count, limit: pageSize)
-        paidPayments.append(contentsOf: nextPage)
+        // その日を含むよう、90日刻みで切り上げた日数まで一気に広げる
+        let nextDay = Calendar.current.startOfDay(for: nextDate)
+        let daysToNext = Calendar.current.dateComponents([.day], from: nextDay, to: today).day ?? paidWindowDays
+        let steps = max(1, Int(ceil(Double(daysToNext) / Double(pruneBoundaryDays))))
+        paidWindowDays = steps * pruneBoundaryDays
+        applyPaidWindow()
         rebuildDisplayItems()
-        isLoadingMorePaid = false
     }
 
     /// 翌日以降の未払は通常表示の対象として全件読む（本日は確認待ち側に含める）
@@ -501,29 +544,13 @@ struct PaymentListView: View {
         return Array(fetched.prefix(limit))
     }
 
-    /// 済み件数だけ先に取り、ページングの終端判定に使う
-    private func fetchPaidCount() -> Int {
-        let startDate = paymentStatusStartDate
-        let predicate = #Predicate<E7payment> { startDate <= $0.date }
-        let descriptor = FetchDescriptor<E7payment>(predicate: predicate)
-        // 口座未選択でも済みになりうるため、件数は実状態で数える
-        return context.fetchReporting(descriptor, entity: "E7payment").filter(\.isPaid).count
-    }
-
-    /// 済みは必要件数だけ読む
-    private func fetchPaidPayments(offset: Int, limit: Int) -> [E7payment] {
-        let startDate = paymentStatusStartDate
-        let predicate = #Predicate<E7payment> { startDate <= $0.date }
+    /// 済みを全件・日付降順で読む。90日窓で切り出す元データにする。
+    /// 過去へ遡って削除できるよう1年フィルタは掛けない（済みは件数が限られ軽い）。
+    private func fetchAllPaidPaymentsSorted() -> [E7payment] {
         let descriptor = FetchDescriptor<E7payment>(
-            predicate: predicate,
             sortBy: [SortDescriptor(\E7payment.date, order: .reverse)]
         )
-        let paid = context.fetchReporting(descriptor, entity: "E7payment").filter(\.isPaid)
-        if paid.count <= offset {
-            return []
-        }
-        let end = min(paid.count, offset + limit)
-        return Array(paid[offset..<end])
+        return context.fetchReporting(descriptor, entity: "E7payment").filter(\.isPaid)
     }
 
     private func buildDisplayItems(from payments: [E7payment], isPaid: Bool) -> [PaymentDisplayItem] {
@@ -1100,7 +1127,10 @@ private struct PaymentCombinedCard: View {
     let onToggle: (PaymentDisplayItem) -> Void
     let togglingPaymentIDs: Set<String>
     let hasMorePaid: Bool
+    /// 「さらに過去を見る」：済みの表示窓を90日ぶん過去へ広げる
     let onLoadMorePaid: () -> Void
+    /// 現在の済み表示窓（今日から何日前まで）。末尾区切りの「xxx日前」に使う
+    let paidWindowDays: Int
     let boundaryAnchorID: String
     let paidFirstRowAnchorID: String
     let onNavigateToDetail: () -> Void
@@ -1268,7 +1298,7 @@ private struct PaymentCombinedCard: View {
         PaymentPaidBoundaryBand()
     }
 
-    /// 3. 引き落とし済み
+    /// 3. 引き落とし済み。90日窓で表示し、末尾に区切り（つづけて見る／削除）を1つだけ出す。
     @ViewBuilder
     private var paidGroup: some View {
         if paidItems.isEmpty {
@@ -1288,20 +1318,15 @@ private struct PaymentCombinedCard: View {
                     PaymentRowDivider()
                 }
             }
+            // 窓より古い済みがまだあるときだけ、末尾に区切りを1つ出す
             if hasMorePaid {
-                paidMoreLoader
+                PaymentPruneBoundary(
+                    daysAgo: paidWindowDays,
+                    canLoadMore: true,
+                    onLoadMore: onLoadMorePaid
+                )
             }
         }
-    }
-
-    private var paidMoreLoader: some View {
-        HStack {
-            Spacer()
-            ProgressView()
-            Spacer()
-        }
-        .padding(.vertical, 8)
-        .onAppear { onLoadMorePaid() }
     }
 
     private var cardBackground: some View {
@@ -1419,6 +1444,53 @@ private struct PaymentRowDivider: View {
     var body: some View {
         Divider()
             .padding(.leading, 12)
+    }
+}
+
+/// 済みを過去へ遡る途中の区切り。
+/// 「xxx日前です／つづけて見る」と「これより古い決済を削除する」を出す。
+/// 済みを過去へ遡る途中の区切り。「xxx日前／さらに過去を見る」を出す。
+private struct PaymentPruneBoundary: View {
+    let daysAgo: Int
+    let canLoadMore: Bool
+    let onLoadMore: () -> Void
+    @Environment(\.badgeTheme) private var badgeTheme
+
+    private var daysAgoText: String {
+        String.localizedStringWithFormat(
+            NSLocalizedString("payment.prune.daysAgo", comment: ""),
+            daysAgo
+        )
+    }
+
+    var body: some View {
+        // 「xxx日前」＋（さらに読める場合のみ）「さらに過去を見る」
+        HStack(spacing: 10) {
+            line
+            Text(daysAgoText)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .fixedSize()
+            if canLoadMore {
+                Button(action: onLoadMore) {
+                    Text("payment.prune.continue")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(badgeTheme.paidText)
+                }
+                .buttonStyle(.plain)
+                .fixedSize()
+            }
+            line
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 12)
+    }
+
+    private var line: some View {
+        Rectangle()
+            .fill(Color.secondary.opacity(0.25))
+            .frame(height: 1)
+            .frame(maxWidth: .infinity)
     }
 }
 
