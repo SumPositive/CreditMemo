@@ -10,7 +10,8 @@ import SwiftData
 /// 呼び出し側は `.retentionCleanup(trigger: $flag, onCleaned: ...)` を付け、
 /// フローを開始したいタイミングで `flag = true` にするだけでよい。
 struct RetentionCleanupModifier: ViewModifier {
-    /// true にするとフロー（エクスポート→整理）を開始する。開始後に false へ戻す。
+    /// true にすると整理フロー（エクスポート→削除）を開始する。開始後に false へ戻す。
+    /// 呼び出し側で削除対象が1件以上あることを保証してから立てること。
     @Binding var trigger: Bool
     /// 整理（削除）が実際に完了したときに呼ぶ。件数を渡す（スヌーズ更新などに使う）
     var onCleaned: ((Int) -> Void)? = nil
@@ -27,10 +28,6 @@ struct RetentionCleanupModifier: ViewModifier {
     /// 共有の後処理（削除 or 再案内）を二重に走らせないためのガード
     @State private var shareResolved = false
     @State private var showExportIncomplete = false
-    /// 整理対象が0件のときの案内アラート（バックアップのみ誘導）
-    @State private var showNoTargetAlert = false
-    /// エクスポートを「削除を伴わないバックアップのみ」で実行するか（0件時）
-    @State private var exportOnly = false
     /// 整理（削除）完了アラート
     @State private var showDoneAlert = false
     @State private var doneMessage = ""
@@ -40,7 +37,7 @@ struct RetentionCleanupModifier: ViewModifier {
             .onChange(of: trigger) { _, newValue in
                 if newValue {
                     trigger = false
-                    startExportThenClean()
+                    beginExport()
                 }
             }
             // エクスポート結果の共有シート。成功したときだけ、閉じた後に整理（削除）へ進む。
@@ -58,20 +55,11 @@ struct RetentionCleanupModifier: ViewModifier {
             // エクスポートが完了しなかったとき、整理を中止した旨を案内する
             .alert("retention.exportIncomplete.title", isPresented: $showExportIncomplete) {
                 Button("retention.exportIncomplete.retry") {
-                    startExportThenClean()
+                    beginExport()
                 }
                 Button("retention.exportIncomplete.later", role: .cancel) {}
             } message: {
                 Text("retention.exportIncomplete.message")
-            }
-            // 整理対象が0件のとき：削除は不要。バックアップのためのエクスポートを勧める
-            .alert("retention.noTarget.title", isPresented: $showNoTargetAlert) {
-                Button("retention.noTarget.export") {
-                    startBackupOnly()
-                }
-                Button("button.cancel", role: .cancel) {}
-            } message: {
-                Text("retention.noTarget.message")
             }
             // 整理・エクスポート中は背面操作を止める
             .overlay {
@@ -93,37 +81,20 @@ struct RetentionCleanupModifier: ViewModifier {
                     .allowsHitTesting(true)
                 }
             }
-            // 整理（削除）完了アラート。トーストより確実に結果を伝える
+            // 整理（削除）完了アラート。トーストより確実に伝える
             .alert("retention.done.title", isPresented: $showDoneAlert) {
                 Button("button.ok", role: .cancel) {}
             } message: {
                 Text(doneMessage)
             }
+            // 削除・エクスポート中は戻る（＜）とスワイプバックを禁止する。
+            // 処理途中で画面が破棄されると完了通知が出ず、トランザクションも中途半端に
+            // なりうるため、完了するまでこの画面から離れさせない。
+            .navigationBarBackButtonHidden(isWorking)
+            .interactiveDismissDisabled(isWorking)
     }
 
-    /// 全データをエクスポート→共有シート。JSON生成〜シートが出るまでプログレスを表示する。
-    private func startExportThenClean() {
-        // 整理対象が0件なら、削除は不要。バックアップだけ勧める案内アラートに切り替える。
-        // 一度整理した直後などは0件になるため、無駄に削除フローへ進めない。
-        let targetCount = RecordService.recordsCount(
-            olderThanYears: RetentionSuggest.years, context: context
-        )
-        guard targetCount > 0 else {
-            showNoTargetAlert = true
-            return
-        }
-        // 通常フロー：エクスポート後に削除する
-        exportOnly = false
-        beginExport()
-    }
-
-    /// 0件案内から「エクスポート」を選んだとき：削除を伴わないバックアップだけ実行する
-    private func startBackupOnly() {
-        exportOnly = true
-        beginExport()
-    }
-
-    /// 実際にエクスポートを開始する（削除の有無は exportOnly で分岐）
+    /// エクスポートを開始する。JSON生成〜共有シートが出るまでプログレスを表示する。
     private func beginExport() {
         // 共有まわりの判定フラグを初期化する
         exportSucceeded = nil
@@ -165,19 +136,13 @@ struct RetentionCleanupModifier: ViewModifier {
     }
 
     /// 完了ハンドラ（onComplete）とシート dismiss の両方が揃ったら、後処理を1回だけ実行する。
-    /// - 通常フロー：成功→整理（削除）へ／中断・失敗→削除せず案内
-    /// - バックアップのみ（exportOnly, 0件時）：削除は行わず、成否に応じて静かに終える
+    /// - 成功→整理（削除）へ／中断・失敗→削除せず案内
     private func finishShareIfReady() {
         // 完了ハンドラ未着、またはシート未 dismiss のうちは待つ
         guard let succeeded = exportSucceeded, shareDismissed else { return }
         // 二重実行を防ぐ
         guard !shareResolved else { return }
         shareResolved = true
-
-        // 0件時のバックアップのみ：削除には進まない（中断でも案内は出さない）
-        if exportOnly {
-            return
-        }
 
         guard succeeded else {
             // 中断・失敗：削除しない。案内し直す（dismiss と重ならないよう次のrunloopで）
@@ -205,7 +170,7 @@ struct RetentionCleanupModifier: ViewModifier {
                 )
                 isWorking = false
                 onCleaned?(deletedCount)
-                // 結果はアラートで確実に伝える（0件でも「対象なし」を明示）
+                // 結果はアラートで確実に伝える
                 doneMessage = deletedCount > 0
                     ? String.localizedStringWithFormat(
                         NSLocalizedString("retention.done.message", comment: ""), deletedCount)
@@ -222,9 +187,12 @@ struct RetentionCleanupModifier: ViewModifier {
 }
 
 extension View {
-    /// 古い履歴の整理フロー（エクスポート→成功時のみ削除→完了トースト）を付与する。
-    /// `trigger` を true にするとフローが始まる。
-    func retentionCleanup(trigger: Binding<Bool>, onCleaned: ((Int) -> Void)? = nil) -> some View {
+    /// 古い履歴の整理フロー（エクスポート→成功時のみ削除→完了アラート）を付与する。
+    /// - trigger: true で整理フロー開始（削除対象がある前提。呼び出し側で件数を保証）
+    func retentionCleanup(
+        trigger: Binding<Bool>,
+        onCleaned: ((Int) -> Void)? = nil
+    ) -> some View {
         modifier(RetentionCleanupModifier(trigger: trigger, onCleaned: onCleaned))
     }
 }

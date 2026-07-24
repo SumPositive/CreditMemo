@@ -33,6 +33,12 @@ struct PaymentListView: View {
     @State private var showBankPicker = false
     @State private var showCardPicker = false
     @State private var isInitialLoading = true
+    /// 1年より古い未払（延滞）が存在するか。存在時だけ確認待ち見出しに注意アイコンを出す
+    @State private var hasOlderOverdueUnpaid = false
+    /// ユーザーが確認して「1年より前も表示する」を選んだか。true の間はカットオフを解除する
+    @State private var showAllOverdueUnpaid = false
+    /// 「1年より古い未払を表示しますか？」確認アラートの表示フラグ
+    @State private var showOlderOverdueConfirm = false
 
     /// 済みを過去へ遡る表示窓の刻み（日）。90日ごとに区切り「さらに過去を見る」を出す
     private let pruneBoundaryDays = 90
@@ -61,7 +67,9 @@ struct PaymentListView: View {
     /// 一覧をフェードで切り替える。初期表示は 0（隠した状態）から開始。
     @State private var contentOpacity: Double = 0
     private let paymentMoveAnimation = Animation.easeInOut(duration: 0.55)
-    private let overduePageSize = 100
+    /// 確認待ち（延滞未払）の表示上限。通常は直近100件、
+    /// 「1年より前も表示」を選んだときは実質無制限にして古い未払も取りこぼさない。
+    private var overduePageSize: Int { showAllOverdueUnpaid ? 100_000 : 100 }
     private let paymentTopAnchorID = "payment-top-anchor"
     private let paymentBoundaryAnchorID = "payment-boundary-anchor"
     private let paidFirstRowAnchorID = "payment-paid-first-row-anchor"
@@ -213,7 +221,9 @@ struct PaymentListView: View {
                                     paidWindowDays: paidWindowDays,
                                     boundaryAnchorID: paymentBoundaryAnchorID,
                                     paidFirstRowAnchorID: paidFirstRowAnchorID,
-                                    onNavigateToDetail: { autoScrollEnabled = false }
+                                    onNavigateToDetail: { autoScrollEnabled = false },
+                                    showOlderOverdueBadge: hasOlderOverdueUnpaid && !showAllOverdueUnpaid,
+                                    onTapOlderOverdueBadge: { showOlderOverdueConfirm = true }
                                 )
                                 if shouldShowPaidBottomAd {
                                     // 済みエリア外の下に広告を配置する
@@ -327,6 +337,19 @@ struct PaymentListView: View {
         .onChange(of: paymentWindowDays) { _, _ in
             refreshDisplayItemsAndScroll()
         }
+        // 1年より古い未払を表示するかの確認。既定は軽さ優先で1年に絞っているため、
+        // 明示的に「表示する」を選んだときだけカットオフを外して全期間を表示する。
+        // 表示は非破壊（画面を離れれば戻る）なので、肯定を既定ボタン（右・太字）にして
+        // 押しやすくし、取消は「閉じる」（左・通常）にする。
+        .alert("payment.olderUnpaid.confirm.title", isPresented: $showOlderOverdueConfirm) {
+            Button("payment.olderUnpaid.confirm.show") {
+                expandOverdueUnpaid()
+            }
+            .keyboardShortcut(.defaultAction)
+            Button("common.close", role: .cancel) {}
+        } message: {
+            Text("payment.olderUnpaid.confirm.message")
+        }
     }
 
     /// 未払は「今後」と「過去」で分け、済みは90日窓で読む（過去へ遡って表示できるよう全件保持）。
@@ -335,6 +358,8 @@ struct PaymentListView: View {
     private func loadInitialPayments(resetWindow: Bool = true) {
         upcomingUnpaidPayments = fetchUpcomingUnpaidPayments()
         overdueUnpaidPayments = fetchOverdueUnpaidPayments(limit: overduePageSize)
+        // 1年より古い未払があるかを確認し、注意アイコンの表示可否を決める
+        hasOlderOverdueUnpaid = fetchHasOlderOverdueUnpaid()
         // 済みは全件（日付降順）を読み、現在の窓で切り出す
         if resetWindow {
             paidWindowDays = 90
@@ -486,6 +511,15 @@ struct PaymentListView: View {
         rebuildDisplayItems()
     }
 
+    /// 「1年より古い未払も表示」を確定したときの処理。カットオフを外して確認待ちを読み直す。
+    private func expandOverdueUnpaid() {
+        showAllOverdueUnpaid = true
+        overdueUnpaidPayments = fetchOverdueUnpaidPayments(limit: overduePageSize)
+        // 全期間を出したので、これ以上古い未払の案内は不要
+        hasOlderOverdueUnpaid = false
+        rebuildDisplayItems()
+    }
+
     /// 「つづけて見る」：済みの表示窓を過去へ広げる。
     /// 次の90日区間にデータが無ければ、次にデータがある日を含む窓まで一気に飛ばす。
     /// 窓の下限は常に90日の倍数に揃える（区切りの「xxx日前です」も90日単位になる）。
@@ -529,11 +563,13 @@ struct PaymentListView: View {
         return context.fetchReporting(descriptor, entity: "E7payment").filter { !$0.isPaid }
     }
 
-    /// 本日以前の未払は最大件数だけ表示する（確認待ち）
+    /// 本日以前の未払は最大件数だけ表示する（確認待ち）。
+    /// 既定は直近1年だが、ユーザーが確認して展開したときはカットオフを外して全期間を対象にする。
     private func fetchOverdueUnpaidPayments(limit: Int) -> [E7payment] {
         let today = Calendar.current.startOfDay(for: Date())
         let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: today) ?? today
-        let startDate = paymentStatusStartDate
+        // 展開時は遠い過去まで、通常は1年前を下限にする
+        let startDate = showAllOverdueUnpaid ? Date.distantPast : paymentStatusStartDate
         let predicate = #Predicate<E7payment> { startDate <= $0.date && $0.date < tomorrow }
         let descriptor = FetchDescriptor<E7payment>(
             predicate: predicate,
@@ -542,6 +578,18 @@ struct PaymentListView: View {
         let fetched = context.fetchReporting(descriptor, entity: "E7payment").filter { !$0.isPaid }
         // 直近の確認待ちから limit 件だけ表示する
         return Array(fetched.prefix(limit))
+    }
+
+    /// 1年カットオフより古い未払（延滞）が1件でも存在するかを確認する。
+    /// 見出しの注意アイコン表示可否だけに使うので、件数は数えず存在確認で足りる。
+    private func fetchHasOlderOverdueUnpaid() -> Bool {
+        let cutoff = paymentStatusStartDate
+        // カットオフより前の日付だけ DB 側で絞る。isPaid は計算プロパティで Predicate に
+        // 入れられないため、取得後に未払を1件でも含むか確認する（取りこぼし防止のため件数制限なし。
+        // E7payment は「日付+口座」単位で件数が限られ、済み全件読み込みと同程度の負荷）。
+        let predicate = #Predicate<E7payment> { $0.date < cutoff }
+        let descriptor = FetchDescriptor<E7payment>(predicate: predicate)
+        return context.fetchReporting(descriptor, entity: "E7payment").contains { !$0.isPaid }
     }
 
     /// 済みを全件・日付降順で読む。90日窓で切り出す元データにする。
@@ -1134,6 +1182,10 @@ private struct PaymentCombinedCard: View {
     let boundaryAnchorID: String
     let paidFirstRowAnchorID: String
     let onNavigateToDetail: () -> Void
+    /// 1年より古い未払があり、まだ展開していないとき true。確認待ち見出しに注意アイコンを出す
+    let showOlderOverdueBadge: Bool
+    /// 注意アイコンをタップしたとき（確認アラートを開く）
+    let onTapOlderOverdueBadge: () -> Void
     @Environment(\.badgeTheme) private var badgeTheme
     @State private var boundaryTopY: CGFloat = 0
     @State private var boundaryBottomY: CGFloat = 0
@@ -1288,7 +1340,10 @@ private struct PaymentCombinedCard: View {
         Color.clear
             .frame(height: 1)
             .id(boundaryAnchorID)
-        PaymentUnpaidBoundaryBand()
+        PaymentUnpaidBoundaryBand(
+            showOlderBadge: showOlderOverdueBadge,
+            onTapOlderBadge: onTapOlderOverdueBadge
+        )
         if hasOverdue {
             overdueSection
         } else {
@@ -1524,6 +1579,10 @@ private struct PaymentOverdueHeader: View {
 private struct PaymentUnpaidBoundaryBand: View {
     /// 境界線側だけを少し丸める
     private let boundaryCornerRadius: CGFloat = 10
+    /// 1年より古い未払があるとき、右端に注意アイコンを出す
+    var showOlderBadge: Bool = false
+    /// 注意アイコンをタップしたとき（確認アラートを開く）
+    var onTapOlderBadge: () -> Void = {}
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.badgeTheme) private var badgeTheme
@@ -1550,26 +1609,46 @@ private struct PaymentUnpaidBoundaryBand: View {
     }
 
     var body: some View {
-        Text("payment.section.unpaidBeforeDebit")
-            .font(.subheadline.weight(.semibold))
-            .foregroundStyle(labelColor)
-            .frame(maxWidth: .infinity, alignment: .center)
-            .padding(.top, 8)
-            .padding(.bottom, 8)
-            .background(
-                backgroundShape
-                    .fill(
-                        // 境界線と同じ色から始めて、帯の継ぎ目を目立たなくする
-                        LinearGradient(
-                            colors: [
-                                badgeTheme.topColor,
-                                topColor,
-                            ],
-                            startPoint: .bottom,
-                            endPoint: .top
-                        )
+        // 「未払」テキストは中央に置きつつ、1年より古い未払がある時だけ
+        // そのすぐ右に注意アイコンを並べる。確認待ちが無くても常に出るこの帯に
+        // 置くことで、古い未払への入口を必ず見せられる。
+        HStack(spacing: 8) {
+            Text("payment.section.unpaidBeforeDebit")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(labelColor)
+            if showOlderBadge {
+                Button(action: onTapOlderBadge) {
+                    Image(systemName: "exclamationmark.circle.fill")
+                        .font(.title3)
+                        .symbolRenderingMode(.palette)
+                        // 「!」を白、丸を濃いオレンジにしてピンク帯から浮かせる
+                        .foregroundStyle(.white, Color(red: 0.98, green: 0.45, blue: 0.02))
+                        // 少し大きめの白丸を背面に敷き、外周を白リングで縁取る
+                        .background(Circle().fill(.white).padding(-1.5))
+                        .shadow(color: .black.opacity(0.18), radius: 1.5, y: 0.5)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text("payment.olderUnpaid.badge.a11y"))
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .center)
+        .padding(.top, 8)
+        .padding(.bottom, 8)
+        .background(
+            backgroundShape
+                .fill(
+                    // 境界線と同じ色から始めて、帯の継ぎ目を目立たなくする
+                    LinearGradient(
+                        colors: [
+                            badgeTheme.topColor,
+                            topColor,
+                        ],
+                        startPoint: .bottom,
+                        endPoint: .top
                     )
-            )
+                )
+        )
     }
 }
 

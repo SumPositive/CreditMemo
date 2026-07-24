@@ -6092,6 +6092,46 @@
         }
       }
     },
+    "payment.olderUnpaid.badge.a11y": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": { "stringUnit": { "state": "translated", "value": "Ältere unbezahlte Abbuchungen" } },
+        "en": { "stringUnit": { "state": "translated", "value": "Older unpaid payments" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "1年より古い未払があります" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "1년보다 오래된 미결제가 있습니다" } },
+        "zh-Hant": { "stringUnit": { "state": "translated", "value": "有超過一年的未付款項" } }
+      }
+    },
+    "payment.olderUnpaid.confirm.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": { "stringUnit": { "state": "translated", "value": "Ältere unbezahlte anzeigen?" } },
+        "en": { "stringUnit": { "state": "translated", "value": "Show Older Unpaid?" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "古い未払を表示しますか？" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "오래된 미결제를 표시할까요?" } },
+        "zh-Hant": { "stringUnit": { "state": "translated", "value": "顯示較舊的未付款項？" } }
+      }
+    },
+    "payment.olderUnpaid.confirm.message": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": { "stringUnit": { "state": "translated", "value": "Es gibt unbezahlte Abbuchungen, die älter als ein Jahr sind. Anzeigen?" } },
+        "en": { "stringUnit": { "state": "translated", "value": "There are unpaid payments older than one year. Show them?" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "1年より古い未払があります。表示しますか？" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "1년보다 오래된 미결제가 있습니다. 표시할까요?" } },
+        "zh-Hant": { "stringUnit": { "state": "translated", "value": "有超過一年的未付款項。要顯示嗎？" } }
+      }
+    },
+    "payment.olderUnpaid.confirm.show": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": { "stringUnit": { "state": "translated", "value": "Anzeigen" } },
+        "en": { "stringUnit": { "state": "translated", "value": "Show" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "表示する" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "표시" } },
+        "zh-Hant": { "stringUnit": { "state": "translated", "value": "顯示" } }
+      }
+    },
     "payment.overdue.filter": {
       "extractionState": "manual",
       "localizations": {

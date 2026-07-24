@@ -1739,16 +1739,33 @@ fastlane upload_screenshots     # スクショ Upload
 　→ 削除が10秒以上でプログレスが見えない件：メインスレッドを長時間同期占有し UI 更新も ProgressView も止まるのが原因。
 　　deleteRecords(olderThanYears:) を async 化し、削除ループ50件ごと＋再集計前後で await Task.yield() を挟みスピナーを回し続ける。
 　　ModelContext はメインアクター固有なのでバックグラウンドには逃がさず、@MainActor 上で細切れに進める（RecordService enum は元々 @MainActor）。呼び出しは try await。
+　→ 整理後に再度整理すると0件なのにエクスポートしてしまう件：startExportThenClean 冒頭で recordsCount をチェック。
+　　0件なら削除フローに進まず「整理するデータはありません。バックアップのためにエキスポートしてください」＋[エキスポート/キャンセル]案内(retention.noTarget.*)。
+　　エキスポートを選べば exportOnly=true で削除なしバックアップのみ実行、成功で「エキスポートを完了しました」(retention.backup.done.*)。
+　　完了アラートは doneTitle/doneMessage を差し替えて整理完了・バックアップ完了で共用。beginExport() に共通化。
+　→ 設定側で既に「3年より前の決済はありません」と出しているのに0件アラートが二重に出る件を解消。
+　　0件判定は呼び出し側（設定）で行い、modifier は trigger（通常＝削除あり）/ backupTrigger（バックアップのみ）の2トリガーに。
+　　設定の提案アラートは retentionOldCount==0 なら「エキスポートする」(retention.noTarget.export)→backupTrigger、1件以上なら「エキスポートして整理」→trigger。
+　　modifier 内の0件判定・noTargetアラートは撤去（retention.noTarget.title/message も削除、export のみ残す）。
+　→ さらに簡素化：0件時はバックアップ誘導も不要。設定ボタンで0件なら「整理は不要です（OK）」だけ（showRetentionNoTarget/retention.noTarget.title＋message.none）。
+　　これに伴いバックアップのみフロー一式を撤去：modifier の backupTrigger/exportOnly/doneTitle、retention.backup.done.*/noTarget.export/noTarget.message を削除。
+　　modifier は trigger（整理フロー）専用に戻した。設定は count==0→NoTargetアラート、>0→提案アラート→retentionCleanupTrigger。
+　→ 削除プログレス表示中に戻る（＜）が押せる不具合：オーバーレイはナビバー外なので戻るを塞げていなかった。
+　　処理中に画面破棄されると完了通知が出ず、トランザクションも中途半端になりうる。
+　　RetentionCleanupModifier に .navigationBarBackButtonHidden(isWorking)/.interactiveDismissDisabled(isWorking) を追加し、削除・エクスポート中は戻る/スワイプバックを禁止。isWorkingは必ずfalseで終わるので無限ロックなし。
 
+設定にある見出し「共有」を「データ共有・整理」に変更
+「古い履歴を」を「古いデータを」に変更
 
+引き落とし状況：1年より古い未払は確認表示せず、注意アイコンを表示。注意アイコンをタップして表示する
 
 
 --------------------------------
 2.6.0 新機能
 - 引き落とし済みで３年より古いデータが溜まると適時、データ整理を促します
 　・エキスポートして削除しますので、インポートして復元ができます
-　・これに伴い、設定：古い履歴を整理（3年）を無くしました
-- 
+- 引き落とし状況：1年より古い未払は確認表示せず、注意アイコンを表示します
+　・注意アイコンをタップして1年より古い未払を表示することができます
 -----
 fastlane メタデータを更新して
 2.6.0 審査中、README.mdの開発メモ、公開アプリパネル、取扱説明を更新して
@@ -1762,6 +1779,22 @@ fastlane upload_screenshots     # スクショ Upload
 -----
 2.6.0 本日公開、公開アプリパネル、取扱説明を更新して
 ------------------------------------------------
+
+-----
+状況画面：1年より古い「未払」が出ない件
+------------------------------------------------
+・原因：PaymentListView の延滞未払（overdue）集計が引落日「直近1年」に限定（paymentStatusStartDate=今日-1年）。
+　2023/5/10 の未払は範囲外で非表示。済み側は90日窓を広げて遡れるのに未払は頭打ちだった。
+・対応（軽さ優先のまま折衷）：1年より古い未払が存在する時だけ「確認待ち」見出し右端に注意アイコン(exclamationmark.circle.fill)。
+　タップ→アラート「古い未払を表示しますか？（はい/いいえ）」。はい で showAllOverdueUnpaid=true → カットオフを distantPast に外し全件表示。
+・実装：hasOlderOverdueUnpaid（存在チェック fetchHasOlderOverdueUnpaid・isPaidは計算プロパティでPredicate不可のため取得後filter・件数制限なし）、
+　overduePageSize は展開時 100000。PaymentCombinedCard→PaymentOverdueHeader に showOlderBadge/onTapOlderBadge を伝播。
+　新キー：payment.olderUnpaid.badge.a11y/confirm.title/confirm.message/confirm.show。
+・注意アイコンは「引き落とし確認待ち」見出しではなく常時表示の「未払」帯(PaymentUnpaidBoundaryBand)の右に配置（確認待ちが無いと見出しごと消えるため）。
+　視認性：HStackで「未払」テキスト直後に隣接、symbolRenderingMode(.palette)で!白・丸濃オレンジ＋白リング＋影。
+・確認アラートのボタンは押し間違い対策で「表示する(既定=右太字, .keyboardShortcut(.defaultAction))／閉じる(cancel=左通常)」。
+　表示は非破壊（画面離脱で戻る）なので肯定を既定に。旧 common.yes/no は未使用化したので削除。common.close は既存流用。
+・注意：xcstrings は json.dump で全書換すると全エントリが多行展開されて巨大diffになる。必ず Edit でピンポイント追記（コンパクト形式維持）。
 
 
 

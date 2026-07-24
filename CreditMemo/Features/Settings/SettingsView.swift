@@ -41,6 +41,8 @@ struct SettingsView: View {
     @State private var showAdThanks = false
     // 古い履歴の整理（3年）：タップで提案アラート→共通フロー（.retentionCleanup）
     @State private var showRetentionSuggest = false
+    /// 整理対象が0件のとき「整理は不要です」を伝えるだけのアラート
+    @State private var showRetentionNoTarget = false
     @State private var retentionOldCount = 0
     @State private var retentionCleanupTrigger = false
     @State private var expandedDropdown: SettingsDropdownKind?
@@ -275,12 +277,18 @@ struct SettingsView: View {
 
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        // 自動提案と同じ整理フローを、設定からも手動で呼べるようにする
+                        // 自動提案と同じ整理フローを、設定からも手動で呼べるようにする。
+                        // 対象が0件なら「整理は不要」と伝えるだけにする。
                         Button {
-                            retentionOldCount = RecordService.recordsCount(
+                            let count = RecordService.recordsCount(
                                 olderThanYears: RetentionSuggest.years, context: context
                             )
-                            showRetentionSuggest = true
+                            retentionOldCount = count
+                            if count == 0 {
+                                showRetentionNoTarget = true
+                            } else {
+                                showRetentionSuggest = true
+                            }
                         } label: {
                             Label("retention.settings.button", systemImage: "trash")
                         }
@@ -387,12 +395,18 @@ struct SettingsView: View {
         } message: {
             Text(String(localized: "support.ad.thanksMessage"))
         }
-        // 古い履歴の整理（3年）：自動提案と同じアラート→共通フロー。設定からは件数に関係なく出す
+        // 古い履歴の整理（3年）：対象が1件以上のとき「整理しませんか？」→エクスポート後に削除
         .alert("retention.suggest.title", isPresented: $showRetentionSuggest) {
             Button("retention.suggest.exportAndClean") {
                 retentionCleanupTrigger = true
             }
             Button("retention.suggest.later", role: .cancel) {}
+        } message: {
+            Text(retentionSuggestMessage)
+        }
+        // 対象が0件のとき：整理は不要と伝えるだけ（エクスポート案内なし）
+        .alert("retention.noTarget.title", isPresented: $showRetentionNoTarget) {
+            Button("button.ok", role: .cancel) {}
         } message: {
             Text(retentionSuggestMessage)
         }
