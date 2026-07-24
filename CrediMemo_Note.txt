@@ -1694,12 +1694,74 @@ fastlane upload_screenshots     # スクショ Upload
 2.5.2 本日公開、公開アプリパネル、取扱説明を更新して
 ------------------------------------------------
 
+サブタイトル「後日引き落とし記録アプリ」を「後日引き落とし確認アプリ」に変更したい。記録だと長く残すイメージになってしまう、支払済みで一定期間を過ぎれば削除する機能を付けたいと考えている
+
+引き落とし状況でスクロールアップして済みを過去へ遡るとき、90日経過ごとに「xxx日前です。つづけて見る」ボタンを表示する。このボタンの下に「これより古い決済を削除する」ボタンを表示する
+
+「xxx日前です　つづけて見る」を「xxx日前　さらに前を見る」に変更
+これより古い決裁を削除する対象を未払も含めて引落日（N回ならば最終の引落日）がこれより古い決済を削除対象にしたい
+「さらに前を見る」を「さらに過去を見る」に変更
+
+削除処理中のプログレスや完了時のメッセージか「これより古い・・・」ボタンが消える、などの経過と変化が欲しい
+　→ 削除でクラッシュ/無反応だった原因は、一括削除を1件ずつ孤児掃除・再集計していたため（同一請求共有時に削除済みオブジェクト参照＋O(件数×全件フェッチ)）。
+　　deleteRecords を「影響範囲を蓄積して最後に1回だけ recalculateTouchedBilling」する一括版に修正。
+　　runPruneDelete を非同期化し、削除中は「削除中…」プログレスオーバーレイ、完了時に「N件を削除しました」トースト、対象が無くなれば区切りボタンごと消える。
+-----------
+
+ユーザに過去データの削除を任せるのはどうかと思う
+ユーザは基本的に削除したくないはず
+何かインセンティブが必要、さもなくば強制的な仕様として自動削除することになる
+何か良い（ユーザが率先して削除したくなる）方法はあるだろうか？
+　→ 方針「自動提案で判断を代行」。削除を「書き出して整理（アーカイブ）」にリフレーミングし、
+　　JSONが手元に残る（喪失しない）＋アプリが軽くなる、を訴求。cutoffはアプリが自動決定。
+　　実装：メニュー(TopMenuView)の起動/復帰時にチェック。既存の「古い履歴を整理（3年・利用日基準）」を再利用。
+　　　発動＝3年より古い決済が100件以上、提案間隔＝あとで選択で30日スヌーズ。2ボタン（エキスポートして整理／あとで）。無効化ボタンは無し。
+　　　［エキスポートして整理］→全データJSONエキスポート→共有シート→閉じたら削除。用語は既存「全データをエキスポートする」に統一。パラメータは AppSettings の enum RetentionSuggest に集約。
+　　既存 deleteRecords(olderThanYears:) も一括化クラッシュ修正を適用（1件ずつ再集計→touched集約して最後に1回）。
+　　※基準の相違に注意：設定/自動提案の整理は「利用日」、引き落とし状況画面の遡り削除は「引き落とし日」。
+　→ エクスポート中断でも削除される不具合を修正：ExportShareSheet に onComplete(Bool) を追加し、
+　　completionWithItemsHandler で成否を取得。成功時のみ削除、中断/失敗は削除せず再案内。TopMenu/PaymentList 両方に適用。
+　　エクスポート生成〜共有シートが出るまでプログレス表示。削除中プログレス＋削除完了トーストも表示。
+
+設定：古い履歴を整理（3年）　は不要
+　→ 方針転換：削除せず「タップで自動提案と同じ整理フロー」を呼ぶボタンとして残す。設定からは件数0でもアラート表示（0件は専用文言＋トースト抑制）。
+　　整理フロー（アラート→全データエクスポート→成功時のみ削除→完了トースト）を Components/RetentionCleanupModifier.swift に共通化。
+　　TopMenu（自動提案）と Settings（手動ボタン）が .retentionCleanup(trigger:) を付けるだけで同じ動作。
+　　新規Swiftファイルは pbxproj に個別登録が必要（このプロジェクトは通常グループ方式・ExportShareSheet登録を踏襲）。
+　　※注意：xcstrings の一括編集で誤って git checkout し、当セッション追加の未コミットキーを飛ばした。復旧時は Swift参照キーと突合。
+　　　xcstringsのキー削除は sed の行範囲削除で行い、python の json.dump 全書き換えはフォーマット崩れ・キー順変化を招くので使わない。
+　→ さらに：整理完了通知はトースト→アラートに変更（分かりにくいため）。RetentionCleanupModifier の done は retention.done.title/message/message.none アラート。
+　→ 引き落とし状況画面の「遡り削除（これより古い決済を削除する）」機能は不要になり撤去。
+　　90日ページング（paidWindowDays/paidWindowCutoff/expandPaidWindow・区切り「さらに過去を見る」）は表示用として残す。
+　　撤去：PaymentPruneBoundaryの削除ボタン、確認アラート/共有シート/削除中プログレス/完了トースト、requestPrune/runPruneDelete等、
+　　　RecordService.deleteRecords(olderThan:)/recordsCount(olderThan:)/recordsOlderThan（引き落とし日基準・cutoff版）、payment.prune.confirm/delete/deleting/done/export の7キー。
+　　残存：payment.prune.continue/daysAgo（区切り表示）、年数版 deleteRecords(olderThanYears:)（設定/自動提案が使用）。
+　→ 削除が10秒以上でプログレスが見えない件：メインスレッドを長時間同期占有し UI 更新も ProgressView も止まるのが原因。
+　　deleteRecords(olderThanYears:) を async 化し、削除ループ50件ごと＋再集計前後で await Task.yield() を挟みスピナーを回し続ける。
+　　ModelContext はメインアクター固有なのでバックグラウンドには逃がさず、@MainActor 上で細切れに進める（RecordService enum は元々 @MainActor）。呼び出しは try await。
 
 
 
 
-
-
+--------------------------------
+2.6.0 新機能
+- 引き落とし済みで３年より古いデータが溜まると適時、データ整理を促します
+　・エキスポートして削除しますので、インポートして復元ができます
+　・これに伴い、設定：古い履歴を整理（3年）を無くしました
+- 
+-----
+fastlane メタデータを更新して
+2.6.0 審査中、README.mdの開発メモ、公開アプリパネル、取扱説明を更新して
+-----
+cd /Users/sumpositive/GitLocal/CreditMemo
+fastlane preview_metadata       # メタ 確認 >[y]反映
+fastlane upload_metadata        # メタ 反映
+---
+fastlane screenshots            # スクショ 生成確認
+fastlane upload_screenshots     # スクショ Upload
+-----
+2.6.0 本日公開、公開アプリパネル、取扱説明を更新して
+------------------------------------------------
 
 
 

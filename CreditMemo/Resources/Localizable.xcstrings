@@ -6302,6 +6302,76 @@
         }
       }
     },
+    "payment.prune.continue": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ältere anzeigen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show Older"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "さらに過去を見る"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이전 더 보기"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "顯示更早"
+          }
+        }
+      }
+    },
+    "payment.prune.daysAgo": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "vor %d Tagen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d days ago"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d日前"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d일 전"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d 天前"
+          }
+        }
+      }
+    },
     "payment.row.methods": {
       "extractionState": "manual",
       "localizations": {
@@ -9663,286 +9733,6 @@
         }
       }
     },
-    "retention.progress.hint": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Zahlungsverlauf älter als 3 Jahre wird gelöscht."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Deleting payment history older than 3 years."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "3年より古い決済履歴を削除しています"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "3년보다 오래된 결제 기록을 삭제하고 있습니다."
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "正在刪除 3 年以上的付款記錄。"
-          }
-        }
-      }
-    },
-    "retention.prompt.delete": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Verlauf über 3 Jahre löschen"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Delete 3+ Year History"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "3年より古い履歴を削除"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "3년 이상 기록 삭제"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "刪除 3 年以上記錄"
-          }
-        }
-      }
-    },
-    "retention.prompt.keep": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Alle Einträge behalten"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Keep All Records"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "削除しない"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "모든 기록 유지"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "保留所有記錄"
-          }
-        }
-      }
-    },
-    "retention.prompt.message": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Zahlungseinträge älter als 3 Jahre löschen?\nDas kann nicht rückgängig gemacht werden. Wir empfehlen, vorher alle Daten zu exportieren."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Delete payment records older than 3 years?\nThis can't be undone. We recommend exporting all data first."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "3年より古い決済履歴を削除しますか？\nこの操作は元に戻せません。事前に「全データをエキスポートする」をおすすめします。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "3년보다 오래된 결제 기록을 삭제할까요?\n되돌릴 수 없습니다. 먼저 전체 데이터를 내보내는 것을 권장합니다."
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "刪除 3 年以上的付款記錄？\n此操作無法撤銷。建議先匯出所有資料。"
-          }
-        }
-      }
-    },
-    "retention.prompt.title": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Alte Einträge aufräumen"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Clean Up Old Records"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "古い履歴の整理"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "오래된 기록 정리"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "清理舊記錄"
-          }
-        }
-      }
-    },
-    "retention.result.done": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Zahlungseinträge älter als 3 Jahre gelöscht."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Deleted payment records older than 3 years."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "3年より古い決済履歴を削除しました"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "3년보다 오래된 결제 기록을 삭제했습니다."
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已刪除 3 年以上的付款記錄。"
-          }
-        }
-      }
-    },
-    "retention.result.doneTitle": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aufräumen fertig"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cleanup Complete"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "整理完了"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "정리 완료"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "清理完成"
-          }
-        }
-      }
-    },
-    "retention.result.title": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aufräumen alter Einträge"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Old Records Cleanup"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "古い履歴の整理"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "오래된 기록 정리"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "舊記錄清理"
-          }
-        }
-      }
-    },
     "retention.settings.button": {
       "extractionState": "manual",
       "localizations": {
@@ -9976,6 +9766,156 @@
             "value": "清理舊記錄（3 年）"
           }
         }
+      }
+    },
+    "retention.suggest.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": { "stringUnit": { "state": "translated", "value": "Alte Einträge aufräumen?" } },
+        "en": { "stringUnit": { "state": "translated", "value": "Clean Up Old Records?" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "古い履歴を整理しませんか？" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "오래된 기록을 정리할까요?" } },
+        "zh-Hant": { "stringUnit": { "state": "translated", "value": "要整理舊記錄嗎？" } }
+      }
+    },
+    "retention.suggest.message": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": { "stringUnit": { "state": "translated", "value": "Es gibt %2$d Einträge, die älter als %1$d Jahre sind. Wir exportieren alle Daten als JSON-Datei (bleibt bei dir) und räumen dann auf – die App wird schneller." } },
+        "en": { "stringUnit": { "state": "translated", "value": "You have %2$d records older than %1$d years. We'll export all your data to a JSON file you keep, then clean up so the app runs faster." } },
+        "ja": { "stringUnit": { "state": "translated", "value": "%1$d年より前の決済が %2$d件あります。全データをJSONファイルにエキスポートして手元に残したうえで整理すると、表示が軽くなります。" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "%1$d년보다 오래된 결제가 %2$d건 있습니다. 전체 데이터를 JSON 파일로 내보내 보관한 뒤 정리하면 앱이 더 가벼워집니다." } },
+        "zh-Hant": { "stringUnit": { "state": "translated", "value": "有 %2$d 筆超過 %1$d 年的記錄。將全部資料匯出成 JSON 檔保留在手邊後再整理，可讓顯示更順暢。" } }
+      }
+    },
+    "retention.suggest.message.none": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": { "stringUnit": { "state": "translated", "value": "Es gibt keine Einträge, die älter als %d Jahre sind. Du kannst trotzdem alle Daten als Sicherung exportieren." } },
+        "en": { "stringUnit": { "state": "translated", "value": "There are no records older than %d years. You can still export all data as a backup." } },
+        "ja": { "stringUnit": { "state": "translated", "value": "%d年より前の決済はありません。バックアップとして全データをエキスポートすることはできます。" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "%d년보다 오래된 결제가 없습니다. 백업용으로 전체 데이터를 내보낼 수는 있습니다." } },
+        "zh-Hant": { "stringUnit": { "state": "translated", "value": "沒有超過 %d 年的記錄。你仍可將全部資料匯出作為備份。" } }
+      }
+    },
+    "retention.suggest.exportAndClean": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": { "stringUnit": { "state": "translated", "value": "Exportieren & aufräumen" } },
+        "en": { "stringUnit": { "state": "translated", "value": "Export & Clean Up" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "エキスポートして整理" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "내보내고 정리" } },
+        "zh-Hant": { "stringUnit": { "state": "translated", "value": "匯出並整理" } }
+      }
+    },
+    "retention.suggest.later": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": { "stringUnit": { "state": "translated", "value": "Später" } },
+        "en": { "stringUnit": { "state": "translated", "value": "Later" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "あとで" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "나중에" } },
+        "zh-Hant": { "stringUnit": { "state": "translated", "value": "稍後" } }
+      }
+    },
+    "retention.exportIncomplete.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": { "stringUnit": { "state": "translated", "value": "Export nicht abgeschlossen" } },
+        "en": { "stringUnit": { "state": "translated", "value": "Export Not Completed" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "エクスポートが完了していません" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "내보내기가 완료되지 않았습니다" } },
+        "zh-Hant": { "stringUnit": { "state": "translated", "value": "匯出尚未完成" } }
+      }
+    },
+    "retention.exportIncomplete.message": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": { "stringUnit": { "state": "translated", "value": "Da der Export nicht abgeschlossen wurde, wurde nichts gelöscht. Die alten Einträge bleiben erhalten." } },
+        "en": { "stringUnit": { "state": "translated", "value": "Since the export wasn't completed, nothing was deleted. Your old records are still here." } },
+        "ja": { "stringUnit": { "state": "translated", "value": "エクスポートが完了しなかったため、削除は行っていません。古い決済はそのまま残っています。" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "내보내기가 완료되지 않아 삭제하지 않았습니다. 오래된 결제는 그대로 남아 있습니다." } },
+        "zh-Hant": { "stringUnit": { "state": "translated", "value": "由於匯出未完成，未刪除任何資料。舊記錄仍然保留。" } }
+      }
+    },
+    "retention.exportIncomplete.retry": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": { "stringUnit": { "state": "translated", "value": "Erneut exportieren" } },
+        "en": { "stringUnit": { "state": "translated", "value": "Export Again" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "もう一度エキスポート" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "다시 내보내기" } },
+        "zh-Hant": { "stringUnit": { "state": "translated", "value": "再次匯出" } }
+      }
+    },
+    "retention.exportIncomplete.later": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": { "stringUnit": { "state": "translated", "value": "Später" } },
+        "en": { "stringUnit": { "state": "translated", "value": "Later" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "あとで" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "나중에" } },
+        "zh-Hant": { "stringUnit": { "state": "translated", "value": "稍後" } }
+      }
+    },
+    "retention.done.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": { "stringUnit": { "state": "translated", "value": "Aufräumen abgeschlossen" } },
+        "en": { "stringUnit": { "state": "translated", "value": "Cleanup Complete" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "整理が完了しました" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "정리가 완료되었습니다" } },
+        "zh-Hant": { "stringUnit": { "state": "translated", "value": "整理完成" } }
+      }
+    },
+    "retention.done.message": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": { "stringUnit": { "state": "translated", "value": "%d Einträge wurden aufgeräumt." } },
+        "en": { "stringUnit": { "state": "translated", "value": "Cleaned up %d records." } },
+        "ja": { "stringUnit": { "state": "translated", "value": "%d件の古い決済を整理しました。" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "오래된 결제 %d건을 정리했습니다." } },
+        "zh-Hant": { "stringUnit": { "state": "translated", "value": "已整理 %d 筆較舊的記錄。" } }
+      }
+    },
+    "retention.done.message.none": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": { "stringUnit": { "state": "translated", "value": "Es gab keine älteren Einträge zum Aufräumen." } },
+        "en": { "stringUnit": { "state": "translated", "value": "There were no older records to clean up." } },
+        "ja": { "stringUnit": { "state": "translated", "value": "整理する古い決済はありませんでした。" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "정리할 오래된 결제가 없었습니다." } },
+        "zh-Hant": { "stringUnit": { "state": "translated", "value": "沒有需要整理的較舊記錄。" } }
+      }
+    },
+    "retention.noTarget.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": { "stringUnit": { "state": "translated", "value": "Nichts aufzuräumen" } },
+        "en": { "stringUnit": { "state": "translated", "value": "Nothing to Clean Up" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "整理するデータはありません" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "정리할 데이터가 없습니다" } },
+        "zh-Hant": { "stringUnit": { "state": "translated", "value": "沒有可整理的資料" } }
+      }
+    },
+    "retention.noTarget.message": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": { "stringUnit": { "state": "translated", "value": "Es gibt keine älteren Einträge zum Aufräumen. Du kannst deine Daten trotzdem als Backup exportieren." } },
+        "en": { "stringUnit": { "state": "translated", "value": "There are no older records to clean up. You can still export your data as a backup." } },
+        "ja": { "stringUnit": { "state": "translated", "value": "整理するデータはありません。バックアップのためにエキスポートしてください。" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "정리할 데이터가 없습니다. 백업을 위해 내보내기를 권장합니다." } },
+        "zh-Hant": { "stringUnit": { "state": "translated", "value": "沒有可整理的資料。你仍可將資料匯出作為備份。" } }
+      }
+    },
+    "retention.noTarget.export": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": { "stringUnit": { "state": "translated", "value": "Exportieren" } },
+        "en": { "stringUnit": { "state": "translated", "value": "Export" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "エキスポート" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "내보내기" } },
+        "zh-Hant": { "stringUnit": { "state": "translated", "value": "匯出" } }
       }
     },
     "settings.about": {
@@ -11979,31 +11919,31 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zu viele Daten können das Tempo verlangsamen. Selbst 15 Jahre sollten funktionieren, aber etwa 3 Jahre passen besser zu dieser App."
+            "value": "Zu viele Daten können das Tempo verlangsamen. Etwa 3 Jahre passen zu dieser App. Beim Tippen werden zuerst alle Daten exportiert und dann ältere Einträge entfernt."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Too much data may slow things down. Even 15 years should work, but about 3 years fits this app better."
+            "value": "Too much data may slow things down; about 3 years fits this app. Tapping exports all your data first, then removes older records."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "データが溜まりすぎると動作が遅くなる可能性があります。想定では15年でも大丈夫ですが、このアプリの目的では3年くらいが適切であると考えています。適時整理して3年分くらいでご利用ください。"
+            "value": "データが溜まりすぎると動作が遅くなる可能性があります。このアプリの目的では3年くらいが適切です。タップすると、まず全データをエキスポートしてから古い決済を整理します。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "데이터가 너무 많으면 느려질 수 있습니다. 15년도 가능하지만 약 3년이 이 앱에 더 적합합니다."
+            "value": "데이터가 너무 많으면 느려질 수 있습니다. 약 3년이 이 앱에 적합합니다. 탭하면 먼저 전체 데이터를 내보낸 뒤 오래된 결제를 정리합니다."
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "資料過多可能變慢。即使 15 年也應可用，但約 3 年更適合本應用。"
+            "value": "資料過多可能變慢，約 3 年較適合本應用。點按會先匯出全部資料，再整理較舊的記錄。"
           }
         }
       }

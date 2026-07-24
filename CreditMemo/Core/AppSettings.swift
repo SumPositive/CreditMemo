@@ -34,6 +34,19 @@ enum AppStorageKey {
     static let badgePreset           = "setting.display.badgePreset"
     /// 引き落とし状況バッジの中央バンド高さ（base size 64 換算で 8..24）
     static let badgeMiddleHeight     = "setting.display.badgeMiddleHeight"
+    /// 古い履歴の自動整理提案：次に提案してよい日時（referenceDate からの秒）。
+    /// 「あとで」を選ぶと一定期間先へ進め、その日まで提案しない
+    static let retentionSuggestSnoozeUntil = "setting.retention.suggestSnoozeUntil"
+}
+
+/// 古い履歴の自動整理提案のパラメータ（判断代行のためアプリ側で固定）
+enum RetentionSuggest {
+    /// 提案の基準となる保持年数（この年数より古い＝整理対象）
+    static let years = 3
+    /// 提案を出し始める古い決済の件数しきい値
+    static let thresholdCount = 100
+    /// 「あとで」を選んだあと、次に提案するまでの間隔（日）
+    static let snoozeDays = 30
 }
 
 /// ユーザレベル

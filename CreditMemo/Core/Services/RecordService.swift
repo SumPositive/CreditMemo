@@ -274,27 +274,73 @@ enum RecordService {
         try commit(context)
     }
 
-    /// 指定年数より古い履歴を削除する
-    static func deleteRecords(olderThanYears years: Int, context: ModelContext) throws {
-        let calendar = Calendar.current
-        let now = Date()
-        guard let cutoff = calendar.date(byAdding: .year, value: -years, to: now) else {
-            return
-        }
-
-        let descriptor = FetchDescriptor<E3record>(
-            predicate: #Predicate<E3record> { $0.dateUse < cutoff }
-        )
-        let oldRecords = context.fetchReporting(descriptor, entity: "E3record")
+    /// 指定年数より古い履歴（利用日基準）を削除する。
+    /// 設定「古い履歴を整理」および起動時の自動提案から呼ぶ。
+    ///
+    /// 件数が多いとメインスレッドを長く占有し、進捗スピナーが止まって固まって見える。
+    /// 削除ループ・再集計の要所で `await Task.yield()` を挟み、メインループへ制御を返して
+    /// スピナーが回り続けるようにする（ModelContext はメインアクター固有なので
+    /// バックグラウンドスレッドには逃がさず、あくまでメインアクター上で細切れに進める）。
+    /// - onProgress: 削除の進捗（completed, total）。省略可
+    static func deleteRecords(
+        olderThanYears years: Int,
+        context: ModelContext,
+        onProgress: ((Int, Int) -> Void)? = nil
+    ) async throws {
+        guard let cutoff = yearsAgoCutoff(years) else { return }
+        let oldRecords = recordsUsedBefore(cutoff, context: context)
         if oldRecords.isEmpty {
             return
         }
-
-        for record in oldRecords {
-            deleteWithoutCommit(record, context: context)
+        // 一括削除は影響範囲だけ蓄積し、掃除・再集計は最後に1回だけ行う。
+        // 1件ずつ recalculate すると、請求/支払を共有する明細で既に削除済みの
+        // オブジェクトへ触れてクラッシュし、かつ件数分の全件フェッチで固まるため。
+        var touchedCardIDs: Set<String> = []
+        var touchedPaymentKeys: Set<String> = []
+        let total = oldRecords.count
+        for (index, record) in oldRecords.enumerated() {
+            let snapshot = snapshot(for: record)
+            touchedCardIDs.formUnion(snapshot.touchedCardIDs)
+            touchedPaymentKeys.formUnion(snapshot.touchedPaymentKeys)
+            removeExistingParts(of: record, context: context)
+            context.delete(record)
+            // 一定件数ごとにメインループへ制御を返し、スピナーを回し続ける
+            let completed = index + 1
+            if completed.isMultiple(of: 50) || completed == total {
+                onProgress?(completed, total)
+                await Task.yield()
+            }
         }
+        // 孤児掃除・再集計も重いので、その前後でも制御を返す
+        await Task.yield()
+        recalculateTouchedBilling(
+            cardIDs: touchedCardIDs,
+            paymentKeys: touchedPaymentKeys,
+            context: context
+        )
+        await Task.yield()
         try commit(context)
     }
+
+    /// 指定年数より古い履歴（利用日基準）の件数を返す。自動提案の発動判定に使う。
+    static func recordsCount(olderThanYears years: Int, context: ModelContext) -> Int {
+        guard let cutoff = yearsAgoCutoff(years) else { return 0 }
+        return recordsUsedBefore(cutoff, context: context).count
+    }
+
+    /// 今日から years 年前の基準日時
+    private static func yearsAgoCutoff(_ years: Int) -> Date? {
+        Calendar.current.date(byAdding: .year, value: -years, to: Date())
+    }
+
+    /// 利用日が cutoff より前の明細を返す
+    private static func recordsUsedBefore(_ cutoff: Date, context: ModelContext) -> [E3record] {
+        let descriptor = FetchDescriptor<E3record>(
+            predicate: #Predicate<E3record> { $0.dateUse < cutoff }
+        )
+        return context.fetchReporting(descriptor, entity: "E3record")
+    }
+
 
     /// 編集前の旧パーツだけを除去し、請求・支払の孤児データを掃除する
     static func removeParts(of record: E3record, context: ModelContext) {

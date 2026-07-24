@@ -67,6 +67,8 @@
 		C39F94DC2FEA974000873586 /* TestEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = C39F94DB2FEA974000873586 /* TestEnvironment.swift */; };
 		C3B88D7C752156C24F085A6E /* EditShortcutCapsuleButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B5525175B4413CA409A0F10 /* EditShortcutCapsuleButton.swift */; };
 		C3ECE81CD3F9F2D58DE2CC00 /* GoogleMobileAds in Frameworks */ = {isa = PBXBuildFile; productRef = 89E194455AE3BC909B357E64 /* GoogleMobileAds */; };
+		C3EF8FBE300DEC90001297FA /* ExportShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3EF8FBD300DEC90001297FA /* ExportShareSheet.swift */; };
+		FB43A45099256F6C054EA946 /* RetentionCleanupModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA4161E64C3E286BC8EFFCC2 /* RetentionCleanupModifier.swift */; };
 		C57ADA9A2E61C90333FC31CF /* JapaneseHoliday.swift in Sources */ = {isa = PBXBuildFile; fileRef = 066A1D4A637608B10B9ACE11 /* JapaneseHoliday.swift */; };
 		C58ECF80C7B49E11A258D0F1 /* E8bank.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3D0DA9E8CA885EBFC0C4D17 /* E8bank.swift */; };
 		C67472FB132A9A7D1B368742 /* TestFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92285F000E6AEFF8979BCA79 /* TestFixtures.swift */; };
@@ -178,6 +180,8 @@
 		C3562CFA2FF90C3300539096 /* SnapshotHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotHelper.swift; sourceTree = "<group>"; };
 		C39F94DB2FEA974000873586 /* TestEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestEnvironment.swift; sourceTree = "<group>"; };
 		C3EF8FB6300D2F30001297FA /* CreditMemo.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = CreditMemo.xctestplan; sourceTree = "<group>"; };
+		C3EF8FBD300DEC90001297FA /* ExportShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportShareSheet.swift; sourceTree = "<group>"; };
+		CA4161E64C3E286BC8EFFCC2 /* RetentionCleanupModifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetentionCleanupModifier.swift; sourceTree = "<group>"; };
 		C88CDBC613768DE5DDC3EA8E /* CardServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardServiceTests.swift; sourceTree = "<group>"; };
 		CA178EA89015430E9475246A /* AZPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AZPicker.swift; sourceTree = "<group>"; };
 		CAF54A44CEADADFC65FDBAD3 /* View+ScalableTitle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+ScalableTitle.swift"; sourceTree = "<group>"; };
@@ -283,6 +287,8 @@
 		45517B0520FF7F0CDA12D780 /* Components */ = {
 			isa = PBXGroup;
 			children = (
+				C3EF8FBD300DEC90001297FA /* ExportShareSheet.swift */,
+				CA4161E64C3E286BC8EFFCC2 /* RetentionCleanupModifier.swift */,
 				5FE37CABED896291520FB8EB /* AppIconBadge.swift */,
 				CA178EA89015430E9475246A /* AZPicker.swift */,
 				153FF51EDC8FCECE2616F96E /* BeginnerHintView.swift */,
@@ -708,6 +714,8 @@
 				C3B88D7C752156C24F085A6E /* EditShortcutCapsuleButton.swift in Sources */,
 				168DD0AEC579C49AFCA27A1E /* InlineAdBanner.swift in Sources */,
 				D3FACDAE4302014FB7AEB7F2 /* InvoiceListView.swift in Sources */,
+				C3EF8FBE300DEC90001297FA /* ExportShareSheet.swift in Sources */,
+				FB43A45099256F6C054EA946 /* RetentionCleanupModifier.swift in Sources */,
 				BC76FD63B00A75AE72C028BB /* JSONExport.swift in Sources */,
 				A2C6C4471B13CA1FFEA16582 /* JSONImport.swift in Sources */,
 				C57ADA9A2E61C90333FC31CF /* JapaneseHoliday.swift in Sources */,
@@ -797,7 +805,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 2.5.2;
+				MARKETING_VERSION = 2.6.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.azukid.AzCreditS1;
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
@@ -933,7 +941,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 2.5.2;
+				MARKETING_VERSION = 2.6.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.azukid.AzCreditS1;
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";

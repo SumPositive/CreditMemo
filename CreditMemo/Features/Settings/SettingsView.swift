@@ -39,7 +39,10 @@ struct SettingsView: View {
     @State private var showTipSheet = false
     @State private var showAdSheet = false
     @State private var showAdThanks = false
-    @State private var showPruneOldRecordsConfirm = false
+    // 古い履歴の整理（3年）：タップで提案アラート→共通フロー（.retentionCleanup）
+    @State private var showRetentionSuggest = false
+    @State private var retentionOldCount = 0
+    @State private var retentionCleanupTrigger = false
     @State private var expandedDropdown: SettingsDropdownKind?
     @State private var alertItem: SettingsAlertItem?
     @State private var isWorking = false
@@ -272,14 +275,17 @@ struct SettingsView: View {
 
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        // 自動提案と同じ整理フローを、設定からも手動で呼べるようにする
                         Button {
-                            showPruneOldRecordsConfirm = true
+                            retentionOldCount = RecordService.recordsCount(
+                                olderThanYears: RetentionSuggest.years, context: context
+                            )
+                            showRetentionSuggest = true
                         } label: {
-                            Label(pruneOldRecordsButtonText, systemImage: "trash")
+                            Label("retention.settings.button", systemImage: "trash")
                         }
                         .disabled(isWorking)
 
-                        // 履歴整理のヘルプは実行ボタンの外に置き、本文色の伝播を避ける
                         BeginnerHintView(detailMessageKey: "settings.help.retention")
                     }
                 }
@@ -376,19 +382,21 @@ struct SettingsView: View {
                 dismissButton: .cancel(Text("button.ok"))
             )
         }
-        .alert(pruneOldRecordsConfirmTitle, isPresented: $showPruneOldRecordsConfirm) {
-            Button(pruneOldRecordsConfirmDeleteText, role: .destructive) {
-                pruneOldRecords()
-            }
-            Button("button.cancel", role: .cancel) {}
-        } message: {
-            Text(pruneOldRecordsConfirmMessage)
-        }
         .alert(String(localized: "support.thanksTitle"), isPresented: $showAdThanks) {
             Button("common.ok", role: .cancel) {}
         } message: {
             Text(String(localized: "support.ad.thanksMessage"))
         }
+        // 古い履歴の整理（3年）：自動提案と同じアラート→共通フロー。設定からは件数に関係なく出す
+        .alert("retention.suggest.title", isPresented: $showRetentionSuggest) {
+            Button("retention.suggest.exportAndClean") {
+                retentionCleanupTrigger = true
+            }
+            Button("retention.suggest.later", role: .cancel) {}
+        } message: {
+            Text(retentionSuggestMessage)
+        }
+        .retentionCleanup(trigger: $retentionCleanupTrigger)
         .overlay {
             if isWorking {
                 ZStack {
@@ -506,9 +514,7 @@ struct SettingsView: View {
                     // 工程の説明文を逐次切り替える
                     progressMessage = phase.message(locale: Locale.current)
                 }
-                let fmt  = DateFormatter()
-                fmt.dateFormat = "yyyyMMdd_HHmmss"
-                let name = "CreditMemo_\(fmt.string(from: Date())).json"
+                let name = ExportFile.jsonName()
                 let url  = FileManager.default.temporaryDirectory.appendingPathComponent(name)
                 progressMessage = exportWritingText
                 await Task.yield()
@@ -591,29 +597,25 @@ struct SettingsView: View {
         String(localized: "settings.import.hint")
     }
 
-    /// 3年超履歴削除ボタン文言
-    private var pruneOldRecordsButtonText: String {
-        NSLocalizedString("retention.settings.button", comment: "")
-    }
-
-    /// 3年超履歴削除確認タイトル
-    private var pruneOldRecordsConfirmTitle: String {
-        NSLocalizedString("retention.prompt.title", comment: "")
-    }
-
-    /// 3年超履歴削除確認文
-    private var pruneOldRecordsConfirmMessage: String {
-        NSLocalizedString("retention.prompt.message", comment: "")
-    }
-
-    /// 3年超履歴削除実行ボタン文言
-    private var pruneOldRecordsConfirmDeleteText: String {
-        NSLocalizedString("retention.prompt.delete", comment: "")
-    }
-
     /// 共通エラータイトル
     private var errorTitleText: String {
         String(localized: "common.error")
+    }
+
+    /// 古い履歴の整理 提案メッセージ（保持年数と対象件数を出す）。
+    /// 設定からは件数0でも押せるため、0件のときは専用の案内にする。
+    private var retentionSuggestMessage: String {
+        if retentionOldCount == 0 {
+            return String.localizedStringWithFormat(
+                NSLocalizedString("retention.suggest.message.none", comment: ""),
+                RetentionSuggest.years
+            )
+        }
+        return String.localizedStringWithFormat(
+            NSLocalizedString("retention.suggest.message", comment: ""),
+            RetentionSuggest.years,
+            retentionOldCount
+        )
     }
 
     /// インポート完了タイトル
@@ -636,46 +638,6 @@ struct SettingsView: View {
         )
     }
 
-    /// 3年超履歴削除を実行する
-    private func pruneOldRecords() {
-        Task { @MainActor in
-            isWorking = true
-            progressCompleted = nil
-            progressTotal = nil
-            // 実行中の状態が伝わるように進行文言を更新する
-            progressMessage = pruneOldRecordsProgressText
-            progressHint = pruneOldRecordsProgressHintText
-            await Task.yield()
-            defer { isWorking = false }
-
-            do {
-                try RecordService.deleteRecords(olderThanYears: 3, context: context)
-                alertItem = .raw(title: pruneOldRecordsDoneTitle, message: pruneOldRecordsDoneMessage)
-            } catch {
-                alertItem = .raw(title: errorTitleText, message: error.localizedDescription)
-            }
-        }
-    }
-
-    /// 3年超履歴削除中の進行文言
-    private var pruneOldRecordsProgressText: String {
-        NSLocalizedString("retention.progress.cleaning", comment: "")
-    }
-
-    /// 3年超履歴削除中の補足文
-    private var pruneOldRecordsProgressHintText: String {
-        NSLocalizedString("retention.progress.hint", comment: "")
-    }
-
-    /// 3年超履歴削除完了タイトル
-    private var pruneOldRecordsDoneTitle: String {
-        NSLocalizedString("retention.result.doneTitle", comment: "")
-    }
-
-    /// 3年超履歴削除完了文
-    private var pruneOldRecordsDoneMessage: String {
-        NSLocalizedString("retention.result.done", comment: "")
-    }
 }
 
 private enum SettingsDropdownKind {
@@ -1369,10 +1331,3 @@ private extension SettingsView {
 
 // MARK: - UIActivityViewController ラッパー
 
-private struct ExportShareSheet: UIViewControllerRepresentable {
-    let url: URL
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: [url], applicationActivities: nil)
-    }
-    func updateUIViewController(_ vc: UIActivityViewController, context: Context) {}
-}

@@ -313,6 +313,11 @@ enum JSONImport {
             report(.cleaningBilling)
             await Task.yield()
             try Task.checkCancellation()
+            // 旧端末で part 確認だけして未払のまま残った請求を「済み」に補正する。
+            // JSON の状態復元後・孤児掃除前に行い、確認済み＝引き落とし済みへ揃える。
+            try await markFullyCheckedInvoicesAsPaid(context: context) { completed, total in
+                report(.cleaningBilling, completed: completed, total: total)
+            }
             RecordService.cleanupOrphanBilling(context: context)
 
             report(.saving)
@@ -657,6 +662,41 @@ enum JSONImport {
             let completed = index + 1
             if completed.isMultiple(of: 25) || completed == items.count {
                 onProgress?(completed, items.count)
+                await Task.yield()
+            }
+        }
+        return updatedCount
+    }
+
+    /// 分割明細（part）が全て確認済みなのに未払のままの請求を「済み」に補正する。
+    /// 旧端末で part の確認だけして引き落とし済み(↑)にしていなかったデータを、
+    /// インポート時に「確認済み＝引き落とし済み」として揃えるための移行補正。
+    /// - 対象: part が1つ以上あり、その全てが nNoCheck==0（確認済み）で、現在 未払 の invoice
+    /// - Returns: 済みへ補正した invoice 件数
+    @discardableResult
+    private static func markFullyCheckedInvoicesAsPaid(
+        context: ModelContext,
+        onProgress: ((Int, Int) -> Void)? = nil
+    ) async throws -> Int {
+        let invoices = context.fetchReporting(FetchDescriptor<E2invoice>(), entity: "E2invoice")
+        // 全 part 確認済み・未払・決済手段ありの請求だけを対象にする
+        let targets = invoices.filter { invoice in
+            guard invoice.e1card != nil else { return false }   // 決済手段未選択は状態を持てない
+            guard !invoice.isPaid else { return false }
+            let parts = invoice.e6parts
+            guard !parts.isEmpty else { return false }
+            return parts.allSatisfy { $0.nNoCheck == 0 }
+        }
+        guard !targets.isEmpty else { return 0 }
+
+        var updatedCount = 0
+        for (index, invoice) in targets.enumerated() {
+            try Task.checkCancellation()
+            moveInvoice(invoice, toPaid: true, context: context)
+            updatedCount += 1
+            let completed = index + 1
+            if completed.isMultiple(of: 25) || completed == targets.count {
+                onProgress?(completed, targets.count)
                 await Task.yield()
             }
         }

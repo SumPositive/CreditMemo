@@ -24,6 +24,13 @@ struct TopMenuView: View {
     @State private var pendingVoiceAfterSave: AfterSaveAction?
     @State private var voiceInputSource = "menu"
 
+    // 古い履歴の自動整理提案まわり（実行フローは .retentionCleanup modifier に委譲）
+    @AppStorage(AppStorageKey.retentionSuggestSnoozeUntil) private var retentionSnoozeUntil: Double = 0
+    @State private var showRetentionSuggest = false
+    @State private var retentionOldCount = 0
+    /// true にすると整理フロー（エクスポート→成功時のみ削除→完了トースト）が始まる
+    @State private var retentionCleanupTrigger = false
+
     @Query(sort: \E7payment.date, order: .reverse)
     private var allPayments: [E7payment]
     @Query(sort: \E1card.nRow)
@@ -236,10 +243,12 @@ struct TopMenuView: View {
         }
         .onAppear {
             openVoiceInputSheetIfNeeded()
+            checkRetentionSuggestion()
         }
         .onChange(of: scenePhase) { _, newValue in
             if newValue == .active {
                 openVoiceInputSheetIfNeeded()
+                checkRetentionSuggestion()
             }
         }
         .onChange(of: openVoiceInputOnActive) { _, newValue in
@@ -247,6 +256,60 @@ struct TopMenuView: View {
                 openVoiceInputSheetIfNeeded()
             }
         }
+        // 古い履歴の自動整理提案（2ボタン）。実行フローは .retentionCleanup へ委譲する
+        .alert("retention.suggest.title", isPresented: $showRetentionSuggest) {
+            Button("retention.suggest.exportAndClean") {
+                retentionCleanupTrigger = true
+            }
+            Button("retention.suggest.later", role: .cancel) {
+                snoozeRetentionSuggestion()
+            }
+        } message: {
+            Text(retentionSuggestMessage)
+        }
+        // 整理フロー（エクスポート→成功時のみ削除→完了トースト）。整理後は当面再提案しない
+        .retentionCleanup(trigger: $retentionCleanupTrigger) { _ in
+            snoozeRetentionSuggestion()
+        }
+    }
+
+    // MARK: - 古い履歴の自動整理提案
+
+    /// 提案メッセージ（件数と保持年数を出し、書き出し＝手元に残ることを明示）
+    private var retentionSuggestMessage: String {
+        String.localizedStringWithFormat(
+            NSLocalizedString("retention.suggest.message", comment: ""),
+            RetentionSuggest.years,
+            retentionOldCount
+        )
+    }
+
+    /// 起動/復帰時に、条件を満たしていれば提案を出す。
+    /// - 無効化されていない
+    /// - スヌーズ期間を過ぎている
+    /// - しきい値以上の古い決済がある
+    private func checkRetentionSuggestion() {
+        // 既に提案表示中・整理フロー起動済みのときは二重に走らせない
+        guard !showRetentionSuggest, !retentionCleanupTrigger else { return }
+        guard Date().timeIntervalSinceReferenceDate >= retentionSnoozeUntil else { return }
+        // 集計はメニュー描画を邪魔しないよう次の runloop に逃がす
+        DispatchQueue.main.async {
+            let count = RecordService.recordsCount(
+                olderThanYears: RetentionSuggest.years,
+                context: context
+            )
+            guard count >= RetentionSuggest.thresholdCount else { return }
+            retentionOldCount = count
+            showRetentionSuggest = true
+        }
+    }
+
+    /// 「あとで」：次に提案してよい日時を snoozeDays 先へ進める
+    private func snoozeRetentionSuggestion() {
+        let next = Calendar.current.date(
+            byAdding: .day, value: RetentionSuggest.snoozeDays, to: Date()
+        ) ?? Date()
+        retentionSnoozeUntil = next.timeIntervalSinceReferenceDate
     }
 
     @ViewBuilder
