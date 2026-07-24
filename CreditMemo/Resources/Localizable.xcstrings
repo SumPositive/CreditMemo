@@ -3235,7 +3235,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "設定から古い履歴を整理すれば軽くなります"
+            "value": "設定から古いデータを整理すれば軽くなります"
           }
         },
         "ko": {
@@ -9756,7 +9756,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "古い履歴を整理中…"
+            "value": "古いデータを整理中…"
           }
         },
         "ko": {
@@ -9791,7 +9791,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "古い履歴を整理（3年）"
+            "value": "古いデータを整理（3年）"
           }
         },
         "ko": {
@@ -9813,7 +9813,7 @@
       "localizations": {
         "de": { "stringUnit": { "state": "translated", "value": "Alte Einträge aufräumen?" } },
         "en": { "stringUnit": { "state": "translated", "value": "Clean Up Old Records?" } },
-        "ja": { "stringUnit": { "state": "translated", "value": "古い履歴を整理しませんか？" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "古いデータを整理しませんか？" } },
         "ko": { "stringUnit": { "state": "translated", "value": "오래된 기록을 정리할까요?" } },
         "zh-Hant": { "stringUnit": { "state": "translated", "value": "要整理舊記錄嗎？" } }
       }
@@ -12356,7 +12356,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "必要に応じて古い履歴を整理します"
+            "value": "必要に応じて古いデータを整理します"
           }
         },
         "ko": {
@@ -13079,31 +13079,31 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Teilen"
+            "value": "Teilen & Aufräumen"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Share"
+            "value": "Share & Clean Up"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "共有"
+            "value": "データ共有・整理"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "공유"
+            "value": "공유 및 정리"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "共享"
+            "value": "共享與整理"
           }
         }
       }

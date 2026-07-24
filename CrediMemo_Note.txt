@@ -1754,10 +1754,28 @@ fastlane upload_screenshots     # スクショ Upload
 　　処理中に画面破棄されると完了通知が出ず、トランザクションも中途半端になりうる。
 　　RetentionCleanupModifier に .navigationBarBackButtonHidden(isWorking)/.interactiveDismissDisabled(isWorking) を追加し、削除・エクスポート中は戻る/スワイプバックを禁止。isWorkingは必ずfalseで終わるので無限ロックなし。
 
+-----
+状況画面：1年より古い「未払」が出ない件
+------------------------------------------------
+・原因：PaymentListView の延滞未払（overdue）集計が引落日「直近1年」に限定（paymentStatusStartDate=今日-1年）。
+　2023/5/10 の未払は範囲外で非表示。済み側は90日窓を広げて遡れるのに未払は頭打ちだった。
+・対応（軽さ優先のまま折衷）：1年より古い未払が存在する時だけ「確認待ち」見出し右端に注意アイコン(exclamationmark.circle.fill)。
+　タップ→アラート「古い未払を表示しますか？（はい/いいえ）」。はい で showAllOverdueUnpaid=true → カットオフを distantPast に外し全件表示。
+・実装：hasOlderOverdueUnpaid（存在チェック fetchHasOlderOverdueUnpaid・isPaidは計算プロパティでPredicate不可のため取得後filter・件数制限なし）、
+　overduePageSize は展開時 100000。PaymentCombinedCard→PaymentOverdueHeader に showOlderBadge/onTapOlderBadge を伝播。
+　新キー：payment.olderUnpaid.badge.a11y/confirm.title/confirm.message/confirm.show。
+・注意アイコンは「引き落とし確認待ち」見出しではなく常時表示の「未払」帯(PaymentUnpaidBoundaryBand)の右に配置（確認待ちが無いと見出しごと消えるため）。
+　視認性：HStackで「未払」テキスト直後に隣接、symbolRenderingMode(.palette)で!白・丸濃オレンジ＋白リング＋影。
+・確認アラートのボタンは押し間違い対策で「表示する(既定=右太字, .keyboardShortcut(.defaultAction))／閉じる(cancel=左通常)」。
+　表示は非破壊（画面離脱で戻る）なので肯定を既定に。旧 common.yes/no は未使用化したので削除。common.close は既存流用。
+・注意：xcstrings は json.dump で全書換すると全エントリが多行展開されて巨大diffになる。必ず Edit でピンポイント追記（コンパクト形式維持）。
+
+引き落とし状況：1年より古い未払は確認表示せず、注意アイコンを表示。注意アイコンをタップして表示する
 設定にある見出し「共有」を「データ共有・整理」に変更
 「古い履歴を」を「古いデータを」に変更
 
-引き落とし状況：1年より古い未払は確認表示せず、注意アイコンを表示。注意アイコンをタップして表示する
+
+
 
 
 --------------------------------
@@ -1779,22 +1797,6 @@ fastlane upload_screenshots     # スクショ Upload
 -----
 2.6.0 本日公開、公開アプリパネル、取扱説明を更新して
 ------------------------------------------------
-
------
-状況画面：1年より古い「未払」が出ない件
-------------------------------------------------
-・原因：PaymentListView の延滞未払（overdue）集計が引落日「直近1年」に限定（paymentStatusStartDate=今日-1年）。
-　2023/5/10 の未払は範囲外で非表示。済み側は90日窓を広げて遡れるのに未払は頭打ちだった。
-・対応（軽さ優先のまま折衷）：1年より古い未払が存在する時だけ「確認待ち」見出し右端に注意アイコン(exclamationmark.circle.fill)。
-　タップ→アラート「古い未払を表示しますか？（はい/いいえ）」。はい で showAllOverdueUnpaid=true → カットオフを distantPast に外し全件表示。
-・実装：hasOlderOverdueUnpaid（存在チェック fetchHasOlderOverdueUnpaid・isPaidは計算プロパティでPredicate不可のため取得後filter・件数制限なし）、
-　overduePageSize は展開時 100000。PaymentCombinedCard→PaymentOverdueHeader に showOlderBadge/onTapOlderBadge を伝播。
-　新キー：payment.olderUnpaid.badge.a11y/confirm.title/confirm.message/confirm.show。
-・注意アイコンは「引き落とし確認待ち」見出しではなく常時表示の「未払」帯(PaymentUnpaidBoundaryBand)の右に配置（確認待ちが無いと見出しごと消えるため）。
-　視認性：HStackで「未払」テキスト直後に隣接、symbolRenderingMode(.palette)で!白・丸濃オレンジ＋白リング＋影。
-・確認アラートのボタンは押し間違い対策で「表示する(既定=右太字, .keyboardShortcut(.defaultAction))／閉じる(cancel=左通常)」。
-　表示は非破壊（画面離脱で戻る）なので肯定を既定に。旧 common.yes/no は未使用化したので削除。common.close は既存流用。
-・注意：xcstrings は json.dump で全書換すると全エントリが多行展開されて巨大diffになる。必ず Edit でピンポイント追記（コンパクト形式維持）。
 
 
 
