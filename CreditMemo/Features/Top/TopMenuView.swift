@@ -19,6 +19,8 @@ struct TopMenuView: View {
     @AppStorage(AppStorageKey.openVoiceInputOnActive) private var openVoiceInputOnActive = false
     // 音声入力の保存後も「新しい決済入力後」設定を適用する
     @AppStorage(AppStorageKey.afterSaveAction)   private var afterSaveAction: AfterSaveAction = .goBack
+    /// 「よくある決済」ラベル抽出期間（音声補塡もこの期間内の実績を対象にする）
+    @AppStorage(AppStorageKey.frequentPeriod)    private var frequentPeriod: FrequentPeriod = .year1
     @State private var showVoiceRecordSheet = false
     /// 音声保存成功時に、シート dismiss 後へ持ち越す保存後アクション
     @State private var pendingVoiceAfterSave: AfterSaveAction?
@@ -413,7 +415,9 @@ struct TopMenuView: View {
         var card = payload.card
         var selectedTags: [E5tag] = []
         if !usePoint.isEmpty {
-            let candidates = FrequentPaymentBuilder.build(from: pastRecords)
+            // 音声は金額を補塡しないので、金額表示条件・並び順は既定のまま。期間だけ設定に合わせる。
+            let config = FrequentPaymentConfig(periodMonths: frequentPeriod.months)
+            let candidates = FrequentPaymentBuilder.build(from: pastRecords, config: config)
             if let fp = FrequentPaymentBuilder.match(label: usePoint, in: candidates) {
                 // 手段：音声で未指定のときだけ候補の手段を補う
                 if card == nil, let cardID = fp.cardID {

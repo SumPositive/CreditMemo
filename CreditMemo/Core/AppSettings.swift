@@ -29,6 +29,20 @@ enum AppStorageKey {
     static let frequentPaymentRows = "setting.frequentPaymentRows"
     /// 新しい決済の入力補助（なし／決済一覧からコピー／よくある決済）。既定はよくある決済
     static let newPaymentAssist = "setting.newPaymentAssist"
+    /// 「よくある決済」ラベル抽出期間（月数：3/6/12/24/36）。既定12（1年）
+    static let frequentPeriod = "setting.frequentPeriod"
+    /// 「よくある決済」金額付きカプセルを出す条件（しない／3回以上／5回以上）。既定3回以上
+    static let frequentAmountRule = "setting.frequentAmountRule"
+    /// 「よくある決済」カプセルの並び順（よく使う順／最近使った順）。既定よく使う順
+    static let frequentSortOrder = "setting.frequentSortOrder"
+    /// 「よくある決済」に繰り返し決済も含めるか。既定 false（従来どおり除外）
+    static let frequentIncludeRepeat = "setting.frequentIncludeRepeat"
+    /// 「よくある決済」候補にする最小利用回数（1/2/3）。既定1
+    static let frequentMinUses = "setting.frequentMinUses"
+    /// 金額付きカプセルがあるとき、金額なしの基本カプセルを隠すか。既定 false
+    static let frequentHideBaseWhenAmounts = "setting.frequentHideBaseWhenAmounts"
+    /// カプセルに決済手段の色（IDから一意生成）を表示するか。既定 false
+    static let frequentShowCardColor = "setting.frequentShowCardColor"
     /// 一度きりの設定移行：テンキー自動表示を強制OFFにする処理を実行済みか（v○○更新時対応）
     static let didForceOffAutoOpenAmountPad = "setting.didForceOffAutoOpenAmountPad"
     /// 引き落とし日が土日祝なら翌営業日へ繰り下げる（日本ロケール・締日/支払日型のみ）
@@ -227,6 +241,87 @@ enum NewPaymentAssist: String, CaseIterable, Identifiable {
         case .none:         "settings.newPaymentAssist.none"
         case .copyFromList: "settings.newPaymentAssist.copyFromList"
         case .frequent:     "settings.newPaymentAssist.frequent"
+        }
+    }
+}
+
+/// 「よくある決済」候補のラベル抽出期間（この期間内の実績だけを集計対象にする）。
+enum FrequentPeriod: Int, CaseIterable, Identifiable {
+    case months3 = 3
+    case months6 = 6
+    case year1   = 12
+    case year2   = 24
+    case year3   = 36
+
+    var id: Int { rawValue }
+    /// 集計に使う月数
+    var months: Int { rawValue }
+
+    var localizedKey: String {
+        switch self {
+        case .months3: "settings.frequent.period.months3"
+        case .months6: "settings.frequent.period.months6"
+        case .year1:   "settings.frequent.period.year1"
+        case .year2:   "settings.frequent.period.year2"
+        case .year3:   "settings.frequent.period.year3"
+        }
+    }
+}
+
+/// 金額付きカプセル（「ラベル ¥金額」）を出す条件。
+enum FrequentAmountRule: String, CaseIterable, Identifiable {
+    case off       = "off"    // 金額付きカプセルを出さない（ラベルのみ）
+    case threePlus = "three"  // 同額が3回以上（既定）
+    case fivePlus  = "five"   // 同額が5回以上
+
+    var id: String { rawValue }
+    /// 金額付きカプセルに必要な最小回数（nil＝金額付きカプセルを出さない）
+    var minCount: Int? {
+        switch self {
+        case .off:       nil
+        case .threePlus: 3
+        case .fivePlus:  5
+        }
+    }
+
+    var localizedKey: String {
+        switch self {
+        case .off:       "settings.frequent.amount.off"
+        case .threePlus: "settings.frequent.amount.three"
+        case .fivePlus:  "settings.frequent.amount.five"
+        }
+    }
+}
+
+/// 「よくある決済」候補にするラベルの最小利用回数。
+enum FrequentMinUses: Int, CaseIterable, Identifiable {
+    case one   = 1
+    case two   = 2
+    case three = 3
+
+    var id: Int { rawValue }
+    var count: Int { rawValue }
+
+    var localizedKey: String {
+        switch self {
+        case .one:   "settings.frequent.minUses.one"
+        case .two:   "settings.frequent.minUses.two"
+        case .three: "settings.frequent.minUses.three"
+        }
+    }
+}
+
+/// 「よくある決済」カプセルの並び順。
+enum FrequentSortOrder: String, CaseIterable, Identifiable {
+    case frequency = "frequency"  // よく使う順（頻度×最近性、既定）
+    case recency   = "recency"    // 最近使った順
+
+    var id: String { rawValue }
+
+    var localizedKey: String {
+        switch self {
+        case .frequency: "settings.frequent.sort.frequency"
+        case .recency:   "settings.frequent.sort.recency"
         }
     }
 }

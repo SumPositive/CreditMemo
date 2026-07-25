@@ -47,13 +47,33 @@ struct FrequentPayment: Identifiable {
     }
 }
 
+/// 「よくある決済」候補生成のパラメータ（パネルの設定シートで変更する）。
+struct FrequentPaymentConfig: Equatable {
+    /// 集計対象にする期間（月数）。この月数より古い実績は使わない。
+    var periodMonths: Int = 12
+    /// 金額付きカプセルに必要な最小回数（nil＝金額付きカプセルを出さない）。
+    var amountMinCount: Int? = 3
+    /// true＝最近使った順、false＝よく使う順。
+    var sortByRecency: Bool = false
+    /// 繰り返し決済（nRepeat>0）も候補に含めるか。
+    var includeRepeat: Bool = false
+    /// 候補にするラベルの最小利用回数。
+    var minUses: Int = 1
+    /// 金額付きカプセルがあるとき、金額なしの基本カプセルを隠すか。
+    var hideBaseWhenAmounts: Bool = false
+
+    static let `default` = FrequentPaymentConfig()
+}
+
 /// 「よくある決済」候補の生成。カプセル表示（RecordEditView）と音声入力の補塡
 /// （TopMenuView）で共有する。※このファイルは既にプロジェクト登録済みのため、
 /// 新規ファイルを増やさずここに置く。
 enum FrequentPaymentBuilder {
-    /// 直近1年・繰り返し以外の過去レコードから候補を組み立てる。
-    /// - pastRecords: dateUse 降順で渡すこと（1年境界で打ち切るため）。
-    static func build(from pastRecords: [E3record], limit: Int = 60) -> [FrequentPayment] {
+    /// 設定期間内・繰り返し以外の過去レコードから候補を組み立てる。
+    /// - pastRecords: dateUse 降順で渡すこと（期間境界で打ち切るため）。
+    static func build(from pastRecords: [E3record],
+                      config: FrequentPaymentConfig = .default,
+                      limit: Int = 60) -> [FrequentPayment] {
         /// 決済手段・タグ・最近性を集計する共通の入れ物。ラベル全体（基本カプセル）と
         /// 金額別サブ集計（金額付きカプセル）の両方で使う。
         struct Agg {
@@ -85,11 +105,11 @@ enum FrequentPaymentBuilder {
         }
         var buckets: [String: Bucket] = [:]
         let now = Date()
-        let cutoff = Calendar.current.date(byAdding: .year, value: -1, to: now) ?? .distantPast
+        let cutoff = Calendar.current.date(byAdding: .month, value: -config.periodMonths, to: now) ?? .distantPast
 
         for record in pastRecords {
             if record.dateUse < cutoff { break }
-            if record.nRepeat > 0 { continue }
+            if !config.includeRepeat && record.nRepeat > 0 { continue }
             let label = record.zName.trimmingCharacters(in: .whitespacesAndNewlines)
             if label.isEmpty { continue }
             let when = record.dateUpdate ?? record.dateUse
@@ -103,26 +123,42 @@ enum FrequentPaymentBuilder {
             buckets[label] = b
         }
 
+        // 並び順スコア。よく使う順＝頻度＋最近性、最近使った順＝最終利用日そのもの。
+        // どちらも大きいほど先頭（降順ソート）。
         func score(of agg: Agg) -> Double {
+            if config.sortByRecency {
+                return agg.latest.timeIntervalSince1970
+            }
             let days = max(0, now.timeIntervalSince(agg.latest) / 86_400)
             let recency = 1.0 / (1.0 + days / 30.0)
             return Double(agg.count) + recency
         }
 
-        // ラベルごとに「金額なしの基本カプセル」＋「3回以上出た金額ごとのカプセル」を作る。
+        // ラベルごとに「金額なしの基本カプセル」＋「設定回数以上出た金額ごとのカプセル」を作る。
         // 金額なしと金額違いは別カプセルにするので、(ETC ¥210)(ETC)(ETC ¥500) のように並ぶ。
         var candidates: [FrequentPayment] = []
         for (label, b) in buckets {
-            candidates.append(FrequentPayment(
-                id: FrequentPayment.makeID(label: label, amount: nil),
-                label: label, cardID: b.overall.topCardID, tagIDs: b.overall.topTagIDs,
-                amount: nil, score: score(of: b.overall)))
-            for (amount, sub) in b.byAmount where sub.count >= 3 {
-                candidates.append(FrequentPayment(
-                    id: FrequentPayment.makeID(label: label, amount: amount),
-                    label: label, cardID: sub.topCardID, tagIDs: sub.topTagIDs,
-                    amount: amount, score: score(of: sub)))
+            // 利用回数が最小利用回数に満たないラベルは候補にしない（一度きり等のノイズ除去）。
+            if b.overall.count < config.minUses { continue }
+            // 金額付きカプセルは設定で無効化できる（amountMinCount == nil）。
+            var amountCaps: [FrequentPayment] = []
+            if let minCount = config.amountMinCount {
+                for (amount, sub) in b.byAmount where sub.count >= minCount {
+                    amountCaps.append(FrequentPayment(
+                        id: FrequentPayment.makeID(label: label, amount: amount),
+                        label: label, cardID: sub.topCardID, tagIDs: sub.topTagIDs,
+                        amount: amount, score: score(of: sub)))
+                }
             }
+            // 金額なしの基本カプセルは、設定ONかつ金額付きが1つ以上あるときは隠す。
+            let hideBase = config.hideBaseWhenAmounts && !amountCaps.isEmpty
+            if !hideBase {
+                candidates.append(FrequentPayment(
+                    id: FrequentPayment.makeID(label: label, amount: nil),
+                    label: label, cardID: b.overall.topCardID, tagIDs: b.overall.topTagIDs,
+                    amount: nil, score: score(of: b.overall)))
+            }
+            candidates.append(contentsOf: amountCaps)
         }
 
         return candidates.sorted { $0.score > $1.score }.prefix(limit).map { $0 }
@@ -136,6 +172,125 @@ enum FrequentPaymentBuilder {
         guard !key.isEmpty else { return nil }
         let matches = candidates.filter { $0.label.compare(key, options: .caseInsensitive) == .orderedSame }
         return matches.first { $0.amount == nil } ?? matches.first
+    }
+}
+
+extension Color {
+    /// 決済手段IDから安定した色を作る（E1card は色属性を持たないため、IDを
+    /// 決定的にハッシュして色相を決める）。同じ手段は常に同じ色になる。
+    static func frequentCardColor(for id: String) -> Color {
+        var hash: UInt64 = 1469598103934665603          // FNV-1a offset basis
+        for byte in id.utf8 { hash = (hash ^ UInt64(byte)) &* 1099511628211 }
+        let hue = Double(hash % 360) / 360.0
+        // 文字色・枠色としても読めるよう、やや濃いめ（薄い塗りは .opacity で作る）
+        return Color(hue: hue, saturation: 0.70, brightness: 0.72)
+    }
+}
+
+// MARK: - Frequent Payments Settings Sheet
+
+/// 「よくある決済」パネルの歯車から開く設定シート。抽出条件とカプセル表示を選ぶ。
+/// プルダウンは AZDropdownPicker（アプリ内文字サイズ設定に追従）。@AppStorage を
+/// 直接読み書きするので、閉じると親のカプセルが組み直る。
+private struct FrequentPaymentSettingsSheet: View {
+    /// 同時に開くプルダウンは1つだけにするための識別子
+    private enum DropdownKind { case period, minUses, amount, sort }
+
+    @Environment(\.dismiss) private var dismiss
+    @AppStorage(AppStorageKey.fontScale)          private var fontScale: FontScale = .system
+    @AppStorage(AppStorageKey.frequentPeriod)     private var frequentPeriod: FrequentPeriod = .year1
+    @AppStorage(AppStorageKey.frequentAmountRule) private var frequentAmountRule: FrequentAmountRule = .threePlus
+    @AppStorage(AppStorageKey.frequentSortOrder)  private var frequentSortOrder: FrequentSortOrder = .frequency
+    @AppStorage(AppStorageKey.frequentIncludeRepeat)       private var frequentIncludeRepeat = false
+    @AppStorage(AppStorageKey.frequentMinUses)            private var frequentMinUses: FrequentMinUses = .one
+    @AppStorage(AppStorageKey.frequentHideBaseWhenAmounts) private var frequentHideBaseWhenAmounts = false
+    @AppStorage(AppStorageKey.frequentShowCardColor)      private var frequentShowCardColor = false
+    @State private var expandedDropdown: DropdownKind?
+
+    /// ポップオーバー候補一覧の文字サイズ（自動追従なら nil）
+    private var dropdownDynamicTypeSize: DynamicTypeSize? {
+        fontScale.followsSystem ? nil : fontScale.dynamicTypeSize
+    }
+
+    /// 「同時に1つだけ開く」を実現するトグル用バインディング
+    private func dropdownBinding(_ kind: DropdownKind) -> Binding<Bool> {
+        Binding(
+            get: { expandedDropdown == kind },
+            set: { isOpen in
+                if isOpen { expandedDropdown = kind }
+                else if expandedDropdown == kind { expandedDropdown = nil }
+            }
+        )
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                // 表示条件：カプセルの見せ方（抽出条件より先に見せる）
+                Section {
+                    dropdownRow("settings.frequent.amount",
+                                options: FrequentAmountRule.allCases,
+                                selection: $frequentAmountRule, kind: .amount) { $0.localizedKey }
+                    // 金額付きカプセルを出さない設定のときは、隠す対象がないので無効化する
+                    Toggle("settings.frequent.hideBase", isOn: $frequentHideBaseWhenAmounts)
+                        .disabled(frequentAmountRule == .off)
+                    Toggle("settings.frequent.showCardColor", isOn: $frequentShowCardColor)
+                    dropdownRow("settings.frequent.sort",
+                                options: FrequentSortOrder.allCases,
+                                selection: $frequentSortOrder, kind: .sort) { $0.localizedKey }
+                } header: {
+                    Text("settings.frequent.section.display")
+                }
+
+                // 抽出条件：どの実績を候補にするか
+                Section {
+                    dropdownRow("settings.frequent.period",
+                                options: FrequentPeriod.allCases,
+                                selection: $frequentPeriod, kind: .period) { $0.localizedKey }
+                    dropdownRow("settings.frequent.minUses",
+                                options: FrequentMinUses.allCases,
+                                selection: $frequentMinUses, kind: .minUses) { $0.localizedKey }
+                    Toggle("settings.frequent.includeRepeat", isOn: $frequentIncludeRepeat)
+                } header: {
+                    Text("settings.frequent.section.filter")
+                } footer: {
+                    Text("record.frequent.settings.footer")
+                }
+            }
+            .navigationTitle("record.frequent.settings.title")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("common.close") { dismiss() }
+                }
+            }
+        }
+    }
+
+    /// 見出し＋AZDropdownPicker の1行。狭い時は AZAdaptiveControlRow が2段に折る。
+    /// 候補一覧はポップオーバーで環境を失うため、文字サイズを明示適用する。
+    @ViewBuilder
+    private func dropdownRow<Option: Hashable & Identifiable>(
+        _ titleKey: LocalizedStringKey,
+        options: [Option],
+        selection: Binding<Option>,
+        kind: DropdownKind,
+        optionKey: @escaping (Option) -> String
+    ) -> some View {
+        AZAdaptiveControlRow {
+            Text(titleKey)
+        } control: {
+            AZDropdownPicker(
+                options: options,
+                selection: selection,
+                isExpanded: dropdownBinding(kind),
+                minWidth: 200,
+                popoverDynamicTypeSize: dropdownDynamicTypeSize
+            ) { option in
+                Text(LocalizedStringKey(optionKey(option)))
+            }
+        }
+        .zIndex(expandedDropdown == kind ? 60 : 0)
     }
 }
 
@@ -235,6 +390,16 @@ struct RecordEditView: View {
     private var didPickFrequentPayment: Bool { pickedFrequentID != nil }
     /// 「よくある決済」帯の表示行数（1〜5）。ハンドルのドラッグで変更し永続化する
     @AppStorage(AppStorageKey.frequentPaymentRows) private var frequentRows = 3
+    /// パネル設定：ラベル抽出期間／金額表示条件／並び順ほか（設定シートで変更・永続化）
+    @AppStorage(AppStorageKey.frequentPeriod)     private var frequentPeriod: FrequentPeriod = .year1
+    @AppStorage(AppStorageKey.frequentAmountRule) private var frequentAmountRule: FrequentAmountRule = .threePlus
+    @AppStorage(AppStorageKey.frequentSortOrder)  private var frequentSortOrder: FrequentSortOrder = .frequency
+    @AppStorage(AppStorageKey.frequentIncludeRepeat)       private var frequentIncludeRepeat = false
+    @AppStorage(AppStorageKey.frequentMinUses)            private var frequentMinUses: FrequentMinUses = .one
+    @AppStorage(AppStorageKey.frequentHideBaseWhenAmounts) private var frequentHideBaseWhenAmounts = false
+    @AppStorage(AppStorageKey.frequentShowCardColor)      private var frequentShowCardColor = false
+    /// 「よくある決済」設定シートの表示状態
+    @State private var showFrequentSettings = false
     /// カプセル1行分の実測高さ（フォント設定で変わるため実測する）。0の間は目安値を使う
     @State private var frequentCapsuleHeight: CGFloat = 0
     /// ドラッグ開始時点の行数（グローバル座標の移動量から目標行数を算出する基準）
@@ -561,6 +726,10 @@ private var isValid: Bool {
             // レコード集合が変わったときだけ再計算する
             refreshDerivedCaches()
         }
+        .onChange(of: frequentConfig) { _, _ in
+            // パネル設定（期間・金額表示条件・並び順）が変わったらカプセルを組み直す
+            cachedFrequentPayments = buildFrequentPayments()
+        }
         .sheet(isPresented: $showAmountPad, onDismiss: {
             // 自動表示ONの時、金額未入力のままテンキーを閉じると新規入力画面ごと閉じる。
             // ただし「よくある決済」カプセルが使える状況（帯が表示・または選択済み）では、
@@ -742,6 +911,12 @@ private var isValid: Bool {
             .modifier(ConditionalDynamicTypeModifier(fontScale: fontScale))
             // タグ選択シートは背面を透かさず、候補一覧を読みやすくする
             .presentationBackground(Color(uiColor: .systemBackground))
+        }
+        .sheet(isPresented: $showFrequentSettings) {
+            FrequentPaymentSettingsSheet()
+                .modifier(ConditionalDynamicTypeModifier(fontScale: fontScale))
+                .presentationDetents([.medium, .large])
+                .presentationBackground(Color(uiColor: .systemGroupedBackground))
         }
         .overlay(alignment: .top) {
             if savedBanner {
@@ -1423,6 +1598,16 @@ private var isValid: Bool {
             return true
         }()
         let isFirst = fp.id == cachedFrequentPayments.first?.id
+        // 設定ONのときは、決済手段の色（IDから一意生成）でカプセルを色分けする。
+        // 丸ドットは幅を食うので使わず、文字色・枠色・薄い塗りで表現する。
+        let cardTint: Color? = frequentShowCardColor
+            ? fp.cardID.map { Color.frequentCardColor(for: $0) } : nil
+        let fillColor: Color = isSelected ? Color.accentColor
+            : (cardTint.map { $0.opacity(0.16) } ?? Color(.secondarySystemBackground))
+        let labelColor: Color = isSelected ? Color.white
+            : (cardTint ?? Color.accentColor)
+        let borderColor: Color = isSelected ? Color.clear
+            : (cardTint?.opacity(0.7) ?? Color.accentColor.opacity(0.35))
         Button {
             applyFrequentPayment(fp)
         } label: {
@@ -1448,11 +1633,11 @@ private var isValid: Bool {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 7)
                 .background(
-                    Capsule().fill(isSelected ? Color.accentColor : Color(.secondarySystemBackground))
+                    Capsule().fill(fillColor)
                 )
-                .foregroundStyle(isSelected ? Color.white : Color.accentColor)
+                .foregroundStyle(labelColor)
                 .overlay(
-                    Capsule().stroke(Color.accentColor.opacity(isSelected ? 0 : 0.35), lineWidth: 1)
+                    Capsule().stroke(borderColor, lineWidth: 1)
                 )
                 .background {
                     // 実際のカプセル高さを1つだけ測って行高に使う（フォント設定に追従）
@@ -1501,6 +1686,25 @@ private var isValid: Bool {
                             }
                     )
                     .accessibilityLabel(Text("record.frequent.resize.a11y"))
+
+                // 左端：パネルの設定を開く歯車。達人モードのときだけ表示する
+                // （初心者には項目が多く負担なので出さない）。
+                if userLevel != .beginner {
+                    HStack {
+                        Button {
+                            showFrequentSettings = true
+                        } label: {
+                            Image(systemName: "slider.horizontal.3")
+                                .font(.subheadline)
+                                .foregroundStyle(Color.accentColor)
+                                .frame(width: 32, height: 32)     // 押しやすいタップ領域
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(Text("record.frequent.settings.title"))
+                        Spacer()
+                    }
+                }
 
                 // 右端：達人モードのときは、ここにヘルプアイコンを出す
                 // （初心者モードはヘッダー側に出るので二重に出さない）。
@@ -2449,9 +2653,21 @@ private var isValid: Bool {
         cachedFrequentPayments = buildFrequentPayments()
     }
 
+    /// パネル設定（期間・金額表示条件・並び順）を候補生成の設定に変換する。
+    private var frequentConfig: FrequentPaymentConfig {
+        FrequentPaymentConfig(
+            periodMonths:        frequentPeriod.months,
+            amountMinCount:      frequentAmountRule.minCount,
+            sortByRecency:       frequentSortOrder == .recency,
+            includeRepeat:       frequentIncludeRepeat,
+            minUses:             frequentMinUses.count,
+            hideBaseWhenAmounts: frequentHideBaseWhenAmounts
+        )
+    }
+
     /// 「よくある決済」カプセル候補を過去レコードから組み立てる（共通ロジックに委譲）。
     private func buildFrequentPayments() -> [FrequentPayment] {
-        FrequentPaymentBuilder.build(from: pastRecords)
+        FrequentPaymentBuilder.build(from: pastRecords, config: frequentConfig)
     }
 
     /// 見出しと値を、収まる場合は1行、収まらない場合は2行で表示する共通セル
