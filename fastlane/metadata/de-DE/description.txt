@@ -1,4 +1,4 @@
-Eine Merk-App für spätere Abbuchungen
+Spätere Abbuchungen prüfen
 
 Deferin erfasst und verwaltet Zahlungen aller Art – Kreditkarten, Debitkarten, E-Geld und mehr. Version 2 wurde mit der neuesten iOS-Technik von Grund auf neu entwickelt, für flüssige Leistung und einfache Bedienung.
 

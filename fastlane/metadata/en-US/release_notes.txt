@@ -1,5 +1,10 @@
-What's new in 2.5.2
-- Added an "Open on launch" setting: choose Do Nothing, Main Menu, New Payment by Voice, New Payment, or Payment List.
-- Copying a payment now carries over the amount too.
-- The "Copy from list" panel now remembers whether you left it open or closed.
-- Clearer guidance around unsaved copied drafts.
+What's new in 2.6.0
+- Added "Frequent Payments" as an input aid for a new payment.
+　- Pick a frequently used label to fill in the payment method and tags at once.
+　- If you've used the same amount three or more times for a label, the amount is filled in too.
+　- You can switch to the classic "Copy from Payment List" or "None" in Settings.
+- New Payment by Voice now fills in the method, tags, and (for amounts used three or more times) the amount from the label as well.
+- When paid records older than three years pile up, we'll suggest tidying up your data.
+　- It exports before deleting, so you can restore by importing.
+- In Payment Status, unpaid items older than one year are flagged with a caution icon.
+　- Tap the icon to show those older unpaid items.

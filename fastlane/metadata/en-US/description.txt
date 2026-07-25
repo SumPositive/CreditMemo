@@ -1,4 +1,4 @@
-A memo app for later debits
+Check your later debits
 
 Deferin records and manages payments across every method — credit cards, debit cards, e-money and more. Version 2 was rebuilt from the ground up with the latest iOS technology for smooth performance and easy operation.
 

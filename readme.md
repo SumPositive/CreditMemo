@@ -34,8 +34,31 @@
 
 ![Platform](https://img.shields.io/badge/platform-iOS%2018%2B-blue)
 ![Swift](https://img.shields.io/badge/Swift-6-orange)
-![Version](https://img.shields.io/badge/version-2.5.2-brightgreen)
+![Version](https://img.shields.io/badge/version-2.6.0-brightgreen)
 [![App Store](https://img.shields.io/badge/App%20Store-Download-blue)](https://apps.apple.com/us/app/id432458298)
+
+## バージョン 2.6.0 の主な変更
+
+- **新しい決済の入力補助「よくある決済」を追加**
+  - 金額欄の上に、過去実績から作った「よくある決済」カプセルを表示（`FrequentPaymentBuilder`）
+  - 集計は利用日が直近1年・繰り返し（`nRepeat>0`）を除外し、ラベル(`zName`)で集約。頻度×最近性でランク（上限60）
+  - カプセルをタップすると、ラベル・決済手段・タグを上書きプリセット。再タップで解除
+  - 同じ金額を3回以上使ったラベルは代表金額を採用し、`ラベル ¥金額` 表示＋選択時に金額もセット（手入力があれば尊重）
+  - レイアウトは `AZFlowLayout` に `packToFill` を追加し、行末余白に収まる後続カプセルを最小限繰り上げて詰める。長文で金額付きはラベルを…で省略し金額を右端に残す
+  - 帯はハンドルの上下ドラッグで1〜10行に高さ可変（`frequentPaymentRows` で永続化・初期3行）
+  - タイトルは初心者モードのみ表示、ヘッダ／ハンドル右にヘルプアイコン
+- **設定「新しい決済の補助」を追加**
+  - `なし` / `決済一覧からコピー` / `よくある決済`（既定）から選択（`NewPaymentAssist`）
+  - 従来の類似コピー欄は `決済一覧からコピー` 選択時のみ表示
+- **音声で新しい決済にも「よくある決済」補塡**
+  - 認識ラベルが候補と完全一致したら、未指定の決済手段・タグ・（3回以上同額の）金額をプリセット（`FrequentPaymentBuilder` を共有）
+  - 金額必須を緩和し、金額入力または補塡があれば保存（金額0は下書き）。`addQuickRecord` にタグ引数を追加
+- **テンキー自動表示を更新時に一度だけ OFF**
+  - 「よくある決済」導入に合わせ、`autoOpenAmountPad` を初回起動で強制 OFF（`didForceOffAutoOpenAmountPad` で二重適用防止）。以降は設定で自由に変更可
+- **古い決済データの整理を案内**（3年より古い引き落とし済み）
+  - 溜まったら適時、エクスポートしてから削除する整理を案内（インポートで復元可能）
+- **引き落とし状況：1年より古い未払は注意アイコンで通知**
+  - 「未払」帯の右端に注意アイコンを表示。タップで確認アラート → 古い未払も表示できる
 
 ## バージョン 2.5.2 の主な変更
 
