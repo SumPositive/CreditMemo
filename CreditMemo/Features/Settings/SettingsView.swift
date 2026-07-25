@@ -22,6 +22,7 @@ struct SettingsView: View {
     @AppStorage(AppStorageKey.afterSaveAction)   private var afterSaveAction: AfterSaveAction = .goBack
     @AppStorage(AppStorageKey.launchAction)      private var launchActionRaw = LaunchAction.none.rawValue
     @AppStorage(AppStorageKey.autoOpenAmountPad) private var autoOpenAmountPad = true
+    @AppStorage(AppStorageKey.newPaymentAssist)  private var newPaymentAssist: NewPaymentAssist = .frequent
     @AppStorage(AppStorageKey.enableTwoPayments) private var enableTwoPayments = false
     @AppStorage(AppStorageKey.enableVoiceInput)  private var enableVoiceInput = true
     @AppStorage(AppStorageKey.shareVoiceInputDiagnostics) private var shareVoiceInputDiagnostics = false
@@ -195,6 +196,24 @@ struct SettingsView: View {
                         }
                     }
                     .zIndex(expandedDropdown == .launchAction ? 60 : 0)
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    AZAdaptiveControlRow {
+                        settingTitle("settings.newPaymentAssist", help: "settings.help.newPaymentAssist")
+                            .fixedSize(horizontal: false, vertical: true)
+                    } control: {
+                        AZDropdownPicker(
+                            options: NewPaymentAssist.allCases,
+                            selection: $newPaymentAssist,
+                            isExpanded: dropdownBinding(.newPaymentAssist),
+                            minWidth: 210,
+                            popoverDynamicTypeSize: dropdownDynamicTypeSize
+                        ) { assist in
+                            Text(LocalizedStringKey(assist.localizedKey))
+                        }
+                    }
+                    .zIndex(expandedDropdown == .newPaymentAssist ? 60 : 0)
                 }
 
                 Toggle(isOn: $autoOpenAmountPad) {
@@ -658,6 +677,7 @@ private enum SettingsDropdownKind {
     case afterSave
     case paymentWindow
     case launchAction
+    case newPaymentAssist
 }
 
 private struct PaymentWindowOption: Hashable, Identifiable {

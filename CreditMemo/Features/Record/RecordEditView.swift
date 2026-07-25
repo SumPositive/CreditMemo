@@ -74,6 +74,7 @@ struct RecordEditView: View {
     @AppStorage(AppStorageKey.fontScale)         private var fontScale: FontScale = .system
     @AppStorage(AppStorageKey.autoOpenAmountPad) private var autoOpenAmountPad = true
     @AppStorage(AppStorageKey.enableTwoPayments) private var enableTwoPayments = false
+    @AppStorage(AppStorageKey.newPaymentAssist)  private var newPaymentAssist: NewPaymentAssist = .frequent
 
     @State private var dateUse:    Date     = Date()
     @State private var zName:      String   = ""
@@ -289,6 +290,8 @@ private var isValid: Bool {
 
     /// 決済一覧からコピーセクションを出すかどうか。メインメニューから開いた新規追加時のみ表示する。
     private var showsSimilarSection: Bool {
+        // 入力補助として「決済一覧からコピー」を選んでいるときだけ出す
+        guard newPaymentAssist == .copyFromList else { return false }
         guard isFromMainMenu else { return false }
         if case .addCopy = mode { return false }
         return true
@@ -297,6 +300,8 @@ private var isValid: Bool {
     /// 「よくある決済」カプセル帯を出すかどうか。
     /// 新規追加時のみ、候補が3件以上そろったときだけ表示する（初期＝履歴が無ければ出さない）。
     private var showsFrequentSection: Bool {
+        // 入力補助として「よくある決済」を選んでいるときだけ出す
+        guard newPaymentAssist == .frequent else { return false }
         guard isNew else { return false }
         if case .addCopy = mode { return false }
         return cachedFrequentPayments.count >= 3
@@ -1350,30 +1355,45 @@ private var isValid: Bool {
     /// 動いても指と連動が崩れないようにするため）。
     @ViewBuilder private var frequentResizeHandle: some View {
         if cachedFrequentPayments.count > 1 {
-            Capsule()
-                .fill(Color(.tertiaryLabel))
-                .frame(width: 40, height: 5)
-                .frame(maxWidth: .infinity)   // 中央寄せ＋タップ領域を横いっぱいに
-                .padding(.vertical, 8)
-                .contentShape(Rectangle())
-                .gesture(
-                    DragGesture(minimumDistance: 2, coordinateSpace: .global)
-                        .onChanged { value in
-                            let start = frequentRowsAtDragStart ?? frequentRows
-                            if frequentRowsAtDragStart == nil { frequentRowsAtDragStart = start }
-                            // 開始行数＋（移動量÷1行分）を四捨五入して目標行数に
-                            let delta = Int((value.translation.height / frequentRowStride).rounded())
-                            let target = min(max(start + delta, 1), frequentMaxRows)
-                            if target != frequentRows {
-                                frequentRows = target
-                                UISelectionFeedbackGenerator().selectionChanged()
+            ZStack {
+                // 中央：高さ変更ハンドル
+                Capsule()
+                    .fill(Color(.tertiaryLabel))
+                    .frame(width: 40, height: 5)
+                    .frame(maxWidth: .infinity)   // 中央寄せ＋タップ領域を横いっぱいに
+                    .padding(.vertical, 8)
+                    .contentShape(Rectangle())
+                    .gesture(
+                        DragGesture(minimumDistance: 2, coordinateSpace: .global)
+                            .onChanged { value in
+                                let start = frequentRowsAtDragStart ?? frequentRows
+                                if frequentRowsAtDragStart == nil { frequentRowsAtDragStart = start }
+                                // 開始行数＋（移動量÷1行分）を四捨五入して目標行数に
+                                let delta = Int((value.translation.height / frequentRowStride).rounded())
+                                let target = min(max(start + delta, 1), frequentMaxRows)
+                                if target != frequentRows {
+                                    frequentRows = target
+                                    UISelectionFeedbackGenerator().selectionChanged()
+                                }
                             }
-                        }
-                        .onEnded { _ in
-                            frequentRowsAtDragStart = nil
-                        }
-                )
-                .accessibilityLabel(Text("record.frequent.resize.a11y"))
+                            .onEnded { _ in
+                                frequentRowsAtDragStart = nil
+                            }
+                    )
+                    .accessibilityLabel(Text("record.frequent.resize.a11y"))
+
+                // 右端：達人モードのときは、ここにヘルプアイコンを出す
+                // （初心者モードはヘッダー側に出るので二重に出さない）。
+                if userLevel != .beginner {
+                    HStack {
+                        Spacer()
+                        BeginnerHintView(
+                            detailTitleKey: "record.frequent.section.title",
+                            detailMessageKey: "record.frequent.help"
+                        )
+                    }
+                }
+            }
         }
     }
 

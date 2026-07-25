@@ -27,6 +27,8 @@ enum AppStorageKey {
     static let similarSectionExpanded = "setting.similarSectionExpanded"
     /// 「よくある決済」カプセル帯の表示行数（1〜10）。ハンドルのドラッグで変更・永続化。既定3
     static let frequentPaymentRows = "setting.frequentPaymentRows"
+    /// 新しい決済の入力補助（なし／決済一覧からコピー／よくある決済）。既定はよくある決済
+    static let newPaymentAssist = "setting.newPaymentAssist"
     /// 引き落とし日が土日祝なら翌営業日へ繰り下げる（日本ロケール・締日/支払日型のみ）
     static let shiftDueDateOffHoliday = "setting.shiftDueDateOffHoliday"
     static let paymentWindowDays = "setting.paymentWindowDays"
@@ -206,6 +208,24 @@ enum LaunchAction: String, CaseIterable, Identifiable {
             return .newPayment
         }
         return .none
+    }
+}
+
+/// 新しい決済画面で、金額欄の上に出す入力補助。
+/// 「よくある決済」カプセルか、「決済一覧からコピー」セクションかを選ぶ（既定はよくある決済）。
+enum NewPaymentAssist: String, CaseIterable, Identifiable {
+    case none        = "none"          // 補助なし
+    case copyFromList = "copyFromList" // 決済一覧からコピー（類似候補）
+    case frequent    = "frequent"      // よくある決済（既定）
+
+    var id: String { rawValue }
+
+    var localizedKey: String {
+        switch self {
+        case .none:         "settings.newPaymentAssist.none"
+        case .copyFromList: "settings.newPaymentAssist.copyFromList"
+        case .frequent:     "settings.newPaymentAssist.frequent"
+        }
     }
 }
 

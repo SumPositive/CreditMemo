@@ -1809,11 +1809,16 @@ fastlane upload_screenshots     # スクショ Upload
 【ページ送り撤回 2026-07-25】「行数でページを考えたい・行末欠けは縦スクロールで」の要望により、固定12件ページング＋「次＞」カプセルを廃止。cachedFrequentPayments全件(最大60)を左寄せ折り返しで並べ、frequentRows行ぶんの高さにクリップ＋縦スクロールで続きを見せる方式に統一。frequentPage/PageSize/PageCount/PageItems/showsFrequentNext/frequentNextCapsule と record.frequent.next キーを削除。
 【調整 2026-07-25】①負荷対策：buildFrequentPaymentsの集計を利用日dateUse直近1年に限定（pastRecordsはdateUse降順なのでcutoff未満でbreak＝古い行のリレーション展開も回避。1年制限は最重量のO(n)走査に効く／prefix(60)は集計後で効果薄）。②パネルタイトル(record.frequent.section.title)は初心者モード(userLevel==.beginner)のヘッダでのみ表示。③frequentMaxRows 5→10。④ヘッダ右にヘルプアイコン：BeginnerHintView(detailTitleKey:section.title, detailMessageKey:新キーrecord.frequent.help)。⑤繰り返し決済(nRepeat>0)は頻度に数えない＝buildFrequentPaymentsで continue 除外（元も自動生成コピーもnRepeat引継ぎで両方nRepeat>0のため一律除外できる）。
 【金額付きカプセル 2026-07-25】同ラベルで同じ金額が3回以上あれば代表金額を採用しカプセルを「ラベル ¥金額」表示。FrequentPaymentにamount:Decimal?追加、Bucket.amountCounts[Decimal:Int]で集計（0=未入力は対象外）、最頻金額count>=3でamount採用。選択時は金額未入力(nAmount==0)のときだけセット＝手入力を尊重（ユーザー選択：空欄時のみ）。再タップ解除では金額付きなら金額も0に戻す。
+【初期表示3行 2026-07-25】frequentRowsの@AppStorage既定を1→3（既に触った端末は保存値優先で不変）。
+【補助機能の設定 2026-07-25】設定「新しい決済の補助」で[なし/決済一覧からコピー/よくある決済]を選択、既定=よくある決済。enum NewPaymentAssist(AppSettings)、AppStorageKey.newPaymentAssist。RecordEditViewでshowsSimilarSectionは.copyFromList時のみ・showsFrequentSectionは.frequent時のみに条件追加。SettingsViewにAZDropdownPicker追加（テンキー自動表示Toggleの上、SettingsDropdownKind.newPaymentAssist追加）。新キー settings.newPaymentAssist(+help)/.none/.copyFromList/.frequent。
 
-
+設定：新しい決済の補助機能：[なし、決済一覧からコピー、よくある決済]から選択できるようにしたい、デフォルトはよくある決済
+ヘルプ「金額欄の上に出す入力補助を・・・」を「新しい決済の入力補助を・・・」に変更
 
 --------------------------------
 2.6.0 新機能
+- 新しい決済の入力補助機能に「よくある決済」が加わりました
+　・設定画面で従来の「決済一覧からコピー」や「なし」に切り替えることができます
 - 引き落とし済みで３年より古いデータが溜まると適時、データ整理を促します
 　・エキスポートして削除しますので、インポートして復元ができます
 - 引き落とし状況：1年より古い未払は確認表示せず、注意アイコンを表示します
