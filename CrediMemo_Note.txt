@@ -1825,9 +1825,19 @@ fastlane upload_screenshots     # スクショ Upload
 record.frequent.help、settings.help.newPaymentAssist を修正したので多言語にも反映して
 azukid.comパネル：クレメモ Deferin のサブタイトルを　後日引き落とし確認アプリ　に変えたい
 
+新しい決済：よくある決済：同じ金額が3回以上あれば金額も表示する場合、金額なしと金額違いは別ラベルとして表示したい　（ETC ¥210）（ETC）（ETC ¥500）　のような感じ
+【金額違いを別カプセルに 2026-07-26】1ラベル1カプセル→「金額なしの基本カプセル」＋「3回以上出た金額ごとのカプセル」に分割。Builderを共通集計Aggに整理しBucket{overall, byAmount:[Decimal:Agg]}へ。基本カプセルはラベル全体の最頻手段/タグ、金額付きは各金額サブ集計の最頻手段/タグを採用。FrequentPayment.id をラベルのみ→FrequentPayment.makeID(ラベル+US区切り+金額)で一意化。選択管理を didPickFrequentPayment(Bool)→pickedFrequentID(String?)に変更(didPick～はpickedFrequentID!=nilの計算プロパティで互換維持)、強調/再タップ判定を id 一致に。金額付きカプセルは明示指定なので手入力済みでも金額を上書き(基本カプセルは金額に触れない)。resetFormでpickedFrequentIDクリア。
+【音声補塡は金額を補塡しない 2026-07-26】音声は金額を自分で言うので、saveVoiceRecordのfp.amount採用ブロックを削除（手段・タグのみ補塡）。matchは金額なしの基本カプセル(amount==nil)を優先して返すよう変更（ラベル全体の代表手段/タグ）。amountはvar→let。
+
 fastlane screenshots で次の画面を更新したい
 - 新しい決済：よくある決済に次のラベル（カプセル）を表示して見せたい
 　　（Suicaチャージ）（ETC）（Rpayチャージ）（PayPayチャージ）
+
+よくある決済パネルハンドルの左端に設定アイコンを配置し、設定シートを開き次の項目を表示する
+- ラベル抽出期間：プルダウンリスト[３ヶ月、６ヶ月、１年、２年、３年]（デフォルト １年）
+- 金額を表示：プルダウンリスト[しない、同額が３回以上、同額が５回以上]（デフォルト 同額が３回以上）
+- 表示順：プルダウンリスト[よく使う順、最近使った順]（デフォルト よく使う順）
+
 
 
 --------------------------------

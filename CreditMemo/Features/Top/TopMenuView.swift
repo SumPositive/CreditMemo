@@ -405,11 +405,11 @@ struct TopMenuView: View {
     }
 
     private func saveVoiceRecord(_ payload: VoiceApplyPayload) {
-        var amount = (payload.amount ?? .zero).roundedAmount()
+        let amount = (payload.amount ?? .zero).roundedAmount()
         let usePoint = payload.label?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
-        // 「よくある決済」補塡：ラベルが過去のよく使う決済と一致したら、
-        // 未指定の手段・タグ・（3回以上同額の）金額をプリセットする。
+        // 「よくある決済」補塡：ラベルが過去のよく使う決済と一致したら、未指定の手段・タグを
+        // プリセットする。金額は音声で言った値をそのまま使い、補塡はしない。
         var card = payload.card
         var selectedTags: [E5tag] = []
         if !usePoint.isEmpty {
@@ -421,10 +421,6 @@ struct TopMenuView: View {
                 }
                 // タグ：候補のタグを全タグ(@Query tags)からIDで引いて採用（音声はタグを持たない）
                 selectedTags = fp.tagIDs.compactMap { id in tags.first { $0.id == id } }
-                // 金額：音声で言わなかった場合のみ、代表金額があれば採用
-                if amount == 0, let a = fp.amount {
-                    amount = a.roundedAmount()
-                }
             }
         }
 

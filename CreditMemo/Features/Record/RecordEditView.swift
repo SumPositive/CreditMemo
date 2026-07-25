@@ -33,12 +33,18 @@ extension RecordEditMode: Equatable {
 /// そのラベルで最もよく使われる手段・タグを代表値として持つ。金額は保持しない
 /// （金額はその場でテンキー入力する運用のため）。
 struct FrequentPayment: Identifiable {
-    let id: String            // ラベル（zName）をそのまま識別子にする
+    let id: String            // 同じラベルでも金額違いを区別するため「ラベル＋金額」で一意化
     let label: String
     let cardID: String?       // 代表の決済手段
     let tagIDs: [String]      // 代表のタグ
     let amount: Decimal?      // 同じ金額が3回以上あるときの代表金額（なければ nil）
     let score: Double         // 頻度×最近性の並び替え用スコア
+
+    /// ラベルと金額から一意な id を作る（金額なしはラベルのみ）。
+    static func makeID(label: String, amount: Decimal?) -> String {
+        guard let amount else { return label }
+        return "\(label)\u{1F}\(amount)"   // Unit Separator でラベルと衝突させない
+    }
 }
 
 /// 「よくある決済」候補の生成。カプセル表示（RecordEditView）と音声入力の補塡
@@ -48,13 +54,34 @@ enum FrequentPaymentBuilder {
     /// 直近1年・繰り返し以外の過去レコードから候補を組み立てる。
     /// - pastRecords: dateUse 降順で渡すこと（1年境界で打ち切るため）。
     static func build(from pastRecords: [E3record], limit: Int = 60) -> [FrequentPayment] {
-        struct Bucket {
+        /// 決済手段・タグ・最近性を集計する共通の入れ物。ラベル全体（基本カプセル）と
+        /// 金額別サブ集計（金額付きカプセル）の両方で使う。
+        struct Agg {
             var count = 0
             var cardCounts: [String: Int] = [:]
             var tagSetCounts: [String: Int] = [:]
             var tagSets: [String: [String]] = [:]
-            var amountCounts: [Decimal: Int] = [:]
             var latest: Date = .distantPast
+
+            mutating func add(record: E3record, when: Date) {
+                count += 1
+                if let cardID = record.e1card?.id {
+                    cardCounts[cardID, default: 0] += 1
+                }
+                let tagIDs = record.e5tags.map(\.id).sorted()
+                if !tagIDs.isEmpty {
+                    let key = tagIDs.joined(separator: "|")
+                    tagSetCounts[key, default: 0] += 1
+                    tagSets[key] = tagIDs
+                }
+                if when > latest { latest = when }
+            }
+            var topCardID: String? { cardCounts.max { $0.value < $1.value }?.key }
+            var topTagIDs: [String] { tagSetCounts.max { $0.value < $1.value }.flatMap { tagSets[$0.key] } ?? [] }
+        }
+        struct Bucket {
+            var overall = Agg()
+            var byAmount: [Decimal: Agg] = [:]   // 金額別（金額付きカプセル判定用）
         }
         var buckets: [String: Bucket] = [:]
         let now = Date()
@@ -65,44 +92,50 @@ enum FrequentPaymentBuilder {
             if record.nRepeat > 0 { continue }
             let label = record.zName.trimmingCharacters(in: .whitespacesAndNewlines)
             if label.isEmpty { continue }
-            var b = buckets[label] ?? Bucket()
-            b.count += 1
-            if let cardID = record.e1card?.id {
-                b.cardCounts[cardID, default: 0] += 1
-            }
-            let tagIDs = record.e5tags.map(\.id).sorted()
-            if !tagIDs.isEmpty {
-                let key = tagIDs.joined(separator: "|")
-                b.tagSetCounts[key, default: 0] += 1
-                b.tagSets[key] = tagIDs
-            }
-            if record.nAmount != 0 {
-                b.amountCounts[record.nAmount, default: 0] += 1
-            }
             let when = record.dateUpdate ?? record.dateUse
-            if when > b.latest { b.latest = when }
+            var b = buckets[label] ?? Bucket()
+            b.overall.add(record: record, when: when)
+            if record.nAmount != 0 {
+                var sub = b.byAmount[record.nAmount] ?? Agg()
+                sub.add(record: record, when: when)
+                b.byAmount[record.nAmount] = sub
+            }
             buckets[label] = b
         }
 
-        let candidates: [FrequentPayment] = buckets.map { label, b in
-            let cardID = b.cardCounts.max { $0.value < $1.value }?.key
-            let tagIDs = b.tagSetCounts.max { $0.value < $1.value }.flatMap { b.tagSets[$0.key] } ?? []
-            let topAmount = b.amountCounts.max { $0.value < $1.value }
-            let amount: Decimal? = (topAmount?.value ?? 0) >= 3 ? topAmount?.key : nil
-            let days = max(0, now.timeIntervalSince(b.latest) / 86_400)
+        func score(of agg: Agg) -> Double {
+            let days = max(0, now.timeIntervalSince(agg.latest) / 86_400)
             let recency = 1.0 / (1.0 + days / 30.0)
-            let score = Double(b.count) + recency
-            return FrequentPayment(id: label, label: label, cardID: cardID, tagIDs: tagIDs, amount: amount, score: score)
+            return Double(agg.count) + recency
+        }
+
+        // ラベルごとに「金額なしの基本カプセル」＋「3回以上出た金額ごとのカプセル」を作る。
+        // 金額なしと金額違いは別カプセルにするので、(ETC ¥210)(ETC)(ETC ¥500) のように並ぶ。
+        var candidates: [FrequentPayment] = []
+        for (label, b) in buckets {
+            candidates.append(FrequentPayment(
+                id: FrequentPayment.makeID(label: label, amount: nil),
+                label: label, cardID: b.overall.topCardID, tagIDs: b.overall.topTagIDs,
+                amount: nil, score: score(of: b.overall)))
+            for (amount, sub) in b.byAmount where sub.count >= 3 {
+                candidates.append(FrequentPayment(
+                    id: FrequentPayment.makeID(label: label, amount: amount),
+                    label: label, cardID: sub.topCardID, tagIDs: sub.topTagIDs,
+                    amount: amount, score: score(of: sub)))
+            }
         }
 
         return candidates.sorted { $0.score > $1.score }.prefix(limit).map { $0 }
     }
 
     /// 指定ラベルに完全一致する候補を返す（音声入力の補塡用）。前後空白無視・大小同一視。
+    /// 音声は金額を自分で言うので金額は補塡しない。手段・タグはラベル全体で代表的な
+    /// 「金額なしの基本カプセル」を優先して返す（なければ先頭の候補）。
     static func match(label: String, in candidates: [FrequentPayment]) -> FrequentPayment? {
         let key = label.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !key.isEmpty else { return nil }
-        return candidates.first { $0.label.compare(key, options: .caseInsensitive) == .orderedSame }
+        let matches = candidates.filter { $0.label.compare(key, options: .caseInsensitive) == .orderedSame }
+        return matches.first { $0.amount == nil } ?? matches.first
     }
 }
 
@@ -195,8 +228,11 @@ struct RecordEditView: View {
     @State private var cachedCategoryByID: [String: E5tag] = [:]
     /// 「よくある決済」カプセルの候補（過去実績から自動生成）。3件以上で帯を表示する
     @State private var cachedFrequentPayments: [FrequentPayment] = []
+    /// この画面で選択中のカプセルの id（未選択は nil）。同じラベルでも金額違いを
+    /// 区別するため、ラベルではなく id で管理する（(ETC ¥210)(ETC)(ETC ¥500) など）
+    @State private var pickedFrequentID: String? = nil
     /// この画面でカプセルを選んだか。金額0でもプリセット選択があれば保存可にする判定に使う
-    @State private var didPickFrequentPayment = false
+    private var didPickFrequentPayment: Bool { pickedFrequentID != nil }
     /// 「よくある決済」帯の表示行数（1〜5）。ハンドルのドラッグで変更し永続化する
     @AppStorage(AppStorageKey.frequentPaymentRows) private var frequentRows = 3
     /// カプセル1行分の実測高さ（フォント設定で変わるため実測する）。0の間は目安値を使う
@@ -1379,7 +1415,13 @@ private var isValid: Bool {
     /// カプセル1つ分。選択中はアクセント塗り。先頭だけ高さを実測して行高に反映する。
     /// 代表金額があるカプセルは「ラベル ¥金額」で見せ、選択時に金額もセットする。
     @ViewBuilder private func frequentCapsule(_ fp: FrequentPayment) -> some View {
-        let isSelected = didPickFrequentPayment && zName == fp.label
+        // 選択中判定は id 一致で（同じラベルの金額違いカプセルを取り違えない）。
+        // ラベル／金額を手で変えたら強調を外す。
+        let isSelected: Bool = {
+            guard pickedFrequentID == fp.id, zName == fp.label else { return false }
+            if let amount = fp.amount { return nAmount == amount }
+            return true
+        }()
         let isFirst = fp.id == cachedFrequentPayments.first?.id
         Button {
             applyFrequentPayment(fp)
@@ -2332,6 +2374,7 @@ private var isValid: Bool {
         partDueDateCycleShiftByPartNo.removeAll()
         dueDateLocked = false
         selectedCategories = []
+        pickedFrequentID = nil
         if keepDateAndCard {
             // 同じ日と決済手段だけ残し、残りは空に戻す
             keepBankPickerRowVisible = selectedCard != nil && selectedBankForCard == nil
@@ -2478,14 +2521,14 @@ private var isValid: Bool {
     /// 選択中のカプセルを再タップした場合は、その適用を取り消してクリアする。
     private func applyFrequentPayment(_ fp: FrequentPayment) {
         // すでに選ばれているカプセルの再タップ → プリセットを解除する
-        if didPickFrequentPayment && zName == fp.label {
+        if pickedFrequentID == fp.id {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
             zName = ""
             selectedCard = nil
             selectedCategories = []
             // 金額付きカプセルで入れた金額もあわせて戻す
             if fp.amount != nil { nAmount = 0 }
-            didPickFrequentPayment = false
+            pickedFrequentID = nil
             return
         }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -2494,12 +2537,13 @@ private var isValid: Bool {
         selectedCard = fp.cardID.flatMap { id in cards.first { $0.id == id } }
         // タグ：カプセルのタグで上書き（参照切れを避け現在コンテキストへ張り替え）
         selectedCategories = fp.tagIDs.compactMap { cachedCategoryByID[$0] }
-        // 代表金額があればセット（金額未入力のときだけ。手入力済みの金額は尊重する）
-        if let amount = fp.amount, nAmount == 0 {
+        // 金額付きカプセルは選択が金額の明示指定なので、手入力済みでも上書きする。
+        // 金額なしの基本カプセルは金額を触らない（手入力を尊重）。
+        if let amount = fp.amount {
             nAmount = amount
         }
-        // 金額0でも保存できるように、プリセット選択済みであることを記録する
-        didPickFrequentPayment = true
+        // 金額0でも保存できるように、選択中カプセルの id を記録する
+        pickedFrequentID = fp.id
         isUsePointFocused = false
     }
 
