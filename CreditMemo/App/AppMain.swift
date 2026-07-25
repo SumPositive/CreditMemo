@@ -32,6 +32,9 @@ struct AppMain: App {
         // default.store → CreditMemo.store へのリネーム（名前を明示化した際の既存ユーザー対応）
         Self.renameDefaultStoreIfNeeded()
 
+        // 一度きりの設定移行（「よくある決済」カプセル導入に合わせ、テンキー自動表示を強制OFF）
+        Self.applyOneTimeSettingsMigration()
+
         // fastlane snapshot 撮影時（DEBUG限定）は in-memory ストアにサンプルを入れて撮る。
         // 実ストアやマイグレーションには触れない。
         if SnapshotSeed.isActive {
@@ -202,6 +205,16 @@ struct AppMain: App {
                 AppTelemetry.reportRecoverableError(error, operation: "AppMain.migrateStoreFileNameIfNeeded", category: "file")
             }
         }
+    }
+
+    /// 一度きりの設定移行。実行済みフラグで二重適用を防ぐ。
+    /// 現状の内容：「よくある決済」カプセル導入に合わせ、テンキー自動表示を強制OFFにする
+    /// （新旧ユーザーとも1回だけ。以降は設定で自由にON/OFFできる）。
+    private static func applyOneTimeSettingsMigration() {
+        let defaults = UserDefaults.standard
+        guard !defaults.bool(forKey: AppStorageKey.didForceOffAutoOpenAmountPad) else { return }
+        defaults.set(false, forKey: AppStorageKey.autoOpenAmountPad)
+        defaults.set(true, forKey: AppStorageKey.didForceOffAutoOpenAmountPad)
     }
 
     // MARK: - SwiftData ストア復旧

@@ -29,6 +29,8 @@ enum AppStorageKey {
     static let frequentPaymentRows = "setting.frequentPaymentRows"
     /// 新しい決済の入力補助（なし／決済一覧からコピー／よくある決済）。既定はよくある決済
     static let newPaymentAssist = "setting.newPaymentAssist"
+    /// 一度きりの設定移行：テンキー自動表示を強制OFFにする処理を実行済みか（v○○更新時対応）
+    static let didForceOffAutoOpenAmountPad = "setting.didForceOffAutoOpenAmountPad"
     /// 引き落とし日が土日祝なら翌営業日へ繰り下げる（日本ロケール・締日/支払日型のみ）
     static let shiftDueDateOffHoliday = "setting.shiftDueDateOffHoliday"
     static let paymentWindowDays = "setting.paymentWindowDays"
