@@ -532,6 +532,9 @@ struct AZAdaptiveRadioRow<Option: Hashable & Identifiable, Title: View, Label: V
 struct AZFlowLayout: Layout {
     var spacing: CGFloat
     var rowSpacing: CGFloat
+    /// 各行の横方向の寄せ。既定は従来どおり右寄せ（.trailing）。
+    /// 左寄せにしたい呼び出し側だけ .leading を指定する。
+    var alignment: HorizontalAlignment = .trailing
 
     func sizeThatFits(
         proposal: ProposedViewSize,
@@ -597,7 +600,8 @@ struct AZFlowLayout: Layout {
             let rowHeight = row.reduce(CGFloat.zero) { partial, item in
                 max(partial, item.size.height)
             }
-            var x = bounds.maxX - rowWidth
+            // 左寄せは行左端から、右寄せ（既定）は行右端から詰める
+            var x = alignment == .leading ? bounds.minX : bounds.maxX - rowWidth
             for item in row {
                 let subview = subviews[item.index]
                 subview.place(

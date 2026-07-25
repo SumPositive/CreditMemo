@@ -27,6 +27,20 @@ extension RecordEditMode: Equatable {
     }
 }
 
+// MARK: - Frequent Payment
+
+/// 「よくある決済」カプセル1つ分。過去レコードをラベル(zName)で集約し、
+/// そのラベルで最もよく使われる手段・タグを代表値として持つ。金額は保持しない
+/// （金額はその場でテンキー入力する運用のため）。
+struct FrequentPayment: Identifiable {
+    let id: String            // ラベル（zName）をそのまま識別子にする
+    let label: String
+    let cardID: String?       // 代表の決済手段
+    let tagIDs: [String]      // 代表のタグ
+    let amount: Decimal?      // 同じ金額が3回以上あるときの代表金額（なければ nil）
+    let score: Double         // 頻度×最近性の並び替え用スコア
+}
+
 // MARK: - View
 
 struct RecordEditView: View {
@@ -113,6 +127,16 @@ struct RecordEditView: View {
     @State private var cachedUsePointCandidates: [String] = []
     @State private var cachedLatestCard: E1card?
     @State private var cachedCategoryByID: [String: E5tag] = [:]
+    /// 「よくある決済」カプセルの候補（過去実績から自動生成）。3件以上で帯を表示する
+    @State private var cachedFrequentPayments: [FrequentPayment] = []
+    /// この画面でカプセルを選んだか。金額0でもプリセット選択があれば保存可にする判定に使う
+    @State private var didPickFrequentPayment = false
+    /// 「よくある決済」帯の表示行数（1〜5）。ハンドルのドラッグで変更し永続化する
+    @AppStorage(AppStorageKey.frequentPaymentRows) private var frequentRows = 3
+    /// カプセル1行分の実測高さ（フォント設定で変わるため実測する）。0の間は目安値を使う
+    @State private var frequentCapsuleHeight: CGFloat = 0
+    /// ドラッグ開始時点の行数（グローバル座標の移動量から目標行数を算出する基準）
+    @State private var frequentRowsAtDragStart: Int?
     @State private var scrollToTopRequest = 0
     /// 「決済一覧からコピー」セクションの表示上の開閉状態（この画面表示中のみ有効）。
     /// 画面表示時に保存値で初期化する。自動折りたたみ（類似選択後・snapshot）はここだけ変える。
@@ -131,8 +155,11 @@ struct RecordEditView: View {
         }
     }
 private var isValid: Bool {
-        if nAmount == 0 { return false }
+        // 保存の必須条件は「金額入力あり」または「よくある決済カプセルを選択済み」。
+        // 金額0のカプセル選択は下書きとして保存し、あとで編集して金額を入れる運用。
+        if nAmount == 0 && !didPickFrequentPayment { return false }
         // 分割払いは各回に1円以上を配分するため、回数相当の最低額を必要にする
+        // （金額0の下書きは1回払い前提。分割中に金額0は成立しない）
         if payCount >= 2 && nAmount.roundedAmount() < Decimal(payCount) { return false }
         // 引き落とし日固定モードでは、決済手段未選択だと請求が作られず明細画面に出ないため、必須にする
         if presetDueDate != nil && selectedCard == nil { return false }
@@ -267,10 +294,21 @@ private var isValid: Bool {
         return true
     }
 
+    /// 「よくある決済」カプセル帯を出すかどうか。
+    /// 新規追加時のみ、候補が3件以上そろったときだけ表示する（初期＝履歴が無ければ出さない）。
+    private var showsFrequentSection: Bool {
+        guard isNew else { return false }
+        if case .addCopy = mode { return false }
+        return cachedFrequentPayments.count >= 3
+    }
+
     var body: some View {
         ScrollViewReader { proxy in
             Form {
                 beginnerSection
+                if showsFrequentSection {
+                    frequentSection
+                }
                 requiredSection
                 if showsSimilarSection {
                     similarSection
@@ -418,8 +456,11 @@ private var isValid: Bool {
             refreshDerivedCaches()
         }
         .sheet(isPresented: $showAmountPad, onDismiss: {
-            // 自動表示ONの時だけ、金額未入力のままテンキーを閉じると新規入力画面ごと閉じる
-            if isNew && nAmount == 0 && autoOpenAmountPad {
+            // 自動表示ONの時、金額未入力のままテンキーを閉じると新規入力画面ごと閉じる。
+            // ただし「よくある決済」カプセルが使える状況（帯が表示・または選択済み）では、
+            // 金額0のままでもカプセルで登録できるため画面に留める。
+            if isNew && nAmount == 0 && autoOpenAmountPad
+                && !showsFrequentSection && !didPickFrequentPayment {
                 dismiss()
             }
         }) {
@@ -1205,6 +1246,137 @@ private var isValid: Bool {
         }
     }
 
+    // 「よくある決済」帯のレイアウト定数
+    private let frequentRowSpacing: CGFloat = 8      // カプセル行間
+    private let frequentMaxRows = 10                 // 最大行数（ハンドルで広げられる上限）
+    /// カプセル1行分の高さ（実測できていればそれを、まだなら目安値を使う）
+    private var frequentRowHeight: CGFloat { frequentCapsuleHeight > 0 ? frequentCapsuleHeight : 38 }
+    /// 1行ぶん進むのに必要なドラッグ量（行高＋行間）
+    private var frequentRowStride: CGFloat { frequentRowHeight + frequentRowSpacing }
+
+    /// 指定行数に対応する、カプセル表示エリアの高さ
+    private func frequentAreaHeight(for rows: Int) -> CGFloat {
+        let r = CGFloat(min(max(rows, 1), frequentMaxRows))
+        return frequentRowHeight * r + frequentRowSpacing * (r - 1)
+    }
+
+    /// 「よくある決済」カプセル帯。金額欄の上に折り返しで並べ、金額は表示しない。
+    /// タップでラベル・手段・タグを上書きプリセット。下のハンドルを上下ドラッグで
+    /// 表示行数を1〜5行に変えられる（縦スクロールで隠れたカプセルも見られる）。
+    @ViewBuilder private var frequentSection: some View {
+        Section {
+            VStack(spacing: 8) {
+                // カプセル群：折り返しレイアウトを行数ぶんの高さでクリップし、
+                // はみ出しは縦スクロール。高さは常に「行数」に対応した離散値にする
+                // （ドラッグ中に連続追従させるとハンドルが揺れて指と離れるため）。
+                // 全候補を左寄せ折り返しで並べ、frequentRows 行ぶんの高さにクリップ。
+                // はみ出した行（右端で欠けたカプセルの続き）は縦スクロールで見える。
+                ScrollView(.vertical, showsIndicators: true) {
+                    AZFlowLayout(spacing: 8, rowSpacing: frequentRowSpacing, alignment: .leading) {
+                        ForEach(cachedFrequentPayments) { fp in
+                            frequentCapsule(fp)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(height: frequentAreaHeight(for: frequentRows))
+                .animation(.easeOut(duration: 0.18), value: frequentRows)
+
+                frequentResizeHandle
+            }
+            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 4, trailing: 16))
+        } header: {
+            // タイトルは初心者モードのときだけ出す（慣れたら余白を詰める）。
+            // 表示時は右端にヘルプアイコンを添え、タップで説明シートを出す。
+            if userLevel == .beginner {
+                HStack {
+                    Text("record.frequent.section.title")
+                    Spacer(minLength: 8)
+                    BeginnerHintView(
+                        detailTitleKey: "record.frequent.section.title",
+                        detailMessageKey: "record.frequent.help"
+                    )
+                }
+            }
+        }
+    }
+
+    /// カプセル1つ分。選択中はアクセント塗り。先頭だけ高さを実測して行高に反映する。
+    /// 代表金額があるカプセルは「ラベル ¥金額」で見せ、選択時に金額もセットする。
+    @ViewBuilder private func frequentCapsule(_ fp: FrequentPayment) -> some View {
+        let isSelected = didPickFrequentPayment && zName == fp.label
+        let isFirst = fp.id == cachedFrequentPayments.first?.id
+        Button {
+            applyFrequentPayment(fp)
+        } label: {
+            HStack(spacing: 5) {
+                Text(fp.label)
+                if let amount = fp.amount {
+                    // 金額は少し控えめに添える
+                    Text(amount.currencyString())
+                        .foregroundStyle(isSelected ? Color.white.opacity(0.85) : Color.secondary)
+                        .font(.subheadline.weight(.semibold).monospacedDigit())
+                }
+            }
+                .font(.subheadline.weight(.semibold))
+                .lineLimit(1)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 7)
+                .background(
+                    Capsule().fill(isSelected ? Color.accentColor : Color(.secondarySystemBackground))
+                )
+                .foregroundStyle(isSelected ? Color.white : Color.accentColor)
+                .overlay(
+                    Capsule().stroke(Color.accentColor.opacity(isSelected ? 0 : 0.35), lineWidth: 1)
+                )
+                .background {
+                    // 実際のカプセル高さを1つだけ測って行高に使う（フォント設定に追従）
+                    if isFirst {
+                        GeometryReader { geo in
+                            Color.clear
+                                .onAppear { frequentCapsuleHeight = geo.size.height }
+                                .onChange(of: geo.size.height) { _, h in frequentCapsuleHeight = h }
+                        }
+                    }
+                }
+        }
+        .buttonStyle(.plain)
+        .disabled(isCoreFieldsLocked)
+    }
+
+
+    /// 帯の高さを変えるハンドル。上下ドラッグで行数を1〜5に増減する。
+    /// グローバル座標系で指の移動量を測り、行数を離散更新する（ハンドル自身が
+    /// 動いても指と連動が崩れないようにするため）。
+    @ViewBuilder private var frequentResizeHandle: some View {
+        if cachedFrequentPayments.count > 1 {
+            Capsule()
+                .fill(Color(.tertiaryLabel))
+                .frame(width: 40, height: 5)
+                .frame(maxWidth: .infinity)   // 中央寄せ＋タップ領域を横いっぱいに
+                .padding(.vertical, 8)
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 2, coordinateSpace: .global)
+                        .onChanged { value in
+                            let start = frequentRowsAtDragStart ?? frequentRows
+                            if frequentRowsAtDragStart == nil { frequentRowsAtDragStart = start }
+                            // 開始行数＋（移動量÷1行分）を四捨五入して目標行数に
+                            let delta = Int((value.translation.height / frequentRowStride).rounded())
+                            let target = min(max(start + delta, 1), frequentMaxRows)
+                            if target != frequentRows {
+                                frequentRows = target
+                                UISelectionFeedbackGenerator().selectionChanged()
+                            }
+                        }
+                        .onEnded { _ in
+                            frequentRowsAtDragStart = nil
+                        }
+                )
+                .accessibilityLabel(Text("record.frequent.resize.a11y"))
+        }
+    }
+
     @ViewBuilder private var requiredSection: some View {
         Section {
             // 金額
@@ -1733,7 +1905,8 @@ private var isValid: Bool {
     }
 
     private func save() {
-        guard nAmount != 0 else { return }
+        // 金額0でも「よくある決済」選択済みなら下書きとして保存を許す
+        guard nAmount != 0 || didPickFrequentPayment else { return }
         let usePoint = zName.trimmingCharacters(in: .whitespacesAndNewlines)
         let note = zNote.trimmedNoteEdges
         let previousBankID = selectedCard?.e8bank?.id
@@ -2131,6 +2304,76 @@ private var isValid: Bool {
         cachedLatestCard = pastRecords.first(where: { $0.e1card != nil })?.e1card
         // 候補適用時にIDから即座に引けるようにカテゴリ辞書を保持する
         cachedCategoryByID = Dictionary(uniqueKeysWithValues: categories.map { ($0.id, $0) })
+
+        cachedFrequentPayments = buildFrequentPayments()
+    }
+
+    /// 「よくある決済」カプセル候補を過去レコードから組み立てる。
+    /// ラベル(zName)で集約し、そのラベルで最頻の手段・タグを代表値にする。
+    /// 並びは「頻度＋最近性」のスコア降順。上限は控えめに絞る。
+    private func buildFrequentPayments() -> [FrequentPayment] {
+        struct Bucket {
+            var count = 0
+            var cardCounts: [String: Int] = [:]   // 手段ID→出現数
+            var tagSetCounts: [String: Int] = [:]  // タグID集合(ソート連結)→出現数
+            var tagSets: [String: [String]] = [:]  // 連結キー→実際のタグID配列
+            var amountCounts: [Decimal: Int] = [:] // 金額→出現数（3回以上で代表金額に採用）
+            var latest: Date = .distantPast       // 最近性スコア用
+        }
+        var buckets: [String: Bucket] = [:]
+        let now = Date()
+        // 「よくある決済」は最近の傾向を出すため、利用日が直近1年のものだけを集計する。
+        // pastRecords は dateUse 降順なので、1年より古い行に達したら以降は打ち切れる
+        // （古いレコードのリレーション展開すら発生させず、負荷を抑える）。
+        let cutoff = Calendar.current.date(byAdding: .year, value: -1, to: now) ?? .distantPast
+
+        for record in pastRecords {
+            if record.dateUse < cutoff { break }
+            // 繰り返し（自動追加）の決済は自分で毎回入力するものではないため、
+            // 使用頻度に数えない（元・自動生成コピーとも nRepeat>0 なので一律に除外）。
+            if record.nRepeat > 0 { continue }
+            let label = record.zName.trimmingCharacters(in: .whitespacesAndNewlines)
+            if label.isEmpty { continue }
+            var b = buckets[label] ?? Bucket()
+            b.count += 1
+            if let cardID = record.e1card?.id {
+                b.cardCounts[cardID, default: 0] += 1
+            }
+            let tagIDs = record.e5tags.map(\.id).sorted()
+            if !tagIDs.isEmpty {
+                let key = tagIDs.joined(separator: "|")
+                b.tagSetCounts[key, default: 0] += 1
+                b.tagSets[key] = tagIDs
+            }
+            // 金額の出現数も数える（0=未入力は代表金額の対象外）
+            if record.nAmount != 0 {
+                b.amountCounts[record.nAmount, default: 0] += 1
+            }
+            let when = record.dateUpdate ?? record.dateUse
+            if when > b.latest { b.latest = when }
+            buckets[label] = b
+        }
+
+        let candidates: [FrequentPayment] = buckets.map { label, b in
+            // 最頻の手段
+            let cardID = b.cardCounts.max { $0.value < $1.value }?.key
+            // 最頻のタグ集合
+            let tagIDs = b.tagSetCounts.max { $0.value < $1.value }.flatMap { b.tagSets[$0.key] } ?? []
+            // 代表金額：同じ金額が3回以上あるときだけ、その最頻金額を採用する
+            let topAmount = b.amountCounts.max { $0.value < $1.value }
+            let amount: Decimal? = (topAmount?.value ?? 0) >= 3 ? topAmount?.key : nil
+            // 最近性：直近30日で最大の加点、以降は緩やかに減衰
+            let days = max(0, now.timeIntervalSince(b.latest) / 86_400)
+            let recency = 1.0 / (1.0 + days / 30.0)
+            let score = Double(b.count) + recency
+            return FrequentPayment(id: label, label: label, cardID: cardID, tagIDs: tagIDs, amount: amount, score: score)
+        }
+
+        return candidates
+            .sorted { $0.score > $1.score }
+            // ページ送りで見せるため母集団は多めに保持する（実用上の上限）
+            .prefix(60)
+            .map { $0 }
     }
 
     /// 見出しと値を、収まる場合は1行、収まらない場合は2行で表示する共通セル
@@ -2190,6 +2433,39 @@ private var isValid: Bool {
             }
         }
         .contentShape(Rectangle())
+    }
+
+    // MARK: - Frequent Payments
+
+    /// 「よくある決済」カプセルを選んだとき、ラベル・手段・タグをそのカプセルの内容で
+    /// 上書き更新する。カプセルは決済の完成形なので、既存の入力があっても置き換える
+    /// （カプセルが手段・タグを持たなければクリアして、そのカプセルの姿に揃える）。
+    /// 選択中のカプセルを再タップした場合は、その適用を取り消してクリアする。
+    private func applyFrequentPayment(_ fp: FrequentPayment) {
+        // すでに選ばれているカプセルの再タップ → プリセットを解除する
+        if didPickFrequentPayment && zName == fp.label {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            zName = ""
+            selectedCard = nil
+            selectedCategories = []
+            // 金額付きカプセルで入れた金額もあわせて戻す
+            if fp.amount != nil { nAmount = 0 }
+            didPickFrequentPayment = false
+            return
+        }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        zName = fp.label
+        // 手段：カプセルの手段で上書き。手段なしのカプセルなら未選択に戻す
+        selectedCard = fp.cardID.flatMap { id in cards.first { $0.id == id } }
+        // タグ：カプセルのタグで上書き（参照切れを避け現在コンテキストへ張り替え）
+        selectedCategories = fp.tagIDs.compactMap { cachedCategoryByID[$0] }
+        // 代表金額があればセット（金額未入力のときだけ。手入力済みの金額は尊重する）
+        if let amount = fp.amount, nAmount == 0 {
+            nAmount = amount
+        }
+        // 金額0でも保存できるように、プリセット選択済みであることを記録する
+        didPickFrequentPayment = true
+        isUsePointFocused = false
     }
 
     // MARK: - Similar Records

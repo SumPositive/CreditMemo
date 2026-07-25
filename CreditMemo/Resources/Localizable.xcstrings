@@ -8374,6 +8374,36 @@
         }
       }
     },
+    "record.frequent.help": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": { "stringUnit": { "state": "translated", "value": "Vorschläge aus Ihren Zahlungen des letzten Jahres. Tippen Sie auf eine, um Label, Zahlungsmittel und Tags auf einmal einzutragen. Erneut tippen hebt die Auswahl auf. Ziehen Sie den Griff, um die Höhe zu ändern." } },
+        "en": { "stringUnit": { "state": "translated", "value": "Suggestions from your payments over the past year. Tap one to fill in the label, payment method, and tags at once. Tap it again to clear. Drag the handle to change the height." } },
+        "ja": { "stringUnit": { "state": "translated", "value": "直近1年のよく使う決済から候補を表示します。カプセルをタップすると、ラベル・決済手段・タグがまとめて入ります。もう一度タップすると解除します。下のハンドルを上下にドラッグすると高さを変えられます。" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "최근 1년간 자주 쓴 결제에서 후보를 표시합니다. 캡슐을 누르면 라벨·결제 수단·태그가 한 번에 입력됩니다. 다시 누르면 해제됩니다. 아래 핸들을 위아래로 드래그하면 높이를 바꿀 수 있습니다." } },
+        "zh-Hant": { "stringUnit": { "state": "translated", "value": "顯示過去一年常用付款的建議。點一下膠囊即可一次填入標籤、付款方式與標記。再點一下可取消。拖曳下方的把手可調整高度。" } }
+      }
+    },
+    "record.frequent.resize.a11y": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": { "stringUnit": { "state": "translated", "value": "Höhe der Liste anpassen" } },
+        "en": { "stringUnit": { "state": "translated", "value": "Resize list" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "よくある決済の高さを変える" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "목록 높이 조절" } },
+        "zh-Hant": { "stringUnit": { "state": "translated", "value": "調整清單高度" } }
+      }
+    },
+    "record.frequent.section.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": { "stringUnit": { "state": "translated", "value": "Häufige Zahlungen" } },
+        "en": { "stringUnit": { "state": "translated", "value": "Frequent Payments" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "よくある決済" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "자주 쓰는 결제" } },
+        "zh-Hant": { "stringUnit": { "state": "translated", "value": "常用付款" } }
+      }
+    },
     "record.help.label": {
       "extractionState": "manual",
       "localizations": {

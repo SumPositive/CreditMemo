@@ -1775,6 +1775,40 @@ fastlane upload_screenshots     # スクショ Upload
 「古い履歴を」を「古いデータを」に変更
 
 
+新しい決済画面を刷新した「新しい決済2」画面を作りたい
+- 最小の入力で素早く登録し、あとは編集で修正する
+- よく使われる決済パターンを一覧表示して選択する
+- ラベルを入れると強く結びついた手段とタグが自動的に入る
+など、画期的な画面を提案して欲しい
+
+画面の上半分によく使うパターン「よくある決済」を表示する
+（Rpayチャージ）（Suicaチャージ）（ENEOS）（COSMO）（ダイエー）・・・
+のようにラベルだけ並べる、金額は不要
+選択すれば、「よくある決済」パネルが閉じて、ラベル・手段・タグがプリセットされて金額入力状態になる
+
+現在の新しい決済のまま、テンキーシートを画面の半分までの高さにする
+　テンキー入力値をシート上に表示せずに金額欄に直接反映されるようにしたい
+金額入力後、同じ高さのシートに「よくある決済」（よく使うパターン）を表示する
+　（Rpayチャージ）（Suicaチャージ）（ENEOS）（COSMO）（ダイエー）・・・
+　のようにカプセル状に並べる、金額は不要
+　カプセルを選択すれば、ラベル・手段・タグがプリセットされる
+
+これまで金額必須かつ優先で考えてきたが、これを改めて、金額入力または「よくある決済」選択のどちらかを必須にして保存できるようにしたい
+現在の金額パネルの上に「よくある決済」パネルを表示する
+　（Rpayチャージ）（Suicaチャージ）（ENEOS）（COSMO）（ダイエー）・・・
+　のようにカプセル状に並べる、金額は不要
+　カプセルが3個以上あるときだけ表示（初期の決済が無ければ表示しない）
+　カプセルを選択すれば、ラベル・手段・タグがプリセットされる
+
+よくある決済が選択された場合は、ラベル 手段 タグ を上書き更新したい
+よくある決済パネルの下にハンドルを設けて上下ドラッグするとパネルの高さを変えて、よくある決済カプセルが1行から最大5行まで可変にしたい
+【実装済み 2026-07-25】applyFrequentPaymentを上書き更新に変更（手段なしカプセルは未選択に戻す）。帯を折り返し(AZFlowLayout流用)＋高さクリップ＋下部ドラッグハンドルに。frequentRows(1〜5)は@AppStorage(frequentPaymentRows)で永続化。新キー record.frequent.resize.a11y。ハンドルは候補>1件時のみ。
+【改善 2026-07-25】ハンドルのビリビリ/指離れを修正：ドラッグ中の高さ連続追従を廃し行数の離散スナップ化、DragGesture(coordinateSpace:.global)で指の絶対移動量から目標行数算出。行高は1個目カプセルをGeometryReaderで実測(frequentCapsuleHeight)しフォント設定に追従（4行しか見えない問題の解消）。
+【追加 2026-07-25】選択中カプセル再タップでプリセット解除（zName/card/tags空・didPickFrequentPayment=false）。
+【左寄せ 2026-07-25】AZFlowLayoutにalignment(既定.trailing=従来右寄せ)を追加。よくある決済だけ.leadingで左寄せ。AZPicker側は無変更で影響なし。
+【ページ送り撤回 2026-07-25】「行数でページを考えたい・行末欠けは縦スクロールで」の要望により、固定12件ページング＋「次＞」カプセルを廃止。cachedFrequentPayments全件(最大60)を左寄せ折り返しで並べ、frequentRows行ぶんの高さにクリップ＋縦スクロールで続きを見せる方式に統一。frequentPage/PageSize/PageCount/PageItems/showsFrequentNext/frequentNextCapsule と record.frequent.next キーを削除。
+【調整 2026-07-25】①負荷対策：buildFrequentPaymentsの集計を利用日dateUse直近1年に限定（pastRecordsはdateUse降順なのでcutoff未満でbreak＝古い行のリレーション展開も回避。1年制限は最重量のO(n)走査に効く／prefix(60)は集計後で効果薄）。②パネルタイトル(record.frequent.section.title)は初心者モード(userLevel==.beginner)のヘッダでのみ表示。③frequentMaxRows 5→10。④ヘッダ右にヘルプアイコン：BeginnerHintView(detailTitleKey:section.title, detailMessageKey:新キーrecord.frequent.help)。⑤繰り返し決済(nRepeat>0)は頻度に数えない＝buildFrequentPaymentsで continue 除外（元も自動生成コピーもnRepeat引継ぎで両方nRepeat>0のため一律除外できる）。
+【金額付きカプセル 2026-07-25】同ラベルで同じ金額が3回以上あれば代表金額を採用しカプセルを「ラベル ¥金額」表示。FrequentPaymentにamount:Decimal?追加、Bucket.amountCounts[Decimal:Int]で集計（0=未入力は対象外）、最頻金額count>=3でamount採用。選択時は金額未入力(nAmount==0)のときだけセット＝手入力を尊重（ユーザー選択：空欄時のみ）。再タップ解除では金額付きなら金額も0に戻す。
 
 
 
