@@ -535,35 +535,77 @@ struct AZFlowLayout: Layout {
     /// 各行の横方向の寄せ。既定は従来どおり右寄せ（.trailing）。
     /// 左寄せにしたい呼び出し側だけ .leading を指定する。
     var alignment: HorizontalAlignment = .trailing
+    /// true のとき、行末の余白に後方の“収まる”subview を繰り上げて詰める（bin-packing）。
+    /// 既定は false（並び順どおりの単純な折り返し）。
+    var packToFill: Bool = false
+
+    /// 各 subview の実サイズ。行分けと配置で共有する。
+    private func sizes(_ subviews: Subviews) -> [CGSize] {
+        subviews.map { $0.sizeThatFits(.unspecified) }
+    }
+
+    /// subview を行（index の配列）に振り分ける。availableWidth を超えない範囲で、
+    /// packToFill のときは行末の余白に収まる後方要素を繰り上げて詰める。
+    private func makeRows(sizes: [CGSize], availableWidth: CGFloat) -> [[Int]] {
+        let n = sizes.count
+        guard n > 0 else { return [] }
+        // 幅が未確定（0 や無限大）のときは全体を1行にして測定に委ねる
+        guard availableWidth.isFinite, availableWidth > 0 else { return [Array(0..<n)] }
+
+        var placed = [Bool](repeating: false, count: n)
+        var rows: [[Int]] = []
+
+        while let start = placed.firstIndex(of: false) {
+            placed[start] = true
+            var row = [start]
+            var used = sizes[start].width
+
+            while true {
+                let free = availableWidth - used - spacing
+                if free <= 0 { break }
+                // packToFill: 収まる“最初の”後方要素を繰り上げ。
+                // 通常: 並び順で次の要素が収まるときだけ足す（見つからなければ改行）。
+                let range = (start + 1)..<n
+                let pick: Int?
+                if packToFill {
+                    pick = range.first { !placed[$0] && sizes[$0].width <= free }
+                } else {
+                    if let next = range.first(where: { !placed[$0] }) {
+                        pick = sizes[next].width <= free ? next : nil
+                    } else {
+                        pick = nil
+                    }
+                }
+                guard let idx = pick else { break }
+                placed[idx] = true
+                row.append(idx)
+                used += spacing + sizes[idx].width
+            }
+            rows.append(row)
+        }
+        return rows
+    }
 
     func sizeThatFits(
         proposal: ProposedViewSize,
         subviews: Subviews,
         cache: inout ()
     ) -> CGSize {
-        let availableWidth = proposal.width ?? subviews.reduce(CGFloat.zero) { partial, subview in
-            partial + subview.sizeThatFits(.unspecified).width + spacing
-        }
-        var x: CGFloat = 0
-        var y: CGFloat = 0
-        var rowHeight: CGFloat = 0
-        var usedWidth: CGFloat = 0
+        let s = sizes(subviews)
+        let availableWidth = proposal.width ?? s.reduce(CGFloat.zero) { $0 + $1.width + spacing }
+        let rows = makeRows(sizes: s, availableWidth: availableWidth)
 
-        for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
-            let nextX = x == 0 ? size.width : x + spacing + size.width
-            if availableWidth < nextX && 0 < x {
-                usedWidth = max(usedWidth, x)
-                x = 0
-                y += rowHeight + rowSpacing
-                rowHeight = 0
-            }
-            x = x == 0 ? size.width : x + spacing + size.width
-            rowHeight = max(rowHeight, size.height)
+        var totalHeight: CGFloat = 0
+        var maxRowWidth: CGFloat = 0
+        for (i, row) in rows.enumerated() {
+            let rowWidth = row.reduce(CGFloat.zero) { $0 + s[$1].width } + spacing * CGFloat(max(row.count - 1, 0))
+            let rowHeight = row.reduce(CGFloat.zero) { max($0, s[$1].height) }
+            maxRowWidth = max(maxRowWidth, rowWidth)
+            totalHeight += rowHeight
+            if i < rows.count - 1 { totalHeight += rowSpacing }
         }
-        usedWidth = max(usedWidth, x)
-
-        return CGSize(width: min(usedWidth, availableWidth), height: y + rowHeight)
+        let width = proposal.width ?? maxRowWidth
+        return CGSize(width: min(maxRowWidth, width), height: totalHeight)
     }
 
     func placeSubviews(
@@ -572,43 +614,25 @@ struct AZFlowLayout: Layout {
         subviews: Subviews,
         cache: inout ()
     ) {
-        var rows: [[(index: Int, size: CGSize)]] = []
-        var currentRow: [(index: Int, size: CGSize)] = []
-        var currentWidth: CGFloat = 0
+        let s = sizes(subviews)
+        let rows = makeRows(sizes: s, availableWidth: bounds.width)
         var y = bounds.minY
 
-        for index in subviews.indices {
-            let subview = subviews[index]
-            let size = subview.sizeThatFits(.unspecified)
-            let nextWidth = currentRow.isEmpty ? size.width : currentWidth + spacing + size.width
-            if bounds.width < nextWidth && currentRow.isEmpty == false {
-                rows.append(currentRow)
-                currentRow = []
-                currentWidth = 0
-            }
-            currentRow.append((index, size))
-            currentWidth = currentRow.count == 1 ? size.width : currentWidth + spacing + size.width
-        }
-        if currentRow.isEmpty == false {
-            rows.append(currentRow)
-        }
-
         for row in rows {
-            let rowWidth = row.reduce(CGFloat.zero) { partial, item in
-                partial + item.size.width
-            } + spacing * CGFloat(max(row.count - 1, 0))
-            let rowHeight = row.reduce(CGFloat.zero) { partial, item in
-                max(partial, item.size.height)
-            }
+            let rowWidth = row.reduce(CGFloat.zero) { $0 + s[$1].width } + spacing * CGFloat(max(row.count - 1, 0))
+            let rowHeight = row.reduce(CGFloat.zero) { max($0, s[$1].height) }
             // 左寄せは行左端から、右寄せ（既定）は行右端から詰める
             var x = alignment == .leading ? bounds.minX : bounds.maxX - rowWidth
-            for item in row {
-                let subview = subviews[item.index]
-                subview.place(
+            for idx in row {
+                // 自然幅が帯幅を超える subview は帯幅で頭打ちにして提案する。
+                // これで内部（例：ラベル＋金額の HStack）に幅制限が伝わり、
+                // 優先度の低い要素だけが省略され、右端の要素は残せる。
+                let placeWidth = min(s[idx].width, bounds.width)
+                subviews[idx].place(
                     at: CGPoint(x: x, y: y),
-                    proposal: ProposedViewSize(item.size)
+                    proposal: ProposedViewSize(width: placeWidth, height: s[idx].height)
                 )
-                x += item.size.width + spacing
+                x += placeWidth + spacing
             }
             y += rowHeight + rowSpacing
         }

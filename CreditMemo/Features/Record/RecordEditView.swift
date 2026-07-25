@@ -1265,19 +1265,24 @@ private var isValid: Bool {
         return frequentRowHeight * r + frequentRowSpacing * (r - 1)
     }
 
+    // カプセル間の横スペース（AZFlowLayout に渡す）
+    private let frequentSpacing: CGFloat = 8
+
     /// 「よくある決済」カプセル帯。金額欄の上に折り返しで並べ、金額は表示しない。
     /// タップでラベル・手段・タグを上書きプリセット。下のハンドルを上下ドラッグで
     /// 表示行数を1〜5行に変えられる（縦スクロールで隠れたカプセルも見られる）。
     @ViewBuilder private var frequentSection: some View {
         Section {
             VStack(spacing: 8) {
-                // カプセル群：折り返しレイアウトを行数ぶんの高さでクリップし、
-                // はみ出しは縦スクロール。高さは常に「行数」に対応した離散値にする
-                // （ドラッグ中に連続追従させるとハンドルが揺れて指と離れるため）。
-                // 全候補を左寄せ折り返しで並べ、frequentRows 行ぶんの高さにクリップ。
-                // はみ出した行（右端で欠けたカプセルの続き）は縦スクロールで見える。
+                // カプセルは Layout プロトコル（AZFlowLayout）で折り返す。親から提案される
+                // 幅で自動的に折り返すので、自前の幅測定に依存せず確実に複数行になる。
+                // packToFill=true で、行末の余白に後方の“収まる”カプセルを繰り上げて詰める。
+                // 縦は frequentRows 行ぶんの高さにクリップし、溢れる行は縦スクロールで見せる。
                 ScrollView(.vertical, showsIndicators: true) {
-                    AZFlowLayout(spacing: 8, rowSpacing: frequentRowSpacing, alignment: .leading) {
+                    AZFlowLayout(spacing: frequentSpacing,
+                                 rowSpacing: frequentRowSpacing,
+                                 alignment: .leading,
+                                 packToFill: true) {
                         ForEach(cachedFrequentPayments) { fp in
                             frequentCapsule(fp)
                         }
@@ -1315,16 +1320,24 @@ private var isValid: Bool {
             applyFrequentPayment(fp)
         } label: {
             HStack(spacing: 5) {
+                // ラベルは幅が足りなければ末尾を…で省略（優先度を下げて縮む側にする）
                 Text(fp.label)
+                    .layoutPriority(0)
                 if let amount = fp.amount {
-                    // 金額は少し控えめに添える
+                    // 金額は少し控えめに添えるが、幅不足でも縮めず右端に必ず残す。
+                    // ラベル側が…になり、金額は全桁表示される。
                     Text(amount.currencyString())
                         .foregroundStyle(isSelected ? Color.white.opacity(0.85) : Color.secondary)
                         .font(.subheadline.weight(.semibold).monospacedDigit())
+                        .fixedSize(horizontal: true, vertical: false)
+                        .layoutPriority(1)
                 }
             }
                 .font(.subheadline.weight(.semibold))
                 .lineLimit(1)
+                .truncationMode(.tail)
+                // 幅の割り当ては AZFlowLayout（Layoutプロトコル）が subview の実サイズに基づいて
+                // 正確に行うため、ここで fixedSize や maxWidth を指定する必要はない。
                 .padding(.horizontal, 14)
                 .padding(.vertical, 7)
                 .background(
@@ -2889,3 +2902,4 @@ private struct CalendarHeightPreferenceKey: PreferenceKey {
         if next > value { value = next }
     }
 }
+
