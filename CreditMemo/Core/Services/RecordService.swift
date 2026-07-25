@@ -143,6 +143,7 @@ enum RecordService {
         amount: Decimal,
         label: String,
         card: E1card? = nil,
+        tags: [E5tag] = [],
         dateUse: Date = Date(),
         context: ModelContext
     ) throws -> E3record {
@@ -156,6 +157,8 @@ enum RecordService {
             nRepeat: 0
         )
         record.e1card = card
+        // タグは save() が統計更新に使うので insert 前にセットする
+        record.e5tags = tags
         context.insert(record)
         try save(record, context: context)
         return record

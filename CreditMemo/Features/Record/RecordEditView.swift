@@ -41,6 +41,71 @@ struct FrequentPayment: Identifiable {
     let score: Double         // 頻度×最近性の並び替え用スコア
 }
 
+/// 「よくある決済」候補の生成。カプセル表示（RecordEditView）と音声入力の補塡
+/// （TopMenuView）で共有する。※このファイルは既にプロジェクト登録済みのため、
+/// 新規ファイルを増やさずここに置く。
+enum FrequentPaymentBuilder {
+    /// 直近1年・繰り返し以外の過去レコードから候補を組み立てる。
+    /// - pastRecords: dateUse 降順で渡すこと（1年境界で打ち切るため）。
+    static func build(from pastRecords: [E3record], limit: Int = 60) -> [FrequentPayment] {
+        struct Bucket {
+            var count = 0
+            var cardCounts: [String: Int] = [:]
+            var tagSetCounts: [String: Int] = [:]
+            var tagSets: [String: [String]] = [:]
+            var amountCounts: [Decimal: Int] = [:]
+            var latest: Date = .distantPast
+        }
+        var buckets: [String: Bucket] = [:]
+        let now = Date()
+        let cutoff = Calendar.current.date(byAdding: .year, value: -1, to: now) ?? .distantPast
+
+        for record in pastRecords {
+            if record.dateUse < cutoff { break }
+            if record.nRepeat > 0 { continue }
+            let label = record.zName.trimmingCharacters(in: .whitespacesAndNewlines)
+            if label.isEmpty { continue }
+            var b = buckets[label] ?? Bucket()
+            b.count += 1
+            if let cardID = record.e1card?.id {
+                b.cardCounts[cardID, default: 0] += 1
+            }
+            let tagIDs = record.e5tags.map(\.id).sorted()
+            if !tagIDs.isEmpty {
+                let key = tagIDs.joined(separator: "|")
+                b.tagSetCounts[key, default: 0] += 1
+                b.tagSets[key] = tagIDs
+            }
+            if record.nAmount != 0 {
+                b.amountCounts[record.nAmount, default: 0] += 1
+            }
+            let when = record.dateUpdate ?? record.dateUse
+            if when > b.latest { b.latest = when }
+            buckets[label] = b
+        }
+
+        let candidates: [FrequentPayment] = buckets.map { label, b in
+            let cardID = b.cardCounts.max { $0.value < $1.value }?.key
+            let tagIDs = b.tagSetCounts.max { $0.value < $1.value }.flatMap { b.tagSets[$0.key] } ?? []
+            let topAmount = b.amountCounts.max { $0.value < $1.value }
+            let amount: Decimal? = (topAmount?.value ?? 0) >= 3 ? topAmount?.key : nil
+            let days = max(0, now.timeIntervalSince(b.latest) / 86_400)
+            let recency = 1.0 / (1.0 + days / 30.0)
+            let score = Double(b.count) + recency
+            return FrequentPayment(id: label, label: label, cardID: cardID, tagIDs: tagIDs, amount: amount, score: score)
+        }
+
+        return candidates.sorted { $0.score > $1.score }.prefix(limit).map { $0 }
+    }
+
+    /// 指定ラベルに完全一致する候補を返す（音声入力の補塡用）。前後空白無視・大小同一視。
+    static func match(label: String, in candidates: [FrequentPayment]) -> FrequentPayment? {
+        let key = label.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !key.isEmpty else { return nil }
+        return candidates.first { $0.label.compare(key, options: .caseInsensitive) == .orderedSame }
+    }
+}
+
 // MARK: - View
 
 struct RecordEditView: View {
@@ -2341,72 +2406,9 @@ private var isValid: Bool {
         cachedFrequentPayments = buildFrequentPayments()
     }
 
-    /// 「よくある決済」カプセル候補を過去レコードから組み立てる。
-    /// ラベル(zName)で集約し、そのラベルで最頻の手段・タグを代表値にする。
-    /// 並びは「頻度＋最近性」のスコア降順。上限は控えめに絞る。
+    /// 「よくある決済」カプセル候補を過去レコードから組み立てる（共通ロジックに委譲）。
     private func buildFrequentPayments() -> [FrequentPayment] {
-        struct Bucket {
-            var count = 0
-            var cardCounts: [String: Int] = [:]   // 手段ID→出現数
-            var tagSetCounts: [String: Int] = [:]  // タグID集合(ソート連結)→出現数
-            var tagSets: [String: [String]] = [:]  // 連結キー→実際のタグID配列
-            var amountCounts: [Decimal: Int] = [:] // 金額→出現数（3回以上で代表金額に採用）
-            var latest: Date = .distantPast       // 最近性スコア用
-        }
-        var buckets: [String: Bucket] = [:]
-        let now = Date()
-        // 「よくある決済」は最近の傾向を出すため、利用日が直近1年のものだけを集計する。
-        // pastRecords は dateUse 降順なので、1年より古い行に達したら以降は打ち切れる
-        // （古いレコードのリレーション展開すら発生させず、負荷を抑える）。
-        let cutoff = Calendar.current.date(byAdding: .year, value: -1, to: now) ?? .distantPast
-
-        for record in pastRecords {
-            if record.dateUse < cutoff { break }
-            // 繰り返し（自動追加）の決済は自分で毎回入力するものではないため、
-            // 使用頻度に数えない（元・自動生成コピーとも nRepeat>0 なので一律に除外）。
-            if record.nRepeat > 0 { continue }
-            let label = record.zName.trimmingCharacters(in: .whitespacesAndNewlines)
-            if label.isEmpty { continue }
-            var b = buckets[label] ?? Bucket()
-            b.count += 1
-            if let cardID = record.e1card?.id {
-                b.cardCounts[cardID, default: 0] += 1
-            }
-            let tagIDs = record.e5tags.map(\.id).sorted()
-            if !tagIDs.isEmpty {
-                let key = tagIDs.joined(separator: "|")
-                b.tagSetCounts[key, default: 0] += 1
-                b.tagSets[key] = tagIDs
-            }
-            // 金額の出現数も数える（0=未入力は代表金額の対象外）
-            if record.nAmount != 0 {
-                b.amountCounts[record.nAmount, default: 0] += 1
-            }
-            let when = record.dateUpdate ?? record.dateUse
-            if when > b.latest { b.latest = when }
-            buckets[label] = b
-        }
-
-        let candidates: [FrequentPayment] = buckets.map { label, b in
-            // 最頻の手段
-            let cardID = b.cardCounts.max { $0.value < $1.value }?.key
-            // 最頻のタグ集合
-            let tagIDs = b.tagSetCounts.max { $0.value < $1.value }.flatMap { b.tagSets[$0.key] } ?? []
-            // 代表金額：同じ金額が3回以上あるときだけ、その最頻金額を採用する
-            let topAmount = b.amountCounts.max { $0.value < $1.value }
-            let amount: Decimal? = (topAmount?.value ?? 0) >= 3 ? topAmount?.key : nil
-            // 最近性：直近30日で最大の加点、以降は緩やかに減衰
-            let days = max(0, now.timeIntervalSince(b.latest) / 86_400)
-            let recency = 1.0 / (1.0 + days / 30.0)
-            let score = Double(b.count) + recency
-            return FrequentPayment(id: label, label: label, cardID: cardID, tagIDs: tagIDs, amount: amount, score: score)
-        }
-
-        return candidates
-            .sorted { $0.score > $1.score }
-            // ページ送りで見せるため母集団は多めに保持する（実用上の上限）
-            .prefix(60)
-            .map { $0 }
+        FrequentPaymentBuilder.build(from: pastRecords)
     }
 
     /// 見出しと値を、収まる場合は1行、収まらない場合は2行で表示する共通セル

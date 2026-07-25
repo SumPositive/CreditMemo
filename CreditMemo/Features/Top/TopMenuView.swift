@@ -35,6 +35,10 @@ struct TopMenuView: View {
     private var allPayments: [E7payment]
     @Query(sort: \E1card.nRow)
     private var cards: [E1card]
+    // 音声入力の「よくある決済」補塡用（ラベル一致で手段・タグ・金額をプリセット）
+    @Query(sort: \E3record.dateUse, order: .reverse)
+    private var pastRecords: [E3record]
+    @Query private var tags: [E5tag]
 
     private var unpaidPayments: [E7payment] {
         // 起動直後クラッシュ回避:
@@ -401,16 +405,41 @@ struct TopMenuView: View {
     }
 
     private func saveVoiceRecord(_ payload: VoiceApplyPayload) {
-        let amount = (payload.amount ?? .zero).roundedAmount()
-        guard 0 < amount else { return }
-
+        var amount = (payload.amount ?? .zero).roundedAmount()
         let usePoint = payload.label?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+        // 「よくある決済」補塡：ラベルが過去のよく使う決済と一致したら、
+        // 未指定の手段・タグ・（3回以上同額の）金額をプリセットする。
+        var card = payload.card
+        var selectedTags: [E5tag] = []
+        if !usePoint.isEmpty {
+            let candidates = FrequentPaymentBuilder.build(from: pastRecords)
+            if let fp = FrequentPaymentBuilder.match(label: usePoint, in: candidates) {
+                // 手段：音声で未指定のときだけ候補の手段を補う
+                if card == nil, let cardID = fp.cardID {
+                    card = cards.first { $0.id == cardID }
+                }
+                // タグ：候補のタグを全タグ(@Query tags)からIDで引いて採用（音声はタグを持たない）
+                selectedTags = fp.tagIDs.compactMap { id in tags.first { $0.id == id } }
+                // 金額：音声で言わなかった場合のみ、代表金額があれば採用
+                if amount == 0, let a = fp.amount {
+                    amount = a.roundedAmount()
+                }
+            }
+        }
+
+        // 金額入力あり、または「よくある決済」補塡（手段/タグのいずれか）があれば保存する。
+        // 金額0でも下書きとして保存し、あとで編集できる。
+        let hasPreset = card != nil || !selectedTags.isEmpty
+        guard 0 < amount || hasPreset else { return }
+
         do {
             // 音声入力も Siri と同じ簡易保存ヘルパーへ揃える
             let _ = try RecordService.addQuickRecord(
                 amount: amount,
                 label: usePoint,
-                card: payload.card,
+                card: card,
+                tags: selectedTags,
                 context: context
             )
             commitVoiceLearning(payload: payload, savedCard: payload.card)
@@ -420,7 +449,8 @@ struct TopMenuView: View {
                 VoiceInputSaveTelemetry(
                     source: payload.source,
                     saveResult: "success",
-                    hasCard: payload.card != nil,
+                    // 補塡後に実際保存された手段の有無を記録する
+                    hasCard: card != nil,
                     hasLabel: !usePoint.isEmpty,
                     manualCardSelection: payload.manualCardSelection,
                     matchedExistingAlias: payload.matchedWasExistingAlias,

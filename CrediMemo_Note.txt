@@ -1814,6 +1814,7 @@ fastlane upload_screenshots     # スクショ Upload
 【行末詰め 最終形 2026-07-25】カプセル右余白が大きい問題。当初「自前で幅計測→行分け(frequentRowsLayout)」を試みたが、GeometryReaderの帯幅測定がScrollView内側で狂い「1行しか出ない」バグ多発。→ 方針転換し AZFlowLayout(Layoutプロトコル)に packToFill パラメータを追加して解決(親提案幅で確実に折返し、幅測定不要)。makeRowsを共通化しsizeThatFits/placeSubviousで共有。packToFill=true時は行末余白に収まる後方要素を最小限繰り上げ(bin-packing)。自前計測系(frequentRowsLayout/frequentAreaWidth/frequentCapsuleWidth/FrequentCapsuleWidthLimit)は全撤去。frequentSpacingのみ残す。
 【長文カプセルの金額保持 2026-07-25】帯幅超のカプセルはAZFlowLayout.placeSubviewsで提案幅をmin(自然幅,bounds.width)にクランプ→内部HStackに幅制限が伝わる。frequentCapsuleでラベルlayoutPriority(0)・金額layoutPriority(1)+fixedSizeにし、幅不足時はラベルが…・金額は右端に全桁残る。金額なしはラベルが…。
 【テンキー自動を更新時OFF 2026-07-25】「よくある決済」カプセル導入に合わせ、autoOpenAmountPadを1回だけ強制OFF。AppMain.init()でapplyOneTimeSettingsMigration()実行、フラグ AppStorageKey.didForceOffAutoOpenAmountPad で二重適用防止。全既存・新規ユーザー対象(以降は設定で自由)。スクショは元々 autoOpenAmountPad && !SnapshotSeed.isActive で制御のため影響なし。
+【音声入力によくある決済補塡 2026-07-25】音声でラベルが「よくある決済」に完全一致したら手段・タグ・(3回以上同額の)金額をプリセット。候補生成をenum FrequentPaymentBuilder(build/match)に共通化しRecordEditView(buildFrequentPaymentsは委譲)とTopMenuView.saveVoiceRecordで共有。※新規ファイルは作らずRecordEditView.swift内に置く(このプロジェクトはPBXFileSystemSynchronizedRootGroup非使用＝pbxproj登録必要なため)。RecordService.addQuickRecordにtags:[E5tag]=[]追加(insert前にrecord.e5tagsセット、Siri/SnapshotSeedは無変更)。saveVoiceRecordの金額必須(guard 0<amount)を緩和し「金額あり or 手段/タグ補塡あり」で保存(金額0は下書き)。補塡は音声未指定の手段のみ・金額は音声で言わなかった時のみ。TopMenuViewに@Query pastRecords/tags追加。commitVoiceLearningは音声実手段の学習なのでpayload.cardのまま、成功telemetryのhasCardは保存結果のcardに変更。
 
 設定：新しい決済の補助機能：[なし、決済一覧からコピー、よくある決済]から選択できるようにしたい、デフォルトはよくある決済
 ヘルプ「金額欄の上に出す入力補助を・・・」を「新しい決済の入力補助を・・・」に変更
@@ -1827,7 +1828,13 @@ record.frequent.help、settings.help.newPaymentAssist を修正したので多�
 --------------------------------
 2.6.0 新機能
 - 新しい決済の入力補助機能に「よくある決済」が加わりました
+　・よく使うラベル一覧から選択すると、手段とタグがプリセットされます
+　・3回以上、同じ金額で使用した場合は、金額もプリセットされます
 　・設定画面で従来の「決済一覧からコピー」や「なし」に切り替えることができます
+
+- 音声で新しい決済：
+　・「よくある決済」と同様にラベルから手段とタグが入力されるようになりました
+
 - 引き落とし済みで３年より古いデータが溜まると適時、データ整理を促します
 　・エキスポートして削除しますので、インポートして復元ができます
 - 引き落とし状況：1年より古い未払は確認表示せず、注意アイコンを表示します
