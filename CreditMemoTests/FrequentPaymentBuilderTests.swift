@@ -85,4 +85,21 @@ struct FrequentPaymentBuilderTests {
         let labels = FrequentPaymentBuilder.build(from: records).map(\.label)
         #expect(labels == ["Alpha", "Bravo", "Charlie"])
     }
+
+    // 未ソート配列でも、期間外記録の後ろにある期間内記録を取りこぼさない
+    @Test("期間判定は打ち切らず、入力の並び順に依存しない")
+    func unsortedInputStillIncludesInPeriodRecords() throws {
+        let context = try TestStore.makeContext()
+        // わざと降順にせず、期間外(約13か月前)を先頭・期間内(5日前)を後ろに置く。
+        // 旧実装(break)なら先頭の期間外で打ち切られ「期間内」が欠落していた
+        let records = [
+            makeRecord(label: "期間外", date: daysAgo(400), in: context),
+            makeRecord(label: "期間内", date: daysAgo(5), in: context)
+        ]
+
+        let labels = FrequentPaymentBuilder.build(from: records).map(\.label)
+        #expect(labels.contains("期間内"))
+        // 12か月超は期間フィルタで除外される
+        #expect(!labels.contains("期間外"))
+    }
 }

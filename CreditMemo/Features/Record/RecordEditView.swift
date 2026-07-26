@@ -71,7 +71,8 @@ struct FrequentPaymentConfig: Equatable {
 /// 新規ファイルを増やさずここに置く。
 enum FrequentPaymentBuilder {
     /// 設定期間内・繰り返し以外の過去レコードから候補を組み立てる。
-    /// - pastRecords: dateUse 降順で渡すこと（期間境界で打ち切るため）。
+    /// - pastRecords: 並び順に依存しない純粋ビルダー。期間外は要素ごとに読み飛ばすため、
+    ///   降順・昇順・未ソートのいずれを渡しても結果は同じ（本番は dateUse 降順を渡す）。
     static func build(from pastRecords: [E3record],
                       config: FrequentPaymentConfig = .default,
                       limit: Int = 60) -> [FrequentPayment] {
@@ -127,7 +128,8 @@ enum FrequentPaymentBuilder {
         let cutoff = Calendar.current.date(byAdding: .month, value: -config.periodMonths, to: now) ?? .distantPast
 
         for record in pastRecords {
-            if record.dateUse < cutoff { break }
+            // 期間外は打ち切らず読み飛ばす（未ソート配列でも後続の期間内記録を取りこぼさない）
+            if record.dateUse < cutoff { continue }
             if !config.includeRepeat && record.nRepeat > 0 { continue }
             let label = record.zName.trimmingCharacters(in: .whitespacesAndNewlines)
             if label.isEmpty { continue }
