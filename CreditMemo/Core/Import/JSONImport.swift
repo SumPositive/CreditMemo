@@ -16,11 +16,14 @@ enum JSONImport {
 
     enum ImportError: LocalizedError {
         case invalidDecimal(String)
+        case valueOutOfRange(field: String, value: Int)
 
         var errorDescription: String? {
             switch self {
             case .invalidDecimal(let value):
                 return "数値として読み込めない値があります: \(value)"
+            case .valueOutOfRange(let field, let value):
+                return "取り込める範囲を超えた値があります: \(field)=\(value)"
             }
         }
     }
@@ -257,8 +260,8 @@ enum JSONImport {
             report(.importingMasters)
             await Task.yield()
             try Task.checkCancellation()
-            let importedBankCount = importBanks(payload.banks ?? [], bankByID: &bankByID, context: context)
-            let importedCardCount = importCards(payload.cards ?? [], cardByID: &cardByID, bankByID: bankByID, context: context)
+            let importedBankCount = try importBanks(payload.banks ?? [], bankByID: &bankByID, context: context)
+            let importedCardCount = try importCards(payload.cards ?? [], cardByID: &cardByID, bankByID: bankByID, context: context)
             // tags（新）または categories（旧JSON互換）のどちらかを読み込む
             let importedTagCount = importTags(
                 payload.tags ?? payload.categories?.map { TagData(id: $0.id, name: $0.name, note: $0.note) } ?? [],
@@ -417,7 +420,7 @@ enum JSONImport {
         _ items: [BankData],
         bankByID: inout [String: E8bank],
         context: ModelContext
-    ) -> Int {
+    ) throws -> Int {
         for item in items {
             let bank = bankByID[item.id] ?? {
                 let value = E8bank(id: item.id)
@@ -428,7 +431,7 @@ enum JSONImport {
             // 口座マスタの基本項目を上書きする
             bank.zName = item.name
             bank.zNote = item.note
-            bank.nRow = Int32(item.row)
+            bank.nRow = try int32Value(item.row, field: "bank.row")
         }
         return items.count
     }
@@ -438,7 +441,7 @@ enum JSONImport {
         cardByID: inout [String: E1card],
         bankByID: [String: E8bank],
         context: ModelContext
-    ) -> Int {
+    ) throws -> Int {
         for item in items {
             let card = cardByID[item.id] ?? {
                 let value = E1card(id: item.id)
@@ -451,13 +454,13 @@ enum JSONImport {
             // 決済手段マスタの基本項目を上書きする
             card.zName = item.name
             card.zNote = item.note
-            card.nRow = Int32(item.row)
+            card.nRow = try int32Value(item.row, field: "card.row")
             // closingDay/payDay/payMonth の正規形だけを読む
-            card.nClosingDay = Int16(item.closingDay)
-            card.nPayDay = Int16(item.payDay)
-            card.nPayMonth = Int16(normalizedPayMonth)
-            card.nBonus1 = Int16(item.bonus1)
-            card.nBonus2 = Int16(item.bonus2)
+            card.nClosingDay = try int16Value(item.closingDay, field: "closingDay")
+            card.nPayDay = try int16Value(item.payDay, field: "payDay")
+            card.nPayMonth = try int16Value(normalizedPayMonth, field: "payMonth")
+            card.nBonus1 = try int16Value(item.bonus1, field: "bonus1")
+            card.nBonus2 = try int16Value(item.bonus2, field: "bonus2")
             card.e8bank = item.bankID.flatMap { bankByID[$0] }
         }
         return items.count
@@ -509,8 +512,8 @@ enum JSONImport {
             record.zNote = item.note
             record.nAmount = try decimalValue(item.amount)
             // 旧アプリ由来のボーナス払い等は現行モデルに無いので一括払いへ正規化する
-            record.nPayType = E3record.normalizedPayTypeRawValue(Int16(item.payType))
-            record.nRepeat = Int16(item.repeatMonths)
+            record.nPayType = E3record.normalizedPayTypeRawValue(try int16Value(item.payType, field: "payType"))
+            record.nRepeat = try int16Value(item.repeatMonths, field: "repeatMonths")
             record.e1card = item.cardID.flatMap { cardByID[$0] }
 
             // tagIDs（新）→ categoryIDs（旧互換）→ categoryID（最旧互換）の順で読む
@@ -561,7 +564,8 @@ enum JSONImport {
         var amountByRecordID: [String: [Int16: Decimal]] = [:]
         for item in items {
             guard let recordID = item.recordID, let amountString = item.amount else { continue }
-            amountByRecordID[recordID, default: [:]][Int16(item.partNo)] = try decimalValue(amountString)
+            let partNo = try int16Value(item.partNo, field: "partNo")
+            amountByRecordID[recordID, default: [:]][partNo] = try decimalValue(amountString)
         }
         let validAmountByRecordAndNo = validTwoPaymentAmounts(
             amountByRecordID: amountByRecordID,
@@ -572,8 +576,9 @@ enum JSONImport {
         for (index, item) in items.enumerated() {
             // 明細状態の復元中もキャンセルを受け付ける
             try Task.checkCancellation()
+            let partNo = try int16Value(item.partNo, field: "partNo")
             if let recordID = item.recordID,
-               let part = partByRecordAndNo["\(recordID)#\(Int16(item.partNo))"] {
+               let part = partByRecordAndNo["\(recordID)#\(partNo)"] {
                 // 2回払いの手動配分は、合計が正しい場合だけ復元する
                 let amountKey = "\(recordID)#\(part.nPartNo)"
                 if let restored = validAmountByRecordAndNo[amountKey] {
@@ -593,7 +598,7 @@ enum JSONImport {
                 part.isDueDateLocked = shouldLockDueDate
                 if let noCheck = item.noCheck {
                     // チェック状態は支払日移動を妨げるため、日付復元後に反映する
-                    part.nNoCheck = Int16(noCheck)
+                    part.nNoCheck = try int16Value(noCheck, field: "noCheck")
                 }
                 updatedCount += 1
             }
@@ -759,6 +764,24 @@ enum JSONImport {
             throw ImportError.invalidDecimal(rawValue)
         }
         return value
+    }
+
+    /// JSON の Int を Int16 のストレージ型へ安全に変換する。
+    /// 範囲外（例: partNo:100000）は整数変換トラップでプロセスが落ちるため、
+    /// 例外を投げて呼び出し元の catch でロールバックできるようにする。
+    private static func int16Value(_ value: Int, field: String) throws -> Int16 {
+        guard let converted = Int16(exactly: value) else {
+            throw ImportError.valueOutOfRange(field: field, value: value)
+        }
+        return converted
+    }
+
+    /// JSON の Int を Int32 のストレージ型へ安全に変換する（範囲外は例外）。
+    private static func int32Value(_ value: Int, field: String) throws -> Int32 {
+        guard let converted = Int32(exactly: value) else {
+            throw ImportError.valueOutOfRange(field: field, value: value)
+        }
+        return converted
     }
 
     private static func moveInvoice(_ invoice: E2invoice, toPaid: Bool, context: ModelContext) {

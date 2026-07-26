@@ -682,6 +682,92 @@ struct JSONRoundTripTests {
         #expect(result.recordCount == 2)
     }
 
+    // Int16/Int32 の範囲を超える整数は、変換トラップでプロセスを落とさず
+    // 例外化して取り込み全体をロールバックし、既存DBを完全に維持する
+    @Test func outOfRangeIntegersRollBackWithoutCrashing() async throws {
+        // 各要素が特定フィールドを Int16(±32768超) / Int32(±2147483648超) の範囲外にする
+        let outOfRangeJSONs: [(field: String, json: String)] = [
+            ("closingDay(Int16.max+1)", """
+            {"cards":[{"id":"c","name":"カード","note":"","row":0,"closingDay":32768,"payDay":27,"payMonth":1,"bonus1":0,"bonus2":0,"bankID":null}]}
+            """),
+            ("payDay(Int16.min-1)", """
+            {"cards":[{"id":"c","name":"カード","note":"","row":0,"closingDay":20,"payDay":-32769,"payMonth":1,"bonus1":0,"bonus2":0,"bankID":null}]}
+            """),
+            ("payMonth(Int16.max+1)", """
+            {"cards":[{"id":"c","name":"カード","note":"","row":0,"closingDay":20,"payDay":27,"payMonth":32768,"bonus1":0,"bonus2":0,"bankID":null}]}
+            """),
+            ("bonus1(Int16.max+1)", """
+            {"cards":[{"id":"c","name":"カード","note":"","row":0,"closingDay":20,"payDay":27,"payMonth":1,"bonus1":32768,"bonus2":0,"bankID":null}]}
+            """),
+            ("bonus2(Int16.min-1)", """
+            {"cards":[{"id":"c","name":"カード","note":"","row":0,"closingDay":20,"payDay":27,"payMonth":1,"bonus1":0,"bonus2":-32769,"bankID":null}]}
+            """),
+            ("card.row(Int32.max+1)", """
+            {"cards":[{"id":"c","name":"カード","note":"","row":2147483648,"closingDay":20,"payDay":27,"payMonth":1,"bonus1":0,"bonus2":0,"bankID":null}]}
+            """),
+            ("bank.row(Int32.min-1)", """
+            {"banks":[{"id":"b","name":"口座","note":"","row":-2147483649}]}
+            """),
+            ("payType(Int16.max+1)", """
+            {"records":[{"id":"r","dateUse":"2026-04-01T00:00:00Z","name":"履歴","note":"","amount":"1000","payType":999999,"repeatMonths":0,"cardID":null,"tagIDs":[]}]}
+            """),
+            ("repeatMonths(Int16.min-1)", """
+            {"records":[{"id":"r","dateUse":"2026-04-01T00:00:00Z","name":"履歴","note":"","amount":"1000","payType":1,"repeatMonths":-32769,"cardID":null,"tagIDs":[]}]}
+            """),
+            ("partNo(Int16.max+1)", """
+            {"parts":[{"recordID":"r","partNo":100000,"amount":"1000"}]}
+            """),
+            ("noCheck(Int16.max+1)", """
+            {"cards":[{"id":"card-nc","name":"カード","note":"","row":0,"closingDay":20,"payDay":27,"payMonth":1,"bonus1":0,"bonus2":0,"bankID":null}],
+             "records":[{"id":"record-nc","dateUse":"2026-04-01T00:00:00Z","name":"履歴","note":"","amount":"1000","payType":1,"repeatMonths":0,"cardID":"card-nc","tagIDs":[]}],
+             "parts":[{"recordID":"record-nc","partNo":1,"noCheck":100000}]}
+            """)
+        ]
+
+        for entry in outOfRangeJSONs {
+            let context = try TestStore.makeContext()
+            let existing = TestFixtures.makeBank(name: "既存口座", in: context)
+            existing.zNote = "変更前"
+            try context.save()
+            let before = try databaseSnapshot(context)
+            let url = try writeTempJSON(Data(entry.json.utf8))
+            defer { try? FileManager.default.removeItem(at: url) }
+
+            // 範囲外整数はトラップではなく例外として扱われる（プロセスは生存）
+            await expectImportFailure(from: url, context: context)
+            // 失敗時は既存DBが完全に維持される
+            #expect(try databaseSnapshot(context) == before, "\(entry.field) の範囲外で既存DBが変化しました")
+        }
+    }
+
+    // Int16/Int32 の境界値（max/min）は範囲内なのでそのまま取り込む
+    @Test func boundaryIntegerValuesAreImported() async throws {
+        let json = """
+        {
+          "banks": [{"id":"bank-min","name":"口座","note":"","row":-2147483648}],
+          "cards": [
+            {"id":"card-max","name":"カード","note":"","row":2147483647,
+             "closingDay":20,"payDay":27,"payMonth":1,
+             "bonus1":32767,"bonus2":-32768,"bankID":"bank-min"}
+          ]
+        }
+        """
+        let url = try writeTempJSON(Data(json.utf8))
+        defer { try? FileManager.default.removeItem(at: url) }
+        let context = try TestStore.makeContext()
+
+        _ = try await JSONImport.importData(from: url, context: context)
+
+        let bank = try #require(try context.fetch(FetchDescriptor<E8bank>()).first { $0.id == "bank-min" })
+        let card = try #require(try context.fetch(FetchDescriptor<E1card>()).first { $0.id == "card-max" })
+        // Int32 の境界（min/max）が丸められず保持される
+        #expect(bank.nRow == Int32.min)
+        #expect(card.nRow == Int32.max)
+        // Int16 の境界（min/max）が丸められず保持される
+        #expect(card.nBonus1 == Int16.max)
+        #expect(card.nBonus2 == Int16.min)
+    }
+
     private func writeTempJSON(_ data: Data) throws -> URL {
         let dir = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
         let url = dir.appendingPathComponent("credit-memo-test-\(UUID().uuidString).json")
