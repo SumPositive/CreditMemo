@@ -8589,31 +8589,31 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Diese Optionen gelten nur für die „Häufige Zahlungen“-Chips auf diesem Bildschirm."
+            "value" : "Diese Optionen gelten für die „Häufige Zahlungen“-Chips auf diesem Bildschirm. Der Zeitraum wird auch für Vorschläge bei der Spracheingabe verwendet."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "These options apply only to the Frequent Payments chips on this screen."
+            "value" : "These options apply to the Frequent Payments chips on this screen. The Label period is also used for Voice input suggestions."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "この設定はこの画面の「よくある決済」カプセルにだけ効きます。"
+            "value" : "この設定はこの画面の「よくある決済」カプセルに効きます。ラベル抽出期間は音声入力の候補にも使われます。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "이 설정은 이 화면의 ‘자주 쓰는 결제’ 칩에만 적용됩니다."
+            "value" : "이 설정은 이 화면의 ‘자주 쓰는 결제’ 칩에 적용됩니다. 라벨 추출 기간은 음성 입력 후보에도 사용됩니다."
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "此設定僅套用於本畫面的「常用付款」膠囊。"
+            "value" : "此設定套用於本畫面的「常用付款」膠囊。標籤擷取期間也會用於語音輸入的候選。"
           }
         }
       }
