@@ -1842,8 +1842,6 @@ fastlane screenshots で次の画面を更新したい
 【設定シート追加4項目＋歯車は達人のみ 2026-07-26】(1)繰り返し決済を含める frequentIncludeRepeat(Bool,既定false)→Builderの nRepeat>0 除外を !includeRepeat 条件化。(2)最小利用回数 FrequentMinUses(Int:1/2/3,既定1)→ラベルの overall.count<minUses は候補から除外。(3)金額なしカプセルを隠す frequentHideBaseWhenAmounts(Bool,既定false)→金額付きが1つ以上あるとき基本カプセルを出さない(amount=offのときはトグル無効)。(4)手段の色を表示 frequentShowCardColor(Bool,既定false)→カプセル先頭に9ptの丸。E1cardは色属性を持たないので Color.frequentCardColor(for:id) でIDをFNV-1aハッシュ→色相を決定的生成(選択時は白リング)。表示専用なのでConfigには入れず(再生成不要)。設定シートは2セクション(抽出条件/カプセル表示)に整理。歯車アイコンは userLevel != .beginner のときだけ表示(初心者には出さない)。FrequentPaymentConfigに includeRepeat/minUses/hideBaseWhenAmounts を追加。新キー settings.frequent.section.filter/.display、.minUses(+one/two/three)、.includeRepeat/.hideBase/.showCardColor を5言語追加。
 【色は塗り分け・PickerはAZDropdown・文字サイズ対応 2026-07-26】(a)手段の色は丸ドットだと幅を食うのでやめ、カプセルの文字色/枠色/薄い塗り(opacity0.16)で色分け。frequentCardColorをsat0.7/bri0.72に濃くし文字・枠でも読めるように。選択時は従来のアクセント塗り優先。(b)設定シートのプルダウンをSwiftUI Picker→AZDropdownPickerに変更。dropdownRowヘルパーでAZAdaptiveControlRow(見出し＋Picker、狭いと2段折り)、expandedDropdown(enum DropdownKind)で同時1つだけ開く、zIndex切替。(c)文字サイズ対応：シートに@AppStorage fontScale、popoverは環境を失うので各PickerにpopoverDynamicTypeSize(=followsSystem?nil:dynamicTypeSize)を渡す。表示側は presentation の ConditionalDynamicTypeModifier(fontScale) で適用済み。
 
-
-
 --------------------------------
 2.6.0 新機能
 - 新しい決済の入力補助機能に「よくある決済」が加わりました

@@ -116,7 +116,7 @@ struct RobustnessTests {
     }
 
     @Test("古い履歴のまとめ削除で、対象だけが消えて整合性は保たれる")
-    func deleteRecordsOlderThanYears() throws {
+    func deleteRecordsOlderThanYears() async throws {
         let context = try TestStore.makeContext()
         let bank = TestFixtures.makeBank(name: "口座", in: context)
         let card = TestFixtures.makeCard(name: "カード", bank: bank, in: context)
@@ -127,7 +127,7 @@ struct RobustnessTests {
         _ = try TestFixtures.saveRecord(amount: 2, dateUse: recentDate, card: card, in: context)
 
         #expect(try context.fetch(FetchDescriptor<E3record>()).count == 2)
-        try RecordService.deleteRecords(olderThanYears: 3, context: context)
+        try await RecordService.deleteRecords(olderThanYears: 3, context: context)
         let remaining = try context.fetch(FetchDescriptor<E3record>())
         #expect(remaining.count == 1)
         #expect(remaining.first?.dateUse == recentDate)
