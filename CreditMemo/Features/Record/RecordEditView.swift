@@ -39,6 +39,7 @@ struct FrequentPayment: Identifiable {
     let tagIDs: [String]      // 代表のタグ
     let amount: Decimal?      // 同じ金額が3回以上あるときの代表金額（なければ nil）
     let score: Double         // 頻度×最近性の並び替え用スコア
+    let latest: Date          // 代表の最終利用日時（同スコア時の並びを安定させる第2条件）
 
     /// ラベルと金額から一意な id を作る（金額なしはラベルのみ）。
     static func makeID(label: String, amount: Decimal?) -> String {
@@ -79,25 +80,43 @@ enum FrequentPaymentBuilder {
         struct Agg {
             var count = 0
             var cardCounts: [String: Int] = [:]
+            var cardLatest: [String: Date] = [:]      // 同数カードは最終利用日で選ぶための最終利用日
             var tagSetCounts: [String: Int] = [:]
             var tagSets: [String: [String]] = [:]
+            var tagSetLatest: [String: Date] = [:]    // 同数タグ組も同様に最終利用日で選ぶ
             var latest: Date = .distantPast
 
             mutating func add(record: E3record, when: Date) {
                 count += 1
                 if let cardID = record.e1card?.id {
                     cardCounts[cardID, default: 0] += 1
+                    if when > (cardLatest[cardID] ?? .distantPast) { cardLatest[cardID] = when }
                 }
                 let tagIDs = record.e5tags.map(\.id).sorted()
                 if !tagIDs.isEmpty {
                     let key = tagIDs.joined(separator: "|")
                     tagSetCounts[key, default: 0] += 1
                     tagSets[key] = tagIDs
+                    if when > (tagSetLatest[key] ?? .distantPast) { tagSetLatest[key] = when }
                 }
                 if when > latest { latest = when }
             }
-            var topCardID: String? { cardCounts.max { $0.value < $1.value }?.key }
-            var topTagIDs: [String] { tagSetCounts.max { $0.value < $1.value }.flatMap { tagSets[$0.key] } ?? [] }
+
+            /// counts から代表キーを、頻度→最終利用日→キー昇順の総順序で選ぶ。
+            /// 同数でも一意に決まるので、辞書の反復順に依存せず結果が安定する。
+            private func topKey(counts: [String: Int], latest: [String: Date]) -> String? {
+                counts.max { a, b in
+                    if a.value != b.value { return a.value < b.value }
+                    let la = latest[a.key] ?? .distantPast
+                    let lb = latest[b.key] ?? .distantPast
+                    if la != lb { return la < lb }
+                    return a.key > b.key
+                }?.key
+            }
+            var topCardID: String? { topKey(counts: cardCounts, latest: cardLatest) }
+            var topTagIDs: [String] {
+                topKey(counts: tagSetCounts, latest: tagSetLatest).flatMap { tagSets[$0] } ?? []
+            }
         }
         struct Bucket {
             var overall = Agg()
@@ -147,7 +166,7 @@ enum FrequentPaymentBuilder {
                     amountCaps.append(FrequentPayment(
                         id: FrequentPayment.makeID(label: label, amount: amount),
                         label: label, cardID: sub.topCardID, tagIDs: sub.topTagIDs,
-                        amount: amount, score: score(of: sub)))
+                        amount: amount, score: score(of: sub), latest: sub.latest))
                 }
             }
             // 金額なしの基本カプセルは、設定ONかつ金額付きが1つ以上あるときは隠す。
@@ -156,12 +175,18 @@ enum FrequentPaymentBuilder {
                 candidates.append(FrequentPayment(
                     id: FrequentPayment.makeID(label: label, amount: nil),
                     label: label, cardID: b.overall.topCardID, tagIDs: b.overall.topTagIDs,
-                    amount: nil, score: score(of: b.overall)))
+                    amount: nil, score: score(of: b.overall), latest: b.overall.latest))
             }
             candidates.append(contentsOf: amountCaps)
         }
 
-        return candidates.sorted { $0.score > $1.score }.prefix(limit).map { $0 }
+        // 同スコア時は最終利用日の新しい順、さらに同じなら id（ラベル＋金額で一意）昇順で並べ、
+        // 辞書の反復順に依存しない決定的な並びにする。
+        return candidates.sorted { lhs, rhs in
+            if lhs.score != rhs.score { return lhs.score > rhs.score }
+            if lhs.latest != rhs.latest { return lhs.latest > rhs.latest }
+            return lhs.id < rhs.id
+        }.prefix(limit).map { $0 }
     }
 
     /// 指定ラベルに完全一致する候補を返す（音声入力の補塡用）。前後空白無視・大小同一視。
