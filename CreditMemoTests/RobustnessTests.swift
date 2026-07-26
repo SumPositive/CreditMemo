@@ -136,6 +136,77 @@ struct RobustnessTests {
         #expect(report.hasIssue == false)
     }
 
+    @Test("決済手段の口座変更は、対象記録と兄弟記録の再構築を1回の保存で完了する")
+    func cardBankChangeReassignsAllSiblingsInSingleSave() throws {
+        let context = try TestStore.makeContext()
+        let bankA = TestFixtures.makeBank(name: "A口座", in: context)
+        let bankB = TestFixtures.makeBank(name: "B口座", in: context)
+        let card = TestFixtures.makeCard(name: "カード", bank: bankA, in: context)
+
+        // 別月にして請求・支払が記録ごとに分かれる状態を作る
+        var records: [E3record] = []
+        for month in [4, 5, 6] {
+            records.append(try TestFixtures.saveRecord(
+                amount: Decimal(month * 1_000),
+                dateUse: TestStore.date(2026, month, 5),
+                card: card,
+                in: context
+            ))
+        }
+        let paymentsBefore = try context.fetch(FetchDescriptor<E7payment>())
+            .filter { !$0.e2invoices.isEmpty }
+        #expect(paymentsBefore.count == 3)
+        #expect(paymentsBefore.allSatisfy { $0.e8bank?.id == bankA.id })
+
+        // 編集画面と同じ手順: 保存直前にカードの口座を変え、対象記録＋兄弟をまとめて保存する
+        card.e8bank = bankB
+        try RecordService.saveFromEditor(records[0], rebuildSiblingsForCard: card, context: context)
+
+        // 単一トランザクションで完了し、未保存変更が残らない
+        #expect(context.hasChanges == false)
+        // 対象記録だけでなく兄弟記録の支払も全て新口座へ移る（部分更新が起きない）
+        let paymentsAfter = try context.fetch(FetchDescriptor<E7payment>())
+            .filter { !$0.e2invoices.isEmpty }
+        #expect(paymentsAfter.count == 3)
+        #expect(paymentsAfter.allSatisfy { $0.e8bank?.id == bankB.id })
+
+        let report = RecordService.checkBillingIntegrity(context: context)
+        #expect(report.hasIssue == false)
+    }
+
+    @Test("新規の複数回払いを最初から済みにしても、全明細が1回の保存で済みになる")
+    func newInstallmentMarkedPaidCommitsAllPartsInSingleSave() throws {
+        let context = try TestStore.makeContext()
+        let bank = TestFixtures.makeBank(name: "口座", in: context)
+        let card = TestFixtures.makeCard(name: "カード", bank: bank, in: context)
+
+        // 「済み側から追加」相当の 2 回払い新規記録
+        let record = E3record(
+            dateUse: TestStore.date(2026, 4, 5),
+            zName: "2回払い",
+            nAmount: 2_000,
+            nPayType: 2,
+            nRepeat: 0
+        )
+        record.e1card = card
+        context.insert(record)
+
+        try RecordService.saveFromEditor(record, markAllPartsPaid: true, context: context)
+
+        // 単一トランザクションで完了する
+        #expect(context.hasChanges == false)
+        // 全明細が済みの請求に属し、途中まで済みの部分更新が残らない
+        let parts = try context.fetch(FetchDescriptor<E6part>())
+        #expect(parts.count == 2)
+        #expect(parts.allSatisfy { $0.e2invoice?.isPaid == true })
+        let invoices = try context.fetch(FetchDescriptor<E2invoice>())
+        #expect(!invoices.isEmpty)
+        #expect(invoices.allSatisfy { $0.isPaid })
+
+        let report = RecordService.checkBillingIntegrity(context: context)
+        #expect(report.hasIssue == false)
+    }
+
     private func snapshot(_ context: ModelContext) throws -> Snapshot {
         Snapshot(
             recordCount: try context.fetch(FetchDescriptor<E3record>()).count,

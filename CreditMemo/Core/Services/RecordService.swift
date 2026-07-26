@@ -205,6 +205,82 @@ enum RecordService {
         try commit(context)
     }
 
+    /// 記録編集画面の保存を 1 トランザクションで完結させる。
+    ///
+    /// 現在の記録の再構築・（口座変更時の）同カード配下の兄弟記録の再構築・
+    /// 新規を最初から「済み」にする明細移動を、すべて同じ保存単位で行う。
+    /// 途中で失敗した場合は context.rollback() で変更前状態へ完全に戻してから例外を投げ直すため、
+    /// 画面側はこのメソッドが成功したときだけ閉じればよい。
+    /// - Parameters:
+    ///   - rebuildSiblingsForCard: 決済手段の口座変更などで配下全体の再構築が要るカード（不要なら nil）
+    ///   - markAllPartsPaid: 新規を最初から「済み」にする場合 true
+    static func saveFromEditor(
+        _ record: E3record,
+        partDueDateOverridesByPartNo: [Int16: Date] = [:],
+        partAmountOverridesByPartNo: [Int16: Decimal] = [:],
+        partDueDateLockOverridesByPartNo: [Int16: Bool] = [:],
+        rebuildSiblingsForCard card: E1card? = nil,
+        markAllPartsPaid: Bool = false,
+        context: ModelContext
+    ) throws {
+        do {
+            record.dateUpdate = Date()
+            rebuildBilling(
+                for: record,
+                partAmountOverridesByPartNo: partAmountOverridesByPartNo,
+                context: context
+            )
+            let cats = record.e5tags
+            for cat in cats { updateCategoryStats(cat, amount: record.nAmount, date: Date()) }
+            applyPartDueDateOverrides(
+                to: record,
+                overridesByPartNo: partDueDateOverridesByPartNo,
+                context: context
+            )
+            applyPartDueDateLockOverrides(
+                to: record,
+                overridesByPartNo: partDueDateLockOverridesByPartNo
+            )
+
+            // 新規を最初から「済み」にする場合、全明細を同じ保存単位で移し、
+            // 複数回払いで途中まで済みになる部分更新を防ぐ
+            if markAllPartsPaid {
+                for part in record.e6parts {
+                    setPartPaidWithoutCommit(part, isPaid: true, context: context)
+                }
+            }
+
+            // 決済手段の口座変更は同カード配下の請求全体へ影響するため、兄弟記録も同じ保存単位で作り直す
+            if let card {
+                for sibling in siblingRecords(of: card, excluding: record.id, context: context) {
+                    rebuildBilling(for: sibling, context: context)
+                }
+                cleanupOrphanBilling(context: context)
+            }
+
+            try commit(context)
+        } catch {
+            // 途中まで進んだ再構築・口座変更・済み反映を残さず、変更前状態へ完全に戻す
+            context.rollback()
+            throw error
+        }
+    }
+
+    /// 同一カード配下の、指定記録を除いた記録を利用日順に返す
+    private static func siblingRecords(
+        of card: E1card,
+        excluding recordID: String,
+        context: ModelContext
+    ) -> [E3record] {
+        let cardID = card.id
+        let descriptor = FetchDescriptor<E3record>(
+            predicate: #Predicate<E3record> { $0.e1card?.id == cardID },
+            sortBy: [SortDescriptor(\E3record.dateUse)]
+        )
+        // SwiftData の逆参照配列に残っていない履歴も口座変更時は対象に含めるため明示 fetch する
+        return context.fetchReporting(descriptor, entity: "E3record").filter { $0.id != recordID }
+    }
+
     /// 請求を作り直さず、明細のメタ情報だけを保存する
     static func saveMetadata(_ record: E3record, context: ModelContext) throws {
         // 手動で調整した E6part の引き落とし日を保つため、請求再構築は行わない
@@ -592,6 +668,16 @@ enum RecordService {
         isPaid: Bool,
         context: ModelContext
     ) throws {
+        setPartPaidWithoutCommit(part, isPaid: isPaid, context: context)
+        try commit(context)
+    }
+
+    /// setPartPaid の保存を伴わない版。複数明細をまとめて 1 回で保存する呼び出し元向け。
+    static func setPartPaidWithoutCommit(
+        _ part: E6part,
+        isPaid: Bool,
+        context: ModelContext
+    ) {
         guard let sourceInvoice = part.e2invoice else {
             return
         }
@@ -666,8 +752,6 @@ enum RecordService {
                 deleteRepeatRecordIfNeeded(from: record, context: context)
             }
         }
-
-        try commit(context)
     }
 
     /// 明細1件だけを指定した引き落とし日の請求へ移す

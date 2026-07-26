@@ -2255,6 +2255,8 @@ private var isValid: Bool {
         let note = zNote.trimmedNoteEdges
         let previousBankID = selectedCard?.e8bank?.id
         let bankChanged = initialDraft?.bankID != selectedBankForCard?.id
+        // 選択中カードの引き落とし口座が変わったら、その配下の兄弟記録も再構築対象にする
+        let cardBankChanged = previousBankID != selectedBankForCard?.id
         let billingChanged = initialDraft?.dateUse != dateUse
             || initialDraft?.nAmount != nAmount
             || initialDraft?.payCount != payCount
@@ -2270,31 +2272,21 @@ private var isValid: Bool {
             r.e5tags = selectedCategories
             context.insert(r)
             do {
-                let dueDateOverrides = displayedDueDateOverridesForNewSave()
-                let amountOverrides = displayedPartAmountOverridesForSave()
-                let lockOverrides = displayedDueDateLockOverridesForNewSave()
-                // 手動日付や分割金額がある時は、請求再構築と同時に表示値を保存する
-                if !dueDateOverrides.isEmpty || !amountOverrides.isEmpty || !lockOverrides.isEmpty {
-                    try RecordService.save(
-                        r,
-                        partDueDateOverridesByPartNo: dueDateOverrides,
-                        partAmountOverridesByPartNo: amountOverrides,
-                        partDueDateLockOverridesByPartNo: lockOverrides,
-                        context: context
-                    )
-                } else {
-                    try RecordService.save(r, context: context)
-                }
+                // 記録の再構築・（口座変更時の）兄弟記録の再構築・「済み」化を 1 回の保存にまとめる。
+                // 失敗時は saveFromEditor 内で変更前状態へ完全ロールバックされる
+                try RecordService.saveFromEditor(
+                    r,
+                    partDueDateOverridesByPartNo: displayedDueDateOverridesForNewSave(),
+                    partAmountOverridesByPartNo: displayedPartAmountOverridesForSave(),
+                    partDueDateLockOverridesByPartNo: displayedDueDateLockOverridesForNewSave(),
+                    rebuildSiblingsForCard: cardBankChanged ? selectedCard : nil,
+                    markAllPartsPaid: presetIsPaid,
+                    context: context
+                )
             } catch {
                 appLog(.error, "新規保存に失敗しました: \(error)")
-                // context に乗った未保存の変更（insert・請求再構築・口座変更）を破棄する
-                context.rollback()
                 return
             }
-            if !markNewRecordPaidIfNeeded(r) {
-                return
-            }
-            applyCardBankChangeIfNeeded(savedRecord: r, previousBankID: previousBankID)
             if forceDismissOnNewSave {
                 // 上部ショートカット経由のコピー新規は、保存後に一覧まで戻す
                 onSaved?(bankChanged)
@@ -2330,11 +2322,13 @@ private var isValid: Bool {
                 applyPartDueDateLockOverridesForSave(to: r)
                 let amountOverrides = displayedPartAmountOverridesForSave()
                 if billingChanged || !amountOverrides.isEmpty {
-                    // 保存時の再構築では、画面に表示中の引き落とし日をそのまま保持する
-                    try RecordService.save(
+                    // 記録の再構築と、口座変更時の兄弟記録の再構築を 1 回の保存にまとめる。
+                    // 表示中の引き落とし日はそのまま保持する。失敗時は saveFromEditor 内でロールバック
+                    try RecordService.saveFromEditor(
                         r,
                         partDueDateOverridesByPartNo: displayedDueDateOverridesForSave(),
                         partAmountOverridesByPartNo: amountOverrides,
+                        rebuildSiblingsForCard: cardBankChanged ? selectedCard : nil,
                         context: context
                     )
                 } else {
@@ -2347,30 +2341,10 @@ private var isValid: Bool {
                 }
             } catch {
                 appLog(.error, "編集保存に失敗しました: \(error)")
-                // context に乗った未保存の変更（フィールド更新・請求再構築・口座変更）を破棄する
-                context.rollback()
                 return
             }
-            applyCardBankChangeIfNeeded(savedRecord: r, previousBankID: previousBankID)
             onSaved?(bankChanged)
             dismiss()
-        }
-    }
-
-    private func markNewRecordPaidIfNeeded(_ record: E3record) -> Bool {
-        // 済み側からの追加でなければ通常どおり未払で保存する
-        if !presetIsPaid {
-            return true
-        }
-        do {
-            for part in record.e6parts {
-                try RecordService.setPartPaid(part, isPaid: true, context: context)
-            }
-            return true
-        } catch {
-            appLog(.error, "新規明細の済み反映に失敗しました: \(error)")
-            context.rollback()
-            return false
         }
     }
 
@@ -2534,36 +2508,6 @@ private var isValid: Bool {
         }
         onSaved?(false)
         dismiss()
-    }
-
-    private func applyCardBankChangeIfNeeded(savedRecord: E3record, previousBankID: String?) {
-        guard let card = selectedCard else { return }
-        let currentBankID = card.e8bank?.id
-        let selectedBankID = selectedBankForCard?.id
-        guard previousBankID != currentBankID || currentBankID != selectedBankID else { return }
-
-        // 決済手段マスタの口座変更は同カード配下の請求全体へ影響する
-        for sibling in fetchSiblingRecords(for: card, excluding: savedRecord.id) {
-            RecordService.rebuildBilling(for: sibling, context: context)
-        }
-        RecordService.cleanupOrphanBilling(context: context)
-        if context.hasChanges {
-            do {
-                try context.save()
-            } catch {
-                appLog(.error, "口座変更後の再保存に失敗しました: \(error)")
-            }
-        }
-    }
-
-    private func fetchSiblingRecords(for card: E1card, excluding recordID: String) -> [E3record] {
-        let cardID = card.id
-        let descriptor = FetchDescriptor<E3record>(
-            predicate: #Predicate<E3record> { $0.e1card?.id == cardID },
-            sortBy: [SortDescriptor(\E3record.dateUse)]
-        )
-        // SwiftData の逆参照配列に残っていない履歴も、口座変更時は再構築対象に含める
-        return context.fetchReporting(descriptor, entity: "E3record").filter { $0.id != recordID }
     }
 
     private func resetForm(keepDateAndCard: Bool) {
