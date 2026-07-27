@@ -207,6 +207,136 @@ struct RobustnessTests {
         #expect(report.hasIssue == false)
     }
 
+    @Test("メタ情報だけの編集が保存失敗したら、未保存のラベル・メモ・タグも残らない")
+    func metadataSaveFailureRollsBackUnsavedEdits() throws {
+        let context = try TestStore.makeContext()
+        let bank = TestFixtures.makeBank(name: "口座", in: context)
+        let card = TestFixtures.makeCard(name: "カード", bank: bank, in: context)
+        let tag = TestFixtures.makeTag(name: "タグ", in: context)
+
+        let record = try TestFixtures.saveRecord(
+            amount: 1_000,
+            label: "元ラベル",
+            dateUse: TestStore.date(2026, 4, 5),
+            card: card,
+            in: context
+        )
+        record.zNote = "元メモ"
+        try RecordService.saveMetadata(record, context: context)
+        let snapshotBefore = try snapshot(context)
+
+        // 編集画面と同じ手順: 保存前に記録モデルへ直接書き込んでから保存を試みる
+        RecordService.commitFailureForTesting = TestSaveError.forced
+        defer { RecordService.commitFailureForTesting = nil }
+
+        record.zName = "新ラベル"
+        record.zNote = "新メモ"
+        record.e5tags = [tag]
+
+        #expect(throws: TestSaveError.self) {
+            try RecordService.saveMetadata(record, context: context)
+        }
+
+        // 失敗後に未保存変更が残らない（後続の自動保存で確定してしまわない）
+        #expect(context.hasChanges == false)
+        // 直接書き込んだメタ情報も変更前へ戻る
+        #expect(record.zName == "元ラベル")
+        #expect(record.zNote == "元メモ")
+        #expect(record.e5tags.isEmpty)
+        // DB 全体の件数も変わらない
+        #expect(try snapshot(context) == snapshotBefore)
+
+        let report = RecordService.checkBillingIntegrity(context: context)
+        #expect(report.hasIssue == false)
+    }
+
+    @Test("口座変更の保存が失敗したら、対象記録も兄弟記録も旧口座のまま戻る")
+    func editorSaveFailureRollsBackCardBankChange() throws {
+        let context = try TestStore.makeContext()
+        let bankA = TestFixtures.makeBank(name: "A口座", in: context)
+        let bankB = TestFixtures.makeBank(name: "B口座", in: context)
+        let card = TestFixtures.makeCard(name: "カード", bank: bankA, in: context)
+
+        // 成功経路のテストと同じく、別月にして請求・支払を記録ごとに分ける
+        var records: [E3record] = []
+        for month in [4, 5, 6] {
+            records.append(try TestFixtures.saveRecord(
+                amount: Decimal(month * 1_000),
+                dateUse: TestStore.date(2026, month, 5),
+                card: card,
+                in: context
+            ))
+        }
+        let snapshotBefore = try snapshot(context)
+
+        RecordService.commitFailureForTesting = TestSaveError.forced
+        defer { RecordService.commitFailureForTesting = nil }
+
+        // 編集画面と同じ手順: 保存直前にカードの口座を変えてから保存を試みる
+        card.e8bank = bankB
+        #expect(throws: TestSaveError.self) {
+            try RecordService.saveFromEditor(
+                records[0],
+                rebuildSiblingsForCard: card,
+                context: context
+            )
+        }
+
+        // 未保存変更が残らない
+        #expect(context.hasChanges == false)
+        // 保存直前に書き換えたカードの口座も戻る（部分的な口座変更が残らない）
+        #expect(card.e8bank?.id == bankA.id)
+        // 兄弟記録を含む全支払が旧口座のまま
+        let paymentsAfter = try context.fetch(FetchDescriptor<E7payment>())
+            .filter { !$0.e2invoices.isEmpty }
+        #expect(paymentsAfter.count == 3)
+        #expect(paymentsAfter.allSatisfy { $0.e8bank?.id == bankA.id })
+        #expect(try snapshot(context) == snapshotBefore)
+
+        let report = RecordService.checkBillingIntegrity(context: context)
+        #expect(report.hasIssue == false)
+    }
+
+    @Test("新規を済みにする保存が失敗したら、記録ごと残らず途中まで済みの明細も出ない")
+    func editorSaveFailureRollsBackNewPaidRecord() throws {
+        let context = try TestStore.makeContext()
+        let bank = TestFixtures.makeBank(name: "口座", in: context)
+        let card = TestFixtures.makeCard(name: "カード", bank: bank, in: context)
+
+        let snapshotBefore = try snapshot(context)
+
+        RecordService.commitFailureForTesting = TestSaveError.forced
+        defer { RecordService.commitFailureForTesting = nil }
+
+        // 「済み側から追加」相当の 2 回払い新規記録
+        let record = E3record(
+            dateUse: TestStore.date(2026, 4, 5),
+            zName: "2回払い",
+            nAmount: 2_000,
+            nPayType: 2,
+            nRepeat: 0
+        )
+        record.e1card = card
+        context.insert(record)
+
+        #expect(throws: TestSaveError.self) {
+            try RecordService.saveFromEditor(record, markAllPartsPaid: true, context: context)
+        }
+
+        // 未保存の insert ごと破棄され、途中まで済みの明細も残らない
+        #expect(context.hasChanges == false)
+        #expect(try context.fetch(FetchDescriptor<E3record>()).isEmpty)
+        #expect(try context.fetch(FetchDescriptor<E6part>()).isEmpty)
+        #expect(try snapshot(context) == snapshotBefore)
+
+        let report = RecordService.checkBillingIntegrity(context: context)
+        #expect(report.hasIssue == false)
+    }
+
+    private enum TestSaveError: Error {
+        case forced
+    }
+
     private func snapshot(_ context: ModelContext) throws -> Snapshot {
         Snapshot(
             recordCount: try context.fetch(FetchDescriptor<E3record>()).count,

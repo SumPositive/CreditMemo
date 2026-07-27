@@ -281,36 +281,48 @@ enum RecordService {
         return context.fetchReporting(descriptor, entity: "E3record").filter { $0.id != recordID }
     }
 
-    /// 請求を作り直さず、明細のメタ情報だけを保存する
+    /// 請求を作り直さず、明細のメタ情報だけを保存する。
+    /// 失敗時は saveFromEditor と同じく context.rollback() で変更前状態へ戻す。
     static func saveMetadata(_ record: E3record, context: ModelContext) throws {
-        // 手動で調整した E6part の引き落とし日を保つため、請求再構築は行わない
-        record.dateUpdate = Date()
-        let cats = record.e5tags
-        for cat in cats { updateCategoryStats(cat, amount: record.nAmount, date: Date()) }
-        try commit(context)
+        try saveMetadata(
+            record,
+            partDueDateOverridesByPartNo: [:],
+            context: context
+        )
     }
 
-    /// メタ情報と支払日変更ドラフトだけを、請求再構築なしで同じ保存単位に反映する
+    /// メタ情報と支払日変更ドラフトだけを、請求再構築なしで同じ保存単位に反映する。
+    ///
+    /// 画面側はラベル・メモ・タグなどを保存前に記録モデルへ直接書き込むため、
+    /// 保存に失敗したまま ModelContext に未保存変更が残ると、後続の自動保存で
+    /// 意図せず確定してしまう。失敗時は変更前状態へ完全に戻してから例外を投げ直す。
     static func saveMetadata(
         _ record: E3record,
         partDueDateOverridesByPartNo: [Int16: Date],
         partDueDateLockOverridesByPartNo: [Int16: Bool] = [:],
         context: ModelContext
     ) throws {
-        // メタ情報だけの保存でも、画面で指定された支払日だけは同じ保存単位で反映する
-        record.dateUpdate = Date()
-        let cats = record.e5tags
-        for cat in cats { updateCategoryStats(cat, amount: record.nAmount, date: Date()) }
-        applyPartDueDateOverrides(
-            to: record,
-            overridesByPartNo: partDueDateOverridesByPartNo,
-            context: context
-        )
-        applyPartDueDateLockOverrides(
-            to: record,
-            overridesByPartNo: partDueDateLockOverridesByPartNo
-        )
-        try commit(context)
+        do {
+            // 手動で調整した E6part の引き落とし日を保つため、請求再構築は行わない
+            record.dateUpdate = Date()
+            let cats = record.e5tags
+            for cat in cats { updateCategoryStats(cat, amount: record.nAmount, date: Date()) }
+            // メタ情報だけの保存でも、画面で指定された支払日だけは同じ保存単位で反映する
+            applyPartDueDateOverrides(
+                to: record,
+                overridesByPartNo: partDueDateOverridesByPartNo,
+                context: context
+            )
+            applyPartDueDateLockOverrides(
+                to: record,
+                overridesByPartNo: partDueDateLockOverridesByPartNo
+            )
+            try commit(context)
+        } catch {
+            // 画面側が保存前に書き込んだラベル・メモ・タグ・ロック状態も含めて破棄する
+            context.rollback()
+            throw error
+        }
     }
 
     private static func applyPartDueDateOverrides(
@@ -1479,7 +1491,18 @@ enum RecordService {
         }
     }
 
+    #if DEBUG
+    /// テスト専用の保存失敗注入。nil 以外なら commit がこのエラーを投げる。
+    /// 保存失敗時のロールバックを検証するためだけに使い、テスト終了時は必ず nil に戻す。
+    nonisolated(unsafe) static var commitFailureForTesting: (any Error)?
+    #endif
+
     private static func commit(_ context: ModelContext) throws {
+        #if DEBUG
+        if let failure = commitFailureForTesting {
+            throw failure
+        }
+        #endif
         if context.hasChanges {
             try context.save()
         }

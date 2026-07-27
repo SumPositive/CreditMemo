@@ -2359,7 +2359,8 @@ private var isValid: Bool {
                         context: context
                     )
                 } else {
-                    // ラベル・メモ・タグだけの編集では、手動調整した引き落とし日を保持する
+                    // ラベル・メモ・タグだけの編集では、手動調整した引き落とし日を保持する。
+                    // 失敗時は saveMetadata 内でロールバックされ、上の直接変更も残らない
                     try RecordService.saveMetadata(
                         r,
                         partDueDateOverridesByPartNo: partDueDateOverridesByPartNo,

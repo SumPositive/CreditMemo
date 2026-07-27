@@ -1870,5 +1870,26 @@ fastlane upload_screenshots     # スクショ Upload
 2.6.0 本日公開、公開アプリパネル、取扱説明を更新して
 ------------------------------------------------
 
+Codexコードレビュー ＞ Claudeで対応
+クレメモのコードとテストケースをレビューして
+
+
+
+
+--------------------------------
+2.6.1 更新
+- 
+-----
+fastlane メタデータを更新して
+2.6.1 審査中、README.mdの開発メモ、公開アプリパネル、取扱説明を更新して
+-----
+cd /Users/sumpositive/GitLocal/CreditMemo
+fastlane upload_metadata 
+---
+fastlane screenshots            # スクショ 生成確認
+fastlane upload_screenshots     # スクショ Upload
+-----
+2.6.1 本日公開、公開アプリパネル、取扱説明を更新して
+------------------------------------------------
 
 
