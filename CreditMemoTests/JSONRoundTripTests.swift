@@ -740,7 +740,9 @@ struct JSONRoundTripTests {
         }
     }
 
-    // Int16/Int32 の境界値（max/min）は範囲内なのでそのまま取り込む
+    // 表示順（row）は業務上の値域を持たないので、Int32 の境界値をそのまま取り込む。
+    // 業務上の値域を持つ項目（bonus/closingDay 等）は
+    // domainRangeTests 側で「範囲外は取り込まない」ことを検証する
     @Test func boundaryIntegerValuesAreImported() async throws {
         let json = """
         {
@@ -748,7 +750,7 @@ struct JSONRoundTripTests {
           "cards": [
             {"id":"card-max","name":"カード","note":"","row":2147483647,
              "closingDay":20,"payDay":27,"payMonth":1,
-             "bonus1":32767,"bonus2":-32768,"bankID":"bank-min"}
+             "bonus1":0,"bonus2":0,"bankID":"bank-min"}
           ]
         }
         """
@@ -763,9 +765,6 @@ struct JSONRoundTripTests {
         // Int32 の境界（min/max）が丸められず保持される
         #expect(bank.nRow == Int32.min)
         #expect(card.nRow == Int32.max)
-        // Int16 の境界（min/max）が丸められず保持される
-        #expect(card.nBonus1 == Int16.max)
-        #expect(card.nBonus2 == Int16.min)
     }
 
     private func writeTempJSON(_ data: Data) throws -> URL {

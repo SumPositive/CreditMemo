@@ -67,6 +67,7 @@
 		C38363103017883A0026A94B /* JapaneseNumberParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C383630D301788390026A94B /* JapaneseNumberParserTests.swift */; };
 		C38363113017883A0026A94B /* VoiceAliasStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C383630E301788390026A94B /* VoiceAliasStoreTests.swift */; };
 		C38363123017883A0026A94B /* VoiceInputParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C383630F301788390026A94B /* VoiceInputParserTests.swift */; };
+		C383631430178CBB0026A94B /* JSONImportDomainRangeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C383631330178CBB0026A94B /* JSONImportDomainRangeTests.swift */; };
 		C39F94DC2FEA974000873586 /* TestEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = C39F94DB2FEA974000873586 /* TestEnvironment.swift */; };
 		C3B88D7C752156C24F085A6E /* EditShortcutCapsuleButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B5525175B4413CA409A0F10 /* EditShortcutCapsuleButton.swift */; };
 		C3ECE81CD3F9F2D58DE2CC00 /* GoogleMobileAds in Frameworks */ = {isa = PBXBuildFile; productRef = 89E194455AE3BC909B357E64 /* GoogleMobileAds */; };
@@ -187,6 +188,7 @@
 		C383630D301788390026A94B /* JapaneseNumberParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JapaneseNumberParserTests.swift; sourceTree = "<group>"; };
 		C383630E301788390026A94B /* VoiceAliasStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceAliasStoreTests.swift; sourceTree = "<group>"; };
 		C383630F301788390026A94B /* VoiceInputParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceInputParserTests.swift; sourceTree = "<group>"; };
+		C383631330178CBB0026A94B /* JSONImportDomainRangeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONImportDomainRangeTests.swift; sourceTree = "<group>"; };
 		C39F94DB2FEA974000873586 /* TestEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestEnvironment.swift; sourceTree = "<group>"; };
 		C3EF8FB6300D2F30001297FA /* CreditMemo.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = CreditMemo.xctestplan; sourceTree = "<group>"; };
 		C3EF8FBD300DEC90001297FA /* ExportShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportShareSheet.swift; sourceTree = "<group>"; };
@@ -422,6 +424,7 @@
 		B1B8F7CE5AD29AEF9D48FF19 /* CreditMemoTests */ = {
 			isa = PBXGroup;
 			children = (
+				C383631330178CBB0026A94B /* JSONImportDomainRangeTests.swift */,
 				C383630D301788390026A94B /* JapaneseNumberParserTests.swift */,
 				C383630E301788390026A94B /* VoiceAliasStoreTests.swift */,
 				C383630F301788390026A94B /* VoiceInputParserTests.swift */,
@@ -681,6 +684,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				6AEF2FECDB743E7E193152D5 /* BankServiceTests.swift in Sources */,
+				C383631430178CBB0026A94B /* JSONImportDomainRangeTests.swift in Sources */,
 				ADBDCC132EEDEE2C5D666790 /* CardServiceTests.swift in Sources */,
 				2F928C471CA14771E557763A /* CreditMemoTests.swift in Sources */,
 				C38363103017883A0026A94B /* JapaneseNumberParserTests.swift in Sources */,

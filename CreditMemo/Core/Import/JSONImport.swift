@@ -17,6 +17,7 @@ enum JSONImport {
     enum ImportError: LocalizedError {
         case invalidDecimal(String)
         case valueOutOfRange(field: String, value: Int)
+        case invalidFieldValue(field: String, value: Int)
 
         var errorDescription: String? {
             switch self {
@@ -24,6 +25,8 @@ enum JSONImport {
                 return "数値として読み込めない値があります: \(value)"
             case .valueOutOfRange(let field, let value):
                 return "取り込める範囲を超えた値があります: \(field)=\(value)"
+            case .invalidFieldValue(let field, let value):
+                return "設定できない値があります: \(field)=\(value)"
             }
         }
     }
@@ -456,11 +459,21 @@ enum JSONImport {
             card.zNote = item.note
             card.nRow = try int32Value(item.row, field: "card.row")
             // closingDay/payDay/payMonth の正規形だけを読む
-            card.nClosingDay = try int16Value(item.closingDay, field: "closingDay")
-            card.nPayDay = try int16Value(item.payDay, field: "payDay")
-            card.nPayMonth = try int16Value(normalizedPayMonth, field: "payMonth")
-            card.nBonus1 = try int16Value(item.bonus1, field: "bonus1")
-            card.nBonus2 = try int16Value(item.bonus2, field: "bonus2")
+            let billingDays = try validatedCardBillingDays(
+                closingDay: try int16Value(item.closingDay, field: "closingDay"),
+                payDay: try int16Value(item.payDay, field: "payDay"),
+                payMonth: try int16Value(normalizedPayMonth, field: "payMonth")
+            )
+            card.nClosingDay = billingDays.closingDay
+            card.nPayDay = billingDays.payDay
+            card.nPayMonth = billingDays.payMonth
+            // ボーナス月は 0=なし, 1-12=月
+            card.nBonus1 = try validated(
+                try int16Value(item.bonus1, field: "bonus1"), in: 0...12, field: "bonus1"
+            )
+            card.nBonus2 = try validated(
+                try int16Value(item.bonus2, field: "bonus2"), in: 0...12, field: "bonus2"
+            )
             card.e8bank = item.bankID.flatMap { bankByID[$0] }
         }
         return items.count
@@ -513,7 +526,12 @@ enum JSONImport {
             record.nAmount = try decimalValue(item.amount)
             // 旧アプリ由来のボーナス払い等は現行モデルに無いので一括払いへ正規化する
             record.nPayType = E3record.normalizedPayTypeRawValue(try int16Value(item.payType, field: "payType"))
-            record.nRepeat = try int16Value(item.repeatMonths, field: "repeatMonths")
+            // 繰り返し月数は 0=なし, 1-99
+            record.nRepeat = try validated(
+                try int16Value(item.repeatMonths, field: "repeatMonths"),
+                in: 0...99,
+                field: "repeatMonths"
+            )
             record.e1card = item.cardID.flatMap { cardByID[$0] }
 
             // tagIDs（新）→ categoryIDs（旧互換）→ categoryID（最旧互換）の順で読む
@@ -564,7 +582,7 @@ enum JSONImport {
         var amountByRecordID: [String: [Int16: Decimal]] = [:]
         for item in items {
             guard let recordID = item.recordID, let amountString = item.amount else { continue }
-            let partNo = try int16Value(item.partNo, field: "partNo")
+            let partNo = try validatedPartNo(item.partNo)
             amountByRecordID[recordID, default: [:]][partNo] = try decimalValue(amountString)
         }
         let validAmountByRecordAndNo = validTwoPaymentAmounts(
@@ -576,7 +594,7 @@ enum JSONImport {
         for (index, item) in items.enumerated() {
             // 明細状態の復元中もキャンセルを受け付ける
             try Task.checkCancellation()
-            let partNo = try int16Value(item.partNo, field: "partNo")
+            let partNo = try validatedPartNo(item.partNo)
             if let recordID = item.recordID,
                let part = partByRecordAndNo["\(recordID)#\(partNo)"] {
                 // 2回払いの手動配分は、合計が正しい場合だけ復元する
@@ -598,7 +616,10 @@ enum JSONImport {
                 part.isDueDateLocked = shouldLockDueDate
                 if let noCheck = item.noCheck {
                     // チェック状態は支払日移動を妨げるため、日付復元後に反映する
-                    part.nNoCheck = try int16Value(noCheck, field: "noCheck")
+                    // 0=確認済, 1=未確認 の 2 値のみ
+                    part.nNoCheck = try validated(
+                        try int16Value(noCheck, field: "noCheck"), in: 0...1, field: "noCheck"
+                    )
                 }
                 updatedCount += 1
             }
@@ -782,6 +803,61 @@ enum JSONImport {
             throw ImportError.valueOutOfRange(field: field, value: value)
         }
         return converted
+    }
+
+    // MARK: - 業務上の値域チェック
+    //
+    // int16Value/int32Value はストレージ型に収まるかだけを見る。
+    // Int16 に収まっていても業務上あり得ない値（締日 100、支払月 9 など）は
+    // 請求日計算を壊すため、取り込み前にここで弾く。
+    // 壊れた値を黙って丸めると、一見正しく見える誤った引き落とし日ができるので、
+    // ストレージ範囲外と同じく例外にして呼び出し元でロールバックさせる。
+
+    /// 業務上の許容範囲に収まっているか検証して、そのまま返す
+    private static func validated(
+        _ value: Int16,
+        in range: ClosedRange<Int16>,
+        field: String
+    ) throws -> Int16 {
+        guard range.contains(value) else {
+            throw ImportError.invalidFieldValue(field: field, value: Int(value))
+        }
+        return value
+    }
+
+    /// 分割番号は 1 起点。上限は親レコードの支払回数（最大 PayCount.max）に依存するが、
+    /// 実際に反映するのは既存 E6part と "recordID#partNo" で一致した明細だけなので、
+    /// 支払回数を超える番号は取り込まれず害が無い。ここでは下限と上限の粗い範囲だけ弾く
+    private static func validatedPartNo(_ value: Int) throws -> Int16 {
+        try validated(
+            try int16Value(value, field: "partNo"),
+            in: 1...Int16(PayCount.max),
+            field: "partNo"
+        )
+    }
+
+    /// 決済手段の締日・支払日・支払月を、請求方式ごとの許容範囲で検証する。
+    /// - 締日 0（N日後型）: 支払日は「N日後」の日数（CardEditView の 0...120 に合わせる）、支払月は 0 固定
+    /// - 締日 1...29: 支払日 1...29（1-28=日, 29=末日）、支払月 0...2
+    private static func validatedCardBillingDays(
+        closingDay: Int16,
+        payDay: Int16,
+        payMonth: Int16
+    ) throws -> (closingDay: Int16, payDay: Int16, payMonth: Int16) {
+        let checkedClosingDay = try validated(closingDay, in: 0...29, field: "closingDay")
+        if checkedClosingDay == 0 {
+            // N日後型。支払月は importCards 側で 0 に正規化済み
+            return (
+                checkedClosingDay,
+                try validated(payDay, in: 0...120, field: "payDay"),
+                try validated(payMonth, in: 0...0, field: "payMonth")
+            )
+        }
+        return (
+            checkedClosingDay,
+            try validated(payDay, in: 1...29, field: "payDay"),
+            try validated(payMonth, in: 0...2, field: "payMonth")
+        )
     }
 
     private static func moveInvoice(_ invoice: E2invoice, toPaid: Bool, context: ModelContext) {
