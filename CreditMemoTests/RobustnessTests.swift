@@ -237,12 +237,17 @@ struct RobustnessTests {
             try RecordService.saveMetadata(record, context: context)
         }
 
-        // 失敗後に未保存変更が残らない（後続の自動保存で確定してしまわない）
+        // 失敗後に未保存変更が残らない（後続の自動保存で確定してしまわない）。
+        // これがレビュー指摘の本題で、rollback の有無で結果が変わる
         #expect(context.hasChanges == false)
-        // 直接書き込んだメタ情報も変更前へ戻る
-        #expect(record.zName == "元ラベル")
-        #expect(record.zNote == "元メモ")
-        #expect(record.e5tags.isEmpty)
+        // 永続化された値は元のまま（画面の直接変更が DB へ漏れない）。
+        // 同じ context の fetch は登録済みインスタンスを返すので、別 context で読み直す
+        let stored = try #require(
+            try freshContext(of: context).fetch(FetchDescriptor<E3record>()).first
+        )
+        #expect(stored.zName == "元ラベル")
+        #expect(stored.zNote == "元メモ")
+        #expect(stored.e5tags.isEmpty)
         // DB 全体の件数も変わらない
         #expect(try snapshot(context) == snapshotBefore)
 
@@ -284,13 +289,18 @@ struct RobustnessTests {
 
         // 未保存変更が残らない
         #expect(context.hasChanges == false)
-        // 保存直前に書き換えたカードの口座も戻る（部分的な口座変更が残らない）
-        #expect(card.e8bank?.id == bankA.id)
-        // 兄弟記録を含む全支払が旧口座のまま
+        // 兄弟記録を含む全支払が旧口座のまま（部分的な口座移動が残らない）
         let paymentsAfter = try context.fetch(FetchDescriptor<E7payment>())
             .filter { !$0.e2invoices.isEmpty }
         #expect(paymentsAfter.count == 3)
         #expect(paymentsAfter.allSatisfy { $0.e8bank?.id == bankA.id })
+        // カードの口座変更も DB へは漏れない。
+        // （card.e8bank 自体はメモリ上 B口座のまま残る。rollback は登録済み
+        // インスタンスのプロパティを巻き戻さないため。画面は失敗時に閉じない仕様）
+        let storedCard = try #require(
+            try freshContext(of: context).fetch(FetchDescriptor<E1card>()).first
+        )
+        #expect(storedCard.e8bank?.id == bankA.id)
         #expect(try snapshot(context) == snapshotBefore)
 
         let report = RecordService.checkBillingIntegrity(context: context)
@@ -331,6 +341,12 @@ struct RobustnessTests {
 
         let report = RecordService.checkBillingIntegrity(context: context)
         #expect(report.hasIssue == false)
+    }
+
+    /// 同じストアを見る別 context。
+    /// rollback 後の「DB に何が残っているか」を、登録済みインスタンス越しでなく確認するために使う
+    private func freshContext(of context: ModelContext) -> ModelContext {
+        ModelContext(context.container)
     }
 
     private enum TestSaveError: Error {
