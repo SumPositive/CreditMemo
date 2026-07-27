@@ -686,38 +686,38 @@ struct JSONRoundTripTests {
     // 例外化して取り込み全体をロールバックし、既存DBを完全に維持する
     @Test func outOfRangeIntegersRollBackWithoutCrashing() async throws {
         // 各要素が特定フィールドを Int16(±32768超) / Int32(±2147483648超) の範囲外にする
-        let outOfRangeJSONs: [(field: String, json: String)] = [
-            ("closingDay(Int16.max+1)", """
+        let outOfRangeJSONs: [(field: String, expectedField: String, json: String)] = [
+            ("closingDay(Int16.max+1)", "closingDay", """
             {"cards":[{"id":"c","name":"カード","note":"","row":0,"closingDay":32768,"payDay":27,"payMonth":1,"bonus1":0,"bonus2":0,"bankID":null}]}
             """),
-            ("payDay(Int16.min-1)", """
+            ("payDay(Int16.min-1)", "payDay", """
             {"cards":[{"id":"c","name":"カード","note":"","row":0,"closingDay":20,"payDay":-32769,"payMonth":1,"bonus1":0,"bonus2":0,"bankID":null}]}
             """),
-            ("payMonth(Int16.max+1)", """
+            ("payMonth(Int16.max+1)", "payMonth", """
             {"cards":[{"id":"c","name":"カード","note":"","row":0,"closingDay":20,"payDay":27,"payMonth":32768,"bonus1":0,"bonus2":0,"bankID":null}]}
             """),
-            ("bonus1(Int16.max+1)", """
+            ("bonus1(Int16.max+1)", "bonus1", """
             {"cards":[{"id":"c","name":"カード","note":"","row":0,"closingDay":20,"payDay":27,"payMonth":1,"bonus1":32768,"bonus2":0,"bankID":null}]}
             """),
-            ("bonus2(Int16.min-1)", """
+            ("bonus2(Int16.min-1)", "bonus2", """
             {"cards":[{"id":"c","name":"カード","note":"","row":0,"closingDay":20,"payDay":27,"payMonth":1,"bonus1":0,"bonus2":-32769,"bankID":null}]}
             """),
-            ("card.row(Int32.max+1)", """
+            ("card.row(Int32.max+1)", "card.row", """
             {"cards":[{"id":"c","name":"カード","note":"","row":2147483648,"closingDay":20,"payDay":27,"payMonth":1,"bonus1":0,"bonus2":0,"bankID":null}]}
             """),
-            ("bank.row(Int32.min-1)", """
+            ("bank.row(Int32.min-1)", "bank.row", """
             {"banks":[{"id":"b","name":"口座","note":"","row":-2147483649}]}
             """),
-            ("payType(Int16.max+1)", """
+            ("payType(Int16.max+1)", "payType", """
             {"records":[{"id":"r","dateUse":"2026-04-01T00:00:00Z","name":"履歴","note":"","amount":"1000","payType":999999,"repeatMonths":0,"cardID":null,"tagIDs":[]}]}
             """),
-            ("repeatMonths(Int16.min-1)", """
+            ("repeatMonths(Int16.min-1)", "repeatMonths", """
             {"records":[{"id":"r","dateUse":"2026-04-01T00:00:00Z","name":"履歴","note":"","amount":"1000","payType":1,"repeatMonths":-32769,"cardID":null,"tagIDs":[]}]}
             """),
-            ("partNo(Int16.max+1)", """
+            ("partNo(Int16.max+1)", "partNo", """
             {"parts":[{"recordID":"r","partNo":100000,"amount":"1000"}]}
             """),
-            ("noCheck(Int16.max+1)", """
+            ("noCheck(Int16.max+1)", "noCheck", """
             {"cards":[{"id":"card-nc","name":"カード","note":"","row":0,"closingDay":20,"payDay":27,"payMonth":1,"bonus1":0,"bonus2":0,"bankID":null}],
              "records":[{"id":"record-nc","dateUse":"2026-04-01T00:00:00Z","name":"履歴","note":"","amount":"1000","payType":1,"repeatMonths":0,"cardID":"card-nc","tagIDs":[]}],
              "parts":[{"recordID":"record-nc","partNo":1,"noCheck":100000}]}
@@ -733,8 +733,9 @@ struct JSONRoundTripTests {
             let url = try writeTempJSON(Data(entry.json.utf8))
             defer { try? FileManager.default.removeItem(at: url) }
 
-            // 範囲外整数はトラップではなく例外として扱われる（プロセスは生存）
-            await expectImportFailure(from: url, context: context)
+            // 範囲外整数はトラップではなく例外として扱われる（プロセスは生存）。
+            // 別要因の失敗と取り違えないよう、エラー種別とフィールドまで確認する
+            await expectValueOutOfRange(from: url, context: context, expectedField: entry.expectedField, label: entry.field)
             // 失敗時は既存DBが完全に維持される
             #expect(try databaseSnapshot(context) == before, "\(entry.field) の範囲外で既存DBが変化しました")
         }
@@ -857,6 +858,29 @@ struct JSONRoundTripTests {
             Issue.record("Importが成功しました")
         } catch {
             // 期待した失敗なので処理を続ける
+        }
+    }
+
+    /// ストレージ型の範囲外で失敗することを、エラー種別とフィールド名まで確認する。
+    /// 「何らかの理由で失敗した」だけだと、JSON の書式ミスなど別要因の失敗を
+    /// 範囲チェックが働いたと取り違えてしまう
+    private func expectValueOutOfRange(
+        from url: URL,
+        context: ModelContext,
+        expectedField: String,
+        label: String
+    ) async {
+        do {
+            _ = try await JSONImport.importData(from: url, context: context)
+            Issue.record("\(label): 範囲外の値で Import が成功してしまいました")
+        } catch let error as JSONImport.ImportError {
+            guard case .valueOutOfRange(let field, _) = error else {
+                Issue.record("\(label): valueOutOfRange ではなく \(error) が投げられました")
+                return
+            }
+            #expect(field == expectedField, "\(label): 検出されたフィールドが \(field) でした")
+        } catch {
+            Issue.record("\(label): ImportError ではなく \(error) が投げられました")
         }
     }
 

@@ -47,36 +47,36 @@ struct JSONImportDomainRangeTests {
 
     @Test("業務上あり得ない値は取り込まず、既存DBも変更しない", arguments: [
         // 締日: 0=N日後型, 1-28=締日, 29=末日
-        ("closingDay=30", cardJSON(closingDay: 30, payDay: 27, payMonth: 1)),
-        ("closingDay=-1", cardJSON(closingDay: -1, payDay: 27, payMonth: 1)),
-        ("closingDay=100", cardJSON(closingDay: 100, payDay: 27, payMonth: 1)),
+        ("closingDay=30", "closingDay", cardJSON(closingDay: 30, payDay: 27, payMonth: 1)),
+        ("closingDay=-1", "closingDay", cardJSON(closingDay: -1, payDay: 27, payMonth: 1)),
+        ("closingDay=100", "closingDay", cardJSON(closingDay: 100, payDay: 27, payMonth: 1)),
         // 支払日（締日ありの通常型）: 1-28=支払日, 29=末日
-        ("payDay=0", cardJSON(closingDay: 20, payDay: 0, payMonth: 1)),
-        ("payDay=30", cardJSON(closingDay: 20, payDay: 30, payMonth: 1)),
-        ("payDay=-5", cardJSON(closingDay: 20, payDay: -5, payMonth: 1)),
+        ("payDay=0", "payDay", cardJSON(closingDay: 20, payDay: 0, payMonth: 1)),
+        ("payDay=30", "payDay", cardJSON(closingDay: 20, payDay: 30, payMonth: 1)),
+        ("payDay=-5", "payDay", cardJSON(closingDay: 20, payDay: -5, payMonth: 1)),
         // 支払月: 0/1/2
-        ("payMonth=3", cardJSON(closingDay: 20, payDay: 27, payMonth: 3)),
-        ("payMonth=-1", cardJSON(closingDay: 20, payDay: 27, payMonth: -1)),
+        ("payMonth=3", "payMonth", cardJSON(closingDay: 20, payDay: 27, payMonth: 3)),
+        ("payMonth=-1", "payMonth", cardJSON(closingDay: 20, payDay: 27, payMonth: -1)),
         // ボーナス月: 0=なし, 1-12=月
-        ("bonus1=13", cardJSON(closingDay: 20, payDay: 27, payMonth: 1, bonus1: 13)),
-        ("bonus1=32767", cardJSON(closingDay: 20, payDay: 27, payMonth: 1, bonus1: 32767)),
-        ("bonus2=-1", cardJSON(closingDay: 20, payDay: 27, payMonth: 1, bonus2: -1)),
-        ("bonus2=-32768", cardJSON(closingDay: 20, payDay: 27, payMonth: 1, bonus2: -32768)),
+        ("bonus1=13", "bonus1", cardJSON(closingDay: 20, payDay: 27, payMonth: 1, bonus1: 13)),
+        ("bonus1=32767", "bonus1", cardJSON(closingDay: 20, payDay: 27, payMonth: 1, bonus1: 32767)),
+        ("bonus2=-1", "bonus2", cardJSON(closingDay: 20, payDay: 27, payMonth: 1, bonus2: -1)),
+        ("bonus2=-32768", "bonus2", cardJSON(closingDay: 20, payDay: 27, payMonth: 1, bonus2: -32768)),
         // N日後型（締日0）の日数は 0...120
-        ("N日後 payDay=121", cardJSON(closingDay: 0, payDay: 121, payMonth: 0)),
-        ("N日後 payDay=-1", cardJSON(closingDay: 0, payDay: -1, payMonth: 0)),
+        ("N日後 payDay=121", "payDay", cardJSON(closingDay: 0, payDay: 121, payMonth: 0)),
+        ("N日後 payDay=-1", "payDay", cardJSON(closingDay: 0, payDay: -1, payMonth: 0)),
         // 繰り返し月数: 0=なし, 1-99
-        ("repeatMonths=100", recordJSON(payType: 1, repeatMonths: 100)),
-        ("repeatMonths=-1", recordJSON(payType: 1, repeatMonths: -1)),
+        ("repeatMonths=100", "repeatMonths", recordJSON(payType: 1, repeatMonths: 100)),
+        ("repeatMonths=-1", "repeatMonths", recordJSON(payType: 1, repeatMonths: -1)),
         // 確認状態: 0=確認済, 1=未確認
-        ("noCheck=2", partJSON(partNo: 1, noCheck: 2)),
-        ("noCheck=-1", partJSON(partNo: 1, noCheck: -1)),
+        ("noCheck=2", "noCheck", partJSON(partNo: 1, noCheck: 2)),
+        ("noCheck=-1", "noCheck", partJSON(partNo: 1, noCheck: -1)),
         // 分割番号: 1 起点、支払回数の上限（12）まで
-        ("partNo=0", partJSON(partNo: 0, noCheck: 1)),
-        ("partNo=13", partJSON(partNo: 13, noCheck: 1)),
-        ("partNo=-1", partJSON(partNo: -1, noCheck: 1)),
+        ("partNo=0", "partNo", partJSON(partNo: 0, noCheck: 1)),
+        ("partNo=13", "partNo", partJSON(partNo: 13, noCheck: 1)),
+        ("partNo=-1", "partNo", partJSON(partNo: -1, noCheck: 1)),
     ])
-    func rejectsOutOfDomainValues(field: String, json: String) async throws {
+    func rejectsOutOfDomainValues(label: String, expectedField: String, json: String) async throws {
         let context = try TestStore.makeContext()
         // 既存データを1件置き、失敗時に巻き戻ることまで確認する
         let existing = TestFixtures.makeBank(name: "既存口座", in: context)
@@ -87,8 +87,13 @@ struct JSONImportDomainRangeTests {
         let url = try writeTempJSON(json)
         defer { try? FileManager.default.removeItem(at: url) }
 
-        await expectImportFailure(from: url, context: context, field: field)
-        #expect(try snapshot(context) == before, "\(field) の取り込み後にDBが変化しました")
+        await expectInvalidFieldValue(
+            from: url,
+            context: context,
+            expectedField: expectedField,
+            label: label
+        )
+        #expect(try snapshot(context) == before, "\(label) の取り込み後にDBが変化しました")
     }
 
     // MARK: - 取り込まれる値（業務上の境界内）
@@ -188,16 +193,28 @@ struct JSONImportDomainRangeTests {
         return url
     }
 
-    private func expectImportFailure(
+    /// 業務上の値域違反で失敗することを、エラーの種類とフィールド名まで確認する。
+    ///
+    /// 単に「何らかの理由で失敗した」だけを見ると、JSON の書式ミスや無関係な不具合で
+    /// 失敗しても値域検証が働いたように見えてしまうため、
+    /// ImportError.invalidFieldValue であることと対象フィールドまで突き合わせる
+    private func expectInvalidFieldValue(
         from url: URL,
         context: ModelContext,
-        field: String
+        expectedField: String,
+        label: String
     ) async {
         do {
             _ = try await JSONImport.importData(from: url, context: context)
-            Issue.record("\(field): 範囲外の値で Import が成功してしまいました")
+            Issue.record("\(label): 範囲外の値で Import が成功してしまいました")
+        } catch let error as JSONImport.ImportError {
+            guard case .invalidFieldValue(let field, _) = error else {
+                Issue.record("\(label): invalidFieldValue ではなく \(error) が投げられました")
+                return
+            }
+            #expect(field == expectedField, "\(label): 検出されたフィールドが \(field) でした")
         } catch {
-            // 期待どおりの失敗
+            Issue.record("\(label): ImportError ではなく \(error) が投げられました")
         }
     }
 
