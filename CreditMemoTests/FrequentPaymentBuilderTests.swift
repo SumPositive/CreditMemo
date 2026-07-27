@@ -266,4 +266,16 @@ struct FrequentPaymentBuilderTests {
         #expect(FrequentPaymentBuilder.build(from: records, limit: 1).count == 1)
         #expect(FrequentPaymentBuilder.build(from: records, limit: 60).count == 3)
     }
+
+    // 負の limit は 0 件として扱う。素の prefix(limit) は負数でトラップするため、
+    // このテストが落ちる場合はクラッシュ（プロセス終了）になる
+    @Test("負の limit でもクラッシュせず 0 件を返す", arguments: [-1, -60, Int.min])
+    func negativeLimitReturnsEmptyWithoutCrashing(limit: Int) throws {
+        let context = try TestStore.makeContext()
+        let records = sortedDesc([
+            makeRecord(label: "A", date: daysAgo(1), in: context),
+            makeRecord(label: "B", date: daysAgo(2), in: context)
+        ])
+        #expect(FrequentPaymentBuilder.build(from: records, limit: limit).isEmpty)
+    }
 }

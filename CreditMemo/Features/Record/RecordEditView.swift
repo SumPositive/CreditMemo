@@ -73,6 +73,7 @@ enum FrequentPaymentBuilder {
     /// 設定期間内・繰り返し以外の過去レコードから候補を組み立てる。
     /// - pastRecords: 並び順に依存しない純粋ビルダー。期間外は要素ごとに読み飛ばすため、
     ///   降順・昇順・未ソートのいずれを渡しても結果は同じ（本番は dateUse 降順を渡す）。
+    /// - limit: 返す候補の最大件数。0 以下は 0 件として扱う（負数でもクラッシュしない）。
     static func build(from pastRecords: [E3record],
                       config: FrequentPaymentConfig = .default,
                       limit: Int = 60) -> [FrequentPayment] {
@@ -188,7 +189,10 @@ enum FrequentPaymentBuilder {
             if lhs.score != rhs.score { return lhs.score > rhs.score }
             if lhs.latest != rhs.latest { return lhs.latest > rhs.latest }
             return lhs.id < rhs.id
-        }.prefix(limit).map { $0 }
+        }
+        // prefix は負数でトラップする（回復不能）。limit は「最大何件か」の上限なので、
+        // 負数は 0 件と同義として丸め、呼び出し側の計算ミスでクラッシュさせない
+        .prefix(max(0, limit)).map { $0 }
     }
 
     /// 指定ラベルに完全一致する候補を返す（音声入力の補塡用）。前後空白無視・大小同一視。
