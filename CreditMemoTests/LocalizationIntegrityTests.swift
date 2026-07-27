@@ -4,12 +4,17 @@ import Testing
 
 /// Localizable.xcstrings の整合性を JSON として直接検証する。
 /// - 翻訳済みキーが対応全言語をそろえているか
+/// - 翻訳状態（state）が全て translated か（new / needs_review の取りこぼし検出）
 /// - 書式指定子（%@ / %lld など）の引数型が全言語で一致するか（不一致は String(format:) の crash 要因）
 ///
 /// リソースはコンパイル時パス(#filePath)からリポジトリ相対で読む（ローカルの xcodebuild test 前提）。
 struct LocalizationIntegrityTests {
     /// アプリが対応する言語（プロジェクトの knownRegions から Base を除いたもの）
     private static let expectedLanguages: Set<String> = ["de", "en", "ja", "ko", "zh-Hant"]
+
+    /// リリース品質として許容する翻訳状態。
+    /// new = 未翻訳、needs_review = 要確認（Xcode が機械翻訳や原文変更時に付ける）
+    private static let acceptableStates: Set<String> = ["translated"]
 
     private func loadStrings() throws -> [String: Any] {
         let url = URL(fileURLWithPath: #filePath)
@@ -44,6 +49,39 @@ struct LocalizationIntegrityTests {
             }
         }
         #expect(missing.isEmpty, "訳が欠けているキー: \(missing.sorted().prefix(30).joined(separator: ", "))")
+    }
+
+    // 利用者向け文言は translated 以外の状態を残さない。
+    // 値が非空でも state が new / needs_review なら未確認の訳なので、リリース品質としては不可
+    @Test("翻訳状態が全て translated になっている")
+    func everyLocalizationIsMarkedTranslated() throws {
+        let strings = try loadStrings()
+        #expect(!strings.isEmpty)
+
+        var unfinished: [String] = []
+        for (key, value) in strings {
+            guard let entry = value as? [String: Any],
+                  let locs = entry["localizations"] as? [String: Any] else { continue }
+            for lang in Self.expectedLanguages {
+                guard let unit = (locs[lang] as? [String: Any])?["stringUnit"] as? [String: Any] else {
+                    // 訳そのものの欠落は everyLocalizedKeyCoversAllLanguages 側で検出する
+                    continue
+                }
+                // state 未指定は translated 扱い（Xcode が省略することがある）
+                let state = (unit["state"] as? String) ?? "translated"
+                if !Self.acceptableStates.contains(state) {
+                    unfinished.append("\(key) [\(lang)] = \(state)")
+                }
+            }
+        }
+        // 取りこぼしを潰せるよう、件数と該当キーを一覧で出す
+        #expect(
+            unfinished.isEmpty,
+            """
+            未完了の翻訳が \(unfinished.count) 件あります:
+            \(unfinished.sorted().joined(separator: "\n"))
+            """
+        )
     }
 
     // 各キーの書式指定子（引数型）が全言語で一致する

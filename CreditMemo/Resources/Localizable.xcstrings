@@ -25,7 +25,7 @@
         },
         "ja" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "%1$@ / %2$@"
           }
         },
@@ -7507,13 +7507,13 @@
       "localizations" : {
         "de" : {
           "stringUnit" : {
-            "state" : "needs_review",
+            "state" : "translated",
             "value" : "Wird automatisch aus deinen Eingaben bestimmt.\n\nDu kannst es durch Auswahl eines Datums ändern.\n\nSperren, um das Datum festzuhalten und weitere Änderungen zu verhindern."
           }
         },
         "en" : {
           "stringUnit" : {
-            "state" : "needs_review",
+            "state" : "translated",
             "value" : "Determined automatically from your inputs.\n\nYou can change it by picking a date.\n\nLock to fix the date and prevent further changes."
           }
         },
@@ -7542,13 +7542,13 @@
       "localizations" : {
         "de" : {
           "stringUnit" : {
-            "state" : "needs_review",
+            "state" : "translated",
             "value" : "Wird automatisch aus Nutzungsdatum und Zahlungsmethode bestimmt.\n\nBei „In 2 Raten“ wird der Eintrag in zwei geplante Abbuchungen aufgeteilt."
           }
         },
         "en" : {
           "stringUnit" : {
-            "state" : "needs_review",
+            "state" : "translated",
             "value" : "Determined automatically from the use date and payment method.\n\nIf Pay in 2 is selected, the record is split into two scheduled debits."
           }
         },
@@ -7577,13 +7577,13 @@
       "localizations" : {
         "de" : {
           "stringUnit" : {
-            "state" : "needs_review",
+            "state" : "translated",
             "value" : "Du kannst es durch Auswahl eines Datums ändern"
           }
         },
         "en" : {
           "stringUnit" : {
-            "state" : "needs_review",
+            "state" : "translated",
             "value" : "You can change it by picking a date"
           }
         },
@@ -7612,13 +7612,13 @@
       "localizations" : {
         "de" : {
           "stringUnit" : {
-            "state" : "needs_review",
+            "state" : "translated",
             "value" : "Fest. Nur manuelle Änderungen gelten. Zum Entsperren tippen – das Standarddatum wird automatisch wiederhergestellt."
           }
         },
         "en" : {
           "stringUnit" : {
-            "state" : "needs_review",
+            "state" : "translated",
             "value" : "Fixed. Only manual edits apply. Tap to unlock and the default date is restored automatically."
           }
         },
@@ -7647,13 +7647,13 @@
       "localizations" : {
         "de" : {
           "stringUnit" : {
-            "state" : "needs_review",
+            "state" : "translated",
             "value" : "Wird automatisch auf das Standarddatum aktualisiert. Zum Sperren (manuell) tippen."
           }
         },
         "en" : {
           "stringUnit" : {
-            "state" : "needs_review",
+            "state" : "translated",
             "value" : "Automatically updates to the default date. Tap to lock (manual)."
           }
         },
@@ -8489,13 +8489,13 @@
       "localizations" : {
         "de" : {
           "stringUnit" : {
-            "state" : "needs_review",
+            "state" : "translated",
             "value" : "Vorschläge aus Ihren meistgenutzten Zahlungen\n\nTippen Sie auf eine Schaltfläche, um Label, Zahlungsmittel und Tags auf einmal einzutragen\n\nErneut tippen hebt die Auswahl auf\n\nZiehen Sie den Griff unten, um die Höhe zu ändern\n\nÜber das Zahnrad unten links ändern Sie Zeitraum, Betragsanzeige und Sortierung\n\nSie können diese Eingabehilfe in den Einstellungen auf „Keine“ oder das bisherige „Aus Zahlungsliste kopieren“ umstellen"
           }
         },
         "en" : {
           "stringUnit" : {
-            "state" : "needs_review",
+            "state" : "translated",
             "value" : "Suggestions from your most-used payments\n\nTap a button to fill in the label, payment method, and tags at once\n\nTap it again to clear\n\nDrag the handle below to change the height\n\nUse the gear at the lower left to change the period, amount display, and sort order\n\nYou can switch this input aid to None or the classic Copy from Payment List in Settings"
           }
         },
@@ -8507,13 +8507,13 @@
         },
         "ko" : {
           "stringUnit" : {
-            "state" : "needs_review",
+            "state" : "translated",
             "value" : "최근 자주 쓴 결제에서 후보를 표시합니다\n\n버튼을 누르면 라벨·결제 수단·태그가 한 번에 입력됩니다\n\n다시 누르면 해제됩니다\n\n아래 핸들을 위아래로 드래그하면 높이를 바꿀 수 있습니다\n\n왼쪽 아래 톱니바퀴로 추출 기간·금액 표시·정렬 순서를 바꿀 수 있습니다\n\n이 입력 보조는 설정에서 ‘없음’이나 기존 ‘결제 목록에서 복사’로 전환할 수 있습니다"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
-            "state" : "needs_review",
+            "state" : "translated",
             "value" : "顯示常用付款的建議\n\n點一下按鈕即可一次填入標籤、付款方式與標記\n\n再點一下可取消\n\n拖曳下方的把手可調整高度\n\n用左下角的齒輪可變更擷取期間、金額顯示與顯示順序\n\n可在設定中將此輸入輔助切換為「無」或原本的「從付款清單複製」"
           }
         }
@@ -13108,13 +13108,13 @@
       "localizations" : {
         "de" : {
           "stringUnit" : {
-            "state" : "needs_review",
+            "state" : "translated",
             "value" : "Erfasse eine in mehrere Raten (1–12) aufgeteilte Zahlung. Die Beträge werden standardmäßig gleichmäßig verteilt, und du kannst jede Rate manuell anpassen.\n\nIst dies aus, wird die Ratenzahlung für neue Einträge ausgeblendet. Vorhandene Einträge bleiben gültig.\n\nFür Bonus- oder Sonderzahlungstermine das Abbuchungsdatum manuell ändern. Deferin berechnet weder Zinsen noch Gebühren, nutze dies also nur für zins- und gebührenfreie Pläne."
           }
         },
         "en" : {
           "stringUnit" : {
-            "state" : "needs_review",
+            "state" : "translated",
             "value" : "Record a payment split into several installments (1–12). Amounts are divided evenly by default, and you can adjust each one manually.\n\nTurning this off hides installments for new records. Existing installment records stay valid.\n\nFor bonus or special payment dates, change the debit date manually. Deferin does not calculate interest or fees, so use this only for interest-free, fee-free plans."
           }
         },
@@ -13318,13 +13318,13 @@
       "localizations" : {
         "de" : {
           "stringUnit" : {
-            "state" : "needs_review",
+            "state" : "translated",
             "value" : "Wählen Sie die Eingabehilfe für eine neue Zahlung\n\nHäufige Zahlungen: geben Sie Ihre meistgenutzten Zahlungen schnell per Tippen ein\n\nAus Zahlungsliste kopieren: wählen Sie eine ähnliche Zahlung zum Übernehmen\n\nKeine: keine Eingabehilfe"
           }
         },
         "en" : {
           "stringUnit" : {
-            "state" : "needs_review",
+            "state" : "translated",
             "value" : "Choose the input aid for a new payment\n\nFrequent Payments: enter your most-used payments quickly with a tap\n\nCopy from Payment List: pick a similar payment to copy\n\nNone: no input aid"
           }
         },
@@ -13336,13 +13336,13 @@
         },
         "ko" : {
           "stringUnit" : {
-            "state" : "needs_review",
+            "state" : "translated",
             "value" : "새 결제의 입력 보조를 선택합니다\n\n자주 쓰는 결제: 자주 쓰는 결제를 버튼으로 빠르게 입력할 수 있습니다\n\n결제 목록에서 복사: 비슷한 결제를 골라 옮길 수 있습니다\n\n없음: 입력 보조 없음"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
-            "state" : "needs_review",
+            "state" : "translated",
             "value" : "選擇新增付款的輸入輔助\n\n常用付款：可用按鈕快速輸入常用的付款\n\n從付款清單複製：可挑選相似付款套用\n\n無：不使用輸入輔助"
           }
         }
