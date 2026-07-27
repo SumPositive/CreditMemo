@@ -26,17 +26,79 @@ struct JapaneseNumberParserTests {
         #expect(JapaneseNumberParser.firstAmount(in: input)?.value == expected)
     }
 
-    /// 修正前は "1万" と "2千" が別々の金額になり、後勝ち採用で 2,000 円になっていた
-    @Test("単位が連なる 1万2千 を 1 つの金額として読む", arguments: [
+    /// 修正前は "1万" と "2千" が別々の金額になり、後勝ち採用で 2,000 円になっていた。
+    /// 十の位・一の位まで続く形も 1 つにまとまる（12,300 / 4 / 10 に割れない）
+    @Test("単位が連なる表記を 1 つの金額として読む", arguments: [
         ("1万2千", Decimal(12_000)),
         ("1万2千円", Decimal(12_000)),
         ("1万2千3百", Decimal(12_300)),
+        ("1万2千3百4十", Decimal(12_340)),
+        ("1万2千3百4十5", Decimal(12_345)),
+        // 上位桁が単位付き、下位桁が単位なしの数字で続く形
+        ("1万2千340", Decimal(12_340)),
+        ("1万2340", Decimal(12_340)),
     ])
     func parsesChainedUnitsAsSingleAmount(input: String, expected: Decimal) {
         let all = JapaneseNumberParser.allAmounts(in: input)
         // 分割されていないこと自体を検証する（後勝ち採用でも同じ値になる）
         #expect(all.count == 1)
         #expect(all.last?.value == expected)
+    }
+
+    /// 漢数字と半角数字がどの桁で混ざっても、位取りは同じに解釈される
+    @Test("漢数字と半角数字の混在も 1 つの金額として読む", arguments: [
+        ("一万2千3百4十", Decimal(12_340)),
+        ("一万2千", Decimal(12_000)),
+        ("1万二千", Decimal(12_000)),
+        ("一億2千万", Decimal(120_000_000)),
+    ])
+    func parsesMixedKanjiArabicNotation(input: String, expected: Decimal) {
+        let all = JapaneseNumberParser.allAmounts(in: input)
+        #expect(all.count == 1)
+        #expect(all.last?.value == expected)
+    }
+
+    /// 億を含む大きい単位も位取りで解釈する
+    @Test("億の位取りを解釈する", arguments: [
+        ("一億", Decimal(100_000_000)),
+        ("1億", Decimal(100_000_000)),
+        ("一億二千万", Decimal(120_000_000)),
+        ("3億5千万", Decimal(350_000_000)),
+    ])
+    func parsesOkuUnit(input: String, expected: Decimal) {
+        #expect(JapaneseNumberParser.firstAmount(in: input)?.value == expected)
+    }
+
+    /// 単位を挟まずに数が連続する並びは位取りとして解釈できないので読み取らない。
+    /// 黙って足し合わせる／上書きすると誤った金額になる
+    @Test("位取りとして解釈できない数字の並びは読み取らない", arguments: [
+        "一二三",      // 単位なしの漢数字列
+        "二〇二四",    // 年などの数字列表記
+        "1..5",        // 壊れた小数
+    ])
+    func rejectsUnparsableDigitSequences(input: String) {
+        #expect(JapaneseNumberParser.allAmounts(in: input).isEmpty)
+    }
+
+    /// 単位の間の空白は 1 つの金額として跨ぐ（"1万 2千" が 1万 と 2千 に割れない）
+    @Test("単位の間に空白があっても 1 つの金額として読む", arguments: [
+        ("1万 2千", Decimal(12_000)),
+        ("1万 2千 3百", Decimal(12_300)),
+    ])
+    func joinsAmountAcrossSpacesBetweenUnits(input: String, expected: Decimal) {
+        let all = JapaneseNumberParser.allAmounts(in: input)
+        #expect(all.count == 1)
+        #expect(all.last?.value == expected)
+    }
+
+    /// 単位を伴わない数字が空白だけで並ぶ形は、1つの金額とも複数の金額とも決められない。
+    /// 誤った値を採用するより読み取らない（"1500円 2000円" のように単位があれば読む）
+    @Test("単位なしの数字が空白で並ぶ場合は読み取らない")
+    func rejectsBareSpaceSeparatedNumbers() {
+        #expect(JapaneseNumberParser.allAmounts(in: "1500 2000").isEmpty)
+        // 単位（円）があれば、それぞれ別の金額として読む
+        #expect(JapaneseNumberParser.allAmounts(in: "1500円 2000円").map(\.value)
+                == [Decimal(1_500), Decimal(2_000)])
     }
 
     // MARK: - 漢数字

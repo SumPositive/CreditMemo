@@ -167,31 +167,92 @@ enum VoiceInputParser {
         return result
     }
 
-    /// ロケールに応じて全数値を抽出する。ja-JP は JapaneseNumberParser、他は半角数字のみ
+    /// 位取り単位（万・千など）を使う CJK ロケール。
+    /// "1만2천" のような表記を割らずに読むため、専用パーサへ回す
+    private static let cjkNumeralLanguages: Set<String> = ["ja", "ko", "zh"]
+
+    /// ロケールに応じて全数値を抽出する。
+    /// CJK は JapaneseNumberParser（位取り解析）、他は半角数字のみ
     private static func allAmounts(in text: String, locale: Locale) -> [(value: Decimal, range: Range<String.Index>)] {
-        if locale.language.languageCode?.identifier == "ja" {
+        if let code = locale.language.languageCode?.identifier,
+           cjkNumeralLanguages.contains(code) {
             return JapaneseNumberParser.allAmounts(in: text)
         }
-        return allArabicAmounts(in: text)
+        return allArabicAmounts(in: text, locale: locale)
     }
 
-    /// "15", "1,500", "1.99", "$5", "5 dollars" を全件マッチする（非 ja ロケール用）
+    /// "15", "1,500", "1.99", "$5", "5 dollars" を全件マッチする（非 CJK ロケール用）
     /// 通貨記号プレフィックスと通貨語サフィックスは range に呑み込む（ラベル側に残さないため）
-    private static func allArabicAmounts(in text: String) -> [(Decimal, Range<String.Index>)] {
-        let pattern = #"(?:[$£€¥]\s*)?([0-9]+(?:[,][0-9]{3})*(?:\.[0-9]+)?)(?i:\s*(?:dollars?|cents?|bucks?|yen|euros?|pounds?))?"#
+    ///
+    /// 数値そのものの解釈は NumberFormatter に任せる。
+    /// 小数点と桁区切りはロケールで逆になり（en: 1,234.56 / de: 1.234,56）、
+    /// インド式のような不均等な桁区切り（1,23,456）もあるため、
+    /// 記号を自前で入れ替えるとロケールを増やしたときに破綻する。
+    /// 正規表現は「どこからどこまでが数値表記か」の切り出しだけに使う
+    private static func allArabicAmounts(
+        in text: String,
+        locale: Locale
+    ) -> [(Decimal, Range<String.Index>)] {
+        let formatter = decimalFormatter(for: locale)
+        let decimalSep = locale.decimalSeparator ?? "."
+        let groupingSep = locale.groupingSeparator ?? ","
+        // 区切り記号は正規表現メタ文字になりうるのでエスケープする
+        let dec = NSRegularExpression.escapedPattern(for: decimalSep)
+        let grp = NSRegularExpression.escapedPattern(for: groupingSep)
+        // 桁区切りは 3 桁固定にせず、インド式（1,23,456）も切り出せるようにする
+        let pattern = "(?:[$£€¥]\\s*)?([0-9]+(?:\(grp)[0-9]+)*(?:\(dec)[0-9]+)?)"
+            + "(?i:\\s*(?:dollars?|cents?|bucks?|yen|euros?|eur|pounds?|won|yuan))?"
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
         let ns = text as NSString
         let matches = regex.matches(in: text, range: NSRange(location: 0, length: ns.length))
-        var results: [(Decimal, Range<String.Index>)] = []
+        // (値, 範囲, 通貨の目印が付いているか)
+        var results: [(Decimal, Range<String.Index>, Bool)] = []
         for m in matches {
             guard m.numberOfRanges >= 2 else { continue }
-            let raw = ns.substring(with: m.range(at: 1)).replacingOccurrences(of: ",", with: "")
-            if let value = Decimal(string: raw), value > 0,
-               let range = Range(m.range, in: text) {
-                results.append((value, range))
+            // 直前が数字や区切り記号なら、より大きな数値表記の切れ端。
+            // de で "1,234.56" を読むと "1,234" が採られて ".56" が残るが、
+            // その "56" を別の金額として拾うと後勝ち採用で 56 になってしまう
+            let start = m.range(at: 1).location
+            if start > 0 {
+                let prev = ns.substring(with: NSRange(location: start - 1, length: 1))
+                if prev.rangeOfCharacter(from: .decimalDigits) != nil
+                    || prev == decimalSep || prev == groupingSep {
+                    continue
+                }
+            }
+            let literal = ns.substring(with: m.range(at: 1))
+            // ロケールの記法として妥当な表記だけを金額にする
+            // （de で "12.50" のような en 記法は解釈せず読み飛ばす）
+            guard let number = formatter.number(from: literal) as? NSDecimalNumber else { continue }
+            let value = number.decimalValue
+            // 通貨記号・通貨語が付いているか（全体マッチが数値部より広ければ付いている）
+            let hasCurrencyMarker = m.range.length > m.range(at: 1).length
+            if value > 0, let range = Range(m.range, in: text) {
+                results.append((value, range, hasCurrencyMarker))
             }
         }
-        return results
+        // 通貨の目印が無い数字が空白だけで複数並ぶ形（"1500 2000"、電話番号など）は、
+        // どれが金額とも決められない。誤って最後の数字を採用するより読み取らない。
+        // CJK 側の位取り解析も同じ方針なので、ロケールで挙動を揃える
+        if results.count > 1, results.allSatisfy({ !$0.2 }) {
+            return []
+        }
+        // 通貨の目印がある金額が1つでもあれば、目印なしの数字は候補から外す
+        // （"Store 24 12 dollars" の 24 をラベル側に残す）
+        if results.contains(where: { $0.2 }) {
+            return results.filter { $0.2 }.map { ($0.0, $0.1) }
+        }
+        return results.map { ($0.0, $0.1) }
+    }
+
+    /// 数値解釈用の NumberFormatter。
+    /// generatesDecimalNumbers で Double を経由させず、Decimal の精度を保つ
+    private static func decimalFormatter(for locale: Locale) -> NumberFormatter {
+        let formatter = NumberFormatter()
+        formatter.locale = locale
+        formatter.numberStyle = .decimal
+        formatter.generatesDecimalNumbers = true
+        return formatter
     }
 
     private struct CardMatch {

@@ -1,51 +1,41 @@
 import Foundation
 
-/// 日本語音声テキストから金額（Decimal）を抽出する
-/// 半角数字混じり（"1500" "1,500" "1.5万" "1万2千"）と純漢数字（"千五百" "一万二千"）に対応
+/// CJK 圏の音声テキストから金額（Decimal）を抽出する
+///
+/// 半角数字・漢数字・その混在を、位取りで一体として解釈する。
+/// 例: "1500" "1,500" "1.5万" "1万2千3百4十" "一万2千3百4十" "千五百" "一億2千万"
+///
+/// 日本語に加え、同じ位取り体系を使う繁体字（萬/千）と韓国語（만/천）も扱う。
+/// これらのロケールでも "1만2천" のような表記が 1 と 2000 に割れると、
+/// 音声解析側の後勝ち採用で下位桁だけが金額になってしまうため。
+///
+/// 半角数字と漢数字を別々に走査すると "1万2千3百4十" が 12,300 / 4 / 10 のように
+/// 分割され、音声解析側の後勝ち採用で下位桁だけが金額になってしまう。
+/// そのため数字（半角・漢数字）と単位（十百千万億）の連なりを 1 つのまとまりとして
+/// 取り出し、位取り解析で 1 つの金額に組み立てる。
 enum JapaneseNumberParser {
-    /// 認識テキストに出現する全ての金額を、文字範囲付きで返す
-    /// 半角数字パターンと漢数字パターンを両方走査し、位置順にソートする
+    /// 認識テキストに出現する全ての金額を、文字範囲付きで返す（出現順）
     static func allAmounts(in text: String) -> [(value: Decimal, range: Range<String.Index>)] {
-        let arabic = scanArabicAll(in: text)
-        // 漢数字スキャンは "1万2千" の "万" "千" のような、
-        // 既に半角数字側で読み取った単位文字を単独の数として拾ってしまう。
-        // 半角数字マッチと重なる漢数字マッチは捨てる
-        let kanji = scanKanjiAll(in: text).filter { k in
-            !arabic.contains { $0.1.overlaps(k.1) }
-        }
-        let merged = (arabic + kanji).sorted { $0.1.lowerBound < $1.1.lowerBound }
-        return mergeKanjiArabicPairs(merged, in: text)
-    }
+        var results: [(value: Decimal, range: Range<String.Index>)] = []
+        var cursor = text.startIndex
 
-    /// "一万2千" のような漢数字（上位桁）＋半角数字（下位桁）の並びを 1 つの金額へまとめる。
-    /// 別々の金額のままだと後勝ち採用で下位桁だけが金額になってしまう
-    private static func mergeKanjiArabicPairs(
-        _ items: [(Decimal, Range<String.Index>)],
-        in text: String
-    ) -> [(value: Decimal, range: Range<String.Index>)] {
-        var results: [(Decimal, Range<String.Index>)] = []
-        var index = 0
-        while index < items.count {
-            let current = items[index]
-            // 直後に隙間なく続き、上位桁が下位桁より大きい組だけを合算する
-            if index + 1 < items.count {
-                let next = items[index + 1]
-                if current.1.upperBound == next.1.lowerBound,
-                   isKanjiOnly(text[current.1]),
-                   current.0 > next.0 {
-                    results.append((current.0 + next.0, current.1.lowerBound..<next.1.upperBound))
-                    index += 2
-                    continue
+        while cursor < text.endIndex {
+            guard let start = text[cursor...].firstIndex(where: { isNumericStart($0) }) else { break }
+            // 数字・単位・桁区切りが続く限りを 1 つのまとまりとして取り出す
+            let end = numericRunEnd(in: text, from: start)
+            let run = text[start..<end]
+
+            if let value = parseNumericRun(run), value > 0 {
+                // 末尾の「円」も範囲に含め、ラベル側へ残さない
+                var rangeEnd = end
+                if rangeEnd < text.endIndex, text[rangeEnd] == "円" {
+                    rangeEnd = text.index(after: rangeEnd)
                 }
+                results.append((value, start..<rangeEnd))
             }
-            results.append(current)
-            index += 1
+            cursor = end > cursor ? end : text.index(after: cursor)
         }
-        return results.map { (value: $0.0, range: $0.1) }
-    }
-
-    private static func isKanjiOnly(_ s: Substring) -> Bool {
-        !s.isEmpty && s.allSatisfy { kanjiDigitSet.contains($0) || $0 == "円" }
+        return results
     }
 
     /// 認識テキストから最初に出現する金額と、その文字範囲を返す（互換用）
@@ -53,110 +43,153 @@ enum JapaneseNumberParser {
         allAmounts(in: text).first
     }
 
-    // MARK: - Arabic + 単位
+    // MARK: - まとまりの切り出し
 
-    /// "1500" "1,500" "1.5万" "1万" "1500円" に加え、
-    /// "1万2千" のような単位の連なりも 1 つの金額としてマッチさせる。
-    /// 「万」の後ろに「N千」が続く形を 1 マッチに含めないと、
-    /// 1万 と 2千 が別々の金額になり後勝ち採用で 2,000 円になってしまう
-    private static func scanArabicAll(in text: String) -> [(Decimal, Range<String.Index>)] {
-        // 例: "1万2千3百" → base=1 unit=万 に、以降の "N千" "N百" を順に足す
-        let pattern = #"([0-9,]+(?:\.[0-9]+)?)\s*(万|千)?\s*((?:[0-9,]+(?:\.[0-9]+)?\s*(?:千|百)\s*)*)円?"#
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
-        let ns = text as NSString
-        let matches = regex.matches(in: text, range: NSRange(location: 0, length: ns.length))
-        var results: [(Decimal, Range<String.Index>)] = []
-        for m in matches {
-            guard m.numberOfRanges >= 2 else { continue }
-            let numStr = ns.substring(with: m.range(at: 1)).replacingOccurrences(of: ",", with: "")
-            guard let base = Decimal(string: numStr), base > 0 else { continue }
-            var value = base
-            if m.range(at: 2).location != NSNotFound {
-                let unit = ns.substring(with: m.range(at: 2))
-                if unit == "万" { value = base * 10000 }
-                else if unit == "千" { value = base * 1000 }
-            }
-            // "1万2千3百" の下位桁。単位付きの上位桁があるときだけ足し込む
-            if m.range(at: 2).location != NSNotFound, m.range(at: 3).location != NSNotFound {
-                value += tailValue(ns.substring(with: m.range(at: 3)))
-            }
-            if let range = Range(m.range, in: text) {
-                results.append((value, range))
-            }
-        }
-        return results
+    private static let kanjiDigit: [Character: Decimal] = [
+        "〇": 0, "零": 0,
+        "一": 1, "二": 2, "三": 3, "四": 4, "五": 5,
+        "六": 6, "七": 7, "八": 8, "九": 9
+    ]
+    /// 十/百/千 は万・億の中での位取りに使う小単位。
+    /// 繁体字（zh-Hant）とハングル（ko）の同義字も同じ位取りとして扱う
+    private static let smallUnit: [Character: Decimal] = [
+        "十": 10, "百": 100, "千": 1000,
+        "십": 10, "백": 100, "천": 1000,   // ko
+    ]
+    /// 万/億 は区切りとなる大単位（萬 は繁体字、만/억 はハングル）
+    private static let bigUnit: [Character: Decimal] = [
+        "万": 10000, "億": 100_000_000,
+        "萬": 10000,                      // zh-Hant
+        "만": 10000, "억": 100_000_000,   // ko
+    ]
+
+    private static func isDigitChar(_ c: Character) -> Bool {
+        c.isASCII && c.isNumber
     }
 
-    /// "2千3百" のような下位桁の連なりを合計する
-    private static func tailValue(_ s: String) -> Decimal {
-        let pattern = #"([0-9,]+(?:\.[0-9]+)?)\s*(千|百)"#
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return 0 }
-        let ns = s as NSString
-        var total: Decimal = 0
-        for m in regex.matches(in: s, range: NSRange(location: 0, length: ns.length)) {
-            guard m.numberOfRanges >= 3 else { continue }
-            let numStr = ns.substring(with: m.range(at: 1)).replacingOccurrences(of: ",", with: "")
-            guard let n = Decimal(string: numStr), n > 0 else { continue }
-            total += n * (ns.substring(with: m.range(at: 2)) == "千" ? 1000 : 100)
-        }
-        return total
+    /// まとまりの開始になりうる文字（数字そのもの、または「千五百」のように単位で始まる形）
+    private static func isNumericStart(_ c: Character) -> Bool {
+        isDigitChar(c) || kanjiDigit[c] != nil || smallUnit[c] != nil || bigUnit[c] != nil
     }
 
-    // MARK: - 漢数字
+    /// まとまりを構成する文字（開始文字に加え、桁区切りと小数点も含む）
+    private static func isNumericBody(_ c: Character) -> Bool {
+        isNumericStart(c) || c == "," || c == "."
+    }
 
-    private static let kanjiDigitSet: Set<Character> = ["〇", "零", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十", "百", "千", "万", "億"]
-
-    /// 漢数字シーケンスを全て検出する
-    private static func scanKanjiAll(in text: String) -> [(Decimal, Range<String.Index>)] {
-        var results: [(Decimal, Range<String.Index>)] = []
-        var cursor = text.startIndex
-        while cursor < text.endIndex {
-            guard let first = text[cursor...].firstIndex(where: { kanjiDigitSet.contains($0) }) else { break }
-            var end = first
-            while end < text.endIndex, kanjiDigitSet.contains(text[end]) {
+    /// start から数字・単位が続く終端を返す。末尾の "," "." 空白は含めない。
+    ///
+    /// "1만 2천원" のように単位の間に空白を挟む表記があるため、
+    /// 空白の直後に数字・単位が続く場合はまとまりを継続する
+    /// （ここで切ると 1 と 2000 に割れ、後勝ち採用で 2,000 になってしまう）
+    private static func numericRunEnd(in text: String, from start: String.Index) -> String.Index {
+        var end = start
+        while end < text.endIndex {
+            let ch = text[end]
+            if isNumericBody(ch) {
                 end = text.index(after: end)
+                continue
             }
-            let segment = String(text[first..<end])
-            if !segment.isEmpty, let value = parseKanjiNumber(segment), value > 0 {
-                var rangeEnd = end
-                if rangeEnd < text.endIndex, text[rangeEnd] == "円" {
-                    rangeEnd = text.index(after: rangeEnd)
+            // 空白は、その先に数字・単位が続くときだけまとまりの一部として跨ぐ
+            if ch == " " {
+                var lookahead = end
+                while lookahead < text.endIndex, text[lookahead] == " " {
+                    lookahead = text.index(after: lookahead)
                 }
-                results.append((value, first..<rangeEnd))
+                if lookahead < text.endIndex, isNumericStart(text[lookahead]) {
+                    end = lookahead
+                    continue
+                }
             }
-            cursor = end
+            break
         }
-        return results
+        // "1,500円と" の "と" 直前など、区切り文字や空白で終わる場合は巻き戻す
+        while end > start {
+            let prev = text.index(before: end)
+            if text[prev] == "," || text[prev] == "." || text[prev] == " " {
+                end = prev
+            } else {
+                break
+            }
+        }
+        return end
     }
 
-    private static func parseKanjiNumber(_ s: String) -> Decimal? {
-        let digit: [Character: Decimal] = [
-            "〇": 0, "零": 0,
-            "一": 1, "二": 2, "三": 3, "四": 4, "五": 5,
-            "六": 6, "七": 7, "八": 8, "九": 9
-        ]
-        let smallUnit: [Character: Decimal] = ["十": 10, "百": 100, "千": 1000]
-        let bigUnit:   [Character: Decimal] = ["万": 10000, "億": 100_000_000]
+    // MARK: - 位取り解析
 
-        var total: Decimal = 0
-        var smallSection: Decimal = 0
-        var current: Decimal = 0
+    /// 数字（半角・漢数字）と単位の連なりを 1 つの金額に組み立てる。
+    ///
+    /// 「万」「億」で区切り、その中を 十/百/千 で位取りする標準的な読み方に従う。
+    /// 半角数字と漢数字は同じ「数」として扱うので、混在しても結果は変わらない。
+    /// 単位を伴わない小数（"1.5"）や桁区切り（"1,500"）はそのままの数値として読む。
+    private static func parseNumericRun(_ run: Substring) -> Decimal? {
+        var total: Decimal = 0        // 万・億で確定した分
+        var section: Decimal = 0      // 現在の大単位セクション内で確定した分
+        var current: Decimal?         // 直前に読んだ数（単位待ち）
+        var sawAnyNumber = false
+        var index = run.startIndex
 
-        for ch in s {
-            if let d = digit[ch] {
-                current = d
-            } else if let u = smallUnit[ch] {
-                // 「十」「百」「千」の前に数字が無ければ 1 とみなす
-                smallSection += (current == 0 ? 1 : current) * u
-                current = 0
-            } else if let u = bigUnit[ch] {
-                let combined = smallSection + current
-                total += (combined == 0 ? 1 : combined) * u
-                smallSection = 0
-                current = 0
+        while index < run.endIndex {
+            let ch = run[index]
+
+            // 半角数字の並び（桁区切り・小数点を含む）をまとめて 1 つの数として読む
+            if isDigitChar(ch) {
+                var end = index
+                var literal = ""
+                while end < run.endIndex, isDigitChar(run[end]) || run[end] == "," || run[end] == "." {
+                    // 小数点は後ろに数字が続くときだけ数の一部として扱う
+                    if run[end] == "." {
+                        let next = run.index(after: end)
+                        guard next < run.endIndex, isDigitChar(run[next]) else { break }
+                    }
+                    if run[end] != "," { literal.append(run[end]) }
+                    end = run.index(after: end)
+                }
+                guard let value = Decimal(string: literal) else { return nil }
+                // 単位を挟まず数が続くのは "1..5" のような壊れた入力。
+                // 黙って足し合わせると誤った金額になるので読み取らない
+                if current != nil { return nil }
+                current = value
+                sawAnyNumber = true
+                index = end
+                continue
             }
+
+            if let digit = kanjiDigit[ch] {
+                // "一二三" のように単位を挟まず漢数字が続く並びは、位取りとして
+                // 解釈できない（"二〇二四" のような数字列表記も同様）。
+                // 誤った金額を返すより読み取らない方が安全
+                if current != nil { return nil }
+                current = digit
+                sawAnyNumber = true
+                index = run.index(after: index)
+                continue
+            }
+
+            if let unit = smallUnit[ch] {
+                // 「千五百」のように単位の前に数が無ければ 1 とみなす
+                section += (current ?? 1) * unit
+                current = nil
+                sawAnyNumber = true
+                index = run.index(after: index)
+                continue
+            }
+
+            if let unit = bigUnit[ch] {
+                // 「一億2千万」→ 億で確定した分に、続く「2千万」を足す
+                let combined = section + (current ?? 0)
+                total += (combined == 0 ? 1 : combined) * unit
+                section = 0
+                current = nil
+                sawAnyNumber = true
+                index = run.index(after: index)
+                continue
+            }
+
+            index = run.index(after: index)
         }
-        total += smallSection + current
-        return total
+
+        guard sawAnyNumber else { return nil }
+        return total + section + (current ?? 0)
     }
 }
