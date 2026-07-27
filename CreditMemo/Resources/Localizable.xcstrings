@@ -1549,7 +1549,7 @@
       }
     },
     "card.afterDays.count" : {
-      "extractionState" : "stale",
+      "extractionState" : "manual",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -1968,7 +1968,7 @@
       }
     },
     "card.billingType.afterDays" : {
-      "extractionState" : "stale",
+      "extractionState" : "manual",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -2003,7 +2003,7 @@
       }
     },
     "card.billingType.cycle" : {
-      "extractionState" : "stale",
+      "extractionState" : "manual",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -2038,7 +2038,7 @@
       }
     },
     "card.billingType.title" : {
-      "extractionState" : "stale",
+      "extractionState" : "manual",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6698,7 +6698,7 @@
       }
     },
     "payment.window.currentDaysTotal" : {
-      "extractionState" : "stale",
+      "extractionState" : "manual",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6733,7 +6733,7 @@
       }
     },
     "payment.window.currentMonthTotal" : {
-      "extractionState" : "stale",
+      "extractionState" : "manual",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6768,7 +6768,7 @@
       }
     },
     "payment.window.futureTotal" : {
-      "extractionState" : "stale",
+      "extractionState" : "manual",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6803,7 +6803,7 @@
       }
     },
     "payment.window.nextDaysSummary" : {
-      "extractionState" : "stale",
+      "extractionState" : "manual",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6838,7 +6838,7 @@
       }
     },
     "payment.window.nextDaysTotal" : {
-      "extractionState" : "stale",
+      "extractionState" : "manual",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6873,7 +6873,7 @@
       }
     },
     "payment.window.nextMonthSummary" : {
-      "extractionState" : "stale",
+      "extractionState" : "manual",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6908,7 +6908,7 @@
       }
     },
     "payment.window.nextMonthTotal" : {
-      "extractionState" : "stale",
+      "extractionState" : "manual",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6943,7 +6943,7 @@
       }
     },
     "payment.window.recentDaysTotal" : {
-      "extractionState" : "stale",
+      "extractionState" : "manual",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -6978,7 +6978,7 @@
       }
     },
     "payment.window.recentMonthTotal" : {
-      "extractionState" : "stale",
+      "extractionState" : "manual",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -7083,7 +7083,7 @@
       }
     },
     "payType.installments" : {
-      "extractionState" : "stale",
+      "extractionState" : "manual",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -7118,7 +7118,7 @@
       }
     },
     "payType.lumpSum" : {
-      "extractionState" : "stale",
+      "extractionState" : "manual",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -9010,7 +9010,7 @@
       }
     },
     "record.part.number" : {
-      "extractionState" : "stale",
+      "extractionState" : "manual",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -11844,7 +11844,7 @@
       }
     },
     "settings.enableInstallment" : {
-      "extractionState" : "stale",
+      "extractionState" : "manual",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -11874,76 +11874,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "使用分期付款"
-          }
-        }
-      }
-    },
-    "settings.enableInstallment.detail" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Einen Eintrag in mehrere geplante Abbuchungen aufteilen"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Split one record into several scheduled debits"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "1件を複数回の引き落としに分割します"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "한 건을 여러 번의 예정 출금으로 나눕니다"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "將一條記錄拆分為多次計劃扣款"
-          }
-        }
-      }
-    },
-    "settings.enableInstallment.hidden" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Wenn aus, ist die Ratenzahlung bei neuen Einträgen ausgeblendet (nur einmalig)."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "When off, installments are hidden for new records (single only)."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "OFFのとき、新しい決済で分割払いは選べません（1回のみ）"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "끄면 새 기록에서 분할 결제가 숨겨집니다(일시불만)."
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "關閉時，新記錄不顯示分期（僅一次付清）。"
           }
         }
       }
@@ -13104,7 +13034,7 @@
       }
     },
     "settings.help.enableInstallment" : {
-      "extractionState" : "stale",
+      "extractionState" : "manual",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -13279,7 +13209,7 @@
       }
     },
     "settings.help.launchAction" : {
-      "extractionState" : "stale",
+      "extractionState" : "manual",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -14189,7 +14119,7 @@
       }
     },
     "settings.launchAction" : {
-      "extractionState" : "stale",
+      "extractionState" : "manual",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -14224,7 +14154,7 @@
       }
     },
     "settings.launchAction.mainMenu" : {
-      "extractionState" : "stale",
+      "extractionState" : "manual",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -14259,7 +14189,7 @@
       }
     },
     "settings.launchAction.newPayment" : {
-      "extractionState" : "stale",
+      "extractionState" : "manual",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -14294,7 +14224,7 @@
       }
     },
     "settings.launchAction.none" : {
-      "extractionState" : "stale",
+      "extractionState" : "manual",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -14329,7 +14259,7 @@
       }
     },
     "settings.launchAction.paymentList" : {
-      "extractionState" : "stale",
+      "extractionState" : "manual",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -14364,7 +14294,7 @@
       }
     },
     "settings.launchAction.voiceNewPayment" : {
-      "extractionState" : "stale",
+      "extractionState" : "manual",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -14959,7 +14889,7 @@
       }
     },
     "settings.showCurrencySymbol.format" : {
-      "extractionState" : "stale",
+      "extractionState" : "manual",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -17409,7 +17339,7 @@
       }
     },
     "unit.days" : {
-      "extractionState" : "stale",
+      "extractionState" : "manual",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -17444,7 +17374,7 @@
       }
     },
     "unit.oneMonth" : {
-      "extractionState" : "stale",
+      "extractionState" : "manual",
       "localizations" : {
         "de" : {
           "stringUnit" : {

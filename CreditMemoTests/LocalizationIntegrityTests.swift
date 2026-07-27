@@ -5,6 +5,7 @@ import Testing
 /// Localizable.xcstrings の整合性を JSON として直接検証する。
 /// - 翻訳済みキーが対応全言語をそろえているか
 /// - 翻訳状態（state）が全て translated か（new / needs_review の取りこぼし検出）
+/// - 抽出状態（extractionState）に stale が残っていないか（Xcode の警告要因）
 /// - 書式指定子（%@ / %lld など）の引数型が全言語で一致するか（不一致は String(format:) の crash 要因）
 ///
 /// リソースはコンパイル時パス(#filePath)からリポジトリ相対で読む（ローカルの xcodebuild test 前提）。
@@ -49,6 +50,34 @@ struct LocalizationIntegrityTests {
             }
         }
         #expect(missing.isEmpty, "訳が欠けているキー: \(missing.sorted().prefix(30).joined(separator: ", "))")
+    }
+
+    /// extractionState: stale は「ソースから抽出されなくなったキー」。
+    /// Xcode が警告を出すので残さない。対処は 2 つだけ：
+    /// - 動的に組み立てるなどで実際に使っているキー → manual（意図的に保持する印）
+    /// - 本当に使っていないキー → カタログから削除
+    ///
+    /// stale のまま放置すると、未使用キーの蓄積と本当に消し忘れたキーの区別がつかなくなる
+    @Test("抽出状態に stale が残っていない")
+    func noStaleExtractionStateRemains() throws {
+        let strings = try loadStrings()
+        #expect(!strings.isEmpty)
+
+        var stale: [String] = []
+        for (key, value) in strings {
+            guard let entry = value as? [String: Any] else { continue }
+            if entry["extractionState"] as? String == "stale" {
+                stale.append(key)
+            }
+        }
+        #expect(
+            stale.isEmpty,
+            """
+            extractionState が stale のキーが \(stale.count) 件あります。
+            実際に使っているなら manual に、使っていないなら削除してください:
+            \(stale.sorted().joined(separator: "\n"))
+            """
+        )
     }
 
     // 利用者向け文言は translated 以外の状態を残さない。
