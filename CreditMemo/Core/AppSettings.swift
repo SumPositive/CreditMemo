@@ -227,6 +227,25 @@ enum LaunchAction: String, CaseIterable, Identifiable {
     }
 }
 
+/// 起動時に一度だけ実行する設定移行。
+/// 起動経路（AppMain）から切り離してテストできるよう、UserDefaults を差し替え可能にする
+enum OneTimeSettingsMigration {
+    /// 一度きりの設定移行を必要なら適用する。実行済みフラグで二重適用を防ぐ。
+    ///
+    /// 現状の内容：「よくある決済」カプセル導入に合わせ、テンキー自動表示を強制OFFにする
+    /// （新旧ユーザーとも1回だけ。以降は設定で自由にON/OFFでき、その値は上書きしない）。
+    /// - Returns: 実際に移行を適用したら true、実行済みで何もしなければ false
+    @discardableResult
+    static func applyIfNeeded(defaults: UserDefaults = .standard) -> Bool {
+        guard !defaults.bool(forKey: AppStorageKey.didForceOffAutoOpenAmountPad) else {
+            return false
+        }
+        defaults.set(false, forKey: AppStorageKey.autoOpenAmountPad)
+        defaults.set(true, forKey: AppStorageKey.didForceOffAutoOpenAmountPad)
+        return true
+    }
+}
+
 /// 新しい決済画面で、金額欄の上に出す入力補助。
 /// 「よくある決済」カプセルか、「決済一覧からコピー」セクションかを選ぶ（既定はよくある決済）。
 enum NewPaymentAssist: String, CaseIterable, Identifiable {
