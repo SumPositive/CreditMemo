@@ -34,8 +34,43 @@
 
 ![Platform](https://img.shields.io/badge/platform-iOS%2018%2B-blue)
 ![Swift](https://img.shields.io/badge/Swift-6-orange)
-![Version](https://img.shields.io/badge/version-2.6.0-brightgreen)
+![Version](https://img.shields.io/badge/version-2.6.1-brightgreen)
 [![App Store](https://img.shields.io/badge/App%20Store-Download-blue)](https://apps.apple.com/us/app/id432458298)
+
+## バージョン 2.6.1 の主な変更
+
+- **日本語金額解析を位置取り記数法ベースに全面書き換え**（`JapaneseNumberParser`）
+  - 旧実装は正規表現の2パイプライン走査で、`1万2千` のような位・一の位の混在を分割して誤読していた（例: 2,000円）
+  - 万/億/千/百/十 を位として解釈する単一パーサへ統一。zh-Hant の `萬`、ko の `만/억/천/백/십` も対象
+  - 数字を含む店名の誤認を抑止（`一蘭` `三井住友` `万代` `千疋屋` `三丁目`）。`isLikelyPartOfWord` で語の一部を除外
+  - 通貨単位（円/元/원）と通貨記号（¥ ₩ $ ＄ £ €、NT/HK/US 接頭辞）を認識し、単位はラベル側へ残さない
+  - 単位なしの連続数字は金額として採らない（`parseNumericRun`）
+- **アラビア数字の金額解析をロケール対応化**
+  - 自前の区切り処理を `NumberFormatter`（`generatesDecimalNumbers`）へ置換。de の `1.234,56` と en の `1,234.56` の区切り反転、インド式桁区切りに対応
+  - 区切りや数字に続く断片は金額として採らない。通貨マーカーのない空白区切りの数字列も除外
+- **音声入力：ラベル認識の改善**
+  - 「ラベルは」に加え、単独の「ラベル」（および `label` / `label is`）をキーワードとして許容
+  - 金額でもカード指定でもない部分はラベルとして扱う方針へ変更
+  - 直近1年の履歴ラベルと突き合わせ、**完全一致＞前方一致率＞部分一致率** の順で採用（`KnownLabels` / `bestKnownLabelMatch`）。一致時は認識文字列でなく**履歴ラベル側の表記を採用**（`えーと三千屋で1500円` → 1500 / `三千屋`）
+  - 部分認識ごとに全履歴ラベルを再解析していた負荷を、事前計算した `KnownLabels` の一度きり構築へ変更（ラベル照合 10.86ms → 1.90ms）
+- **音声入力：言い直しへの対応**
+  - 間を置いてラベルを言い直したとき、追記でなく**上書き**になるよう修正。`restatementPause` を 0.7→0.4 秒へ
+  - 言い直し判定を `WallClockSplitter` として分離しテスト可能に。追加分が空白始まりのときのみ区切る条件へ改め、`食費` が `食`/`費` に割れる不具合を修正
+  - ラベルを言い換えた際に決済手段が改めて自動補塡されるよう、間の区切りでカードフェーズをリセット（最終セグメントは維持）
+  - 上部の認識文字列を1行で左へ流れる表示に変更（`transcriptLine`）
+- **保存失敗時のロールバック漏れを修正**（`RecordService.saveMetadata`）
+  - メタ情報だけの編集で保存に失敗しても `context.rollback()` が呼ばれていなかった。両オーバーロードに追加
+- **JSON インポートの値検証を業務範囲まで強化**（`JSONImport`）
+  - ストレージ範囲しか見ていなかったため、`invalidFieldValue(field:value:)` と `validated(_:in:field:)` を追加
+  - 締日 0...29、支払日・支払月・分割回数（`PayCount.max`）・ボーナス 0...12・繰り返し 0...99 を範囲検証
+- **`prefix(limit)` の負値クラッシュを修正**（`FrequentPaymentBuilder`）
+- **テスト整備**
+  - ロールバック、日本語/多言語の金額解析、JSON 業務範囲、祝日繰り下げ、設定移行、音声エイリアス、アプリアイコン、履歴ラベル抽出の各スイートを追加
+  - 祝日テストの周辺 `UserDefaults` 依存を解消。`VoiceAliasStore` は共有 `UserDefaults` への並列読み書きで競合していたため `@Suite(.serialized)` 化
+  - 代替アイコン検証を `CFBundleIcons` に加え `CFBundleIcons~ipad` も対象に（iPhone/iPad 登録の突き合わせ）
+  - `#filePath` でリポジトリを読むテスト（アイコン・ローカライズ）は実機で到達できないため `.enabled(if:)` でスキップ
+- **文字列カタログの整理**（`Localizable.xcstrings`）
+  - `state` の `new`/`needs_review` 21件を `translated` へ、`extractionState: stale` 28件を `manual` へ。未使用キー2件を削除
 
 ## バージョン 2.6.0 の主な変更
 

@@ -1,10 +1,3 @@
-What's new in 2.6.0
-- Added "Frequent Payments" as an input aid for a new payment.
-　- Pick a frequently used label to fill in the payment method and tags at once.
-　- If you've used the same amount three or more times for a label, the amount is filled in too.
-　- You can switch to the classic "Copy from Payment List" or "None" in Settings.
-- New Payment by Voice now fills in the method and tags from the label as well (the amount stays as the one you spoke).
-- When paid records older than three years pile up, we'll suggest tidying up your data.
-　- It exports before deleting, so you can restore by importing.
-- In Payment Status, unpaid items older than one year are flagged with a caution icon.
-　- Tap the icon to show those older unpaid items.
+What's new in 2.6.1
+- Voice input: improved speech recognition and support for restating what you said
+- Fixed potential issues

@@ -1,10 +1,3 @@
-Neu in 2.6.0
-- „Häufige Zahlungen" wurde als Eingabehilfe für eine neue Zahlung hinzugefügt.
-　- Wählen Sie ein häufig genutztes Label, um Zahlungsmittel und Tags auf einmal einzutragen.
-　- Wenn Sie für ein Label dreimal oder öfter denselben Betrag verwendet haben, wird auch der Betrag eingetragen.
-　- In den Einstellungen können Sie auf das bisherige „Aus Zahlungsliste kopieren" oder „Keine" umstellen.
-- Neue Zahlung per Sprache trägt jetzt ebenfalls Zahlungsmittel, Tags und (bei dreimal oder öfter genutzten Beträgen) den Betrag anhand des Labels ein.
-- Wenn sich bezahlte Einträge ansammeln, die älter als drei Jahre sind, schlagen wir vor, Ihre Daten aufzuräumen.
-　- Es wird vor dem Löschen exportiert, sodass Sie durch Importieren wiederherstellen können.
-- Im Zahlungsstatus werden unbezahlte Einträge, die älter als ein Jahr sind, mit einem Warnsymbol markiert.
-　- Tippen Sie auf das Symbol, um diese älteren unbezahlten Einträge anzuzeigen.
+Neu in 2.6.1
+- Spracheingabe: verbesserte Spracherkennung und Unterstützung für das Korrigieren des Gesagten
+- Mögliche Fehler behoben
