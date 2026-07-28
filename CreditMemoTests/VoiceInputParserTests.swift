@@ -49,6 +49,55 @@ struct VoiceInputParserTests {
         #expect(result.amount == Decimal(1_500))
     }
 
+    @Test("間を置いてラベルを言い直したら最後のラベルを採用する")
+    func adoptsRestatedLabelAfterPause() {
+        let result = VoiceInputParser.parseAmountAndLabel(
+            "1500円 コンビニ スーパー",
+            pauseSeparatedTexts: ["1500円 コンビニ", "スーパー"],
+            locale: Self.ja
+        )
+        #expect(result.amount == Decimal(1_500))
+        #expect(result.label == "スーパー")
+    }
+
+    @Test("金額だけを言い直しても先のラベルを保持する")
+    func keepsLabelWhenOnlyAmountIsRestated() {
+        let result = VoiceInputParser.parseAmountAndLabel(
+            "1500円 コンビニ 2000円",
+            pauseSeparatedTexts: ["1500円 コンビニ", "2000円"],
+            locale: Self.ja
+        )
+        #expect(result.amount == Decimal(2_000))
+        #expect(result.label == "コンビニ")
+    }
+
+    @Test("短い語間は同じ発話、長い無音は言い直しへ分割する")
+    func splitsTranscriptAtRestatementPause() {
+        let text = "1500円 コンビニ スーパー"
+        let source = text as NSString
+        let segments = [
+            SpeechTranscriptSegmenter.Segment(
+                range: source.range(of: "1500円"),
+                timestamp: 0,
+                duration: 0.5
+            ),
+            SpeechTranscriptSegmenter.Segment(
+                range: source.range(of: "コンビニ"),
+                timestamp: 0.7,
+                duration: 0.5
+            ),
+            SpeechTranscriptSegmenter.Segment(
+                range: source.range(of: "スーパー"),
+                timestamp: 2.0,
+                duration: 0.5
+            ),
+        ]
+
+        let results = SpeechTranscriptSegmenter.split(text, segments: segments)
+
+        #expect(results == ["1500円 コンビニ", "スーパー"])
+    }
+
     @Test("金額が無ければ amount は nil のまま")
     func leavesAmountNilWithoutNumber() {
         let result = VoiceInputParser.parseAmountAndLabel("コンビニ", locale: Self.ja)
@@ -388,5 +437,36 @@ struct VoiceInputParserTests {
 
         let result = VoiceInputParser.parseCard("楽天", cards: [card])
         #expect(result.card?.id == card.id)
+    }
+
+    @Test("間を置いて手段を言い直したら最後の手段を採用する")
+    func adoptsRestatedCardAfterPause() throws {
+        let context = try TestStore.makeContext()
+        let first = TestFixtures.makeCard(name: "楽天カード", in: context)
+        let last = TestFixtures.makeCard(name: "ビザカード", in: context)
+
+        let result = VoiceInputParser.parseCard(
+            "楽天カード ビザカード",
+            pauseSeparatedTexts: ["楽天カード", "ビザカード"],
+            cards: [first, last]
+        )
+
+        #expect(result.card?.id == last.id)
+        #expect(result.matchedToken == "ビザカード")
+    }
+
+    @Test("手段として特定できない言い直しでは先の手段を保持する")
+    func keepsCardWhenRestatementDoesNotMatch() throws {
+        let context = try TestStore.makeContext()
+        let card = TestFixtures.makeCard(name: "楽天カード", in: context)
+
+        let result = VoiceInputParser.parseCard(
+            "楽天カード 別のカード",
+            pauseSeparatedTexts: ["楽天カード", "別のカード"],
+            cards: [card]
+        )
+
+        #expect(result.card?.id == card.id)
+        #expect(result.matchedToken == "楽天カード")
     }
 }

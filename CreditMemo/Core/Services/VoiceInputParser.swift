@@ -84,6 +84,31 @@ enum VoiceInputParser {
         return result
     }
 
+    /// 間を置いた発話では、最後に言い直したラベルだけを採用する
+    /// 金額だけの言い直しでは、それまでのラベルを消さない
+    static func parseAmountAndLabel(
+        _ rawText: String,
+        pauseSeparatedTexts: [String],
+        locale: Locale = .current,
+        knownLabels: KnownLabels = .none
+    ) -> VoiceInputResult {
+        var result = parseAmountAndLabel(rawText, locale: locale, knownLabels: knownLabels)
+        guard 1 < pauseSeparatedTexts.count else { return result }
+
+        for text in pauseSeparatedTexts.reversed() {
+            let restatement = parseAmountAndLabel(
+                text,
+                locale: locale,
+                knownLabels: knownLabels
+            )
+            if let label = restatement.label {
+                result.label = label
+                break
+            }
+        }
+        return result
+    }
+
     /// 過去の決済に実在するラベルが本文の先頭に現れる範囲を返す。
     ///
     /// "一蘭" "千疋屋" のように数値表記と見分けのつかない店名は、
@@ -279,6 +304,26 @@ enum VoiceInputParser {
             result.matchedWasExistingAlias = m.wasExistingAlias
         }
         return result
+    }
+
+    /// 間を置いた発話では、最後に言い直した手段を採用する
+    /// マッチしない言い直しでは、それまでに特定できた手段を保持する
+    static func parseCard(
+        _ rawText: String,
+        pauseSeparatedTexts: [String],
+        cards: [E1card]
+    ) -> VoiceInputResult {
+        guard 1 < pauseSeparatedTexts.count else {
+            return parseCard(rawText, cards: cards)
+        }
+
+        for text in pauseSeparatedTexts.reversed() {
+            let restatement = parseCard(text, cards: cards)
+            if restatement.card != nil {
+                return restatement
+            }
+        }
+        return parseCard(rawText, cards: cards)
     }
 
     // MARK: - Helpers

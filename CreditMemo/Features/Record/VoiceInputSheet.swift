@@ -387,6 +387,9 @@ struct VoiceInputSheet: View {
         var r = VoiceInputResult()
         let amountLabel = VoiceInputParser.parseAmountAndLabel(
             amountLabelText,
+            pauseSeparatedTexts: Self.amountLabelPhrases(
+                from: recognizer.pauseSeparatedTranscripts
+            ),
             locale: recognizer.locale,
             knownLabels: preparedLabels
         )
@@ -397,7 +400,13 @@ struct VoiceInputSheet: View {
 
         let trimmedCardText = cardText.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmedCardText.isEmpty {
-            let cardResult = VoiceInputParser.parseCard(trimmedCardText, cards: cards)
+            let cardResult = VoiceInputParser.parseCard(
+                trimmedCardText,
+                pauseSeparatedTexts: Self.cardPhrases(
+                    from: recognizer.pauseSeparatedTranscripts
+                ),
+                cards: cards
+            )
             r.card = cardResult.card
             r.matchedToken = cardResult.matchedToken
             r.matchedWasExistingAlias = cardResult.matchedWasExistingAlias
@@ -439,6 +448,47 @@ struct VoiceInputSheet: View {
     /// 最後の出現範囲（手段セクション先頭 = 後勝ち上書き用）
     private static func findLastCardPhaseKeyword(in text: String) -> Range<String.Index>? {
         text.range(of: cardPhaseKeywordPattern, options: [.regularExpression, .backwards])
+    }
+
+    /// 保存コマンドと手段フェーズを除き、金額・ラベルの発話だけを残す
+    private static func amountLabelPhrases(from phrases: [String]) -> [String] {
+        var results: [String] = []
+        for phrase in phrases {
+            let (_, cleaned) = consumeSaveCommand(in: phrase)
+            if let keyword = findFirstCardPhaseKeyword(in: cleaned) {
+                let prefix = String(cleaned[..<keyword.lowerBound])
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                if !prefix.isEmpty {
+                    results.append(prefix)
+                }
+                break
+            }
+            if !cleaned.isEmpty {
+                results.append(cleaned)
+            }
+        }
+        return results
+    }
+
+    /// 最初の手段キーワード以降を、手段の言い直し候補として残す
+    private static func cardPhrases(from phrases: [String]) -> [String] {
+        var results: [String] = []
+        var isCardPhase = false
+
+        for phrase in phrases {
+            let (_, cleaned) = consumeSaveCommand(in: phrase)
+            if let keyword = findLastCardPhaseKeyword(in: cleaned) {
+                isCardPhase = true
+                let suffix = String(cleaned[keyword.upperBound...])
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                if !suffix.isEmpty {
+                    results.append(suffix)
+                }
+            } else if isCardPhase, !cleaned.isEmpty {
+                results.append(cleaned)
+            }
+        }
+        return results
     }
 
     /// キャンセルコマンドの検出

@@ -2,6 +2,72 @@ import Foundation
 @preconcurrency import Speech
 import AVFoundation
 
+/// 認識語の時刻から、間を置いて話された発話へ分割する
+enum SpeechTranscriptSegmenter {
+    struct Segment: Sendable {
+        let range: NSRange
+        let timestamp: TimeInterval
+        let duration: TimeInterval
+    }
+
+    /// 通常の語間より長い無音を、言い直しの区切りとして扱う
+    static let restatementPause: TimeInterval = 0.7
+
+    static func split(
+        _ text: String,
+        segments: [Segment],
+        pause: TimeInterval = restatementPause
+    ) -> [String] {
+        guard let first = segments.first else {
+            return text.isEmpty ? [] : [text]
+        }
+
+        let source = text as NSString
+        let sourceRange = NSRange(location: 0, length: source.length)
+        var results: [String] = []
+        var phraseStart = first.range.location
+        var phraseEnd = NSMaxRange(first.range)
+        var previousEndTime = first.timestamp + first.duration
+
+        for segment in segments.dropFirst() {
+            if pause <= segment.timestamp - previousEndTime {
+                appendPhrase(
+                    from: source,
+                    range: NSRange(location: phraseStart, length: phraseEnd - phraseStart),
+                    sourceRange: sourceRange,
+                    to: &results
+                )
+                phraseStart = segment.range.location
+            }
+            phraseEnd = NSMaxRange(segment.range)
+            previousEndTime = segment.timestamp + segment.duration
+        }
+
+        appendPhrase(
+            from: source,
+            range: NSRange(location: phraseStart, length: phraseEnd - phraseStart),
+            sourceRange: sourceRange,
+            to: &results
+        )
+        return results
+    }
+
+    private static func appendPhrase(
+        from source: NSString,
+        range: NSRange,
+        sourceRange: NSRange,
+        to results: inout [String]
+    ) {
+        let validRange = NSIntersectionRange(range, sourceRange)
+        guard validRange.length != 0 else { return }
+        let phrase = source.substring(with: validRange)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if !phrase.isEmpty {
+            results.append(phrase)
+        }
+    }
+}
+
 /// SFSpeechRecognizer のロケール対応ラッパー
 /// パーシャル結果をリアルタイムに更新し、停止時に最終結果を確定する
 @MainActor
@@ -20,6 +86,8 @@ final class SpeechRecognizer {
     private(set) var partialTranscript: String = ""
     /// 停止後の確定テキスト
     private(set) var transcript: String = ""
+    /// 少し間を置いて話された単位へ分けた認識結果
+    private(set) var pauseSeparatedTranscripts: [String] = []
 
     let locale: Locale
     private let recognizer: SFSpeechRecognizer?
@@ -86,6 +154,7 @@ final class SpeechRecognizer {
 
         partialTranscript = ""
         transcript = ""
+        pauseSeparatedTranscripts = []
         state = .listening
 
         // 認識タスクのコールバックも非メインスレッドから呼ばれる
@@ -93,10 +162,21 @@ final class SpeechRecognizer {
         task = recognizer.recognitionTask(with: req) { @Sendable [weak self] result, error in
             let isFinal = result?.isFinal == true
             let formatted = result?.bestTranscription.formattedString
+            let segments = result?.bestTranscription.segments.map {
+                SpeechTranscriptSegmenter.Segment(
+                    range: $0.substringRange,
+                    timestamp: $0.timestamp,
+                    duration: $0.duration
+                )
+            } ?? []
+            let pauseSeparated = formatted.map {
+                SpeechTranscriptSegmenter.split($0, segments: segments)
+            } ?? []
             let hasError = error != nil
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 if let formatted {
+                    self.pauseSeparatedTranscripts = pauseSeparated
                     self.partialTranscript = formatted
                     if isFinal { self.transcript = formatted }
                 }
