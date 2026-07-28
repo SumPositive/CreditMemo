@@ -27,7 +27,17 @@ enum VoiceInputParser {
     static func parseAmountAndLabel(
         _ rawText: String,
         locale: Locale = .current,
-        knownLabels: [String] = []
+        knownLabels: [String]
+    ) -> VoiceInputResult {
+        parseAmountAndLabel(rawText, locale: locale, knownLabels: KnownLabels(knownLabels))
+    }
+
+    /// 前処理済みラベルを使う版。部分認識のたびに呼ぶ場合はこちらを使い、
+    /// KnownLabels はシートを開く時点で 1 回だけ作る
+    static func parseAmountAndLabel(
+        _ rawText: String,
+        locale: Locale = .current,
+        knownLabels: KnownLabels = .none
     ) -> VoiceInputResult {
         let text = normalize(rawText)
         var result = VoiceInputResult()
@@ -92,27 +102,23 @@ enum VoiceInputParser {
     /// 先頭文字が本文に無いラベルを先に落として比較回数を抑える
     private static func bestKnownLabelMatch(
         in text: String,
-        knownLabels: [String]
+        knownLabels: KnownLabels
     ) -> (label: String, range: Range<String.Index>)? {
         guard !knownLabels.isEmpty, !text.isEmpty else { return nil }
         let textCharacters = Set(text.lowercased())
         var bestScore = 0.0
         var best: (label: String, range: Range<String.Index>)?
 
-        for raw in knownLabels {
-            let label = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-            // 数値表記そのもののラベル（"1500" など）は守らない。
-            // 守ると同じ数字を金額として言えなくなる
-            guard !label.isEmpty, !isPureAmountExpression(label) else { continue }
+        for entry in knownLabels.entries {
             // 先頭文字すら本文に無ければ、どの一致にもなり得ない
-            guard let head = label.lowercased().first, textCharacters.contains(head) else { continue }
+            guard textCharacters.contains(entry.head) else { continue }
 
-            guard let (score, range) = matchScore(of: label, in: text) else { continue }
+            guard let (score, range) = matchScore(of: entry, in: text) else { continue }
             // 同点なら長いラベルを優先する（"三千屋" が "三千" に負けないように）
             if score > bestScore
-                || (score == bestScore && label.count > (best?.label.count ?? 0)) {
+                || (score == bestScore && entry.length > (best?.label.count ?? 0)) {
                 bestScore = score
-                best = (label, range)
+                best = (entry.text, range)
             }
         }
         return best
@@ -120,11 +126,12 @@ enum VoiceInputParser {
 
     /// ラベルと本文の一致の強さ。大きいほど確からしい
     private static func matchScore(
-        of label: String,
+        of entry: KnownLabels.Entry,
         in text: String
     ) -> (score: Double, range: Range<String.Index>)? {
+        let label = entry.text
         // 一致した部分が発話全体に占める割合。同種の一致では長いほど強い
-        let coverage = Double(label.count) / Double(max(text.count, 1))
+        let coverage = Double(entry.length) / Double(max(text.count, 1))
 
         if text.compare(label, options: .caseInsensitive) == .orderedSame {
             return (1000, text.startIndex..<text.endIndex)
@@ -134,7 +141,7 @@ enum VoiceInputParser {
         }
         // 部分一致は誤って拾いやすい（"コンビニ" の中の "ニ" など）。
         // 一定の長さと、発話に対する占有率がある場合だけ採用する
-        guard label.count >= minimumPartialMatchLength, coverage >= minimumPartialCoverage else {
+        guard entry.length >= minimumPartialMatchLength, coverage >= minimumPartialCoverage else {
             return nil
         }
         if let partial = text.range(of: label, options: .caseInsensitive) {
@@ -149,8 +156,44 @@ enum VoiceInputParser {
     /// "コンビニで1500円"(9文字) の中の "パー"(2文字) のような弱い一致を落とす
     private static let minimumPartialCoverage = 0.2
 
+    /// 照合用に前処理済みの履歴ラベル。
+    ///
+    /// 部分認識のたびに毎回「空白除去・小文字化・金額表記かの判定」を
+    /// やり直すと履歴件数に比例して重くなるため、シートを開く時点で一度だけ作る。
+    /// 特に金額表記かの判定は数値解析を伴うので、使い回す効果が大きい
+    struct KnownLabels {
+        struct Entry {
+            let text: String
+            /// 先頭文字（小文字化済み）。本文に含まれるかの足切りに使う
+            let head: Character
+            /// 文字数。coverage 計算と部分一致の足切りに使う
+            let length: Int
+        }
+
+        let entries: [Entry]
+        var isEmpty: Bool { entries.isEmpty }
+
+        static let none = KnownLabels(entries: [])
+
+        init(entries: [Entry]) {
+            self.entries = entries
+        }
+
+        /// 生のラベル配列から、照合に必要な情報を前計算して作る
+        init(_ labels: [String]) {
+            entries = labels.compactMap { raw in
+                let label = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+                // 数値表記そのもののラベル（"1500" など）は守らない。
+                // 守ると同じ数字を金額として言えなくなる
+                guard !label.isEmpty, !VoiceInputParser.isPureAmountExpression(label) else { return nil }
+                guard let head = label.lowercased().first else { return nil }
+                return Entry(text: label, head: head, length: label.count)
+            }
+        }
+    }
+
     /// ラベル全体が金額表記だけで構成されているか（"1500" "三千" など）
-    private static func isPureAmountExpression(_ label: String) -> Bool {
+    fileprivate static func isPureAmountExpression(_ label: String) -> Bool {
         guard let first = JapaneseNumberParser.allAmounts(in: label).first else { return false }
         return first.range.lowerBound == label.startIndex && first.range.upperBound == label.endIndex
     }

@@ -56,6 +56,9 @@ struct VoiceInputSheet: View {
     /// 過去の決済で実際に使われたラベル。
     /// "一蘭" "七十七銀行" のように数値表記と区別できない店名を金額にしないために使う
     var knownLabels: [String] = []
+    /// 照合用に前処理したラベル。部分認識のたびに作り直さないよう、
+    /// シートを開いた時点で 1 回だけ組み立てる
+    @State private var preparedLabels: VoiceInputParser.KnownLabels = .none
     /// シートを開いた時点の現在値
     let currentAmount: Decimal
     let currentCard: E1card?
@@ -121,6 +124,8 @@ struct VoiceInputSheet: View {
                 }
             }
             .task {
+                // 履歴ラベルの前処理は聞き取り前に 1 回だけ済ませる
+                preparedLabels = VoiceInputParser.KnownLabels(knownLabels)
                 // 起動元にかかわらずシート表示後に聞き取りを始める
                 await startListening()
             }
@@ -383,7 +388,7 @@ struct VoiceInputSheet: View {
         let amountLabel = VoiceInputParser.parseAmountAndLabel(
             amountLabelText,
             locale: recognizer.locale,
-            knownLabels: knownLabels
+            knownLabels: preparedLabels
         )
         r.amount = amountLabel.amount
         r.label = amountLabel.label

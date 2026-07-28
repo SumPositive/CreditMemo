@@ -186,6 +186,50 @@ struct EfficiencyTests {
         #expect(context.autosaveEnabled == autosaveBefore)
     }
 
+    /// 音声の部分認識は 1 発話で何度も届き、そのたびに履歴ラベルと照合する。
+    /// 履歴が多い環境で音声表示が引っ掛からないことを確かめる。
+    ///
+    /// KnownLabels を作り直さずに使い回すのが要点で、
+    /// 毎回前処理（空白除去・小文字化・金額表記判定）をやり直すと
+    /// 履歴件数に比例して重くなる
+    @Test("500件の履歴ラベルでも部分認識の照合が遅くならない")
+    func voiceLabelMatchingStaysFastWithManyLabels() throws {
+        guard runsHeavyScalingTests else { return }
+
+        let labels = (0..<500).map { "テスト店舗\($0)" }
+        // 前処理はシート表示時の 1 回だけ
+        let prepared = VoiceInputParser.KnownLabels(labels)
+        // 発話が伸びていく様子（部分認識）を再現する
+        let growing = [
+            "ス", "スー", "スーパ", "スーパー", "スーパーで",
+            "スーパーで1", "スーパーで15", "スーパーで150",
+            "スーパーで1500", "スーパーで1500円",
+        ]
+        let locale = Locale(identifier: "ja_JP")
+
+        let started = Date()
+        let utterances = 20
+        for _ in 0..<utterances {
+            for text in growing {
+                _ = VoiceInputParser.parseAmountAndLabel(
+                    text, locale: locale, knownLabels: prepared
+                )
+            }
+        }
+        let perUpdate = Date().timeIntervalSince(started)
+            / Double(utterances * growing.count) * 1000
+
+        // 1 更新あたりの目安。実測は 0.2ms 程度で、
+        // 前処理を毎回やり直すと 1ms を超える
+        #expect(perUpdate < 5.0, "部分認識 1 回あたり \(perUpdate) ms かかっています")
+
+        // 照合結果自体も正しいままであること
+        let result = VoiceInputParser.parseAmountAndLabel(
+            "スーパーで1500円", locale: locale, knownLabels: prepared
+        )
+        #expect(result.amount == Decimal(1_500))
+    }
+
     private func writeTempJSON(_ data: Data) throws -> URL {
         let dir = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
         let url = dir.appendingPathComponent("credit-memo-test-\(UUID().uuidString).json")
