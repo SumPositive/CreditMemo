@@ -278,4 +278,114 @@ struct FrequentPaymentBuilderTests {
         ])
         #expect(FrequentPaymentBuilder.build(from: records, limit: limit).isEmpty)
     }
+
+    // MARK: - 音声入力へ渡す履歴ラベル
+
+    /// 期間外の記録は照合対象にしない
+    @Test("設定期間内のラベルだけを返す")
+    func recentLabelsKeepsOnlyRecordsInPeriod() throws {
+        let context = try TestStore.makeContext()
+        let records = [
+            makeRecord(label: "期間内", date: daysAgo(30), in: context),
+            makeRecord(label: "期間外", date: daysAgo(400), in: context),
+        ]
+        let labels = FrequentPaymentBuilder.recentLabels(from: records, periodMonths: 12)
+        #expect(labels == ["期間内"])
+    }
+
+    /// 上限で打ち切るので、新しい順であることが結果に効く
+    @Test("利用日の新しい順に返す")
+    func recentLabelsAreOrderedByRecency() throws {
+        let context = try TestStore.makeContext()
+        // 渡す順番はばらばらでも、内部で新しい順に並べ直す
+        let records = [
+            makeRecord(label: "古い", date: daysAgo(30), in: context),
+            makeRecord(label: "新しい", date: daysAgo(1), in: context),
+            makeRecord(label: "中間", date: daysAgo(10), in: context),
+        ]
+        let labels = FrequentPaymentBuilder.recentLabels(from: records, periodMonths: 12)
+        #expect(labels == ["新しい", "中間", "古い"])
+    }
+
+    /// 同じ店を何度使っても照合対象は 1 件でよい
+    @Test("重複ラベルは新しい方だけを残す")
+    func recentLabelsRemovesDuplicates() throws {
+        let context = try TestStore.makeContext()
+        let records = [
+            makeRecord(label: "スーパー", date: daysAgo(20), in: context),
+            makeRecord(label: "コンビニ", date: daysAgo(10), in: context),
+            makeRecord(label: "スーパー", date: daysAgo(1), in: context),
+        ]
+        let labels = FrequentPaymentBuilder.recentLabels(from: records, periodMonths: 12)
+        #expect(labels == ["スーパー", "コンビニ"])
+    }
+
+    /// 空ラベル・空白だけのラベルは照合に使えない
+    @Test("空ラベルは除外する")
+    func recentLabelsSkipsBlankLabels() throws {
+        let context = try TestStore.makeContext()
+        let records = [
+            makeRecord(label: "", date: daysAgo(1), in: context),
+            makeRecord(label: "   ", date: daysAgo(2), in: context),
+            makeRecord(label: "  パン屋  ", date: daysAgo(3), in: context),
+        ]
+        let labels = FrequentPaymentBuilder.recentLabels(from: records, periodMonths: 12)
+        // 前後の空白は取り除いて返す
+        #expect(labels == ["パン屋"])
+    }
+
+    /// 照合は部分認識のたびに走るので、件数の上限が効いている必要がある
+    @Test("上限で打ち切り、新しいものを残す")
+    func recentLabelsStopsAtLimit() throws {
+        let context = try TestStore.makeContext()
+        // 0 日前〜9 日前の 10 件（新しいほどラベル番号が小さい）
+        let records = (0..<10).map {
+            makeRecord(label: "店\($0)", date: daysAgo($0), in: context)
+        }
+        let labels = FrequentPaymentBuilder.recentLabels(
+            from: records, periodMonths: 12, limit: 3
+        )
+        #expect(labels == ["店0", "店1", "店2"])
+    }
+
+    @Test("上限 0 以下では空を返す", arguments: [0, -1, Int.min])
+    func recentLabelsReturnsEmptyForNonPositiveLimit(limit: Int) throws {
+        let context = try TestStore.makeContext()
+        let records = [makeRecord(label: "店", date: daysAgo(1), in: context)]
+        #expect(FrequentPaymentBuilder.recentLabels(
+            from: records, periodMonths: 12, limit: limit
+        ).isEmpty)
+    }
+
+    /// 設定で選べる期間（3/6/12/24/36か月）がそのまま境界になる
+    @Test("期間設定ごとに対象範囲が変わる", arguments: [3, 6, 12, 24, 36])
+    func recentLabelsRespectsConfiguredPeriod(periodMonths: Int) throws {
+        let context = try TestStore.makeContext()
+        let now = Date()
+        let calendar = Calendar.current
+        // 期間のちょうど内側と外側に 1 件ずつ置く
+        let inside = calendar.date(byAdding: .day, value: -1, to:
+            calendar.date(byAdding: .month, value: -periodMonths, to: now) ?? now) ?? now
+        let justInside = calendar.date(byAdding: .day, value: 1, to:
+            calendar.date(byAdding: .month, value: -periodMonths, to: now) ?? now) ?? now
+        let records = [
+            makeRecord(label: "範囲内", date: justInside, in: context),
+            makeRecord(label: "範囲外", date: inside, in: context),
+        ]
+        let labels = FrequentPaymentBuilder.recentLabels(
+            from: records, periodMonths: periodMonths, now: now
+        )
+        #expect(labels == ["範囲内"])
+    }
+
+    /// 既定の上限は 500 件
+    @Test("既定の上限は 500 件")
+    func recentLabelsDefaultLimitIs500() throws {
+        let context = try TestStore.makeContext()
+        let records = (0..<600).map {
+            makeRecord(label: "店\($0)", date: daysAgo($0 % 300), in: context)
+        }
+        let labels = FrequentPaymentBuilder.recentLabels(from: records, periodMonths: 12)
+        #expect(labels.count == 500)
+    }
 }

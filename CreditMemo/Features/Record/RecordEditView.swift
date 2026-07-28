@@ -204,6 +204,43 @@ enum FrequentPaymentBuilder {
         let matches = candidates.filter { $0.label.compare(key, options: .caseInsensitive) == .orderedSame }
         return matches.first { $0.amount == nil } ?? matches.first
     }
+
+    /// 音声入力へ渡す「過去に実際に使ったラベル」を組み立てる。
+    ///
+    /// "一蘭" "七十七銀行" のように数値表記と区別できない店名を
+    /// 金額と誤認しないための照合元になる。
+    /// - pastRecords: 並び順に依存しない純粋ビルダー。内部で利用日の新しい順に並べ直す
+    /// - periodMonths: 何か月前までを対象にするか
+    /// - limit: 返すラベルの最大件数。照合は部分認識のたびに走るので上限を設ける。
+    ///   0 以下は 0 件として扱う（負数でもクラッシュしない）
+    static func recentLabels(
+        from pastRecords: [E3record],
+        periodMonths: Int,
+        now: Date = Date(),
+        limit: Int = 500
+    ) -> [String] {
+        let cappedLimit = max(0, limit)
+        guard cappedLimit > 0 else { return [] }
+        guard let cutoff = Calendar.current.date(
+            byAdding: .month, value: -max(0, periodMonths), to: now
+        ) else { return [] }
+
+        // 上限で打ち切るので、新しい順であることを内部で保証する
+        let sorted = pastRecords
+            .filter { $0.dateUse >= cutoff }
+            .sorted { $0.dateUse > $1.dateUse }
+
+        var seen: Set<String> = []
+        var labels: [String] = []
+        for record in sorted {
+            let label = record.zName.trimmingCharacters(in: .whitespacesAndNewlines)
+            // 空ラベルは照合に使えない。同じラベルは新しい方だけを残す
+            guard !label.isEmpty, seen.insert(label).inserted else { continue }
+            labels.append(label)
+            if labels.count >= cappedLimit { break }
+        }
+        return labels
+    }
 }
 
 extension Color {

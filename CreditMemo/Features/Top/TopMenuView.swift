@@ -37,30 +37,20 @@ struct TopMenuView: View {
     private var allPayments: [E7payment]
     @Query(sort: \E1card.nRow)
     private var cards: [E1card]
-    // 音声入力の「よくある決済」補塡用（ラベル一致で手段・タグ・金額をプリセット）
+    // 音声入力で 2 つの用途に使う。
+    // 1. 「よくある決済」補塡：ラベル一致で未指定の手段・タグをプリセットする（金額は補塡しない）
+    // 2. 履歴ラベルの照合元：数値表記と区別できない店名を金額と誤認しないために渡す
     @Query(sort: \E3record.dateUse, order: .reverse)
     private var pastRecords: [E3record]
     @Query private var tags: [E5tag]
 
-    /// ラベル照合は部分認識のたびに走るので、件数に上限を設ける。
-    /// pastRecords は利用日の新しい順なので、上限を超える分は古いものから落ちる
-    private static let voiceKnownLabelLimit = 500
-
     /// 設定期間内（既定1年）に実際に使ったラベル。
     /// 音声入力で "一蘭" "七十七銀行" のような店名を金額と誤認しないために渡す
     private var recentLabels: [String] {
-        let cutoff = Calendar.current.date(
-            byAdding: .month, value: -frequentPeriod.months, to: Date()
-        ) ?? .distantPast
-        var seen: Set<String> = []
-        var labels: [String] = []
-        for record in pastRecords where record.dateUse >= cutoff {
-            let label = record.zName.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !label.isEmpty, seen.insert(label).inserted else { continue }
-            labels.append(label)
-            if labels.count >= Self.voiceKnownLabelLimit { break }
-        }
-        return labels
+        FrequentPaymentBuilder.recentLabels(
+            from: pastRecords,
+            periodMonths: frequentPeriod.months
+        )
     }
 
     private var unpaidPayments: [E7payment] {
