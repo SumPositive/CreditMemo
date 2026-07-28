@@ -53,6 +53,12 @@ struct TopMenuView: View {
         )
     }
 
+    /// 音声入力で既存ラベルに一致したときの手段・タグ補填候補
+    private var voiceFrequentPayments: [FrequentPayment] {
+        let config = FrequentPaymentConfig(periodMonths: frequentPeriod.months)
+        return FrequentPaymentBuilder.build(from: pastRecords, config: config)
+    }
+
     private var unpaidPayments: [E7payment] {
         // 起動直後クラッシュ回避:
         // isPaid は e2invoices 関係を辿るため、旧データ不整合時に落ちることがある。
@@ -246,6 +252,7 @@ struct TopMenuView: View {
         .sheet(isPresented: $showVoiceRecordSheet, onDismiss: { handleVoiceAfterSave() }) {
             VoiceInputSheet(
                 cards: cards,
+                frequentPayments: voiceFrequentPayments,
                 knownLabels: recentLabels,
                 currentAmount: 0,
                 currentCard: nil,
@@ -428,13 +435,15 @@ struct TopMenuView: View {
         var selectedTags: [E5tag] = []
         if !usePoint.isEmpty {
             // 音声は金額を補塡しないので、金額表示条件・並び順は既定のまま。期間だけ設定に合わせる。
-            let config = FrequentPaymentConfig(periodMonths: frequentPeriod.months)
-            let candidates = FrequentPaymentBuilder.build(from: pastRecords, config: config)
+            let candidates = voiceFrequentPayments
             if let fp = FrequentPaymentBuilder.match(label: usePoint, in: candidates) {
                 // 手段：音声で未指定のときだけ候補の手段を補う
-                if card == nil, let cardID = fp.cardID {
-                    card = cards.first { $0.id == cardID }
-                }
+                card = FrequentPaymentBuilder.voiceCard(
+                    label: usePoint,
+                    explicitCard: card,
+                    candidates: candidates,
+                    cards: cards
+                )
                 // タグ：候補のタグを全タグ(@Query tags)からIDで引いて採用（音声はタグを持たない）
                 selectedTags = fp.tagIDs.compactMap { id in tags.first { $0.id == id } }
             }

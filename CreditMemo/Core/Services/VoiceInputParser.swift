@@ -13,6 +13,116 @@ struct VoiceInputResult {
     var hasAnyField: Bool { amount != nil || card != nil || label != nil }
 }
 
+/// 「手段は」「ラベルは」で音声入力の対象項目を切り替える
+enum VoiceInputPhaseSplitter {
+    private enum Phase {
+        case amountLabel
+        case card
+    }
+
+    struct Sections: Equatable {
+        var amountLabelTexts: [String] = []
+        var cardTexts: [String] = []
+        var endsInCardPhase = false
+    }
+
+    /// ja: 決済手段は / 手段は
+    /// en: payment method is / method is / card is
+    static let cardKeywordPattern = #"(?i)((?:決済)?手段は|(?:payment )?method is|card is)"#
+    /// 手段入力後にラベルへ戻るためのキーワード。
+    /// 助詞を省いた「ラベル」「label」だけの言い方にも対応する。
+    /// ただし語中の一致（"トラベル"）や別の助詞が続く形（"ラベルを変更"）は
+    /// キーワードとして扱わない
+    static let labelKeywordPattern =
+        #"(?i)(ラベルは|(?<![^\s、。,.])ラベル(?![はをがのにでもへと])|label is|(?<![a-z])label(?![a-z]))"#
+
+    /// 「手段は」の後は 1 区切り分だけを手段として扱い、その後はラベルへ戻る。
+    ///
+    /// 手段の発話は「手段は 楽天カード」で終わるのが普通なので、
+    /// それ以降まで手段扱いを続けると、後から言った金額や店名まで
+    /// 手段の候補になってしまう。
+    /// 明示的に「ラベルは」と言わなくても、金額と手段以外はラベルとして拾う
+    static func split(_ texts: [String]) -> Sections {
+        var phase = Phase.amountLabel
+        var sections = Sections()
+
+        for (index, text) in texts.enumerated() {
+            let isLastText = index == texts.count - 1
+            var cursor = text.startIndex
+            while cursor < text.endIndex {
+                let remaining = cursor..<text.endIndex
+                let cardRange = text.range(
+                    of: cardKeywordPattern,
+                    options: .regularExpression,
+                    range: remaining
+                )
+                let labelRange = text.range(
+                    of: labelKeywordPattern,
+                    options: .regularExpression,
+                    range: remaining
+                )
+                let next = nextKeyword(card: cardRange, label: labelRange)
+
+                guard let next else {
+                    append(String(text[cursor...]), to: phase, sections: &sections)
+                    break
+                }
+
+                append(
+                    String(text[cursor..<next.range.lowerBound]),
+                    to: phase,
+                    sections: &sections
+                )
+                phase = next.phase
+                cursor = next.range.upperBound
+            }
+            // 発話の区切り（ポーズ）で手段の入力は終わったとみなし、ラベルへ戻す。
+            // 最後の区切りはまだ発話が続く可能性があるので、手段のまま残す
+            // （手段入力中であることを画面に出すために endsInCardPhase を使う）
+            if case .card = phase, !isLastText {
+                phase = .amountLabel
+            }
+        }
+        if case .card = phase {
+            sections.endsInCardPhase = true
+        }
+        return sections
+    }
+
+    static func firstCardKeyword(in text: String) -> Range<String.Index>? {
+        text.range(of: cardKeywordPattern, options: .regularExpression)
+    }
+
+    private static func nextKeyword(
+        card: Range<String.Index>?,
+        label: Range<String.Index>?
+    ) -> (range: Range<String.Index>, phase: Phase)? {
+        if let card, let label {
+            return card.lowerBound < label.lowerBound
+                ? (card, .card)
+                : (label, .amountLabel)
+        }
+        if let card { return (card, .card) }
+        if let label { return (label, .amountLabel) }
+        return nil
+    }
+
+    private static func append(
+        _ rawText: String,
+        to phase: Phase,
+        sections: inout Sections
+    ) {
+        let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        switch phase {
+        case .card:
+            sections.cardTexts.append(text)
+        case .amountLabel:
+            sections.amountLabelTexts.append(text)
+        }
+    }
+}
+
 /// 音声認識テキストの解析
 /// - parseAmountAndLabel: 数値を金額、それ以外をラベルにする
 /// - parseCard: カード名／エイリアス／省略形を手段にする

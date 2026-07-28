@@ -53,6 +53,8 @@ private struct VoiceInputTelemetryState {
 /// 「保存」「OK」等が出たら即時 apply
 struct VoiceInputSheet: View {
     let cards: [E1card]
+    /// 既存ラベルに一致したとき、代表手段を補填する候補
+    var frequentPayments: [FrequentPayment] = []
     /// 過去の決済で実際に使われたラベル。
     /// "一蘭" "七十七銀行" のように数値表記と区別できない店名を金額にしないために使う
     var knownLabels: [String] = []
@@ -79,6 +81,8 @@ struct VoiceInputSheet: View {
     @State private var parsed: VoiceInputResult = VoiceInputResult()
     /// 音声で最後に検出されたカード ID（手動変更時の学習用、selectCard では更新しない）
     @State private var originalVoiceCardID: String?
+    /// ラベルから自動補填した手段を、明示された手段と区別する
+    @State private var inferredCardID: String?
     /// 保存コマンド検出による apply 二重起動防止
     @State private var didTriggerSaveCommand = false
     /// キャンセルコマンド検出による dismiss 二重起動防止
@@ -189,11 +193,7 @@ struct VoiceInputSheet: View {
                     Text(isListening ? "voice.listening" : "voice.tap.to.start")
                         .foregroundStyle(.secondary)
                 } else {
-                    Text(currentTranscript)
-                        .font(.body)
-                        .foregroundStyle(.primary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal)
+                    transcriptLine
                 }
             }
             .frame(maxWidth: .infinity)
@@ -201,6 +201,42 @@ struct VoiceInputSheet: View {
             .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
         }
         .buttonStyle(.plain)
+    }
+
+    /// 認識テキストは 1 行のまま、話すたびに左へ流して末尾（最新）を見せる。
+    /// 折り返して高さが変わるとボタン全体が伸縮して視線が動くため、行数は固定にする
+    private var transcriptLine: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                Text(currentTranscript)
+                    .font(.body)
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .padding(.horizontal)
+                    // 末尾へスクロールするための目印
+                    .id(Self.transcriptTailID)
+            }
+            // 認識のたびに末尾へ寄せる。部分認識は頻繁に届くのでアニメーションは付けない
+            .onChange(of: currentTranscript) { _, _ in
+                proxy.scrollTo(Self.transcriptTailID, anchor: .trailing)
+            }
+            .onAppear {
+                proxy.scrollTo(Self.transcriptTailID, anchor: .trailing)
+            }
+        }
+        // 1 行分の高さに固定して、テキスト量でレイアウトが動かないようにする
+        .frame(height: transcriptLineHeight)
+        // 自動で流すだけなので操作は受け取らない。
+        // ここでタップを吸うと、パネルをタップして聞き直す操作が効かなくなる
+        .allowsHitTesting(false)
+    }
+
+    private static let transcriptTailID = "transcript.tail"
+
+    /// 本文 1 行分の高さ（文字サイズ設定に追従させる）
+    private var transcriptLineHeight: CGFloat {
+        UIFont.preferredFont(forTextStyle: .body).lineHeight
     }
 
     @ViewBuilder private var voiceGuideArea: some View {
@@ -299,12 +335,12 @@ struct VoiceInputSheet: View {
         parsed.card != nil || Self.findFirstCardPhaseKeyword(in: currentTranscript) != nil
     }
 
-    /// transcript の「最後の決済手段は/手段は」より後の発話（マッチしなかった時の学習トークン候補）
+    /// 現在の手段フェーズで話された内容（マッチしなかった時の学習トークン候補）
     private var lastSpokenAfterKeyword: String {
-        guard let kwRange = Self.findLastCardPhaseKeyword(in: currentTranscript) else { return "" }
-        let after = String(currentTranscript[kwRange.upperBound...])
-        let (_, cleaned) = Self.consumeSaveCommand(in: after)
-        return cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
+        let (_, cleaned) = Self.consumeSaveCommand(in: currentTranscript)
+        let sections = VoiceInputPhaseSplitter.split([cleaned])
+        guard sections.endsInCardPhase else { return "" }
+        return sections.cardTexts.last ?? ""
     }
 
     private var canApply: Bool {
@@ -370,26 +406,19 @@ struct VoiceInputSheet: View {
         let (hasSave, cleanedText) = Self.consumeSaveCommand(in: text)
         telemetry.saveCommandSpoken = telemetry.saveCommandSpoken || hasSave
 
-        // 後勝ち上書き: 最後の「手段は/決済手段は」を手段セクションの開始位置にする
-        // 金額・ラベルは最初の出現より前のテキストを使い、間に挟まれた古い「手段は X」は捨てる
-        let amountLabelText: String
-        let cardText: String
-        if let firstKw = Self.findFirstCardPhaseKeyword(in: cleanedText),
-           let lastKw = Self.findLastCardPhaseKeyword(in: cleanedText) {
-            amountLabelText = String(cleanedText[..<firstKw.lowerBound])
-            cardText = String(cleanedText[lastKw.upperBound...])
-        } else {
-            amountLabelText = cleanedText
-            cardText = ""
-        }
+        // 「手段は」「ラベルは」で入力対象を切り替え、各項目の発話だけを取り出す
+        let fullSections = VoiceInputPhaseSplitter.split([cleanedText])
+        let phraseSections = VoiceInputPhaseSplitter.split(
+            Self.cleanedPhrases(from: recognizer.pauseSeparatedTranscripts)
+        )
+        let amountLabelText = fullSections.amountLabelTexts.joined(separator: " ")
+        let cardText = fullSections.cardTexts.last ?? ""
         telemetry.cardKeywordSpoken = telemetry.cardKeywordSpoken || Self.findFirstCardPhaseKeyword(in: cleanedText) != nil
 
         var r = VoiceInputResult()
         let amountLabel = VoiceInputParser.parseAmountAndLabel(
             amountLabelText,
-            pauseSeparatedTexts: Self.amountLabelPhrases(
-                from: recognizer.pauseSeparatedTranscripts
-            ),
+            pauseSeparatedTexts: phraseSections.amountLabelTexts,
             locale: recognizer.locale,
             knownLabels: preparedLabels
         )
@@ -398,13 +427,12 @@ struct VoiceInputSheet: View {
         telemetry.amountDetected = telemetry.amountDetected || amountLabel.amount != nil
         telemetry.labelDetected = telemetry.labelDetected || amountLabel.label != nil
 
+        let isCardPhase = fullSections.endsInCardPhase
         let trimmedCardText = cardText.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmedCardText.isEmpty {
             let cardResult = VoiceInputParser.parseCard(
                 trimmedCardText,
-                pauseSeparatedTexts: Self.cardPhrases(
-                    from: recognizer.pauseSeparatedTranscripts
-                ),
+                pauseSeparatedTexts: phraseSections.cardTexts,
                 cards: cards
             )
             r.card = cardResult.card
@@ -417,13 +445,26 @@ struct VoiceInputSheet: View {
         }
 
         // 音声で新しい手段がマッチした場合は originalVoiceCardID を更新
-        // マッチしなかった場合、既にメニューで選択された card があれば保持する
+        // 明示手段がなければ、既存ラベルの「よくある決済」代表手段を補う
         if let voiceCard = r.card {
             originalVoiceCardID = voiceCard.id
-        } else if parsed.card != nil {
+            inferredCardID = nil
+        } else if parsed.card != nil, inferredCardID == nil {
+            // 手動選択または以前に音声で確定した手段は補填より優先する
             r.card = parsed.card
             r.matchedToken = parsed.matchedToken
             r.matchedWasExistingAlias = parsed.matchedWasExistingAlias
+        } else if !isCardPhase {
+            // 自動補填手段は保持せず、現在のラベルから毎回選び直す
+            r.card = FrequentPaymentBuilder.voiceCard(
+                label: r.label ?? currentLabel,
+                explicitCard: nil,
+                candidates: frequentPayments,
+                cards: cards
+            )
+            inferredCardID = r.card?.id
+        } else {
+            inferredCardID = nil
         }
 
         parsed = r
@@ -435,60 +476,17 @@ struct VoiceInputSheet: View {
         }
     }
 
-    /// カードフェーズ切替キーワード正規表現
-    /// ja: 決済手段は / 手段は
-    /// en: payment method is / method is / card is（前後の語境界はあえて入れない、自然な後続を許容）
-    private static let cardPhaseKeywordPattern = #"(?i)((?:決済)?手段は|(?:payment )?method is|card is)"#
-
-    /// 最初の出現範囲（金額・ラベルセクション末尾）
+    /// 手段フェーズのキーワードが発話されたかを調べる
     private static func findFirstCardPhaseKeyword(in text: String) -> Range<String.Index>? {
-        text.range(of: cardPhaseKeywordPattern, options: .regularExpression)
+        VoiceInputPhaseSplitter.firstCardKeyword(in: text)
     }
 
-    /// 最後の出現範囲（手段セクション先頭 = 後勝ち上書き用）
-    private static func findLastCardPhaseKeyword(in text: String) -> Range<String.Index>? {
-        text.range(of: cardPhaseKeywordPattern, options: [.regularExpression, .backwards])
-    }
-
-    /// 保存コマンドと手段フェーズを除き、金額・ラベルの発話だけを残す
-    private static func amountLabelPhrases(from phrases: [String]) -> [String] {
-        var results: [String] = []
-        for phrase in phrases {
+    /// 発話区切りごとに保存コマンドを除去する
+    private static func cleanedPhrases(from phrases: [String]) -> [String] {
+        phrases.compactMap { phrase in
             let (_, cleaned) = consumeSaveCommand(in: phrase)
-            if let keyword = findFirstCardPhaseKeyword(in: cleaned) {
-                let prefix = String(cleaned[..<keyword.lowerBound])
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                if !prefix.isEmpty {
-                    results.append(prefix)
-                }
-                break
-            }
-            if !cleaned.isEmpty {
-                results.append(cleaned)
-            }
+            return cleaned.isEmpty ? nil : cleaned
         }
-        return results
-    }
-
-    /// 最初の手段キーワード以降を、手段の言い直し候補として残す
-    private static func cardPhrases(from phrases: [String]) -> [String] {
-        var results: [String] = []
-        var isCardPhase = false
-
-        for phrase in phrases {
-            let (_, cleaned) = consumeSaveCommand(in: phrase)
-            if let keyword = findLastCardPhaseKeyword(in: cleaned) {
-                isCardPhase = true
-                let suffix = String(cleaned[keyword.upperBound...])
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                if !suffix.isEmpty {
-                    results.append(suffix)
-                }
-            } else if isCardPhase, !cleaned.isEmpty {
-                results.append(cleaned)
-            }
-        }
-        return results
     }
 
     /// キャンセルコマンドの検出
@@ -540,6 +538,7 @@ struct VoiceInputSheet: View {
     private func retry() {
         parsed = VoiceInputResult()
         originalVoiceCardID = nil
+        inferredCardID = nil
         didTriggerSaveCommand = false
         didTriggerCancelCommand = false
         telemetry.usedSaveCommand = false
@@ -554,6 +553,7 @@ struct VoiceInputSheet: View {
     /// メニューからカード手動選択。音声で検出無しならキーワード後の発話を学習トークンに据える
     private func selectCard(_ card: E1card) {
         parsed.card = card
+        inferredCardID = nil
         // 手段の選び直しを改善ヒント候補として扱う
         telemetry.manualCardSelection = true
         if parsed.matchedToken == nil {

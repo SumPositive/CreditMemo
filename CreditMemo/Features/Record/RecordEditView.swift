@@ -205,6 +205,19 @@ enum FrequentPaymentBuilder {
         return matches.first { $0.amount == nil } ?? matches.first
     }
 
+    /// 音声で手段が未指定なら、既存ラベルの代表手段を補う
+    /// 音声やメニューで明示された手段は補填より優先する
+    static func voiceCard(
+        label: String,
+        explicitCard: E1card?,
+        candidates: [FrequentPayment],
+        cards: [E1card]
+    ) -> E1card? {
+        if let explicitCard { return explicitCard }
+        guard let cardID = match(label: label, in: candidates)?.cardID else { return nil }
+        return cards.first { $0.id == cardID }
+    }
+
     /// 音声入力へ渡す「過去に実際に使ったラベル」を組み立てる。
     ///
     /// "一蘭" "七十七銀行" のように数値表記と区別できない店名を
@@ -3177,4 +3190,3 @@ private struct CalendarHeightPreferenceKey: PreferenceKey {
         if next > value { value = next }
     }
 }
-

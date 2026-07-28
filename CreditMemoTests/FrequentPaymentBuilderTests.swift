@@ -132,6 +132,74 @@ struct FrequentPaymentBuilderTests {
         #expect(FrequentPaymentBuilder.match(label: "未登録", in: candidates) == nil)
     }
 
+    @Test("音声の既存ラベル一致では代表手段を補填する")
+    func voiceCardCompletesFromMatchedLabel() throws {
+        let context = try TestStore.makeContext()
+        let card = TestFixtures.makeCard(name: "代表カード", in: context)
+        let records = [
+            makeRecord(label: "スーパー", date: daysAgo(1), card: card, in: context),
+        ]
+        let candidates = FrequentPaymentBuilder.build(from: records)
+
+        let result = FrequentPaymentBuilder.voiceCard(
+            label: "スーパー",
+            explicitCard: nil,
+            candidates: candidates,
+            cards: [card]
+        )
+
+        #expect(result?.id == card.id)
+    }
+
+    @Test("音声で明示した手段は既存ラベルの代表手段より優先する")
+    func voiceCardPrefersExplicitCard() throws {
+        let context = try TestStore.makeContext()
+        let frequentCard = TestFixtures.makeCard(name: "代表カード", in: context)
+        let explicitCard = TestFixtures.makeCard(name: "指定カード", in: context)
+        let records = [
+            makeRecord(label: "スーパー", date: daysAgo(1), card: frequentCard, in: context),
+        ]
+        let candidates = FrequentPaymentBuilder.build(from: records)
+
+        let result = FrequentPaymentBuilder.voiceCard(
+            label: "スーパー",
+            explicitCard: explicitCard,
+            candidates: candidates,
+            cards: [frequentCard, explicitCard]
+        )
+
+        #expect(result?.id == explicitCard.id)
+    }
+
+    @Test("音声でラベルを言い換えたら代表手段も切り替わる")
+    func voiceCardChangesWithRestatedLabel() throws {
+        let context = try TestStore.makeContext()
+        let supermarketCard = TestFixtures.makeCard(name: "スーパー用", in: context)
+        let cafeCard = TestFixtures.makeCard(name: "カフェ用", in: context)
+        let records = [
+            makeRecord(label: "スーパー", date: daysAgo(2), card: supermarketCard, in: context),
+            makeRecord(label: "カフェ", date: daysAgo(1), card: cafeCard, in: context),
+        ]
+        let candidates = FrequentPaymentBuilder.build(from: records)
+        let cards = [supermarketCard, cafeCard]
+
+        let first = FrequentPaymentBuilder.voiceCard(
+            label: "スーパー",
+            explicitCard: nil,
+            candidates: candidates,
+            cards: cards
+        )
+        let restated = FrequentPaymentBuilder.voiceCard(
+            label: "カフェ",
+            explicitCard: nil,
+            candidates: candidates,
+            cards: cards
+        )
+
+        #expect(first?.id == supermarketCard.id)
+        #expect(restated?.id == cafeCard.id)
+    }
+
     // MARK: - 次点: 設定ノブごとの網羅
 
     // 集計期間の各境界（3/6/12/24/36か月）で、内側は含み外側は除外する

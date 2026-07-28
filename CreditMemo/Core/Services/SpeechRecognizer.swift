@@ -10,8 +10,73 @@ enum SpeechTranscriptSegmenter {
         let duration: TimeInterval
     }
 
-    /// 通常の語間より長い無音を、言い直しの区切りとして扱う
-    static let restatementPause: TimeInterval = 0.7
+    /// 通常の語間より長い無音を、言い直しの区切りとして扱う。
+    ///
+    /// 一続きの発話の語間は 0.1〜0.2 秒程度なのに対し、
+    /// 言い直しで置く間は 0.4 秒以上になることが多い。
+    /// ここが長すぎると「スーパー（間）カフェ」が 1 つの発話として連結され、
+    /// ラベルが上書きされずに追記されてしまう
+    static let restatementPause: TimeInterval = 0.4
+
+    /// 認識結果のタイムスタンプが使えるか。
+    ///
+    /// 部分認識では timestamp / duration が全て 0 で届くことがあり、
+    /// そのときは語間を計算できない（無音がどれだけ長くても分割されない）。
+    /// 呼び出し側はこれを見て、実時間ベースの分割へ切り替える
+    static func hasUsableTimestamps(_ segments: [Segment]) -> Bool {
+        segments.contains { 0 < $0.timestamp || 0 < $0.duration }
+    }
+
+    /// タイムスタンプが使えないときに、認識更新の実時間の間隔で発話を区切る。
+    ///
+    /// 部分認識は話している間ほぼ連続で届くので、更新が途切れた＝間を置いた、とみなせる。
+    /// 更新のたびに `append` を呼び、区切り済みの発話の並びを受け取る
+    struct WallClockSplitter {
+        private var lastUpdate: Date?
+        private var lastText = ""
+        /// 区切り終えた発話
+        private var phrases: [String] = []
+        /// 区切り終えた部分に対応する認識テキストの先頭（ここから後ろが未確定）
+        private var closedPrefix = ""
+
+        init() {}
+
+        mutating func reset() {
+            self = WallClockSplitter()
+        }
+
+        mutating func append(_ formatted: String, at now: Date = Date()) -> [String] {
+            let previousUpdate = lastUpdate
+            let previousText = lastText
+            lastUpdate = now
+            lastText = formatted
+
+            guard !formatted.isEmpty else { return [] }
+            // 直前の結果を引き継いでいない（認識が作り直された）場合は区切りを諦める
+            guard let previousUpdate, formatted.hasPrefix(closedPrefix) else {
+                return [formatted]
+            }
+            // 間が空いた後に「新しい語」が足されていれば、そこまでを 1 つの発話として確定する。
+            //
+            // 認識は "食" → "食費" のように語の途中でも伸びるので、単に文字が増えたかで
+            // 判定すると単語が割れてしまう（"食費" が "食" と "費" になる）。
+            // 新しい語は必ず区切り（空白）を挟んで足されるので、それを条件にする
+            let appended = String(formatted.dropFirst(previousText.count))
+            let startsNewWord = previousText.count < formatted.count
+                && appended.first?.isWhitespace == true
+            if restatementPause <= now.timeIntervalSince(previousUpdate), startsNewWord {
+                let closed = String(previousText.dropFirst(closedPrefix.count))
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                if !closed.isEmpty {
+                    phrases.append(closed)
+                    closedPrefix = previousText
+                }
+            }
+            let tail = String(formatted.dropFirst(closedPrefix.count))
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            return tail.isEmpty ? phrases : phrases + [tail]
+        }
+    }
 
     static func split(
         _ text: String,
@@ -93,6 +158,8 @@ final class SpeechRecognizer {
     private let recognizer: SFSpeechRecognizer?
     private var request: SFSpeechAudioBufferRecognitionRequest?
     private var task: SFSpeechRecognitionTask?
+    /// タイムスタンプが使えないときの実時間ベース分割用
+    private var wallClockSplitter = SpeechTranscriptSegmenter.WallClockSplitter()
     private let audioEngine = AVAudioEngine()
 
     /// 端末ロケールで初期化。サポート外なら recognizer が nil で isAvailable = false
@@ -100,6 +167,7 @@ final class SpeechRecognizer {
         self.locale = locale
         self.recognizer = SFSpeechRecognizer(locale: locale)
     }
+
 
     var isAvailable: Bool { recognizer?.isAvailable == true }
 
@@ -155,6 +223,7 @@ final class SpeechRecognizer {
         partialTranscript = ""
         transcript = ""
         pauseSeparatedTranscripts = []
+        wallClockSplitter.reset()
         state = .listening
 
         // 認識タスクのコールバックも非メインスレッドから呼ばれる
@@ -169,14 +238,19 @@ final class SpeechRecognizer {
                     duration: $0.duration
                 )
             } ?? []
-            let pauseSeparated = formatted.map {
-                SpeechTranscriptSegmenter.split($0, segments: segments)
-            } ?? []
+            // タイムスタンプが使えるときはそれで分ける。
+            // 使えない（全て 0）ときは実時間ベースへ切り替えるので、ここでは分けない
+            let canUseTimestamps = SpeechTranscriptSegmenter.hasUsableTimestamps(segments)
+            let pauseSeparated = canUseTimestamps
+                ? formatted.map { SpeechTranscriptSegmenter.split($0, segments: segments) } ?? []
+                : []
             let hasError = error != nil
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 if let formatted {
-                    self.pauseSeparatedTranscripts = pauseSeparated
+                    self.pauseSeparatedTranscripts = canUseTimestamps
+                        ? pauseSeparated
+                        : self.wallClockSplitter.append(formatted)
                     self.partialTranscript = formatted
                     if isFinal { self.transcript = formatted }
                 }

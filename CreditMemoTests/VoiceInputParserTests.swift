@@ -98,6 +98,270 @@ struct VoiceInputParserTests {
         #expect(results == ["1500円 コンビニ", "スーパー"])
     }
 
+    /// 言い直しで置く間は 0.4〜0.6 秒程度になる。
+    /// ここで分割されないと "スーパー カフェ" が 1 つのラベルへ連結され、
+    /// 言い換えたつもりが追記になってしまう
+    @Test("言い直しの短い間でも発話を分割する", arguments: [0.45, 0.6, 1.0])
+    func splitsAtShortRestatementPause(gap: TimeInterval) {
+        let text = "スーパー カフェ"
+        let source = text as NSString
+        let segments = [
+            SpeechTranscriptSegmenter.Segment(
+                range: source.range(of: "スーパー"),
+                timestamp: 0,
+                duration: 0.35
+            ),
+            SpeechTranscriptSegmenter.Segment(
+                range: source.range(of: "カフェ"),
+                timestamp: 0.35 + gap,
+                duration: 0.35
+            ),
+        ]
+
+        #expect(SpeechTranscriptSegmenter.split(text, segments: segments) == ["スーパー", "カフェ"])
+    }
+
+    /// 部分認識では timestamp / duration が全て 0 で届くことがある。
+    /// その状態を「語間 0 秒」と誤解して連結し続けないよう、
+    /// タイムスタンプが使えるかを呼び出し側が判定できる必要がある
+    @Test("タイムスタンプが全て 0 なら使用不可と判定する")
+    func detectsUnusableTimestamps() {
+        let text = "スーパー カフェ"
+        let source = text as NSString
+        let zeroSegments = [
+            SpeechTranscriptSegmenter.Segment(
+                range: source.range(of: "スーパー"), timestamp: 0, duration: 0
+            ),
+            SpeechTranscriptSegmenter.Segment(
+                range: source.range(of: "カフェ"), timestamp: 0, duration: 0
+            ),
+        ]
+        #expect(!SpeechTranscriptSegmenter.hasUsableTimestamps(zeroSegments))
+        // タイムスタンプが 0 のままでは、どれだけ間を置いても分割できない
+        #expect(SpeechTranscriptSegmenter.split(text, segments: zeroSegments) == ["スーパー カフェ"])
+
+        let timedSegments = [
+            SpeechTranscriptSegmenter.Segment(
+                range: source.range(of: "スーパー"), timestamp: 0, duration: 0.35
+            ),
+            SpeechTranscriptSegmenter.Segment(
+                range: source.range(of: "カフェ"), timestamp: 1.0, duration: 0.35
+            ),
+        ]
+        #expect(SpeechTranscriptSegmenter.hasUsableTimestamps(timedSegments))
+    }
+
+    // MARK: - 実時間ベースの分割（タイムスタンプが使えないとき）
+
+    /// 認識は "食" → "食費" のように語の途中でも伸びる。
+    /// 文字が増えただけで区切ると単語が割れてしまう
+    @Test("認識途中で間が空いても単語を割らない")
+    func doesNotSplitInsideWord() {
+        // 語の途中で間が空くケース。文字は増えるが新しい語ではない
+        #expect(phrases(from: [("食", 0.0), ("食費", 0.5)]) == ["食費"])
+        #expect(phrases(from: [("スー", 0.0), ("スーパー", 0.6)]) == ["スーパー"])
+        #expect(
+            phrases(from: [("2860", 0.0), ("2860タ", 0.4), ("2860タクシー", 0.4)])
+                == ["2860タクシー"]
+        )
+    }
+
+    /// 認識更新の並びを実時間分割へ通し、区切られた発話を返す
+    private func phrases(from updates: [(text: String, gap: TimeInterval)]) -> [String] {
+        var splitter = SpeechTranscriptSegmenter.WallClockSplitter()
+        var now = Date()
+        var result: [String] = []
+        for update in updates {
+            now = now.addingTimeInterval(update.gap)
+            result = splitter.append(update.text, at: now)
+        }
+        return result
+    }
+
+    /// 新しい語（空白を挟んで足される）は、間が空いていれば別の発話にする
+    @Test("間を置いて新しい語を言えば発話を分ける")
+    func splitsWhenNewWordFollowsPause() {
+        #expect(
+            phrases(from: [
+                ("1500円", 0.0), ("1500円 スーパー", 0.2), ("1500円 スーパー カフェ", 1.0),
+            ]) == ["1500円 スーパー", "カフェ"]
+        )
+        // ガイド文の例（金額と店名を続けて言う）は、金額とラベルに分かれる
+        #expect(
+            phrases(from: [
+                ("960円", 0.0), ("960円 食", 0.5), ("960円 食費", 0.5),
+            ]) == ["960円", "食費"]
+        )
+    }
+
+    /// 語間が短ければ、間を置いていないので 1 つの発話のまま
+    @Test("短い語間では発話を分けない")
+    func keepsPhraseWhenGapIsShort() {
+        #expect(
+            phrases(from: [
+                ("1500円", 0.0), ("1500円 スーパー", 0.15), ("1500円 スーパー マーケット", 0.15),
+            ]) == ["1500円 スーパー マーケット"]
+        )
+    }
+
+    /// 聞き取りを開始し直したら状態を持ち越さない
+    @Test("reset で区切り状態を捨てる")
+    func resetClearsSplitterState() {
+        var splitter = SpeechTranscriptSegmenter.WallClockSplitter()
+        var now = Date()
+        _ = splitter.append("スーパー", at: now)
+        now = now.addingTimeInterval(1.0)
+        _ = splitter.append("スーパー カフェ", at: now)
+
+        splitter.reset()
+        #expect(splitter.append("コンビニ", at: now) == ["コンビニ"])
+    }
+
+    /// 一続きの店名（語間はごく短い）は分割しない。
+    /// 分割してしまうと "スーパー マーケット" が "マーケット" だけになる
+    @Test("一続きの発話は語間で分割しない", arguments: [0.05, 0.1, 0.2])
+    func keepsContinuousSpeechTogether(gap: TimeInterval) {
+        let text = "スーパー マーケット"
+        let source = text as NSString
+        let segments = [
+            SpeechTranscriptSegmenter.Segment(
+                range: source.range(of: "スーパー"),
+                timestamp: 0,
+                duration: 0.35
+            ),
+            SpeechTranscriptSegmenter.Segment(
+                range: source.range(of: "マーケット"),
+                timestamp: 0.35 + gap,
+                duration: 0.35
+            ),
+        ]
+
+        #expect(SpeechTranscriptSegmenter.split(text, segments: segments) == ["スーパー マーケット"])
+    }
+
+    /// 間を置いて言い換えたら、追記ではなく上書きになる
+    @Test("間を置いた言い換えでラベルが上書きされる")
+    func restatedLabelOverwritesPrevious() {
+        let text = "1500円 スーパー カフェ"
+        let source = text as NSString
+        let segments = [
+            SpeechTranscriptSegmenter.Segment(
+                range: source.range(of: "1500円"),
+                timestamp: 0,
+                duration: 0.35
+            ),
+            SpeechTranscriptSegmenter.Segment(
+                range: source.range(of: "スーパー"),
+                timestamp: 0.45,
+                duration: 0.35
+            ),
+            // 言い直しの間（0.5 秒）
+            SpeechTranscriptSegmenter.Segment(
+                range: source.range(of: "カフェ"),
+                timestamp: 1.3,
+                duration: 0.35
+            ),
+        ]
+        let pauseTexts = SpeechTranscriptSegmenter.split(text, segments: segments)
+        let sections = VoiceInputPhaseSplitter.split(pauseTexts)
+        let result = VoiceInputParser.parseAmountAndLabel(
+            sections.amountLabelTexts.joined(separator: " "),
+            pauseSeparatedTexts: sections.amountLabelTexts,
+            locale: Self.ja
+        )
+
+        #expect(result.amount == Decimal(1_500))
+        // 追記（"スーパー カフェ"）ではなく、言い直した方だけを採る
+        #expect(result.label == "カフェ")
+    }
+
+    @Test("手段入力後にラベルはと言えばラベルへ戻る")
+    func returnsToLabelPhaseAfterCard() {
+        let sections = VoiceInputPhaseSplitter.split([
+            "1500円 コンビニ 手段は 楽天カード ラベルは スーパー",
+        ])
+        let result = VoiceInputParser.parseAmountAndLabel(
+            sections.amountLabelTexts.joined(separator: " "),
+            pauseSeparatedTexts: sections.amountLabelTexts,
+            locale: Self.ja
+        )
+
+        #expect(sections.amountLabelTexts == ["1500円 コンビニ", "スーパー"])
+        #expect(sections.cardTexts == ["楽天カード"])
+        #expect(!sections.endsInCardPhase)
+        #expect(result.amount == Decimal(1_500))
+        #expect(result.label == "スーパー")
+    }
+
+    /// 助詞を省いた「ラベル」だけでもラベルへ戻る。
+    /// 区切り記号が残っても、最終的なラベルからは取り除かれる
+    @Test("ラベルとだけ言ってもラベルへ戻る", arguments: [
+        "1500円 手段は 楽天カード ラベル スーパー",
+        "1500円 手段は 楽天カード ラベル、スーパー",
+    ])
+    func returnsToLabelPhaseWithBareKeyword(text: String) {
+        let sections = VoiceInputPhaseSplitter.split([text])
+        #expect(sections.cardTexts == ["楽天カード"])
+        #expect(!sections.endsInCardPhase)
+
+        let result = VoiceInputParser.parseAmountAndLabel(
+            sections.amountLabelTexts.joined(separator: " "),
+            pauseSeparatedTexts: sections.amountLabelTexts,
+            locale: Self.ja
+        )
+        #expect(result.amount == Decimal(1_500))
+        #expect(result.label == "スーパー")
+    }
+
+    /// 語中に含まれる「ラベル」はキーワードにしない（"トラベル" が壊れない）
+    @Test("語中のラベルはキーワードとして扱わない", arguments: [
+        "トラベル 1500円", "手段は VISA トラベル",
+    ])
+    func doesNotTreatEmbeddedLabelWordAsKeyword(text: String) {
+        let sections = VoiceInputPhaseSplitter.split([text])
+        // "トラベル" が分割されず、そのまま残る
+        let joined = (sections.amountLabelTexts + sections.cardTexts).joined(separator: " ")
+        #expect(joined.contains("トラベル"))
+    }
+
+    /// 発話の区切り（ポーズ）で手段の入力は終わり、以降はラベル扱いに戻る。
+    /// 「ラベルは」と言わなくても、金額と手段以外はラベルとして拾う
+    @Test("ポーズを挟めば手段の後はラベルへ戻る")
+    func returnsToLabelPhaseAfterPause() {
+        let sections = VoiceInputPhaseSplitter.split([
+            "1500円 手段は 楽天カード",
+            "スーパー",
+        ])
+        #expect(sections.amountLabelTexts == ["1500円", "スーパー"])
+        #expect(sections.cardTexts == ["楽天カード"])
+        #expect(!sections.endsInCardPhase)
+    }
+
+    /// 手段の後に言った金額まで手段扱いにしない
+    @Test("手段の後の金額はラベル側で解釈する")
+    func amountAfterCardPhaseGoesToAmountSection() {
+        let sections = VoiceInputPhaseSplitter.split([
+            "手段は 楽天カード",
+            "コンビニ",
+            "500円",
+        ])
+        #expect(sections.amountLabelTexts == ["コンビニ", "500円"])
+        #expect(sections.cardTexts == ["楽天カード"])
+    }
+
+    @Test("ラベルへ戻った後に手段はと言えば再び手段へ進む")
+    func returnsToCardPhaseAgain() {
+        let sections = VoiceInputPhaseSplitter.split([
+            "1500円 コンビニ 手段は 楽天カード",
+            "ラベルは スーパー",
+            "手段は ビザカード",
+        ])
+
+        #expect(sections.amountLabelTexts == ["1500円 コンビニ", "スーパー"])
+        #expect(sections.cardTexts == ["楽天カード", "ビザカード"])
+        #expect(sections.endsInCardPhase)
+    }
+
     @Test("金額が無ければ amount は nil のまま")
     func leavesAmountNilWithoutNumber() {
         let result = VoiceInputParser.parseAmountAndLabel("コンビニ", locale: Self.ja)
