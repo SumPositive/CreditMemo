@@ -25,15 +25,15 @@ enum JapaneseNumberParser {
             let end = numericRunEnd(in: text, from: start)
             let run = text[start..<end]
 
-            let hasCurrencyUnit = end < text.endIndex && isCurrencyUnit(text[end])
+            // 数値の直後（空白を挟む場合も含む）にある通貨単位を探す
+            let currencyUnitEnd = currencyUnitEndIndex(in: text, after: end)
+            let hasCurrencyUnit = currencyUnitEnd != nil
             if let value = parseNumericRun(run), value > 0,
                !isLikelyPartOfWord(run: run, hasCurrencyUnit: hasCurrencyUnit, text: text, end: end) {
-                // 末尾の「円」も範囲に含め、ラベル側へ残さない
-                var rangeEnd = end
-                if hasCurrencyUnit {
-                    rangeEnd = text.index(after: rangeEnd)
-                }
-                results.append((value, start..<rangeEnd))
+                // 通貨単位（円/원/元）と接頭の通貨記号も範囲へ含め、ラベル側へ残さない
+                let rangeStart = currencySymbolStartIndex(in: text, before: start)
+                let rangeEnd = currencyUnitEnd ?? end
+                results.append((value, rangeStart..<rangeEnd))
             }
             cursor = end > cursor ? end : text.index(after: cursor)
         }
@@ -75,10 +75,63 @@ enum JapaneseNumberParser {
         return true
     }
 
-    /// 金額であることを示す通貨単位
+    /// 金額であることを示す通貨単位（日本語=円 / 繁体字=元 / 韓国語=원）
     private static func isCurrencyUnit(_ c: Character) -> Bool {
         c == "円" || c == "元" || c == "원"
     }
+
+    /// 数値の直後にある通貨単位の終端を返す（無ければ nil）。
+    /// "1500 円" のように空白を挟む形もラベルへ残さないよう範囲に含める
+    private static func currencyUnitEndIndex(
+        in text: String,
+        after end: String.Index
+    ) -> String.Index? {
+        var index = end
+        while index < text.endIndex, text[index] == " " {
+            index = text.index(after: index)
+        }
+        guard index < text.endIndex, isCurrencyUnit(text[index]) else { return nil }
+        return text.index(after: index)
+    }
+
+    /// 接頭の通貨記号（¥ ₩ NT$ $ など）の開始位置を返す。
+    /// 記号がラベル側に残ると "¥" だけのラベルができてしまう
+    private static func currencySymbolStartIndex(
+        in text: String,
+        before start: String.Index
+    ) -> String.Index {
+        var index = start
+        // 記号と数値の間の空白（"¥ 1500"）も取り込む
+        while index > text.startIndex {
+            let previous = text.index(before: index)
+            if text[previous] == " " {
+                index = previous
+            } else {
+                break
+            }
+        }
+        guard index > text.startIndex else { return start }
+        let symbolEnd = index
+        // 単体記号（¥ ₩ $ …）を 1 文字巻き戻す
+        let previous = text.index(before: index)
+        guard Self.currencySymbols.contains(text[previous]) else { return start }
+        index = previous
+        // "NT$" のように記号の前に付く通貨コードも取り込む
+        for prefix in Self.currencySymbolPrefixes {
+            if let range = text.range(of: prefix, options: [.backwards, .caseInsensitive],
+                                      range: text.startIndex..<index),
+               range.upperBound == index {
+                index = range.lowerBound
+                break
+            }
+        }
+        return index < symbolEnd ? index : start
+    }
+
+    /// 数値の前に付く通貨記号
+    private static let currencySymbols: Set<Character> = ["¥", "₩", "$", "＄", "£", "€"]
+    /// 記号の直前に付く通貨コード（"NT$" の "NT" など）
+    private static let currencySymbolPrefixes = ["NT", "HK", "US"]
 
     // MARK: - まとまりの切り出し
 

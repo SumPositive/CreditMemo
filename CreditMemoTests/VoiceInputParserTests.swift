@@ -303,7 +303,10 @@ struct VoiceInputParserTests {
         ("12340", Decimal(12_340)),
     ])
     func parsesKoreanUnits(input: String, expected: Decimal) {
-        #expect(VoiceInputParser.parseAmountAndLabel(input, locale: Self.ko).amount == expected)
+        let result = VoiceInputParser.parseAmountAndLabel(input, locale: Self.ko)
+        #expect(result.amount == expected)
+        // 通貨単位（원）がラベル側へ残らない
+        #expect(result.label == nil)
     }
 
     @Test("zh-Hant の 萬/千 表記を 1 つの金額として読む", arguments: [
@@ -313,7 +316,46 @@ struct VoiceInputParserTests {
         ("12340", Decimal(12_340)),
     ])
     func parsesTraditionalChineseUnits(input: String, expected: Decimal) {
-        #expect(VoiceInputParser.parseAmountAndLabel(input, locale: Self.zhHant).amount == expected)
+        let result = VoiceInputParser.parseAmountAndLabel(input, locale: Self.zhHant)
+        #expect(result.amount == expected)
+        // 通貨単位（元）がラベル側へ残らない
+        #expect(result.label == nil)
+    }
+
+    /// 通貨単位・通貨記号は金額の範囲に含め、ラベル側へ残さない。
+    /// 残ると "円" や "¥" だけのラベルが保存されてしまう
+    @Test("通貨単位・記号がラベルに残らない", arguments: [
+        ("ja_JP", "1500円"), ("ja_JP", "1500 円"), ("ja_JP", "1万2千 円"),
+        ("ja_JP", "¥1500"), ("ja_JP", "¥ 1500"),
+        ("ko_KR", "1500원"), ("ko_KR", "1500 원"), ("ko_KR", "1만 2천원"), ("ko_KR", "₩1500"),
+        ("zh_Hant_TW", "1500元"), ("zh_Hant_TW", "1500 元"), ("zh_Hant_TW", "3萬5千元"),
+        ("zh_Hant_TW", "NT$1500"), ("zh_Hant_TW", "NT$ 1500"),
+    ])
+    func doesNotLeaveCurrencyMarkerInLabel(localeID: String, input: String) {
+        let result = VoiceInputParser.parseAmountAndLabel(
+            input, locale: Locale(identifier: localeID)
+        )
+        #expect(result.amount != nil)
+        #expect(result.label == nil)
+    }
+
+    /// 通貨記号を取り込んでも、店名は欠けさせない
+    @Test("通貨単位を含む発話でも店名は残る", arguments: [
+        ("ja_JP", "コンビニ ¥1500", "コンビニ"),
+        ("ja_JP", "スーパーで1500 円", "スーパーで"),
+        ("ko_KR", "편의점 1500원", "편의점"),
+        ("zh_Hant_TW", "超商 1500元", "超商"),
+    ])
+    func keepsStoreNameWithCurrencyMarker(
+        localeID: String,
+        input: String,
+        expectedLabel: String
+    ) {
+        let result = VoiceInputParser.parseAmountAndLabel(
+            input, locale: Locale(identifier: localeID)
+        )
+        #expect(result.amount == Decimal(1_500))
+        #expect(result.label == expectedLabel)
     }
 
     // MARK: - カード判定
