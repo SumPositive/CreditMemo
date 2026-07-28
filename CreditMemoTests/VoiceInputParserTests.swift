@@ -78,6 +78,135 @@ struct VoiceInputParserTests {
         #expect(result.label == "コンビニ")
     }
 
+    /// 数字を含む店名は金額にせず、名称をそのままラベルに残す。
+    /// 修正前は "一蘭" が金額1＋ラベル"蘭" になり、店名が壊れていた
+    @Test("数字を含む店名は金額にせずラベルに残す", arguments: [
+        "一蘭", "三井住友", "万代", "千疋屋", "三丁目", "七十七銀行",
+    ])
+    func keepsNumericStoreNameAsLabel(name: String) {
+        let result = VoiceInputParser.parseAmountAndLabel(name, locale: Self.ja)
+        #expect(result.amount == nil)
+        #expect(result.label == name)
+    }
+
+    // MARK: - 過去の決済ラベルによる保護
+
+    /// 構造だけでは金額と区別できない店名（"三千屋" と "三千" は同じ形）でも、
+    /// 過去の決済で実際に使っているラベルなら店名として扱う
+    @Test("履歴にあるラベルと完全一致するなら金額にしない", arguments: [
+        "三千屋", "七十七銀行", "一蘭", "万代", "千疋屋",
+    ])
+    func protectsKnownLabelAtPrefix(name: String) {
+        let result = VoiceInputParser.parseAmountAndLabel(
+            name, locale: Self.ja, knownLabels: [name]
+        )
+        #expect(result.amount == nil)
+        #expect(result.label == name)
+    }
+
+    /// 一致したら認識テキストの断片ではなく、保存済みラベルの表記を採る。
+    /// フィラーや助詞が落ちて、同じ店が常に同じラベルで記録される
+    @Test("一致した履歴ラベルの表記を採用する", arguments: [
+        ("三千屋 1500円", Decimal(1_500), "三千屋"),
+        ("三千屋で三千円", Decimal(3_000), "三千屋"),
+        ("えーと三千屋で1500円", Decimal(1_500), "三千屋"),
+        ("七十七銀行で3000円", Decimal(3_000), "七十七銀行"),
+        ("1500円 三千屋", Decimal(1_500), "三千屋"),
+    ])
+    func adoptsStoredLabelSpelling(
+        input: String,
+        expectedAmount: Decimal,
+        expectedLabel: String
+    ) {
+        let result = VoiceInputParser.parseAmountAndLabel(
+            input, locale: Self.ja, knownLabels: ["三千屋", "七十七銀行"]
+        )
+        #expect(result.amount == expectedAmount)
+        #expect(result.label == expectedLabel)
+    }
+
+    /// 大小文字のゆれも保存済みの表記に揃う（同じ店が別ラベルにならない）
+    @Test("大小文字のゆれを保存済み表記に正規化する", arguments: [
+        "starbucksで500円", "STARBUCKSで500円",
+    ])
+    func normalizesCaseToStoredLabel(input: String) {
+        let result = VoiceInputParser.parseAmountAndLabel(
+            input, locale: Self.ja, knownLabels: ["Starbucks"]
+        )
+        #expect(result.amount == Decimal(500))
+        #expect(result.label == "Starbucks")
+    }
+
+    /// 弱い部分一致（長い発話の中の短いラベル）では置き換えない。
+    /// "コンビニ" の中の "ニ" で置き換わると、かえって不正確になる
+    @Test("弱い部分一致では履歴ラベルを採用しない", arguments: [
+        ("コンビニで1500円", ["ニ"], "コンビニで"),
+        ("スーパーマーケットで1500円", ["パー"], "スーパーマーケットで"),
+    ])
+    func ignoresWeakPartialMatch(
+        input: String,
+        knownLabels: [String],
+        expectedLabel: String
+    ) {
+        let result = VoiceInputParser.parseAmountAndLabel(
+            input, locale: Self.ja, knownLabels: knownLabels
+        )
+        #expect(result.amount == Decimal(1_500))
+        #expect(result.label == expectedLabel)
+    }
+
+    /// 一致の強さで順位付けする（完全一致 > 前方一致 > 部分一致、同種なら一致割合が高い方）
+    @Test("より強く一致するラベルを優先する")
+    func prefersStrongerLabelMatch() {
+        // "三千" も "三千屋" も前方一致するが、一致割合の高い "三千屋" を採る
+        let result = VoiceInputParser.parseAmountAndLabel(
+            "三千屋で1500円", locale: Self.ja, knownLabels: ["三千", "三千屋"]
+        )
+        #expect(result.amount == Decimal(1_500))
+        #expect(result.label == "三千屋")
+    }
+
+    /// 数値表記そのもののラベルを守ると、同じ金額を言えなくなるので対象外にする
+    @Test("数値だけのラベルは保護しない", arguments: [
+        ("1500円", ["1500"], Decimal(1_500)),
+        ("三千円", ["三千"], Decimal(3_000)),
+        ("一万二千円", ["一万"], Decimal(12_000)),
+    ])
+    func doesNotProtectPurelyNumericLabels(
+        input: String,
+        knownLabels: [String],
+        expected: Decimal
+    ) {
+        let result = VoiceInputParser.parseAmountAndLabel(
+            input, locale: Self.ja, knownLabels: knownLabels
+        )
+        #expect(result.amount == expected)
+    }
+
+    /// 履歴を渡さない既定の呼び出しは従来どおり動く
+    @Test("履歴なしでも従来の判定で動く")
+    func worksWithoutKnownLabels() {
+        #expect(VoiceInputParser.parseAmountAndLabel("一蘭", locale: Self.ja).amount == nil)
+        #expect(VoiceInputParser.parseAmountAndLabel("1500円 パン", locale: Self.ja).amount == Decimal(1_500))
+    }
+
+    /// 店名＋金額なら、金額を取りつつ店名も欠けさせない
+    @Test("店名に数字が含まれても金額とラベルを両立する", arguments: [
+        ("一蘭で1000円", Decimal(1_000), "一蘭で"),
+        ("三井住友で1500円", Decimal(1_500), "三井住友で"),
+        ("七十七銀行で3000円", Decimal(3_000), "七十七銀行で"),
+        ("千疋屋 3000円", Decimal(3_000), "千疋屋"),
+    ])
+    func extractsAmountWithoutTruncatingStoreName(
+        input: String,
+        expectedAmount: Decimal,
+        expectedLabel: String
+    ) {
+        let result = VoiceInputParser.parseAmountAndLabel(input, locale: Self.ja)
+        #expect(result.amount == expectedAmount)
+        #expect(result.label == expectedLabel)
+    }
+
     @Test("hasAnyField は金額・ラベルのどちらか有れば true")
     func reportsHasAnyField() {
         #expect(VoiceInputParser.parseAmountAndLabel("1500円", locale: Self.ja).hasAnyField)

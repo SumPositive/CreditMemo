@@ -53,6 +53,9 @@ private struct VoiceInputTelemetryState {
 /// 「保存」「OK」等が出たら即時 apply
 struct VoiceInputSheet: View {
     let cards: [E1card]
+    /// 過去の決済で実際に使われたラベル。
+    /// "一蘭" "七十七銀行" のように数値表記と区別できない店名を金額にしないために使う
+    var knownLabels: [String] = []
     /// シートを開いた時点の現在値
     let currentAmount: Decimal
     let currentCard: E1card?
@@ -377,7 +380,11 @@ struct VoiceInputSheet: View {
         telemetry.cardKeywordSpoken = telemetry.cardKeywordSpoken || Self.findFirstCardPhaseKeyword(in: cleanedText) != nil
 
         var r = VoiceInputResult()
-        let amountLabel = VoiceInputParser.parseAmountAndLabel(amountLabelText, locale: recognizer.locale)
+        let amountLabel = VoiceInputParser.parseAmountAndLabel(
+            amountLabelText,
+            locale: recognizer.locale,
+            knownLabels: knownLabels
+        )
         r.amount = amountLabel.amount
         r.label = amountLabel.label
         telemetry.amountDetected = telemetry.amountDetected || amountLabel.amount != nil

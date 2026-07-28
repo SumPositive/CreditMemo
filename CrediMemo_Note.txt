@@ -1874,6 +1874,7 @@ fastlane upload_screenshots     # スクショ Upload
 Codexコードレビュー ＞ Claudeで対応
 レビュー結果に対応したので改めてレビューして
 Codexコードレビュー ＞ Claudeで対応
+レビュー結果に対応したので改めてレビューして
 
 
 

@@ -42,6 +42,27 @@ struct TopMenuView: View {
     private var pastRecords: [E3record]
     @Query private var tags: [E5tag]
 
+    /// ラベル照合は部分認識のたびに走るので、件数に上限を設ける。
+    /// pastRecords は利用日の新しい順なので、上限を超える分は古いものから落ちる
+    private static let voiceKnownLabelLimit = 500
+
+    /// 設定期間内（既定1年）に実際に使ったラベル。
+    /// 音声入力で "一蘭" "七十七銀行" のような店名を金額と誤認しないために渡す
+    private var recentLabels: [String] {
+        let cutoff = Calendar.current.date(
+            byAdding: .month, value: -frequentPeriod.months, to: Date()
+        ) ?? .distantPast
+        var seen: Set<String> = []
+        var labels: [String] = []
+        for record in pastRecords where record.dateUse >= cutoff {
+            let label = record.zName.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !label.isEmpty, seen.insert(label).inserted else { continue }
+            labels.append(label)
+            if labels.count >= Self.voiceKnownLabelLimit { break }
+        }
+        return labels
+    }
+
     private var unpaidPayments: [E7payment] {
         // 起動直後クラッシュ回避:
         // isPaid は e2invoices 関係を辿るため、旧データ不整合時に落ちることがある。
@@ -235,6 +256,7 @@ struct TopMenuView: View {
         .sheet(isPresented: $showVoiceRecordSheet, onDismiss: { handleVoiceAfterSave() }) {
             VoiceInputSheet(
                 cards: cards,
+                knownLabels: recentLabels,
                 currentAmount: 0,
                 currentCard: nil,
                 currentLabel: "",

@@ -22,12 +22,21 @@ enum VoiceInputParser {
     /// 後勝ち上書き: 複数の数値があれば最後を金額、ラベルは数値間の区切りで分けた中の
     /// 最後の非空セグメントを採用する
     /// locale が ja-JP の時は漢数字・万・千・円も解釈する
-    static func parseAmountAndLabel(_ rawText: String, locale: Locale = .current) -> VoiceInputResult {
+    /// - knownLabels: 過去の決済に実在するラベル。ここに一致する部分は金額として切り出さない
+    ///   （"一蘭" "三千屋" のように、数値表記と区別できない店名を守る）
+    static func parseAmountAndLabel(
+        _ rawText: String,
+        locale: Locale = .current,
+        knownLabels: [String] = []
+    ) -> VoiceInputResult {
         let text = normalize(rawText)
         var result = VoiceInputResult()
         let isJa = locale.language.languageCode?.identifier == "ja"
 
+        // 実在ラベルと重なる範囲は、数値表記として解釈しない
+        let matchedLabel = bestKnownLabelMatch(in: text, knownLabels: knownLabels)
         let amounts = allAmounts(in: text, locale: locale)
+            .filter { amount in matchedLabel.map { !$0.range.overlaps(amount.range) } ?? true }
 
         if let last = amounts.last {
             result.amount = last.value
@@ -55,7 +64,95 @@ enum VoiceInputParser {
             let refined = refineLabel(cleaned, isJa: isJa)
             if !refined.isEmpty { result.label = refined }
         }
+
+        // 履歴のラベルに一致したなら、認識テキストの断片ではなく保存済みの表記を採る。
+        // "えーと三千屋で1500円" のフィラーや助詞を落として "三千屋" に揃える
+        if let matchedLabel,
+           !amounts.contains(where: { $0.range.overlaps(matchedLabel.range) }) {
+            result.label = matchedLabel.label
+        }
         return result
+    }
+
+    /// 過去の決済に実在するラベルが本文の先頭に現れる範囲を返す。
+    ///
+    /// "一蘭" "千疋屋" のように数値表記と見分けのつかない店名は、
+    /// 構造だけでは金額と区別できない（"三千" と "七十七" は同じ形）。
+    /// 利用者が実際に使っているラベルなら店名と判断してよいので、
+    /// その範囲を金額解析から除外する。
+    ///
+    /// 一致の強さで順位付けし、最も確からしい 1 件だけを守る：
+    /// 1. 完全一致（発話全体がそのラベル）
+    /// 2. 前方一致（一致した割合が高いほど優先）
+    /// 3. 部分一致（同上）
+    /// 部分一致まで見るのは、認識が途中で崩れた発話でも店名を拾えるようにするため。
+    /// ただし一致割合を見ることで、長い発話に短いラベルが偶然含まれる場合は弱く扱う。
+    ///
+    /// この処理は部分認識のたびに走るので、
+    /// 先頭文字が本文に無いラベルを先に落として比較回数を抑える
+    private static func bestKnownLabelMatch(
+        in text: String,
+        knownLabels: [String]
+    ) -> (label: String, range: Range<String.Index>)? {
+        guard !knownLabels.isEmpty, !text.isEmpty else { return nil }
+        let textCharacters = Set(text.lowercased())
+        var bestScore = 0.0
+        var best: (label: String, range: Range<String.Index>)?
+
+        for raw in knownLabels {
+            let label = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            // 数値表記そのもののラベル（"1500" など）は守らない。
+            // 守ると同じ数字を金額として言えなくなる
+            guard !label.isEmpty, !isPureAmountExpression(label) else { continue }
+            // 先頭文字すら本文に無ければ、どの一致にもなり得ない
+            guard let head = label.lowercased().first, textCharacters.contains(head) else { continue }
+
+            guard let (score, range) = matchScore(of: label, in: text) else { continue }
+            // 同点なら長いラベルを優先する（"三千屋" が "三千" に負けないように）
+            if score > bestScore
+                || (score == bestScore && label.count > (best?.label.count ?? 0)) {
+                bestScore = score
+                best = (label, range)
+            }
+        }
+        return best
+    }
+
+    /// ラベルと本文の一致の強さ。大きいほど確からしい
+    private static func matchScore(
+        of label: String,
+        in text: String
+    ) -> (score: Double, range: Range<String.Index>)? {
+        // 一致した部分が発話全体に占める割合。同種の一致では長いほど強い
+        let coverage = Double(label.count) / Double(max(text.count, 1))
+
+        if text.compare(label, options: .caseInsensitive) == .orderedSame {
+            return (1000, text.startIndex..<text.endIndex)
+        }
+        if let prefix = text.range(of: label, options: [.caseInsensitive, .anchored]) {
+            return (100 + coverage, prefix)
+        }
+        // 部分一致は誤って拾いやすい（"コンビニ" の中の "ニ" など）。
+        // 一定の長さと、発話に対する占有率がある場合だけ採用する
+        guard label.count >= minimumPartialMatchLength, coverage >= minimumPartialCoverage else {
+            return nil
+        }
+        if let partial = text.range(of: label, options: .caseInsensitive) {
+            return (10 + coverage, partial)
+        }
+        return nil
+    }
+
+    /// 部分一致として認める最小のラベル長（1 文字は偶然一致しやすい）
+    private static let minimumPartialMatchLength = 2
+    /// 部分一致として認める、発話全体に対する最小の占有率。
+    /// "コンビニで1500円"(9文字) の中の "パー"(2文字) のような弱い一致を落とす
+    private static let minimumPartialCoverage = 0.2
+
+    /// ラベル全体が金額表記だけで構成されているか（"1500" "三千" など）
+    private static func isPureAmountExpression(_ label: String) -> Bool {
+        guard let first = JapaneseNumberParser.allAmounts(in: label).first else { return false }
+        return first.range.lowerBound == label.startIndex && first.range.upperBound == label.endIndex
     }
 
     // MARK: - Label refinement

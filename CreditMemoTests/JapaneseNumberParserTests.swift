@@ -101,6 +101,30 @@ struct JapaneseNumberParserTests {
                 == [Decimal(1_500), Decimal(2_000)])
     }
 
+    // MARK: - 店名など、金額でない漢数字
+
+    /// 漢数字だけの並びに普通の文字が続く形は、店名・地名の一部として扱う。
+    /// 金額を誤るだけでなく、ラベルからも先頭文字が欠けてしまう
+    /// （"一蘭" が金額1＋ラベル"蘭" になっていた）
+    @Test("数字を含む店名・地名を金額として読み取らない", arguments: [
+        "一蘭", "三井住友", "万代", "千疋屋", "三丁目",
+        // 実在の銀行名。位取りとして解釈できてしまう並び
+        "七十七銀行", "八十二銀行", "十六銀行", "百五銀行",
+    ])
+    func doesNotReadNumericStoreNamesAsAmount(input: String) {
+        #expect(JapaneseNumberParser.allAmounts(in: input).isEmpty)
+    }
+
+    /// 通貨単位が続く場合は 1 文字でも金額として読む（"千円"）
+    @Test("通貨単位が続けば金額として読む", arguments: [
+        ("千円", Decimal(1_000)),
+        ("万円", Decimal(10_000)),
+        ("三千円", Decimal(3_000)),
+    ])
+    func readsAmountWhenCurrencyUnitFollows(input: String, expected: Decimal) {
+        #expect(JapaneseNumberParser.firstAmount(in: input)?.value == expected)
+    }
+
     // MARK: - 漢数字
 
     @Test("純漢数字を読む", arguments: [

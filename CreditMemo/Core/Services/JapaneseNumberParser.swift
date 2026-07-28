@@ -25,10 +25,12 @@ enum JapaneseNumberParser {
             let end = numericRunEnd(in: text, from: start)
             let run = text[start..<end]
 
-            if let value = parseNumericRun(run), value > 0 {
+            let hasCurrencyUnit = end < text.endIndex && isCurrencyUnit(text[end])
+            if let value = parseNumericRun(run), value > 0,
+               !isLikelyPartOfWord(run: run, hasCurrencyUnit: hasCurrencyUnit, text: text, end: end) {
                 // 末尾の「円」も範囲に含め、ラベル側へ残さない
                 var rangeEnd = end
-                if rangeEnd < text.endIndex, text[rangeEnd] == "円" {
+                if hasCurrencyUnit {
                     rangeEnd = text.index(after: rangeEnd)
                 }
                 results.append((value, start..<rangeEnd))
@@ -41,6 +43,41 @@ enum JapaneseNumberParser {
     /// 認識テキストから最初に出現する金額と、その文字範囲を返す（互換用）
     static func firstAmount(in text: String) -> (value: Decimal, range: Range<String.Index>)? {
         allAmounts(in: text).first
+    }
+
+    /// 金額ではなく語の一部（店名など）とみなすか判定する。
+    ///
+    /// 「一蘭」「三井住友」「万代」「千疋屋」「三丁目」のように、
+    /// 漢数字・単位が 1 文字だけあって直後に普通の文字が続く形は、
+    /// 金額ではなく名前の一部である可能性が高い。
+    /// 一方「千円」は同じ 1 文字でも通貨単位が続くので金額として扱う。
+    ///
+    /// 半角数字を含む場合（"1500" や "5個"）は数量表現として書かれているので対象外にする。
+    /// ここで弾かないと、金額を誤るだけでなくラベルからも先頭文字が欠ける
+    private static func isLikelyPartOfWord(
+        run: Substring,
+        hasCurrencyUnit: Bool,
+        text: String,
+        end: String.Index
+    ) -> Bool {
+        // 通貨単位が続くなら金額（"千円" "三千円"）
+        if hasCurrencyUnit { return false }
+        // 半角数字を含むものは数量表現として扱う（"1500" "5個"）
+        if run.contains(where: isDigitChar) { return false }
+        // 直後に文字が無い（"千五百" のように文末で終わる）なら金額
+        guard end < text.endIndex else { return false }
+        // 直後が空白・数字・単位なら金額の続き
+        let next = text[end]
+        guard !next.isWhitespace, !isNumericBody(next) else { return false }
+        // ここまで来たら「漢数字だけの並び＋普通の文字」。
+        // "一蘭" だけでなく "七十七銀行" "八十二銀行" のような
+        // 数を含む固有名詞も金額にしない（実在の銀行名で誤認が起きる）
+        return true
+    }
+
+    /// 金額であることを示す通貨単位
+    private static func isCurrencyUnit(_ c: Character) -> Bool {
+        c == "円" || c == "元" || c == "원"
     }
 
     // MARK: - まとまりの切り出し
