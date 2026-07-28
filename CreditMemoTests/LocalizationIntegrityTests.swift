@@ -9,7 +9,21 @@ import Testing
 /// - 書式指定子（%@ / %lld など）の引数型が全言語で一致するか（不一致は String(format:) の crash 要因）
 ///
 /// リソースはコンパイル時パス(#filePath)からリポジトリ相対で読む（ローカルの xcodebuild test 前提）。
+/// 実機ではリポジトリのファイルへ到達できないため、これらの検証はスキップする
+/// （実行先の誤りは CreditMemoTests.requiresSimulator が知らせる）。
 struct LocalizationIntegrityTests {
+    /// リポジトリのリソースを読めるか（シミュレータ／Mac 上の実行かどうか）
+    static let canReadRepositoryResources = FileManager.default.fileExists(
+        atPath: repositoryResourceURL.path
+    )
+
+    private static var repositoryResourceURL: URL {
+        URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()   // CreditMemoTests/
+            .deletingLastPathComponent()   // リポジトリルート
+            .appendingPathComponent("CreditMemo/Resources/Localizable.xcstrings")
+    }
+
     /// アプリが対応する言語（プロジェクトの knownRegions から Base を除いたもの）
     private static let expectedLanguages: Set<String> = ["de", "en", "ja", "ko", "zh-Hant"]
 
@@ -18,17 +32,16 @@ struct LocalizationIntegrityTests {
     private static let acceptableStates: Set<String> = ["translated"]
 
     private func loadStrings() throws -> [String: Any] {
-        let url = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()   // CreditMemoTests/
-            .deletingLastPathComponent()   // リポジトリルート
-            .appendingPathComponent("CreditMemo/Resources/Localizable.xcstrings")
-        let data = try Data(contentsOf: url)
+        let data = try Data(contentsOf: Self.repositoryResourceURL)
         let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         return (json?["strings"] as? [String: Any]) ?? [:]
     }
 
     // 翻訳が1つでも入っているキーは、対応する全言語に非空の訳を持つ
-    @Test("翻訳済みキーは全対応言語をそろえている")
+    @Test(
+        "翻訳済みキーは全対応言語をそろえている",
+        .enabled(if: canReadRepositoryResources)
+    )
     func everyLocalizedKeyCoversAllLanguages() throws {
         let strings = try loadStrings()
         #expect(!strings.isEmpty)
@@ -58,7 +71,10 @@ struct LocalizationIntegrityTests {
     /// - 本当に使っていないキー → カタログから削除
     ///
     /// stale のまま放置すると、未使用キーの蓄積と本当に消し忘れたキーの区別がつかなくなる
-    @Test("抽出状態に stale が残っていない")
+    @Test(
+        "抽出状態に stale が残っていない",
+        .enabled(if: canReadRepositoryResources)
+    )
     func noStaleExtractionStateRemains() throws {
         let strings = try loadStrings()
         #expect(!strings.isEmpty)
@@ -82,7 +98,10 @@ struct LocalizationIntegrityTests {
 
     // 利用者向け文言は translated 以外の状態を残さない。
     // 値が非空でも state が new / needs_review なら未確認の訳なので、リリース品質としては不可
-    @Test("翻訳状態が全て translated になっている")
+    @Test(
+        "翻訳状態が全て translated になっている",
+        .enabled(if: canReadRepositoryResources)
+    )
     func everyLocalizationIsMarkedTranslated() throws {
         let strings = try loadStrings()
         #expect(!strings.isEmpty)
@@ -114,7 +133,10 @@ struct LocalizationIntegrityTests {
     }
 
     // 各キーの書式指定子（引数型）が全言語で一致する
-    @Test("書式指定子が全言語で一致する")
+    @Test(
+        "書式指定子が全言語で一致する",
+        .enabled(if: canReadRepositoryResources)
+    )
     func formatSpecifiersMatchAcrossLanguages() throws {
         let strings = try loadStrings()
 

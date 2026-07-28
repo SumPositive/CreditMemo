@@ -9,7 +9,23 @@ import Testing
 /// 名前が Info.plist の CFBundleAlternateIcons に無いと
 /// setAlternateIconName は実行時に失敗するだけで、ビルドは通ってしまう。
 /// プリセット追加時の登録漏れをここで捕まえる。
+///
+/// Info.plist はコンパイル時パス(#filePath)からリポジトリ相対で読むため、
+/// 実機ではファイルへ到達できない。その場合 plist 検証はスキップする
+/// （実行先の誤りは CreditMemoTests.requiresSimulator が知らせる）。
 struct AppIconSyncTests {
+    /// リポジトリの Info.plist を読めるか（シミュレータ／Mac 上の実行かどうか）
+    static let canReadRepositoryResources = FileManager.default.fileExists(
+        atPath: infoPlistURL.path
+    )
+
+    private static var infoPlistURL: URL {
+        URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()   // CreditMemoTests/
+            .deletingLastPathComponent()   // リポジトリルート
+            .appendingPathComponent("CreditMemo/Resources/Info.plist")
+    }
+
     // MARK: - 命名規約
 
     /// japaneseEarth だけはプライマリ AppIcon（nil）を使う
@@ -45,7 +61,11 @@ struct AppIconSyncTests {
     private static let iconDictionaryKeys = ["CFBundleIcons", "CFBundleIcons~ipad"]
 
     /// 代替アイコン名が Info.plist に登録されていないと、実行時に切り替えが失敗する
-    @Test("全プリセットの代替アイコンが Info.plist に登録されている", arguments: iconDictionaryKeys)
+    @Test(
+        "全プリセットの代替アイコンが Info.plist に登録されている",
+        .enabled(if: canReadRepositoryResources),
+        arguments: iconDictionaryKeys
+    )
     func everyAlternateIconIsRegisteredInInfoPlist(dictionaryKey: String) throws {
         let registered = try alternateIconNames(in: dictionaryKey)
         let required = Set(BadgePreset.allCases.compactMap { AppIconSync.iconName(for: $0) })
@@ -55,7 +75,11 @@ struct AppIconSyncTests {
     }
 
     /// 逆に、使われない登録が残っていないかも見る（プリセット削除時の掃除漏れ）
-    @Test("Info.plist に未使用の代替アイコン登録が残っていない", arguments: iconDictionaryKeys)
+    @Test(
+        "Info.plist に未使用の代替アイコン登録が残っていない",
+        .enabled(if: canReadRepositoryResources),
+        arguments: iconDictionaryKeys
+    )
     func noUnusedAlternateIconRegistrations(dictionaryKey: String) throws {
         let registered = try alternateIconNames(in: dictionaryKey)
         let required = Set(BadgePreset.allCases.compactMap { AppIconSync.iconName(for: $0) })
@@ -65,7 +89,11 @@ struct AppIconSyncTests {
     }
 
     /// 各エントリの CFBundleIconName がキー名と一致していないと、実行時に解決できない
-    @Test("代替アイコンの CFBundleIconName がキー名と一致する", arguments: iconDictionaryKeys)
+    @Test(
+        "代替アイコンの CFBundleIconName がキー名と一致する",
+        .enabled(if: canReadRepositoryResources),
+        arguments: iconDictionaryKeys
+    )
     func alternateIconNamesMatchTheirKeys(dictionaryKey: String) throws {
         let icons = try alternateIconsDictionary(in: dictionaryKey)
         var mismatched: [String] = []
@@ -79,7 +107,10 @@ struct AppIconSyncTests {
 
     /// iPhone 用と iPad 用で登録内容がずれていないことを直接突き合わせる。
     /// 片方にだけプリセットを足す／消す変更を検出する
-    @Test("iPhone 用と iPad 用の代替アイコン登録が一致する")
+    @Test(
+        "iPhone 用と iPad 用の代替アイコン登録が一致する",
+        .enabled(if: canReadRepositoryResources)
+    )
     func iPhoneAndIPadRegistrationsMatch() throws {
         let phone = try alternateIconsDictionary(in: "CFBundleIcons")
         let pad = try alternateIconsDictionary(in: "CFBundleIcons~ipad")
@@ -106,7 +137,11 @@ struct AppIconSyncTests {
     }
 
     /// プライマリアイコンも両方に登録されている必要がある
-    @Test("プライマリアイコンが iPhone/iPad 両方に登録されている", arguments: iconDictionaryKeys)
+    @Test(
+        "プライマリアイコンが iPhone/iPad 両方に登録されている",
+        .enabled(if: canReadRepositoryResources),
+        arguments: iconDictionaryKeys
+    )
     func primaryIconIsRegistered(dictionaryKey: String) throws {
         let icons = try iconsDictionary(in: dictionaryKey)
         let primary = try #require(
@@ -127,11 +162,7 @@ struct AppIconSyncTests {
 
     /// リポジトリ相対で Info.plist を読む（LocalizationIntegrityTests と同じ方式）
     private func infoPlist() throws -> [String: Any] {
-        let url = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()   // CreditMemoTests/
-            .deletingLastPathComponent()   // リポジトリルート
-            .appendingPathComponent("CreditMemo/Resources/Info.plist")
-        let data = try Data(contentsOf: url)
+        let data = try Data(contentsOf: Self.infoPlistURL)
         let plist = try PropertyListSerialization.propertyList(
             from: data, options: [], format: nil
         ) as? [String: Any]
