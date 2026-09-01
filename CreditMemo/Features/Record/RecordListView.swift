@@ -951,7 +951,12 @@ struct RecordSummaryRow: View {
 private struct RecordCategorySingleLineView: View {
     let names: [String]
 
-    var body: some View {
+    /// 文字列だけを保持し、非同期レンダラーの実行コンテキストに依存しない
+    nonisolated init(names: [String]) {
+        self.names = names
+    }
+
+    nonisolated var body: some View {
         HStack(spacing: 4) {
             ForEach(names, id: \.self) { name in
                 RecordCategoryChip(name: name)
@@ -980,6 +985,11 @@ private struct RecordCategoryLineView: View {
 /// 短いタグは自然幅、長いタグだけ省略できる幅に制限する
 private struct RecordCategoryChip: View {
     let name: String
+
+    /// ForEachの非分離クロージャーから安全に生成する
+    nonisolated init(name: String) {
+        self.name = name
+    }
 
     var body: some View {
         Group {
