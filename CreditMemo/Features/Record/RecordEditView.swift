@@ -764,6 +764,8 @@ private var isValid: Bool {
                     .foregroundStyle(emphasizeSave ? .blue : .secondary)
             }
         }
+        // 独自テンキー表示中は背面のナビゲーション操作も隠す
+        .toolbar(showAmountPad || showPartAmountPad ? .hidden : .visible, for: .navigationBar)
         .onAppear {
             if !hasInitialized {
                 // 初期表示時に候補キャッシュを構築する
@@ -810,40 +812,6 @@ private var isValid: Bool {
         .onChange(of: frequentConfig) { _, _ in
             // パネル設定（期間・金額表示条件・並び順）が変わったらカプセルを組み直す
             cachedFrequentPayments = buildFrequentPayments()
-        }
-        .sheet(isPresented: $showAmountPad, onDismiss: {
-            // 自動表示ONの時、金額未入力のままテンキーを閉じると新規入力画面ごと閉じる。
-            // ただし「よくある決済」カプセルが使える状況（帯が表示・または選択済み）では、
-            // 金額0のままでもカプセルで登録できるため画面に留める。
-            if isNew && nAmount == 0 && autoOpenAmountPad
-                && !showsFrequentSection && !didPickFrequentPayment {
-                dismiss()
-            }
-        }) {
-            NumericKeypadSheet(
-                title: "record.field.amount",
-                placeholder: nAmount,
-                maxValue: APP_MAX_AMOUNT
-            ) { value in
-                nAmount = value.roundedAmount()
-                // 金額確定後はフォーカスを外して類似決済を見やすくする
-                DispatchQueue.main.async { isUsePointFocused = false }
-            }
-            // 金額入力シートの背面を透かさない
-            .presentationBackground(Color(uiColor: .systemGroupedBackground))
-        }
-        .sheet(isPresented: $showPartAmountPad, onDismiss: {
-            editingPartNoForAmount = nil
-        }) {
-            NumericKeypadSheet(
-                title: "record.partAmount.title",
-                placeholder: editingPartNoForAmount.map { displayedPartAmount(partNo: $0) } ?? .zero,
-                maxValue: editablePartAmountUpperBound
-            ) { value in
-                applyPartAmount(value)
-            }
-            // 分割金額入力シートの背面を透かさない
-            .presentationBackground(Color(uiColor: .systemGroupedBackground))
         }
         .sheet(isPresented: $showDatePicker) {
             NavigationStack {
@@ -998,6 +966,31 @@ private var isValid: Bool {
                 .modifier(ConditionalDynamicTypeModifier(fontScale: fontScale))
                 .presentationDetents([.medium, .large])
                 .presentationBackground(Color(uiColor: .systemGroupedBackground))
+        }
+        .overlay {
+            if showAmountPad {
+                NumericKeypadOverlay(
+                    title: "record.field.amount",
+                    placeholder: nAmount,
+                    maxValue: APP_MAX_AMOUNT,
+                    onCancel: closeAmountPad
+                ) { value in
+                    nAmount = value.roundedAmount()
+                    showAmountPad = false
+                    // 金額確定後はフォーカスを外して類似決済を見やすくする
+                    DispatchQueue.main.async { isUsePointFocused = false }
+                }
+            } else if showPartAmountPad {
+                NumericKeypadOverlay(
+                    title: "record.partAmount.title",
+                    placeholder: editingPartNoForAmount.map { displayedPartAmount(partNo: $0) } ?? .zero,
+                    maxValue: editablePartAmountUpperBound,
+                    onCancel: closePartAmountPad
+                ) { value in
+                    applyPartAmount(value)
+                    closePartAmountPad()
+                }
+            }
         }
         .overlay(alignment: .top) {
             if savedBanner {
@@ -1379,6 +1372,21 @@ private var isValid: Bool {
         guard canEditPartAmount(partNo: partNo) else { return }
         editingPartNoForAmount = partNo
         showPartAmountPad = true
+    }
+
+    /// 通常金額テンキーを閉じ、自動表示時だけ必要なら編集画面も閉じる
+    private func closeAmountPad() {
+        showAmountPad = false
+        if isNew && nAmount == 0 && autoOpenAmountPad
+            && !showsFrequentSection && !didPickFrequentPayment {
+            DispatchQueue.main.async { dismiss() }
+        }
+    }
+
+    /// 分割金額テンキーを閉じ、編集中の回を解除する
+    private func closePartAmountPad() {
+        showPartAmountPad = false
+        editingPartNoForAmount = nil
     }
 
     /// 指定回の金額を確定する。最終回が残額を吸収するよう配分し直す

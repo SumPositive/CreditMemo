@@ -1,16 +1,16 @@
 import SwiftUI
 import UIKit
 
-// MARK: - テンキーシート
+// MARK: - テンキーオーバーレイ
 
-/// 00キー付きテンキー入力シート
-struct NumericKeypadSheet: View {
+/// システムシートを使わず画面下部へ固定する00キー付きテンキー
+struct NumericKeypadOverlay: View {
     let title: LocalizedStringKey
     let placeholder: Decimal
     let maxValue: Decimal
+    let onCancel: () -> Void
     let onCommit: (Decimal) -> Void
 
-    @Environment(\.dismiss) private var dismiss
     @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
     @State private var digits: String = ""
     @State private var isNegative: Bool = false
@@ -24,20 +24,6 @@ struct NumericKeypadSheet: View {
     private var displayFontSize: CGFloat { (isCompact ? 44 : 52) * displayScale }
     private var locale: Locale { .current }
     private var fractionDigits: Int { Decimal.currencyFractionDigits(locale: locale) }
-
-    /// uiScale に応じてコンテンツが収まる最小シート高さを計算する
-    private var idealSheetHeight: CGFloat {
-        let navBar:    CGFloat = 50                                              // ナビゲーションバー
-        let topPad:    CGFloat = (isCompact ? 18 : 24) * uiScale                // 上余白
-        let amountH:   CGFloat = 62 * uiScale                                   // 金額表示行
-        let sp:        CGFloat = sheetSpacing                                    // セクション間スペース
-        let btnH:      CGFloat = (isCompact ? 52 : 56) * uiScale                // キーパッドボタン高さ
-        let keypadH:   CGFloat = 4 * btnH + 3 * ((isCompact ? 8 : 10) * uiScale) // 4行 + 3間隔
-        let doneH:     CGFloat = 17 + 28 * uiScale                              // 完了ボタン(headline + 上下padding×2)
-        let botPad:    CGFloat = (isCompact ? 2 : 6) * uiScale                  // 下余白
-        let systemPad: CGFloat = 44                                             // ドラッグインジケータ + ホームバー
-        return ceil(navBar + topPad + amountH + sp + keypadH + sp + doneH + botPad + systemPad)
-    }
 
     private var committedValue: Decimal {
         guard !isEmpty, let minorUnits = Decimal(string: digits) else { return placeholder }
@@ -61,79 +47,94 @@ struct NumericKeypadSheet: View {
     }
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: sheetSpacing) {
-                // 入力表示
-                HStack {
-                    Spacer()
-                    // 金額は以前どおり中央へ固定する
+        GeometryReader { geometry in
+            ZStack(alignment: .bottom) {
+                // 背面全体でタップを受け、編集中フォームの誤操作を防ぐ
+                Color.black.opacity(0.18)
+                    .contentShape(Rectangle())
+                    .onTapGesture {}
+
+                VStack(spacing: sheetSpacing) {
+                    header
+
+                    // 金額は中央へ固定し、連続入力をアニメーションなしで反映する
                     Text(displayAmountText)
                         .font(.system(size: displayFontSize, weight: .bold, design: .rounded).monospacedDigit())
                         .foregroundStyle(displayColor)
                         .lineLimit(1)
                         .minimumScaleFactor(0.65)
-                        // 連続入力を即時反映し、数値切替アニメーションによる遅延を避ける
+                        .frame(maxWidth: .infinity)
+                        .padding(.horizontal)
                         .transaction { transaction in
                             transaction.animation = nil
                             transaction.disablesAnimations = true
                         }
-                    Spacer()
-                }
-                .padding(.horizontal)
-                // ナビゲーションタイトルとの重なりを避けるため、金額表示を下げる
-                .padding(.top, (isCompact ? 18 : 24) * uiScale)
 
-                // テンキー
-                NumericKeypad(compact: isCompact, scale: uiScale) { key in handleKey(key) }
-
-                // 決定ボタン
-                Button {
-                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                    onCommit(committedValue)
-                    dismiss()
-                } label: {
-                    Text("button.done")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14 * uiScale)
-                }
-                .buttonStyle(.borderedProminent)
-                .padding(.horizontal, 32 * uiScale)
-                // 下余白を詰めて完了ボタンを少し上へ寄せる
-                .padding(.bottom, (isCompact ? 2 : 6) * uiScale)
-            }
-            .navigationTitle(title)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    // 閉じるボタンは左端に固定する
-                    Button { dismiss() } label: {
-                        Image(systemName: "chevron.down").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
-                            .font(.title3)
-                            .symbolRenderingMode(.hierarchical)
+                    NumericKeypad(compact: isCompact, scale: uiScale) { key in
+                        handleKey(key)
                     }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    // 符号切替は右端の独立項目にして、閉じると分離する
+
                     Button {
-                        isNegative.toggle()
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                        onCommit(committedValue)
                     } label: {
-                        Image(systemName: "minus.forwardslash.plus").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
-                            .font(.body.weight(.semibold))
-                            .foregroundColor(isNegative ? .red : .accentColor)
+                        Text("button.done")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14 * uiScale)
                     }
+                    .buttonStyle(.borderedProminent)
+                    .padding(.horizontal, 32 * uiScale)
+                    .padding(.bottom, (isCompact ? 2 : 6) * uiScale)
                 }
+                .padding(.top, 8)
+                .padding(.bottom, geometry.safeAreaInsets.bottom)
+                .background(Color(uiColor: .systemGroupedBackground))
+                .clipShape(
+                    UnevenRoundedRectangle(
+                        topLeadingRadius: 24,
+                        topTrailingRadius: 24,
+                        style: .continuous
+                    )
+                )
+                .shadow(color: .black.opacity(0.16), radius: 12, y: -2)
             }
         }
+        .ignoresSafeArea()
         .onAppear {
             // placeholder が負の場合はマイナスモードで開く
             isNegative = placeholder < 0
         }
         .modifier(ConditionalSheetDynamicTypeModifier(fontScale: fontScale))
-        .presentationBackground(Color(uiColor: .systemGroupedBackground))
-        // コンテンツ高さに合わせた detent を使う。画面に収まらない大きい文字サイズは .large へフォールバック
-        .presentationDetents([.height(idealSheetHeight), .large])
-        .presentationDragIndicator(.visible)
+        // 表示切替や入力更新でオーバーレイを動かさない
+        .transaction { transaction in
+            transaction.animation = nil
+            transaction.disablesAnimations = true
+        }
+    }
+
+    private var header: some View {
+        HStack {
+            Button(action: onCancel) {
+                Image(systemName: "chevron.down").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                    .font(.title3)
+                    .symbolRenderingMode(.hierarchical)
+                    .frame(width: 44, height: 44)
+            }
+            Spacer()
+            Text(title)
+                .font(.headline)
+            Spacer()
+            Button {
+                isNegative.toggle()
+            } label: {
+                Image(systemName: "minus.forwardslash.plus").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                    .font(.body.weight(.semibold))
+                    .foregroundColor(isNegative ? .red : .accentColor)
+                    .frame(width: 44, height: 44)
+            }
+        }
+        .padding(.horizontal, 12)
     }
 
     private func handleKey(_ key: NumericKeypadKey) {
