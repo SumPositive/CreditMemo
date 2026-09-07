@@ -395,12 +395,10 @@ struct PaymentListView: View {
             }
         }
         .sheet(isPresented: $showTagPicker) {
-            PaymentFilterPickerSheet(
+            PaymentTagFilterPickerSheet(
                 title: "record.field.tag",
-                items: tags.sorted { $0.zName.localizedStandardCompare($1.zName) == .orderedAscending },
-                selected: $selectedTag,
-                label: { $0.zName },
-                noSelectionTitle: "label.all"
+                tags: tags,
+                selected: $selectedTag
             )
             // タグフィルターシートにもアプリ内文字サイズ設定を適用する
             .appFontScale(fontScale)
@@ -1210,6 +1208,60 @@ private struct PaymentFilterPickerSheet<T: Identifiable>: View where T.ID: Equat
             }
         }
         .contentShape(Rectangle())
+    }
+}
+
+/// 引き落とし状況のタグ絞り込み用選択シート
+private struct PaymentTagFilterPickerSheet: View {
+    let title: LocalizedStringKey
+    let tags: [E5tag]
+    @Binding var selected: E5tag?
+
+    @Environment(\.dismiss) private var dismiss
+    @AppStorage(AppStorageKey.tagSortMode) private var sortModeRaw: Int = SortMode.defaultForTags.rawValue
+    @State private var showSortDropdown = false
+
+    private var sortMode: SortMode {
+        SortMode(rawValue: sortModeRaw) ?? .defaultForTags
+    }
+    private var selectedIDs: Set<String> {
+        Set(selected.map { [$0.id] } ?? [])
+    }
+    private var displayTags: [E5tag] {
+        tags.orderedForTagSelection(mode: sortMode, selectedIDs: selectedIDs)
+    }
+    /// ソート行と「すべて」を含む高さに合わせてシートを開く
+    private var pickerDetents: Set<PresentationDetent> {
+        TagSelectionList.detents(tagCount: tags.count, showsAllOption: true)
+    }
+
+    var body: some View {
+        NavigationStack {
+            TagSelectionList(
+                tags: displayTags,
+                selectedIDs: selectedIDs,
+                sortModeRaw: $sortModeRaw,
+                isSortExpanded: $showSortDropdown,
+                showsAllOption: true,
+                isAllSelected: selected == nil,
+                onSelectAll: {
+                    selected = nil
+                    dismiss()
+                },
+                onSelectTag: { tag in
+                    selected = tag
+                    dismiss()
+                }
+            )
+            // 決済一覧のタグシートと同じタイトル表示を使う
+            .scalableNavigationTitle(title)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("button.cancel") { dismiss() }
+                }
+            }
+        }
+        .presentationDetents(pickerDetents)
     }
 }
 

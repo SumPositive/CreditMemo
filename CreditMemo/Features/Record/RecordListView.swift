@@ -886,36 +886,34 @@ private struct RecordTagFilterSheet: View {
     let onDone: () -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @AppStorage(AppStorageKey.tagSortMode) private var sortModeRaw: Int = SortMode.defaultForTags.rawValue
+    @State private var showSortDropdown = false
+
+    private var sortMode: SortMode {
+        SortMode(rawValue: sortModeRaw) ?? .defaultForTags
+    }
 
     private var selectedIDs: Set<String> {
         Set(selectedTags.map(\.id))
     }
+    private var displayTags: [E5tag] {
+        tags.orderedForTagSelection(mode: sortMode, selectedIDs: selectedIDs)
+    }
 
     /// 少ない行は内容に合わせ、多い行は最初から最大まで開く
     private var tagPickerDetents: Set<PresentationDetent> {
-        guard tags.count <= 6 else { return [.large] }
-        let rowCount = max(tags.count, 1)
-        let contentHeight = ceil(90 + CGFloat(rowCount) * 50)
-        return [.height(contentHeight), .large]
+        TagSelectionList.detents(tagCount: tags.count)
     }
 
     var body: some View {
         NavigationStack {
-            List(tags) { tag in
-                Button {
-                    toggle(tag)
-                } label: {
-                    HStack {
-                        Text(tag.zName)
-                            .foregroundStyle(Color(.label))
-                        Spacer()
-                        if selectedIDs.contains(tag.id) {
-                            Image(systemName: "checkmark").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
-                                .foregroundStyle(Color.accentColor)
-                        }
-                    }
-                }
-            }
+            TagSelectionList(
+                tags: displayTags,
+                selectedIDs: selectedIDs,
+                sortModeRaw: $sortModeRaw,
+                isSortExpanded: $showSortDropdown,
+                onSelectTag: toggle
+            )
             .scalableNavigationTitle("record.field.tag")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

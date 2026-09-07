@@ -364,6 +364,9 @@ enum SortMode: Int, CaseIterable, Identifiable {
     case amount = 2
     case name   = 3
 
+    /// タグ一覧とタグ選択シートの既定値
+    static let defaultForTags: SortMode = .count
+
     var id: Int { rawValue }
 
     var localizedKey: String {

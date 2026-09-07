@@ -3056,68 +3056,36 @@ private struct CategoryMultiPickerSheet: View {
 
     @Environment(\.dismiss) private var dismiss
     @Query private var allCategories: [E5tag]
-    @AppStorage(AppStorageKey.tagSortMode) private var sortModeRaw: Int = SortMode.recent.rawValue
+    @AppStorage(AppStorageKey.tagSortMode) private var sortModeRaw: Int = SortMode.defaultForTags.rawValue
     @State private var showAdd = false
     @State private var showSortDropdown = false
     @State private var displayOrder: [E5tag] = []
     @State private var itemIDsBeforeAdd: [String] = []
     private let maxSelection = 10
 
-    private var sortMode: SortMode { SortMode(rawValue: sortModeRaw) ?? .recent }
+    private var sortMode: SortMode { SortMode(rawValue: sortModeRaw) ?? .defaultForTags }
+    private var selectedIDs: Set<String> { Set(selectedCategories.map(\.id)) }
 
     /// 少ない行は内容に合わせ、多い行は最初から最大まで開く
     private var tagPickerDetents: Set<PresentationDetent> {
-        guard items.count <= 5 else { return [.large] }
-        let rowCount = max(items.count, 1)
-        let contentHeight = ceil(150 + CGFloat(rowCount) * 50)
-        return [.height(contentHeight), .large]
+        TagSelectionList.detents(tagCount: items.count)
     }
 
     private var items: [E5tag] {
-        switch sortMode {
-        case .recent: allCategories.sorted { ($0.sortDate ?? .distantPast) > ($1.sortDate ?? .distantPast) }
-        case .count:  allCategories.sorted { $0.sortCount > $1.sortCount }
-        case .amount: allCategories.sorted { $0.sortAmount > $1.sortAmount }
-        case .name:   allCategories.sorted { $0.zName.localizedStandardCompare($1.zName) == .orderedAscending }
-        }
+        allCategories.sortedByTagMode(sortMode)
     }
 
     var body: some View {
         NavigationStack {
-            List {
-                ForEach(displayOrder) { item in
-                    Button {
-                        toggleItem(item)
-                    } label: {
-                        HStack {
-                            Text(item.zName).foregroundStyle(.primary)
-                            Spacer()
-                            if selectedCategories.contains(where: { $0.id == item.id }) {
-                                Image(systemName: "checkmark").dynamicTypeSize(...DynamicTypeSize.xxxLarge).foregroundStyle(.blue)
-                            }
-                        }
-                        .contentShape(Rectangle())
-                    }
-                }
-            }
-            // 上部のソート指定との間にList既定の余白が入らないようにする
-            .contentMargins(.top, 0, for: .scrollContent)
-            .safeAreaInset(edge: .top, spacing: 0) {
-                // セクション余白を避け、タイトル直下に詰めて配置する
-                TagSortModeDropdown(
-                    sortModeRaw: $sortModeRaw,
-                    isExpanded: $showSortDropdown
-                )
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
-                .padding(.bottom, 8)
-                .background(Color(uiColor: .systemBackground))
-            }
-            // シート内の一覧背景も不透過に揃える
-            .scrollContentBackground(.hidden)
-            .background(Color(uiColor: .systemBackground))
-            .navigationTitle(title)
-            .navigationBarTitleDisplayMode(.inline)
+            TagSelectionList(
+                tags: displayOrder,
+                selectedIDs: selectedIDs,
+                sortModeRaw: $sortModeRaw,
+                isSortExpanded: $showSortDropdown,
+                onSelectTag: toggleItem
+            )
+            // 決済一覧のタグシートと同じ一覧背景とタイトル表示を使う
+            .scalableNavigationTitle(title)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("button.cancel") { dismiss() }
@@ -3175,13 +3143,12 @@ private struct CategoryMultiPickerSheet: View {
     }
 
     private func rebuildDisplayOrder(prioritizedIDs: [String] = []) {
-        let prioritizedIDSet = Set(prioritizedIDs)
-        let selectedIDs = Set(selectedCategories.map(\.id))
-        let prioritized = items.filter { prioritizedIDSet.contains($0.id) }
-        let selected = items.filter { !prioritizedIDSet.contains($0.id) && selectedIDs.contains($0.id) }
-        let unselected = items.filter { !prioritizedIDSet.contains($0.id) && !selectedIDs.contains($0.id) }
         // 新規追加分を最上段、その次に選択済み、その後に未選択を並べる
-        displayOrder = prioritized + selected + unselected
+        displayOrder = allCategories.orderedForTagSelection(
+            mode: sortMode,
+            selectedIDs: selectedIDs,
+            prioritizedIDs: Set(prioritizedIDs)
+        )
     }
 }
 

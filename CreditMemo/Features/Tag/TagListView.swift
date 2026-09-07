@@ -5,7 +5,7 @@ struct TagListView: View {
     @Query private var tags: [E5tag]
     @Environment(\.modelContext) private var context
 
-    @AppStorage(AppStorageKey.tagSortMode) private var sortModeRaw: Int = SortMode.recent.rawValue
+    @AppStorage(AppStorageKey.tagSortMode) private var sortModeRaw: Int = SortMode.defaultForTags.rawValue
     @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
     @AppStorage(AppStorageKey.userLevel) private var userLevel: UserLevel = .beginner
 
@@ -13,7 +13,7 @@ struct TagListView: View {
     @State private var historyTarget: E5tag?
     @State private var showSortDropdown = false
 
-    private var sortMode: SortMode { SortMode(rawValue: sortModeRaw) ?? .recent }
+    private var sortMode: SortMode { SortMode(rawValue: sortModeRaw) ?? .defaultForTags }
 
     /// 初心者ヒントの詳細シート本文（追加・ソート・スワイプ操作の説明）
     private var beginnerHelpDetail: some View {
@@ -58,12 +58,7 @@ struct TagListView: View {
     }
 
     private var sorted: [E5tag] {
-        switch sortMode {
-        case .recent: tags.sorted { ($0.sortDate ?? .distantPast) > ($1.sortDate ?? .distantPast) }
-        case .count:  tags.sorted { $0.sortCount > $1.sortCount }
-        case .amount: tags.sorted { $0.sortAmount > $1.sortAmount }
-        case .name:   tags.sorted { $0.zName.localizedStandardCompare($1.zName) == .orderedAscending }
-        }
+        tags.sortedByTagMode(sortMode)
     }
 
     var body: some View {
@@ -128,13 +123,46 @@ struct TagListView: View {
     }
 }
 
+extension Sequence where Element == E5tag {
+    /// タグ一覧と各選択シートで共通の並び順を適用する
+    func sortedByTagMode(_ mode: SortMode) -> [E5tag] {
+        switch mode {
+        case .recent:
+            sorted { ($1.sortDate ?? .distantPast) < ($0.sortDate ?? .distantPast) }
+        case .count:
+            sorted { $1.sortCount < $0.sortCount }
+        case .amount:
+            sorted { $1.sortAmount < $0.sortAmount }
+        case .name:
+            sorted { $0.zName.localizedStandardCompare($1.zName) == .orderedAscending }
+        }
+    }
+
+    /// 新規追加、選択済み、未選択の順でタグ選択用の表示順を作る
+    func orderedForTagSelection(
+        mode: SortMode,
+        selectedIDs: Set<String>,
+        prioritizedIDs: Set<String> = []
+    ) -> [E5tag] {
+        let sorted = sortedByTagMode(mode)
+        let prioritized = sorted.filter { prioritizedIDs.contains($0.id) }
+        let selected = sorted.filter {
+            !prioritizedIDs.contains($0.id) && selectedIDs.contains($0.id)
+        }
+        let unselected = sorted.filter {
+            !prioritizedIDs.contains($0.id) && !selectedIDs.contains($0.id)
+        }
+        return prioritized + selected + unselected
+    }
+}
+
 struct TagSortModeDropdown: View {
     @Binding var sortModeRaw: Int
     @Binding var isExpanded: Bool
 
     private var selection: Binding<SortMode> {
         Binding(
-            get: { SortMode(rawValue: sortModeRaw) ?? .recent },
+            get: { SortMode(rawValue: sortModeRaw) ?? .defaultForTags },
             set: { sortModeRaw = $0.rawValue }
         )
     }
@@ -156,6 +184,91 @@ struct TagSortModeDropdown: View {
             }
         }
         .frame(maxWidth: .infinity)
+    }
+}
+
+/// 各画面で共用するタグ選択一覧の見た目とソート領域
+struct TagSelectionList: View {
+    let tags: [E5tag]
+    let selectedIDs: Set<String>
+    let showsAllOption: Bool
+    let isAllSelected: Bool
+    let onSelectAll: () -> Void
+    let onSelectTag: (E5tag) -> Void
+
+    @Binding private var sortModeRaw: Int
+    @Binding private var isSortExpanded: Bool
+
+    init(
+        tags: [E5tag],
+        selectedIDs: Set<String>,
+        sortModeRaw: Binding<Int>,
+        isSortExpanded: Binding<Bool>,
+        showsAllOption: Bool = false,
+        isAllSelected: Bool = false,
+        onSelectAll: @escaping () -> Void = {},
+        onSelectTag: @escaping (E5tag) -> Void
+    ) {
+        self.tags = tags
+        self.selectedIDs = selectedIDs
+        self.showsAllOption = showsAllOption
+        self.isAllSelected = isAllSelected
+        self.onSelectAll = onSelectAll
+        self.onSelectTag = onSelectTag
+        _sortModeRaw = sortModeRaw
+        _isSortExpanded = isSortExpanded
+    }
+
+    var body: some View {
+        List {
+            if showsAllOption {
+                Button(action: onSelectAll) {
+                    selectionRow(
+                        title: NSLocalizedString("label.all", comment: ""),
+                        isSelected: isAllSelected
+                    )
+                }
+            }
+            ForEach(tags) { tag in
+                Button {
+                    onSelectTag(tag)
+                } label: {
+                    selectionRow(title: tag.zName, isSelected: selectedIDs.contains(tag.id))
+                }
+            }
+        }
+        .contentMargins(.top, 0, for: .scrollContent)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            // ソート領域は一覧外側と同じ薄いグレーで固定する
+            TagSortModeDropdown(
+                sortModeRaw: $sortModeRaw,
+                isExpanded: $isSortExpanded
+            )
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background(Color(uiColor: .systemGroupedBackground))
+        }
+    }
+
+    /// ソート領域と追加行を含め、タグ数に合うシート高さを返す
+    static func detents(tagCount: Int, showsAllOption: Bool = false) -> Set<PresentationDetent> {
+        let rowCount = tagCount + (showsAllOption ? 1 : 0)
+        guard rowCount <= 5 else { return [.large] }
+        let contentHeight = ceil(150 + CGFloat(max(rowCount, 1)) * 50)
+        return [.height(contentHeight), .large]
+    }
+
+    private func selectionRow(title: String, isSelected: Bool) -> some View {
+        HStack {
+            Text(title)
+                .foregroundStyle(Color(.label))
+            Spacer()
+            if isSelected {
+                Image(systemName: "checkmark").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                    .foregroundStyle(Color.accentColor)
+            }
+        }
+        .contentShape(Rectangle())
     }
 }
 
