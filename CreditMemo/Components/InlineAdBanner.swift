@@ -4,25 +4,21 @@ import SwiftUI
 #endif
 
 #if DEBUG
-let INLINE_AD_BANNER_UNIT_ID = "ca-app-pub-3940256099942544/2435281174"
+let INLINE_AD_BANNER_UNIT_ID = "ca-app-pub-3940256099942544/2934735716"
 #else
 let INLINE_AD_BANNER_UNIT_ID = "ca-app-pub-7576639777972199/8682776152"
 #endif
 
-/// 一覧の途中に挟む小型のバナー広告。
-/// 引き落とし状況など、画面内の自然な区切り位置に置く想定。
+/// 主画面上部に表示する小型のバナー広告。
 /// GoogleMobileAds が利用できない/読み込み前は何も表示しない。
 struct InlineAdBanner: View {
-    /// バナーの高さ。AdMob の standard banner サイズ（320×50）に合わせる
-    var height: CGFloat = 50
-    @AppStorage(AppStorageKey.showBannerAds) private var showBannerAds = false
-
     var body: some View {
         #if canImport(GoogleMobileAds)
-        // 設定OFFとfastlane snapshot撮影時は広告を読み込まない
-        if showBannerAds && !SnapshotSeed.isActive {
+        // fastlane snapshot撮影時は広告を読み込まない
+        if !SnapshotSeed.isActive {
             InlineAdBannerRepresentable(adUnitID: INLINE_AD_BANNER_UNIT_ID)
-                .frame(height: height)
+                // 広告サイズと表示領域を一致させる
+                .frame(width: 320, height: 50)
                 .frame(maxWidth: .infinity)
         } else {
             EmptyView()
@@ -37,12 +33,16 @@ struct InlineAdBanner: View {
 private struct InlineAdBannerRepresentable: UIViewRepresentable {
     let adUnitID: String
 
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
     func makeUIView(context: Context) -> BannerView {
-        // 横幅に追従する adaptive サイズを使う
-        let width = UIScreen.main.bounds.width
-        let bannerView = BannerView(adSize: currentOrientationAnchoredAdaptiveBanner(width: width))
+        // 画面内へ確実に収まる標準320×50バナーを使う
+        let bannerView = BannerView(adSize: AdSizeBanner)
         bannerView.adUnitID = adUnitID
         bannerView.rootViewController = topMostRootViewController()
+        bannerView.delegate = context.coordinator
         bannerView.load(makeInlineBannerAdRequest())
         return bannerView
     }
@@ -50,6 +50,22 @@ private struct InlineAdBannerRepresentable: UIViewRepresentable {
     func updateUIView(_ uiView: BannerView, context: Context) {
         if uiView.rootViewController == nil {
             uiView.rootViewController = topMostRootViewController()
+        }
+    }
+
+    final class Coordinator: NSObject, BannerViewDelegate {
+        func bannerViewDidReceiveAd(_ bannerView: BannerView) {
+            #if DEBUG
+            // テスト時に広告受信をXcodeコンソールで確認できるようにする
+            print("InlineAdBanner: テスト広告を受信")
+            #endif
+        }
+
+        func bannerView(_ bannerView: BannerView, didFailToReceiveAdWithError error: Error) {
+            #if DEBUG
+            // テスト時に失敗理由をXcodeコンソールへ残す
+            print("InlineAdBanner: テスト広告の受信失敗: \(error.localizedDescription)")
+            #endif
         }
     }
 }

@@ -35,6 +35,7 @@ struct SettingsView: View {
     @State private var showShareSheet  = false
     @State private var showImportPicker = false
     @State private var showBadgeColorSheet = false
+    @State private var showTipSheet = false
     @State private var exportedURL: URL?
     @State private var showDocsSheet = false
     // 古い履歴の整理（3年）：タップで提案アラート→共通フロー（.retentionCleanup）
@@ -315,6 +316,11 @@ struct SettingsView: View {
                 }
             }
 
+            Section("settings.panel.cheer") {
+                // 広告とは分離し、投げ銭だけを設定画面に置く
+                Button("settings.cheer.tip") { showTipSheet = true }
+            }
+
             Section {
                 Button {
                     // About画面を挟まず、直接アプリ内シートで取扱説明を開く
@@ -330,6 +336,12 @@ struct SettingsView: View {
         }
         .sheet(isPresented: $showBadgeColorSheet) {
             DisplayBadgeColorSheet()
+                .appFontScale(fontScale)
+                .presentationBackground(Color(uiColor: .systemBackground))
+        }
+        .sheet(isPresented: $showTipSheet) {
+            TipSheetView()
+                // 投げ銭シートにもアプリ内文字サイズ設定を適用する
                 .appFontScale(fontScale)
                 .presentationBackground(Color(uiColor: .systemBackground))
         }

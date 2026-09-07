@@ -164,16 +164,6 @@ struct PaymentListView: View {
         !upcomingUnpaidPayments.isEmpty || !overdueUnpaidPayments.isEmpty || !paidPayments.isEmpty
     }
 
-    /// 未払エリアの上は未払行が2件以上ある場合だけ広告を表示する
-    private var shouldShowUnpaidTopAd: Bool {
-        2 <= upcomingItems.count
-    }
-
-    /// 済みエリアの下は済み行が2件以上ある場合だけ広告を表示する
-    private var shouldShowPaidBottomAd: Bool {
-        2 <= paidItems.count
-    }
-
     private var shouldCenterBoundaryOnScroll: Bool {
         // 行数が少ない時は境界中央より先頭表示を優先し、上側が隠れないようにする。
         2 < (upcomingItems.count + overdueItems.count) || 1 < paidItems.count
@@ -266,10 +256,6 @@ struct PaymentListView: View {
                                 Color.clear
                                     .frame(height: 1)
                                     .id(paymentTopAnchorID)
-                                if shouldShowUnpaidTopAd {
-                                    // 未払エリア外の上に広告を配置する
-                                    InlineAdBanner()
-                                }
                                 PaymentCombinedCard(
                                     upcomingItems: upcomingItems,
                                     overdueItems: overdueItems,
@@ -290,10 +276,6 @@ struct PaymentListView: View {
                                     showOlderOverdueBadge: hasOlderOverdueUnpaid && !showAllOverdueUnpaid,
                                     onTapOlderOverdueBadge: { showOlderOverdueConfirm = true }
                                 )
-                                if shouldShowPaidBottomAd {
-                                    // 済みエリア外の下に広告を配置する
-                                    InlineAdBanner()
-                                }
                             }
                             .padding(.horizontal, 16)
                             .padding(.vertical, 10)

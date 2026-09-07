@@ -105,8 +105,6 @@ struct VoiceInputSheet: View {
                     previewArea
                 }
                 Spacer()
-                // 操作ボタン廃止後も広告はシート下部に固定する
-                InlineAdBanner()
             }
             .padding()
             .navigationTitle("voice.input.title")

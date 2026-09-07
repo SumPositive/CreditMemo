@@ -7,6 +7,9 @@ import SwiftUI
 import SwiftData
 import UIKit
 import AppIntents
+#if canImport(GoogleMobileAds)
+@preconcurrency import GoogleMobileAds
+#endif
 
 @main
 struct AppMain: App {
@@ -26,6 +29,10 @@ struct AppMain: App {
     init() {
         // Firebase 設定がある環境だけ診断送信を有効化する
         AppTelemetry.configureIfAvailable()
+        #if canImport(GoogleMobileAds)
+        // 広告リクエストより先にMobile Ads SDKを初期化する
+        MobileAds.shared.start(completionHandler: nil)
+        #endif
         // Siri フレーズ定義を起動時に最新化する
         CreditMemoAppShortcuts.updateAppShortcutParameters()
 

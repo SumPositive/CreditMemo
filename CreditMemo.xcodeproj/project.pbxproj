@@ -829,6 +829,7 @@
 		3E8AC3305F32624A1058348E /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ADMOB_APP_ID = "ca-app-pub-3940256099942544~1458002511";
 				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "AppIcon-french AppIcon-monoBlue AppIcon-sunset AppIcon-chic AppIcon-candy AppIcon-ocean AppIcon-forest AppIcon-mono AppIcon-pastel AppIcon-berry AppIcon-lagoon";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
@@ -965,6 +966,7 @@
 		DD0647CE8BA74AD5E991616E /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ADMOB_APP_ID = "ca-app-pub-7576639777972199~3159076025";
 				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "AppIcon-french AppIcon-monoBlue AppIcon-sunset AppIcon-chic AppIcon-candy AppIcon-ocean AppIcon-forest AppIcon-mono AppIcon-pastel AppIcon-berry AppIcon-lagoon";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
