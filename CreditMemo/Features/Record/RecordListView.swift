@@ -160,6 +160,8 @@ struct RecordListView: View {
     @State private var recordScrollRequest = 0
     @State private var recordScrollTargetID: String?
     @State private var sheetTarget: RecordSheetTarget?
+    /// 編集や追加が確定した時だけ、シートを閉じた後に一覧を再読込する
+    @State private var reloadRecordsAfterSheet = false
     /// この画面表示中だけ保持する、保存前のコピー仮明細
     @State private var draftCopies: [RecordDraftCopy] = []
     @State private var showFilterPopover = false
@@ -184,6 +186,37 @@ struct RecordListView: View {
 
     private var filtered: [E3record] {
         records
+    }
+    /// 利用日順では、読み込み済みの決済を月単位にまとめる
+    private var monthlyRecordGroups: [RecordMonthGroup] {
+        guard sortTarget == .date else { return [] }
+
+        var groups: [RecordMonthGroup] = []
+        for record in filtered {
+            let monthID = recordMonthID(for: record.dateUse)
+            if groups.last?.id == monthID {
+                groups[groups.count - 1].records.append(record)
+                groups[groups.count - 1].total += record.nAmount
+            } else {
+                groups.append(
+                    RecordMonthGroup(
+                        id: monthID,
+                        monthDate: record.dateUse,
+                        records: [record],
+                        total: record.nAmount,
+                        showsTotal: true
+                    )
+                )
+            }
+        }
+
+        // 次ページにも同じ月が続く場合は、途中の月合計を表示しない
+        if let lastGroup = groups.last,
+           records.count < sortedCache.count,
+           recordMonthID(for: sortedCache[records.count].dateUse) == lastGroup.id {
+            groups[groups.count - 1].showsTotal = false
+        }
+        return groups
     }
     private var selectedTagIDs: [String] {
         selectedTags.map(\.id).sorted()
@@ -344,38 +377,19 @@ struct RecordListView: View {
                     // 上のコントロールとの間のセクション余白を詰める
                     .listRowInsets(EdgeInsets(top: -8, leading: 16, bottom: 2, trailing: 16))
             }
-            ForEach(filtered) { record in
-                Button {
-                    sheetTarget = .edit(record)
-                } label: {
-                    RecordSummaryRow(record: record)
-                }
-                .buttonStyle(.plain)
-                .id(record.id)
-                .task(id: recordScrollRequest) {
-                    // 対象セル自身の生成後にも実行し、List側の要求取りこぼしを補う
-                    guard 0 < recordScrollRequest,
-                          record.id == recordScrollTargetID else { return }
-                    await Task.yield()
-                    scrollToRecord(record.id, proxy: proxy)
-                }
-                // 右スワイプ（指は左方向）で、その場に明細の複製を追加する
-                // 引き落とし明細と同じコピー表示にそろえる
-                // ロングスワイプの即時実行は無効にする（誤操作防止）
-                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                    Button {
-                        addDraftCopy(from: record)
-                    } label: {
-                        Label("button.copy", systemImage: "doc.on.doc.fill")
+            if sortTarget == .date {
+                ForEach(monthlyRecordGroups) { group in
+                    ForEach(group.records) { record in
+                        recordRows(for: record, proxy: proxy)
                     }
-                    .tint(.blue)
-                    .accessibilityLabel(Text("button.copy"))
-                }
-                // コピー仮明細はコピー元の直下に並べて表示する
-                ForEach(draftCopies(for: record)) { draft in
-                    RecordDraftCopyRow(draft: draft) {
-                        sheetTarget = .draftCopy(draft)
+                    if group.showsTotal {
+                        RecordMonthTotalRow(monthDate: group.monthDate, total: group.total)
+                            .id("record-month-total-\(group.id)")
                     }
+                }
+            } else {
+                ForEach(filtered) { record in
+                    recordRows(for: record, proxy: proxy)
                 }
             }
 
@@ -397,6 +411,8 @@ struct RecordListView: View {
                 }
             }
         }
+        // 内容が低い月合計セルを、List既定の最小行高まで広げない
+        .environment(\.defaultMinListRowHeight, 0)
         // 一覧内のセクション間余白を詰める
         .listSectionSpacing(.compact)
         // 条件パネル上（ナビゲーション下）の余白を詰める
@@ -422,19 +438,27 @@ struct RecordListView: View {
                 .foregroundStyle(Color.cyan)
         }
         .sheet(item: $sheetTarget, onDismiss: {
-            // 編集反映後は先頭ページから再読込する
+            // 閲覧やキャンセルだけなら一覧を触らず、元のスクロール位置を保つ
+            guard reloadRecordsAfterSheet else { return }
+            reloadRecordsAfterSheet = false
             resetAndLoadRecords()
-            prepareCurrentSortScroll()
+            // 保存後も現在位置を優先し、並び順に応じた頭出しは行わない
         }) { target in
             NavigationStack {
                 switch target {
                 case .edit(let record):
-                    RecordEditView(mode: .edit(record))
+                    RecordEditView(
+                        mode: .edit(record),
+                        onSaved: { _ in
+                            reloadRecordsAfterSheet = true
+                        }
+                    )
                 case .draftCopy(let draft):
                     // 仮コピーは元明細の金額も引き継ぎ、保存後は仮明細を消す
                     RecordEditView(
                         mode: .addCopy(draft.source),
                         onSaved: { _ in
+                            reloadRecordsAfterSheet = true
                             removeDraftCopy(draft)
                         },
                         forceDismissOnNewSave: true
@@ -520,6 +544,42 @@ struct RecordListView: View {
             // タグフィルターシートの背面を透かさない
             .presentationBackground(Color(uiColor: .systemBackground))
         }
+        }
+    }
+
+    /// 決済セルと、その直下にある保存前のコピーをまとめて表示する
+    @ViewBuilder
+    private func recordRows(for record: E3record, proxy: ScrollViewProxy) -> some View {
+        Button {
+            sheetTarget = .edit(record)
+        } label: {
+            RecordSummaryRow(record: record)
+        }
+        .buttonStyle(.plain)
+        .id(record.id)
+        .task(id: recordScrollRequest) {
+            // 対象セル自身の生成後にも実行し、List側の要求取りこぼしを補う
+            guard 0 < recordScrollRequest,
+                  record.id == recordScrollTargetID else { return }
+            await Task.yield()
+            scrollToRecord(record.id, proxy: proxy)
+        }
+        // 右スワイプで、その場に明細の複製を追加する
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            Button {
+                addDraftCopy(from: record)
+            } label: {
+                Label("button.copy", systemImage: "doc.on.doc.fill")
+            }
+            .tint(.blue)
+            .accessibilityLabel(Text("button.copy"))
+        }
+
+        // コピー仮明細はコピー元の直下に並べて表示する
+        ForEach(draftCopies(for: record)) { draft in
+            RecordDraftCopyRow(draft: draft) {
+                sheetTarget = .draftCopy(draft)
+            }
         }
     }
 
@@ -694,6 +754,12 @@ struct RecordListView: View {
         record.dateUpdate ?? record.dateUse
     }
 
+    /// 現在のカレンダーで同じ年月を判定する識別子を返す
+    private func recordMonthID(for date: Date) -> String {
+        let components = Calendar.current.dateComponents([.year, .month], from: date)
+        return "\(components.year ?? 0)-\(components.month ?? 0)"
+    }
+
     private func matchesFilter(_ record: E3record) -> Bool {
         // 対象期間はすべてのフィルターより先に適用する。
         if let startDate = period.startDate, record.dateUse < startDate {
@@ -719,8 +785,8 @@ struct RecordListView: View {
     }
 
     private func shouldPlaceBefore(_ lhs: E3record, _ rhs: E3record) -> Bool {
-        // 未入力ありは、手段・ラベル・タグの不足順を優先する。
-        if filterKind == .incomplete {
+        // 利用日順では月を分断しないよう、不足項目より日付を優先する
+        if filterKind == .incomplete && sortTarget != .date {
             let lhsPriority = incompletePriority(for: lhs) ?? Int.max
             let rhsPriority = incompletePriority(for: rhs) ?? Int.max
             if lhsPriority != rhsPriority {
@@ -762,6 +828,15 @@ struct RecordListView: View {
         }
         return nil
     }
+}
+
+/// 利用日順で表示する月単位の決済と合計
+private struct RecordMonthGroup: Identifiable {
+    let id: String
+    let monthDate: Date
+    var records: [E3record]
+    var total: Decimal
+    var showsTotal: Bool
 }
 
 // MARK: - Record Filter Sheets
@@ -927,6 +1002,38 @@ private struct RecordDraftCopyRow: View {
 }
 
 // MARK: - Shared Row
+
+/// 利用日順の各月末に表示する月合計セル
+private struct RecordMonthTotalRow: View {
+    let monthDate: Date
+    let total: Decimal
+
+    private var title: String {
+        // 月名は端末の言語に合わせて「9月」「September」などに整形する
+        let month = monthDate.formatted(.dateTime.month(.wide))
+        return String(format: NSLocalizedString("record.monthTotal", comment: ""), month)
+    }
+    private var amountColor: Color {
+        total < 0 ? COLOR_AMOUNT_NEGATIVE : COLOR_AMOUNT_POSITIVE
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+            Text(total.currencyString())
+                .font(.subheadline.weight(.semibold).monospacedDigit())
+                .foregroundStyle(amountColor)
+        }
+        // 月名と金額をひとまとまりにして中央へ配置する
+        .frame(maxWidth: .infinity, alignment: .center)
+        // 通常の決済セルより低くし、月の区切りをコンパクトに示す
+        .frame(minHeight: 28)
+        .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 2, trailing: 16))
+        .listRowBackground(Color.secondary.opacity(0.06))
+    }
+}
 
 /// 決済履歴とタグ編集で共用する明細セル
 struct RecordSummaryRow: View {
