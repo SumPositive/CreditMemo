@@ -56,6 +56,8 @@ enum AppStorageKey {
     static let paymentFilterCardID = "setting.paymentFilterCardID"
     /// 引き落とし状況で最後に選んだ口座ID
     static let paymentFilterBankID = "setting.paymentFilterBankID"
+    /// 通常画面のバナー広告を表示する、初期値はOFF
+    static let showBannerAds = "setting.showBannerAds"
     static let exportFormat          = "setting.exportFormat"
     static let showCurrencySymbol    = "setting.showCurrencySymbol"
     /// 引き落とし状況の配色プリセット

@@ -15,16 +15,17 @@ let INLINE_AD_BANNER_UNIT_ID = "ca-app-pub-7576639777972199/8682776152"
 struct InlineAdBanner: View {
     /// バナーの高さ。AdMob の standard banner サイズ（320×50）に合わせる
     var height: CGFloat = 50
+    @AppStorage(AppStorageKey.showBannerAds) private var showBannerAds = false
 
     var body: some View {
         #if canImport(GoogleMobileAds)
-        // fastlane snapshot 撮影時は広告バナーを出さない（ストア掲載画像に広告を写さない）
-        if SnapshotSeed.isActive {
-            EmptyView()
-        } else {
+        // 設定OFFとfastlane snapshot撮影時は広告を読み込まない
+        if showBannerAds && !SnapshotSeed.isActive {
             InlineAdBannerRepresentable(adUnitID: INLINE_AD_BANNER_UNIT_ID)
                 .frame(height: height)
                 .frame(maxWidth: .infinity)
+        } else {
+            EmptyView()
         }
         #else
         EmptyView()

@@ -352,6 +352,13 @@ struct RecordListView: View {
                 }
                 .buttonStyle(.plain)
                 .id(record.id)
+                .task(id: recordScrollRequest) {
+                    // 対象セル自身の生成後にも実行し、List側の要求取りこぼしを補う
+                    guard 0 < recordScrollRequest,
+                          record.id == recordScrollTargetID else { return }
+                    await Task.yield()
+                    scrollToRecord(record.id, proxy: proxy)
+                }
                 // 右スワイプ（指は左方向）で、その場に明細の複製を追加する
                 // 引き落とし明細と同じコピー表示にそろえる
                 // ロングスワイプの即時実行は無効にする（誤操作防止）
@@ -399,12 +406,15 @@ struct RecordListView: View {
         }
         .task(id: recordScrollRequest) {
             guard 0 < recordScrollRequest, let recordScrollTargetID else { return }
-            // 行の再構築を待ち、アニメーションなしで対象セルを先頭へ移動する
-            await Task.yield()
-            var transaction = Transaction()
-            transaction.disablesAnimations = true
-            withTransaction(transaction) {
-                proxy.scrollTo(recordScrollTargetID, anchor: .top)
+            // Listの遅延生成に備え、短い間隔で同じ位置へ再試行する
+            for delay in [UInt64(0), 50_000_000, 100_000_000, 150_000_000, 200_000_000] {
+                if 0 < delay {
+                    try? await Task.sleep(nanoseconds: delay)
+                } else {
+                    await Task.yield()
+                }
+                guard !Task.isCancelled else { return }
+                scrollToRecord(recordScrollTargetID, proxy: proxy)
             }
         }
         .scalableNavigationTitle("record.list.title") {
@@ -414,6 +424,7 @@ struct RecordListView: View {
         .sheet(item: $sheetTarget, onDismiss: {
             // 編集反映後は先頭ページから再読込する
             resetAndLoadRecords()
+            prepareCurrentSortScroll()
         }) { target in
             NavigationStack {
                 switch target {
@@ -438,41 +449,34 @@ struct RecordListView: View {
         .onAppear {
             if records.isEmpty {
                 resetAndLoadRecords()
-                // 初期状態が利用日順でも今日に最も近いセルを先頭へ合わせる
-                if sortTarget == .date {
-                    prepareClosestDateScroll()
-                }
             }
+            // 再入場時に読込済みでも現在の並び順に応じた位置へ合わせる
+            prepareCurrentSortScroll()
         }
         .onChange(of: period) { _, newValue in
             SavedConditions.shared.period = newValue
             resetAndLoadRecords()
+            prepareCurrentSortScroll()
         }
         .onChange(of: filterKind) { _, newValue in
             SavedConditions.shared.filterKind = newValue
             resetAndLoadRecords()
+            prepareCurrentSortScroll()
         }
         .onChange(of: selectedTagIDs) { _, _ in
             SavedConditions.shared.selectedTags = selectedTags
             resetAndLoadRecords()
+            prepareCurrentSortScroll()
         }
         .onChange(of: sortTarget) { _, newValue in
             SavedConditions.shared.sortTarget = newValue
             resetAndLoadRecords()
-            if newValue == .date {
-                prepareClosestDateScroll()
-            } else {
-                prepareFirstRecordScroll()
-            }
+            prepareCurrentSortScroll()
         }
         .onChange(of: sortDirection) { _, newValue in
             SavedConditions.shared.sortDirection = newValue
             resetAndLoadRecords()
-            if sortTarget == .date {
-                prepareClosestDateScroll()
-            } else {
-                prepareFirstRecordScroll()
-            }
+            prepareCurrentSortScroll()
         }
         .sheet(isPresented: $showCardPicker) {
             RecordSingleFilterPickerSheet(
@@ -665,6 +669,24 @@ struct RecordListView: View {
         guard let firstRecord = records.first else { return }
         recordScrollTargetID = firstRecord.id
         recordScrollRequest += 1
+    }
+
+    /// 現在の並び順に応じて頭出し位置を選ぶ
+    private func prepareCurrentSortScroll() {
+        if sortTarget == .date {
+            prepareClosestDateScroll()
+        } else {
+            prepareFirstRecordScroll()
+        }
+    }
+
+    /// 固定パネル直下へ対象セルをアニメーションなしで移動する
+    private func scrollToRecord(_ recordID: String, proxy: ScrollViewProxy) {
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            proxy.scrollTo(recordID, anchor: .top)
+        }
     }
 
     /// 入力順ソート用の代表日時（未設定時は利用日へフォールバック）

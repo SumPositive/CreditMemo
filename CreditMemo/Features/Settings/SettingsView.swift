@@ -37,9 +37,6 @@ struct SettingsView: View {
     @State private var showBadgeColorSheet = false
     @State private var exportedURL: URL?
     @State private var showDocsSheet = false
-    @State private var showTipSheet = false
-    @State private var showAdSheet = false
-    @State private var showAdThanks = false
     // 古い履歴の整理（3年）：タップで提案アラート→共通フロー（.retentionCleanup）
     @State private var showRetentionSuggest = false
     /// 整理対象が0件のとき「整理は不要です」を伝えるだけのアラート
@@ -318,20 +315,15 @@ struct SettingsView: View {
                 }
             }
 
-            Section("settings.panel.support") {
+            Section {
                 Button {
                     // About画面を挟まず、直接アプリ内シートで取扱説明を開く
                     showDocsSheet = true
                 } label: {
                     Label("settings.about", systemImage: "info.circle")
                 }
-            }
-
-            Section {
-                Button("settings.cheer.tip") { showTipSheet = true }
-                Button("settings.cheer.ad") { showAdSheet = true }
             } header: {
-                Text("settings.panel.cheer")
+                Text("settings.panel.support")
             } footer: {
                 settingsFooter
             }
@@ -340,22 +332,6 @@ struct SettingsView: View {
             DisplayBadgeColorSheet()
                 .appFontScale(fontScale)
                 .presentationBackground(Color(uiColor: .systemBackground))
-        }
-        .sheet(isPresented: $showTipSheet) {
-            TipSheetView()
-                // シートにもアプリ内文字サイズ設定を明示適用する
-                .appFontScale(fontScale)
-                // チップ案内シートの背面を透かさない
-                .presentationBackground(Color(uiColor: .systemBackground))
-        }
-        .sheet(isPresented: $showAdSheet) {
-            AdSupportSheet {
-                showAdThanks = true
-            }
-            // シートにもアプリ内文字サイズ設定を明示適用する
-            .appFontScale(fontScale)
-            // 広告応援シートの背面を透かさない
-            .presentationBackground(Color(uiColor: .systemBackground))
         }
         .scalableNavigationTitle("top.settings") {
             Image(systemName: "gearshape")
@@ -408,11 +384,6 @@ struct SettingsView: View {
                 message: message,
                 dismissButton: .cancel(Text("button.ok"))
             )
-        }
-        .alert(String(localized: "support.thanksTitle"), isPresented: $showAdThanks) {
-            Button("common.ok", role: .cancel) {}
-        } message: {
-            Text(String(localized: "support.ad.thanksMessage"))
         }
         // 古い履歴の整理（3年）：対象が1件以上のとき「整理しませんか？」→エクスポート後に削除
         .alert("retention.suggest.title", isPresented: $showRetentionSuggest) {
@@ -732,7 +703,7 @@ private final class TipStore {
     }
 }
 
-private struct TipSheetView: View {
+struct TipSheetView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var store = TipStore.shared
     @State private var showThanks = false
@@ -1031,7 +1002,7 @@ private struct TossedCoin: View {
     }
 }
 
-private struct AdSupportSheet: View {
+struct AdSupportSheet: View {
     let onRewardEarned: () -> Void
 
     var body: some View {
@@ -1364,4 +1335,3 @@ private extension SettingsView {
 
 
 // MARK: - UIActivityViewController ラッパー
-

@@ -17,6 +17,7 @@ struct TopMenuView: View {
     @AppStorage(AppStorageKey.paymentWindowDays) private var paymentWindowDays = 15
     @AppStorage(AppStorageKey.enableVoiceInput)  private var enableVoiceInput = true
     @AppStorage(AppStorageKey.openVoiceInputOnActive) private var openVoiceInputOnActive = false
+    @AppStorage(AppStorageKey.showBannerAds) private var showBannerAds = false
     // 音声入力の保存後も「新しい決済入力後」設定を適用する
     @AppStorage(AppStorageKey.afterSaveAction)   private var afterSaveAction: AfterSaveAction = .goBack
     /// 「よくある決済」ラベル抽出期間（音声補塡もこの期間内の実績を対象にする）
@@ -25,6 +26,9 @@ struct TopMenuView: View {
     /// 音声保存成功時に、シート dismiss 後へ持ち越す保存後アクション
     @State private var pendingVoiceAfterSave: AfterSaveAction?
     @State private var voiceInputSource = "menu"
+    @State private var showTipSheet = false
+    @State private var showAdSheet = false
+    @State private var showAdThanks = false
 
     // 古い履歴の自動整理提案まわり（実行フローは .retentionCleanup modifier に委譲）
     @AppStorage(AppStorageKey.retentionSuggestSnoozeUntil) private var retentionSnoozeUntil: Double = 0
@@ -221,6 +225,14 @@ struct TopMenuView: View {
                 .accessibilityIdentifier("menu.\(AppDestination.paymentList.rawValue)")
             }
 
+            // 引き落とし状況と下のメニューパネルの間に通常バナーを表示する
+            if showBannerAds && !SnapshotSeed.isActive {
+                InlineAdBanner()
+                    .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+            }
+
             // マスタメニューは初心者/達人に関係なく常時表示する
             Section {
                 row(.cardList, icon: "creditcard", color: .indigo, key: "top.cardList")
@@ -236,6 +248,13 @@ struct TopMenuView: View {
                     color: .gray,
                     key: "top.settings"
                 )
+            }
+
+            // 設定の直下で開発者応援の操作をまとめる
+            Section("settings.panel.cheer") {
+                Toggle("settings.cheer.showAds", isOn: $showBannerAds)
+                Button("settings.cheer.tip") { showTipSheet = true }
+                Button("settings.cheer.ad") { showAdSheet = true }
             }
         }
         // 先頭セクション前の余白を詰めて、ヘッダ直下をコンパクトにする
@@ -266,6 +285,20 @@ struct TopMenuView: View {
             // 音声入力シートは背面を透かさない
             .presentationBackground(Color(uiColor: .systemGroupedBackground))
         }
+        .sheet(isPresented: $showTipSheet) {
+            TipSheetView()
+                // シートにもアプリ内文字サイズ設定を明示適用する
+                .appFontScale(fontScale)
+                .presentationBackground(Color(uiColor: .systemBackground))
+        }
+        .sheet(isPresented: $showAdSheet) {
+            AdSupportSheet {
+                showAdThanks = true
+            }
+            // シートにもアプリ内文字サイズ設定を明示適用する
+            .appFontScale(fontScale)
+            .presentationBackground(Color(uiColor: .systemBackground))
+        }
         .onAppear {
             openVoiceInputSheetIfNeeded()
             checkRetentionSuggestion()
@@ -280,6 +313,11 @@ struct TopMenuView: View {
             if newValue {
                 openVoiceInputSheetIfNeeded()
             }
+        }
+        .alert(String(localized: "support.thanksTitle"), isPresented: $showAdThanks) {
+            Button("common.ok", role: .cancel) {}
+        } message: {
+            Text(String(localized: "support.ad.thanksMessage"))
         }
         // 古い履歴の自動整理提案（2ボタン）。実行フローは .retentionCleanup へ委譲する
         .alert("retention.suggest.title", isPresented: $showRetentionSuggest) {
