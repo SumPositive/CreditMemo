@@ -11,6 +11,7 @@ struct PaymentListView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \E8bank.nRow) private var banks: [E8bank]
     @Query(sort: \E1card.nRow) private var cards: [E1card]
+    @Query private var tags: [E5tag]
     @AppStorage(AppStorageKey.userLevel) private var userLevel: UserLevel = .beginner
     @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
     @AppStorage(AppStorageKey.paymentWindowDays) private var paymentWindowDays = 15
@@ -18,6 +19,7 @@ struct PaymentListView: View {
     @AppStorage(AppStorageKey.paymentFilterMode) private var savedFilterModeRawValue = PaymentFilterMode.all.rawValue
     @AppStorage(AppStorageKey.paymentFilterCardID) private var savedFilterCardID = ""
     @AppStorage(AppStorageKey.paymentFilterBankID) private var savedFilterBankID = ""
+    @AppStorage(AppStorageKey.paymentFilterTagID) private var savedFilterTagID = ""
     @State private var upcomingUnpaidPayments: [E7payment] = []
     @State private var overdueUnpaidPayments: [E7payment] = []
     @State private var paidPayments: [E7payment] = []
@@ -34,8 +36,10 @@ struct PaymentListView: View {
     @State private var filterMode: PaymentFilterMode = .all
     @State private var selectedBank: E8bank?
     @State private var selectedCard: E1card?
+    @State private var selectedTag: E5tag?
     @State private var showBankPicker = false
     @State private var showCardPicker = false
+    @State private var showTagPicker = false
     @State private var isInitialLoading = true
     /// 1年より古い未払（延滞）が存在するか。存在時だけ確認待ち見出しに注意アイコンを出す
     @State private var hasOlderOverdueUnpaid = false
@@ -80,6 +84,7 @@ struct PaymentListView: View {
         case .all:
             selectedCard = nil
             selectedBank = nil
+            selectedTag = nil
         case .card:
             let targetID = selectedCard?.id ?? savedFilterCardID
             guard let card = cards.first(where: { $0.id == targetID }) else {
@@ -88,6 +93,7 @@ struct PaymentListView: View {
             }
             selectedCard = card
             selectedBank = nil
+            selectedTag = nil
         case .bank:
             let targetID = selectedBank?.id ?? savedFilterBankID
             guard let bank = banks.first(where: { $0.id == targetID }) else {
@@ -96,6 +102,16 @@ struct PaymentListView: View {
             }
             selectedBank = bank
             selectedCard = nil
+            selectedTag = nil
+        case .tag:
+            let targetID = selectedTag?.id ?? savedFilterTagID
+            guard let tag = tags.first(where: { $0.id == targetID }) else {
+                clearSavedFilterCondition()
+                return
+            }
+            selectedTag = tag
+            selectedCard = nil
+            selectedBank = nil
         }
         saveFilterCondition()
     }
@@ -107,12 +123,19 @@ struct PaymentListView: View {
         case .all:
             savedFilterCardID = ""
             savedFilterBankID = ""
+            savedFilterTagID = ""
         case .card:
             savedFilterCardID = selectedCard?.id ?? ""
             savedFilterBankID = ""
+            savedFilterTagID = ""
         case .bank:
             savedFilterCardID = ""
             savedFilterBankID = selectedBank?.id ?? ""
+            savedFilterTagID = ""
+        case .tag:
+            savedFilterCardID = ""
+            savedFilterBankID = ""
+            savedFilterTagID = selectedTag?.id ?? ""
         }
     }
 
@@ -120,6 +143,7 @@ struct PaymentListView: View {
     private func clearSavedFilterCondition() {
         selectedCard = nil
         selectedBank = nil
+        selectedTag = nil
         filterMode = .all
         saveFilterCondition()
     }
@@ -172,7 +196,7 @@ struct PaymentListView: View {
     private var scrollPositionKey: String {
         // カウントを含めることで初回データ読み込み後に確実に発火させる。
         // 戻り時の不要スクロールは suppressNextScroll フラグで抑制する。
-        "\(boundaryScrollRequest)-\(groupMode.rawValue)-\(filterMode.rawValue)-\(selectedBank?.id ?? "")-\(selectedCard?.id ?? "")-\(upcomingItems.count)-\(overdueItems.count)-\(paidItems.count)"
+        "\(boundaryScrollRequest)-\(groupMode.rawValue)-\(filterMode.rawValue)-\(selectedBank?.id ?? "")-\(selectedCard?.id ?? "")-\(selectedTag?.id ?? "")-\(upcomingItems.count)-\(overdueItems.count)-\(paidItems.count)"
     }
 
     private var beginnerHelpDetail: some View {
@@ -238,11 +262,14 @@ struct PaymentListView: View {
                         filterMode: $filterMode,
                         selectedBankName: selectedBank?.zName,
                         selectedCardName: selectedCard?.zName,
+                        selectedTagName: selectedTag?.zName,
                         onSelectBank: { showBankPicker = true },
                         onSelectCard: { showCardPicker = true },
+                        onSelectTag: { showTagPicker = true },
                         onClearFilter: {
                             selectedBank = nil
                             selectedCard = nil
+                            selectedTag = nil
                             filterMode = .all
                         }
                     )
@@ -367,6 +394,22 @@ struct PaymentListView: View {
                 refreshDisplayItemsAndScroll()
             }
         }
+        .sheet(isPresented: $showTagPicker) {
+            PaymentFilterPickerSheet(
+                title: "record.field.tag",
+                items: tags.sorted { $0.zName.localizedStandardCompare($1.zName) == .orderedAscending },
+                selected: $selectedTag,
+                label: { $0.zName },
+                noSelectionTitle: "label.all"
+            )
+            // タグフィルターシートにもアプリ内文字サイズ設定を適用する
+            .appFontScale(fontScale)
+            .presentationBackground(Color(uiColor: .systemBackground))
+            .onDisappear {
+                filterMode = selectedTag == nil ? .all : .tag
+                refreshDisplayItemsAndScroll()
+            }
+        }
         .onChange(of: groupMode) { _, newValue in
             // タブを開き直したときに前回の選択を復元する
             savedGroupModeRawValue = newValue.rawValue
@@ -374,7 +417,7 @@ struct PaymentListView: View {
         }
         .onChange(of: filterMode) { _, newValue in
             saveFilterCondition()
-            // 手段・口座の選択時だけ集計軸を合わせ、解除時は現在のタブを保つ
+            // 手段・口座の選択時だけ集計軸を合わせ、タグと解除時は現在のタブを保つ
             switch newValue {
             case .all:
                 break
@@ -382,6 +425,8 @@ struct PaymentListView: View {
                 if groupMode != .card { groupMode = .card }
             case .bank:
                 if groupMode != .bank { groupMode = .bank }
+            case .tag:
+                break
             }
             refreshDisplayItemsAndScroll()
         }
@@ -391,6 +436,10 @@ struct PaymentListView: View {
         }
         .onChange(of: selectedBank?.id) { _, _ in
             // 同じ「口座」絞り込み内で選択対象だけ変わる場合も保存する
+            saveFilterCondition()
+        }
+        .onChange(of: selectedTag?.id) { _, _ in
+            // 同じ「タグ」絞り込み内で選択対象だけ変わる場合も保存する
             saveFilterCondition()
         }
         .onChange(of: paymentWindowDays) { _, _ in
@@ -670,14 +719,16 @@ struct PaymentListView: View {
                     return nil
                 }
                 return PaymentDisplayItem(
-                    id: "bank-\(payment.id)-\(filterMode.rawValue)-\(selectedCard?.id ?? "")",
+                    id: "bank-\(payment.id)-\(filterMode.rawValue)-\(selectedCard?.id ?? "")-\(selectedTag?.id ?? "")",
                     date: payment.date,
                     title: bankTitle(for: payment),
-                    amount: invoices.reduce(Decimal.zero) { $0 + $1.sumAmount },
+                    amount: invoices.reduce(Decimal.zero) { $0 + filteredAmount(in: $1) },
                     isPaid: isPaid,
                     invoices: invoices,
                     detailPayment: payment,
-                    invoiceFilter: payment.e8bank.map { .init(scope: .bank($0.id)) }
+                    invoiceFilter: detailFilter(
+                        fallback: payment.e8bank.map { .init(scope: .bank($0.id)) }
+                    )
                 )
             }
             .sorted { $1.date < $0.date }
@@ -713,7 +764,18 @@ struct PaymentListView: View {
         case .bank:
             guard let id = selectedBank?.id else { return nil }
             return InvoiceListFilter(scope: .bank(id))
+        case .tag:
+            guard let id = selectedTag?.id else { return nil }
+            return InvoiceListFilter(scope: .tag(id))
         }
+    }
+
+    /// 画面全体の絞り込みを行固有の条件より優先して詳細画面へ渡す
+    private func detailFilter(fallback: InvoiceListFilter?) -> InvoiceListFilter? {
+        if let currentInvoiceFilter {
+            return currentInvoiceFilter
+        }
+        return fallback
     }
 
     private func filteredInvoices(in invoices: [E2invoice]) -> [E2invoice] {
@@ -726,8 +788,25 @@ struct PaymentListView: View {
                 return invoice.e7payment?.e8bank?.id == selectedBank?.id
             case .card:
                 return invoice.e1card?.id == selectedCard?.id
+            case .tag:
+                guard let tagID = selectedTag?.id else { return false }
+                return invoice.e6parts.contains { part in
+                    part.e3record?.e5tags.contains { $0.id == tagID } == true
+                }
             }
         }
+    }
+
+    /// タグ絞り込み時は該当タグを持つ明細分だけを集計する
+    private func filteredAmount(in invoice: E2invoice) -> Decimal {
+        guard filterMode == .tag, let tagID = selectedTag?.id else {
+            return invoice.sumAmount
+        }
+        return invoice.e6parts
+            .filter { part in
+                part.e3record?.e5tags.contains { $0.id == tagID } == true
+            }
+            .reduce(Decimal.zero) { $0 + $1.nAmount }
     }
 
     private var dateGroupTitleText: String {
@@ -739,6 +818,8 @@ struct PaymentListView: View {
             return selectedBank?.zName ?? NSLocalizedString("payment.filter.bank", comment: "")
         case .card:
             return selectedCard?.zName ?? NSLocalizedString("payment.filter.card", comment: "")
+        case .tag:
+            return selectedTag?.zName ?? NSLocalizedString("record.field.tag", comment: "")
         }
     }
 
@@ -767,11 +848,11 @@ struct PaymentListView: View {
                 id: "\(isPaid ? "paid" : "unpaid")-\(bucketKey)",
                 date: date,
                 title: titles[bucketKey] ?? "",
-                amount: bucketInvoices.reduce(Decimal.zero) { $0 + $1.sumAmount },
+                amount: bucketInvoices.reduce(Decimal.zero) { $0 + filteredAmount(in: $1) },
                 isPaid: isPaid,
                 invoices: bucketInvoices,
                 detailPayment: uniquePayment(in: bucketInvoices),
-                invoiceFilter: filters[bucketKey] ?? nil
+                invoiceFilter: detailFilter(fallback: filters[bucketKey] ?? nil)
             )
         }
         .sorted { $1.date < $0.date }
@@ -838,16 +919,18 @@ private enum PaymentFilterMode: String, CaseIterable, Identifiable {
     case all
     case bank
     case card
+    case tag
 
     var id: Self { self }
 
-    static let displayOrder: [PaymentFilterMode] = [.all, .card, .bank]
+    static let displayOrder: [PaymentFilterMode] = [.all, .card, .bank, .tag]
 
     var localizedKey: LocalizedStringKey {
         switch self {
         case .all: "label.all"
         case .bank: "payment.filter.bank"
         case .card: "payment.filter.card"
+        case .tag: "record.field.tag"
         }
     }
 
@@ -856,6 +939,7 @@ private enum PaymentFilterMode: String, CaseIterable, Identifiable {
         case .all: "infinity"
         case .bank: "building.columns"
         case .card: "creditcard"
+        case .tag: "tag"
         }
     }
 }
@@ -882,8 +966,10 @@ private struct PaymentDisplayControlBar: View {
     @Binding var filterMode: PaymentFilterMode
     let selectedBankName: String?
     let selectedCardName: String?
+    let selectedTagName: String?
     let onSelectBank: () -> Void
     let onSelectCard: () -> Void
+    let onSelectTag: () -> Void
     let onClearFilter: () -> Void
 
     private var filterTitle: String {
@@ -897,6 +983,9 @@ private struct PaymentDisplayControlBar: View {
         case .card:
             let name = selectedCardName ?? NSLocalizedString("payment.filter.card", comment: "")
             return String(format: NSLocalizedString("payment.filter.cardPrefix", comment: ""), name)
+        case .tag:
+            let name = selectedTagName ?? NSLocalizedString("record.field.tag", comment: "")
+            return "\(NSLocalizedString("record.field.tag", comment: "")): \(name)"
         }
     }
 
@@ -910,6 +999,7 @@ private struct PaymentDisplayControlBar: View {
                 onSelectAll: onClearFilter,
                 onSelectBank: onSelectBank,
                 onSelectCard: onSelectCard,
+                onSelectTag: onSelectTag,
                 onClear: onClearFilter
             )
         }
@@ -952,6 +1042,7 @@ private struct PaymentFilterStatusBar: View {
     let onSelectAll: () -> Void
     let onSelectBank: () -> Void
     let onSelectCard: () -> Void
+    let onSelectTag: () -> Void
     let onClear: () -> Void
     @State private var showFilterMenu = false
     /// 引き落とし合計期間（直近 N 日）は設定値に直接バインドする
@@ -985,6 +1076,8 @@ private struct PaymentFilterStatusBar: View {
                     onSelectBank()
                 case .card:
                     onSelectCard()
+                case .tag:
+                    onSelectTag()
                 }
             }
         )

@@ -1,3 +1,4 @@
-Neu in 2.6.1
-- Spracheingabe: verbesserte Spracherkennung und Unterstützung für das Korrigieren des Gesagten
-- Mögliche Fehler behoben
+Neu in 2.6.2
+- Zahlungsübersicht und Abbuchungsstatus behalten nun die gewählten Anzeige- und Filteroptionen bei
+- Bei Sortierung nach Nutzungsdatum startet die Zahlungsübersicht bei Einträgen nahe dem heutigen Datum
+- Bannerwerbung erscheint nur noch oben im Hauptmenü

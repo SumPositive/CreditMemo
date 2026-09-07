@@ -1,3 +1,4 @@
-What's new in 2.6.1
-- Voice input: improved speech recognition and support for restating what you said
-- Fixed potential issues
+What's New in 2.6.2
+- Records and Debit Status now retain your selected display and filter options
+- When Records is sorted by date used, it opens near today's entries
+- Banner ads now appear only at the top of the main menu

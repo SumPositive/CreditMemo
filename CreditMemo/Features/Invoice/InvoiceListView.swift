@@ -11,6 +11,7 @@ struct InvoiceListFilter: Equatable {
     enum Scope: Equatable {
         case card(String)  // E1card.id
         case bank(String)  // E8bank.id
+        case tag(String)   // E5tag.id
     }
     let scope: Scope
 }
@@ -41,7 +42,21 @@ struct InvoiceListView: View {
             predicate: #Predicate<E2invoice> { dayStart <= $0.date && $0.date < nextDay }
         )
         let fetched = context.fetchReporting(descriptor, entity: "E2invoice")
-        let sameStateInvoices = applyFilter(fetched.filter { $0.isPaid == displayIsPaid })
+        let rowScopedFetched: [E2invoice]
+        if let scope = invoiceFilter?.scope, case .tag = scope {
+            // タグ絞り込みでも遷移元の支払・集計行の範囲を越えないようにする
+            if let payment {
+                rowScopedFetched = fetched.filter { $0.e7payment?.id == payment.id }
+            } else if let staticInvoices {
+                let invoiceIDs = Set(staticInvoices.map(\.id))
+                rowScopedFetched = fetched.filter { invoiceIDs.contains($0.id) }
+            } else {
+                rowScopedFetched = fetched
+            }
+        } else {
+            rowScopedFetched = fetched
+        }
+        let sameStateInvoices = applyFilter(rowScopedFetched.filter { $0.isPaid == displayIsPaid })
         return sameStateInvoices.isEmpty
             ? applyFilter(staticInvoices ?? payment?.e2invoices ?? [])
             : sameStateInvoices
@@ -57,12 +72,35 @@ struct InvoiceListView: View {
             return invoices.filter { $0.e1card?.id == cardID }
         case .bank(let bankID):
             return invoices.filter { $0.e7payment?.e8bank?.id == bankID }
+        case .tag(let tagID):
+            return invoices.filter { invoice in
+                invoice.e6parts.contains { part in
+                    part.e3record?.e5tags.contains { $0.id == tagID } == true
+                }
+            }
+        }
+    }
+
+    /// タグ絞り込み時は該当タグを持つ明細だけを表示する
+    private func filteredParts(in invoice: E2invoice) -> [E6part] {
+        guard let scope = invoiceFilter?.scope,
+              case .tag(let tagID) = scope else {
+            return invoice.e6parts
+        }
+        return invoice.e6parts.filter { part in
+            part.e3record?.e5tags.contains { $0.id == tagID } == true
         }
     }
 
     private var currentDisplayAmount: Decimal {
         // 保存後に同日同状態の追加分も合計へ反映する
-        let currentAmount = invoices.reduce(Decimal.zero) { $0 + $1.sumAmount }
+        let currentAmount = invoices
+            .flatMap { filteredParts(in: $0) }
+            .reduce(Decimal.zero) { $0 + $1.nAmount }
+        // タグ絞り込みでは0円の明細も正しい集計結果として扱う
+        if let scope = invoiceFilter?.scope, case .tag = scope {
+            return currentAmount
+        }
         return currentAmount == .zero ? displayAmount : currentAmount
     }
 
@@ -312,7 +350,7 @@ struct InvoiceListView: View {
             let cardName = invoice.e1card?.zName ?? "—"
             titles[cardID] = cardName
             cards[cardID] = invoice.e1card
-            buckets[cardID, default: []].append(contentsOf: invoice.e6parts)
+            buckets[cardID, default: []].append(contentsOf: filteredParts(in: invoice))
         }
 
         return buckets.map { cardID, parts in
