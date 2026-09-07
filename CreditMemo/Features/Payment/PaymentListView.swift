@@ -14,6 +14,10 @@ struct PaymentListView: View {
     @AppStorage(AppStorageKey.userLevel) private var userLevel: UserLevel = .beginner
     @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
     @AppStorage(AppStorageKey.paymentWindowDays) private var paymentWindowDays = 15
+    @AppStorage(AppStorageKey.paymentGroupMode) private var savedGroupModeRawValue = PaymentGroupMode.date.rawValue
+    @AppStorage(AppStorageKey.paymentFilterMode) private var savedFilterModeRawValue = PaymentFilterMode.all.rawValue
+    @AppStorage(AppStorageKey.paymentFilterCardID) private var savedFilterCardID = ""
+    @AppStorage(AppStorageKey.paymentFilterBankID) private var savedFilterBankID = ""
     @State private var upcomingUnpaidPayments: [E7payment] = []
     @State private var overdueUnpaidPayments: [E7payment] = []
     @State private var paidPayments: [E7payment] = []
@@ -47,6 +51,16 @@ struct PaymentListView: View {
     /// 例：決済手段一覧／口座一覧の「状況」スワイプ／ボタンから渡された値で絞り込んだ状態で開く。
     /// card と bank が同時指定された場合は card を優先する。
     init(initialCardFilter: E1card? = nil, initialBankFilter: E8bank? = nil) {
+        // 通常起動では前回選んだ集計タブを復元する
+        let savedGroupMode = PaymentGroupMode(
+            rawValue: UserDefaults.standard.string(forKey: AppStorageKey.paymentGroupMode) ?? ""
+        ) ?? .date
+        let savedFilterMode = PaymentFilterMode(
+            rawValue: UserDefaults.standard.string(forKey: AppStorageKey.paymentFilterMode) ?? ""
+        ) ?? .all
+        _groupMode = State(initialValue: savedGroupMode)
+        _filterMode = State(initialValue: savedFilterMode)
+
         if let card = initialCardFilter {
             _selectedCard = State(initialValue: card)
             _filterMode   = State(initialValue: .card)
@@ -59,6 +73,57 @@ struct PaymentListView: View {
             _groupMode    = State(initialValue: .bank)
         }
     }
+
+    /// 保存済みIDを現在のSwiftDataモデルへ解決し、削除済みなら絞り込みを解除する
+    private func restoreSavedFilterCondition() {
+        switch filterMode {
+        case .all:
+            selectedCard = nil
+            selectedBank = nil
+        case .card:
+            let targetID = selectedCard?.id ?? savedFilterCardID
+            guard let card = cards.first(where: { $0.id == targetID }) else {
+                clearSavedFilterCondition()
+                return
+            }
+            selectedCard = card
+            selectedBank = nil
+        case .bank:
+            let targetID = selectedBank?.id ?? savedFilterBankID
+            guard let bank = banks.first(where: { $0.id == targetID }) else {
+                clearSavedFilterCondition()
+                return
+            }
+            selectedBank = bank
+            selectedCard = nil
+        }
+        saveFilterCondition()
+    }
+
+    /// 現在の絞り込み種別と対象IDだけを保存する
+    private func saveFilterCondition() {
+        savedFilterModeRawValue = filterMode.rawValue
+        switch filterMode {
+        case .all:
+            savedFilterCardID = ""
+            savedFilterBankID = ""
+        case .card:
+            savedFilterCardID = selectedCard?.id ?? ""
+            savedFilterBankID = ""
+        case .bank:
+            savedFilterCardID = ""
+            savedFilterBankID = selectedBank?.id ?? ""
+        }
+    }
+
+    /// 復元できない絞り込みを初期状態へ戻す
+    private func clearSavedFilterCondition() {
+        selectedCard = nil
+        selectedBank = nil
+        filterMode = .all
+        saveFilterCondition()
+    }
+
     @State private var togglingPaymentIDs: Set<String> = []
     /// false のとき自動スクロールをスキップする
     @State private var autoScrollEnabled = true
@@ -267,6 +332,8 @@ struct PaymentListView: View {
             }
         }
         .onAppear {
+            // 初回読込前に絞り込み対象を復元する
+            restoreSavedFilterCondition()
             // 詳細から戻ったとき（autoScrollEnabled が OFF）は、ユーザーが広げた
             // 済みの表示窓を保つ。初回・条件変更時（ON）は窓を90日へ戻す。
             let keepWindow = !autoScrollEnabled
@@ -318,21 +385,31 @@ struct PaymentListView: View {
                 refreshDisplayItemsAndScroll()
             }
         }
-        .onChange(of: groupMode) { _, _ in
+        .onChange(of: groupMode) { _, newValue in
+            // タブを開き直したときに前回の選択を復元する
+            savedGroupModeRawValue = newValue.rawValue
             refreshDisplayItemsAndScroll()
         }
         .onChange(of: filterMode) { _, newValue in
-            // フィルターに連動して上段の集計軸も切り替える
-            // 手段→手段、口座→口座、すべて→日付
+            saveFilterCondition()
+            // 手段・口座の選択時だけ集計軸を合わせ、解除時は現在のタブを保つ
             switch newValue {
             case .all:
-                if groupMode != .date { groupMode = .date }
+                break
             case .card:
                 if groupMode != .card { groupMode = .card }
             case .bank:
                 if groupMode != .bank { groupMode = .bank }
             }
             refreshDisplayItemsAndScroll()
+        }
+        .onChange(of: selectedCard?.id) { _, _ in
+            // 同じ「手段」絞り込み内で選択対象だけ変わる場合も保存する
+            saveFilterCondition()
+        }
+        .onChange(of: selectedBank?.id) { _, _ in
+            // 同じ「口座」絞り込み内で選択対象だけ変わる場合も保存する
+            saveFilterCondition()
         }
         .onChange(of: paymentWindowDays) { _, _ in
             refreshDisplayItemsAndScroll()
