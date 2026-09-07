@@ -1905,14 +1905,13 @@ fastlane upload_screenshots     # スクショ Upload
 
 
 ------------------------------------------------
-2.7.0 
+2.6.2 更新
 - 決済一覧と引き落とし状況の表示条件を保持するようになりました
 - 決済一覧で利用日を選択すると当日に近い明細から表示します
-- バナー広告をデフォルトOFFにし、設定でONにできるようにしました
-
+- バナー広告をメニュー画面上だけにしました
 -----
 fastlane メタデータを更新して
-2.7.0 準備中、README.mdの開発メモ、公開アプリパネル、取扱説明を更新して
+2.6.2 準備中、README.mdの開発メモ、公開アプリパネル、取扱説明を更新して
 -----
 cd /Users/sumpositive/GitLocal/CreditMemo
 fastlane upload_metadata 
@@ -1920,7 +1919,7 @@ fastlane upload_metadata
 fastlane screenshots            # スクショ 生成確認
 fastlane upload_screenshots     # スクショ Upload
 -----
-2.7.0 公開、公開アプリパネル、取扱説明を更新して
+2.6.2 公開、公開アプリパネル、取扱説明を更新して
 ------------------------------------------------
 
 
