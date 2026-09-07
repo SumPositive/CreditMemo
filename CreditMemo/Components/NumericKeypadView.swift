@@ -72,9 +72,11 @@ struct NumericKeypadSheet: View {
                         .foregroundStyle(displayColor)
                         .lineLimit(1)
                         .minimumScaleFactor(0.65)
-                        .contentTransition(.numericText())
-                        .animation(.snappy, value: digits)
-                        .animation(.snappy, value: isNegative)
+                        // 連続入力を即時反映し、数値切替アニメーションによる遅延を避ける
+                        .transaction { transaction in
+                            transaction.animation = nil
+                            transaction.disablesAnimations = true
+                        }
                     Spacer()
                 }
                 .padding(.horizontal)
