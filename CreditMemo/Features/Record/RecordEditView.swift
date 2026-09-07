@@ -2976,6 +2976,14 @@ private struct PickerSheet<T: Identifiable>: View where T.ID: Equatable {
     @State private var showAdd = false
     @State private var itemIDsBeforeAdd: [T.ID] = []
 
+    /// 「未選択」を含む行数に合わせ、多い場合は最初から最大まで開く
+    private var pickerDetents: Set<PresentationDetent> {
+        let rowCount = items.count + (allowNone ? 1 : 0)
+        guard rowCount <= 6 else { return [.large] }
+        let contentHeight = ceil(90 + CGFloat(max(rowCount, 1)) * 50)
+        return [.height(contentHeight), .large]
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -3035,7 +3043,7 @@ private struct PickerSheet<T: Identifiable>: View where T.ID: Equatable {
                 }
             }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents(pickerDetents)
         .presentationBackground(Color(uiColor: .systemBackground))
     }
 }
@@ -3056,6 +3064,14 @@ private struct CategoryMultiPickerSheet: View {
     private let maxSelection = 10
 
     private var sortMode: SortMode { SortMode(rawValue: sortModeRaw) ?? .recent }
+
+    /// 少ない行は内容に合わせ、多い行は最初から最大まで開く
+    private var tagPickerDetents: Set<PresentationDetent> {
+        guard items.count <= 5 else { return [.large] }
+        let rowCount = max(items.count, 1)
+        let contentHeight = ceil(150 + CGFloat(rowCount) * 50)
+        return [.height(contentHeight), .large]
+    }
 
     private var items: [E5tag] {
         switch sortMode {
@@ -3131,7 +3147,7 @@ private struct CategoryMultiPickerSheet: View {
                     .presentationBackground(Color(uiColor: .systemBackground))
             }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents(tagPickerDetents)
         .presentationBackground(Color(uiColor: .systemBackground))
         .onAppear {
             rebuildDisplayOrder()

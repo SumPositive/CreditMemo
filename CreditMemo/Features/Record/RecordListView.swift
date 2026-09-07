@@ -449,8 +449,6 @@ struct RecordListView: View {
             )
             // シートにもアプリ内文字サイズ設定を明示適用する
             .appFontScale(fontScale)
-            // 選択シートは中段から開き、ハンドルで拡大できるようにする。
-            .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
             // 決済手段フィルターシートの背面を透かさない
             .presentationBackground(Color(uiColor: .systemBackground))
@@ -467,8 +465,6 @@ struct RecordListView: View {
             )
             // シートにもアプリ内文字サイズ設定を明示適用する
             .appFontScale(fontScale)
-            // 選択シートは中段から開き、ハンドルで拡大できるようにする。
-            .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
             // 口座フィルターシートの背面を透かさない
             .presentationBackground(Color(uiColor: .systemBackground))
@@ -479,8 +475,6 @@ struct RecordListView: View {
             }
             // シートにもアプリ内文字サイズ設定を明示適用する
             .appFontScale(fontScale)
-            // 選択シートは中段から開き、ハンドルで拡大できるようにする。
-            .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
             // タグフィルターシートの背面を透かさない
             .presentationBackground(Color(uiColor: .systemBackground))
@@ -689,6 +683,13 @@ private struct RecordSingleFilterPickerSheet<Item: Identifiable>: View {
 
     @Environment(\.dismiss) private var dismiss
 
+    /// 候補数に合わせ、多い場合は最初から最大まで開く
+    private var pickerDetents: Set<PresentationDetent> {
+        guard items.count <= 6 else { return [.large] }
+        let contentHeight = ceil(90 + CGFloat(max(items.count, 1)) * 50)
+        return [.height(contentHeight), .large]
+    }
+
     var body: some View {
         NavigationStack {
             List(items) { item in
@@ -707,6 +708,7 @@ private struct RecordSingleFilterPickerSheet<Item: Identifiable>: View {
                 }
             }
         }
+        .presentationDetents(pickerDetents)
     }
 }
 
@@ -720,6 +722,14 @@ private struct RecordTagFilterSheet: View {
 
     private var selectedIDs: Set<String> {
         Set(selectedTags.map(\.id))
+    }
+
+    /// 少ない行は内容に合わせ、多い行は最初から最大まで開く
+    private var tagPickerDetents: Set<PresentationDetent> {
+        guard tags.count <= 6 else { return [.large] }
+        let rowCount = max(tags.count, 1)
+        let contentHeight = ceil(90 + CGFloat(rowCount) * 50)
+        return [.height(contentHeight), .large]
     }
 
     var body: some View {
@@ -752,6 +762,7 @@ private struct RecordTagFilterSheet: View {
                 }
             }
         }
+        .presentationDetents(tagPickerDetents)
     }
 
     private func toggle(_ tag: E5tag) {

@@ -1087,6 +1087,14 @@ private struct PaymentFilterPickerSheet<T: Identifiable>: View where T.ID: Equat
 
     @Environment(\.dismiss) private var dismiss
 
+    /// 「すべて」を含む行数に合わせ、多い場合は最初から最大まで開く
+    private var pickerDetents: Set<PresentationDetent> {
+        let rowCount = items.count + 1
+        guard rowCount <= 6 else { return [.large] }
+        let contentHeight = ceil(90 + CGFloat(max(rowCount, 1)) * 50)
+        return [.height(contentHeight), .large]
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -1113,7 +1121,7 @@ private struct PaymentFilterPickerSheet<T: Identifiable>: View where T.ID: Equat
                 }
             }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents(pickerDetents)
     }
 
     private func pickerRow(title: String, isSelected: Bool) -> some View {
