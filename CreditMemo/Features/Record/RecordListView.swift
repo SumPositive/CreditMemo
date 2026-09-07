@@ -100,7 +100,8 @@ struct RecordListView: View {
         fileprivate var filterKind: FilterKind = .all
         fileprivate var period: RecordPeriod = .oneYear
         fileprivate var selectedTags: [E5tag] = []
-        fileprivate var sortTarget: SortTarget = .edit
+        // 初期表示は利用日の新しい順にする
+        fileprivate var sortTarget: SortTarget = .date
         fileprivate var sortDirection: SortDirection = .descending
         fileprivate init() {}
     }
@@ -155,6 +156,9 @@ struct RecordListView: View {
     @State private var recordPage = 0
     @State private var hasMoreRecords = true
     @State private var isLoadingRecords = false
+    /// 並び替え後に基準となるセルへ移動するための要求
+    @State private var recordScrollRequest = 0
+    @State private var recordScrollTargetID: String?
     @State private var sheetTarget: RecordSheetTarget?
     /// この画面表示中だけ保持する、保存前のコピー仮明細
     @State private var draftCopies: [RecordDraftCopy] = []
@@ -248,8 +252,83 @@ struct RecordListView: View {
         )
     }
 
+    /// 一覧のスクロール領域から独立して固定表示する条件パネル
+    private var conditionPanel: some View {
+        // 各Pickerのタップ領域は保ち、段間と外側余白だけを詰める
+        VStack(spacing: 4) {
+            // 対象期間はDynamic Typeに追従するラジオPickerで選ぶ
+            AZRadioPicker(
+                options: RecordPeriod.allCases,
+                selection: $period,
+                minOptionWidth: 0,
+                maxOptionWidth: 120,
+                horizontalPadding: 4,
+                optionSpacing: 4,
+                groupPadding: 5,
+                wrapsOptions: false,
+                fillsWidth: true
+            ) { period in
+                Text(period.localizedKey)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.50)
+            }
+            .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+            .frame(maxWidth: .infinity)
+
+            HStack(spacing: 8) {
+                // 絞り込み条件は設定画面と同じプルダウンPickerで選ぶ
+                AZDropdownPicker(
+                    options: filterOptions,
+                    selection: filterSelectionBinding,
+                    isExpanded: $showFilterPopover,
+                    minWidth: 0,
+                    fillsWidth: true
+                ) { option in
+                    filterLabel(option)
+                }
+                .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                .frame(maxWidth: .infinity)
+
+                if isFilterActive {
+                    Button {
+                        clearFilter()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                            .font(.title3)
+                            .foregroundStyle(.secondary)
+                            .frame(width: 34, height: 34)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(Text("label.all"))
+                }
+            }
+            .fixedSize(horizontal: false, vertical: true)
+
+            // 並び順は同一項目の再タップで昇順/降順を切り替える
+            AZRadioPicker(
+                options: sortOptions,
+                selection: sortSelectionBinding,
+                minOptionWidth: 0,
+                maxOptionWidth: 180,
+                horizontalPadding: 4,
+                optionSpacing: 4,
+                groupPadding: 5,
+                wrapsOptions: false,
+                fillsWidth: true
+            ) { target in
+                sortLabel(target)
+            }
+            .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+            .frame(maxWidth: .infinity)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 4)
+        .background(Color(uiColor: .systemGroupedBackground))
+    }
+
     var body: some View {
-        List {
+        ScrollViewReader { proxy in
+            List {
             if userLevel == .beginner {
                 Section {
                     BeginnerHintView(
@@ -258,76 +337,6 @@ struct RecordListView: View {
                     )
                 }
             }
-            Section {
-                VStack(spacing: 8) {
-                    // 対象期間はDynamic Typeに追従するラジオPickerで選ぶ
-                    AZRadioPicker(
-                        options: RecordPeriod.allCases,
-                        selection: $period,
-                        minOptionWidth: 0,
-                        maxOptionWidth: 120,
-                        horizontalPadding: 4,
-                        optionSpacing: 4,
-                        groupPadding: 5,
-                        wrapsOptions: false,
-                        fillsWidth: true
-                    ) { period in
-                        Text(period.localizedKey)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.50)
-                    }
-                    .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
-                    .frame(maxWidth: .infinity)
-
-                    HStack(spacing: 8) {
-                        // 絞り込み条件は設定画面と同じプルダウンPickerで選ぶ
-                        AZDropdownPicker(
-                            options: filterOptions,
-                            selection: filterSelectionBinding,
-                            isExpanded: $showFilterPopover,
-                            minWidth: 0,
-                            fillsWidth: true
-                        ) { option in
-                            filterLabel(option)
-                        }
-                        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
-                        .frame(maxWidth: .infinity)
-
-                        if isFilterActive {
-                            Button {
-                                clearFilter()
-                            } label: {
-                                Image(systemName: "xmark.circle.fill").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
-                                    .font(.title3)
-                                    .foregroundStyle(.secondary)
-                                    .frame(width: 34, height: 34)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel(Text("label.all"))
-                        }
-                    }
-                    .fixedSize(horizontal: false, vertical: true)
-
-                    // 並び順は同一項目の再タップで昇順/降順を切り替える
-                    AZRadioPicker(
-                        options: sortOptions,
-                        selection: sortSelectionBinding,
-                        minOptionWidth: 0,
-                        maxOptionWidth: 180,
-                        horizontalPadding: 4,
-                        optionSpacing: 4,
-                        groupPadding: 5,
-                        wrapsOptions: false,
-                        fillsWidth: true
-                    ) { target in
-                        sortLabel(target)
-                    }
-                    .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
-                    .frame(maxWidth: .infinity)
-                }
-                .padding(.vertical, 2)
-            }
-            .listRowInsets(EdgeInsets(top: 2, leading: 16, bottom: 2, trailing: 16))
             // 初心者モードで一度もコピーしていない時だけ、「左へスワイプ」ヒントを出す
             if userLevel == .beginner && !copySwipeHintDone && !filtered.isEmpty {
                 CopySwipeHint()
@@ -342,6 +351,7 @@ struct RecordListView: View {
                     RecordSummaryRow(record: record)
                 }
                 .buttonStyle(.plain)
+                .id(record.id)
                 // 右スワイプ（指は左方向）で、その場に明細の複製を追加する
                 // 引き落とし明細と同じコピー表示にそろえる
                 // ロングスワイプの即時実行は無効にする（誤操作防止）
@@ -380,10 +390,23 @@ struct RecordListView: View {
                 }
             }
         }
-        // 条件パネル下のセクション間余白を詰める
+        // 一覧内のセクション間余白を詰める
         .listSectionSpacing(.compact)
         // 条件パネル上（ナビゲーション下）の余白を詰める
         .contentMargins(.top, 8, for: .scrollContent)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            conditionPanel
+        }
+        .task(id: recordScrollRequest) {
+            guard 0 < recordScrollRequest, let recordScrollTargetID else { return }
+            // 行の再構築を待ち、アニメーションなしで対象セルを先頭へ移動する
+            await Task.yield()
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                proxy.scrollTo(recordScrollTargetID, anchor: .top)
+            }
+        }
         .scalableNavigationTitle("record.list.title") {
             Image(systemName: "list.bullet.circle.fill")
                 .foregroundStyle(Color.cyan)
@@ -415,6 +438,10 @@ struct RecordListView: View {
         .onAppear {
             if records.isEmpty {
                 resetAndLoadRecords()
+                // 初期状態が利用日順でも今日に最も近いセルを先頭へ合わせる
+                if sortTarget == .date {
+                    prepareClosestDateScroll()
+                }
             }
         }
         .onChange(of: period) { _, newValue in
@@ -432,10 +459,20 @@ struct RecordListView: View {
         .onChange(of: sortTarget) { _, newValue in
             SavedConditions.shared.sortTarget = newValue
             resetAndLoadRecords()
+            if newValue == .date {
+                prepareClosestDateScroll()
+            } else {
+                prepareFirstRecordScroll()
+            }
         }
         .onChange(of: sortDirection) { _, newValue in
             SavedConditions.shared.sortDirection = newValue
             resetAndLoadRecords()
+            if sortTarget == .date {
+                prepareClosestDateScroll()
+            } else {
+                prepareFirstRecordScroll()
+            }
         }
         .sheet(isPresented: $showCardPicker) {
             RecordSingleFilterPickerSheet(
@@ -478,6 +515,7 @@ struct RecordListView: View {
             .presentationDragIndicator(.visible)
             // タグフィルターシートの背面を透かさない
             .presentationBackground(Color(uiColor: .systemBackground))
+        }
         }
     }
 
@@ -595,6 +633,38 @@ struct RecordListView: View {
         sortedCache = allRecords
             .filter(matchesFilter)
             .sorted(by: shouldPlaceBefore)
+    }
+
+    /// 今日との差が最小の利用日を探し、対象行を含むページまで読み込む
+    private func prepareClosestDateScroll() {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        var targetIndex: Int?
+        var closestDistance = TimeInterval.greatestFiniteMagnitude
+
+        for index in sortedCache.indices {
+            let date = calendar.startOfDay(for: sortedCache[index].dateUse)
+            let distance = abs(date.timeIntervalSince(today))
+            if distance < closestDistance {
+                closestDistance = distance
+                targetIndex = index
+            }
+        }
+
+        guard let targetIndex else { return }
+        let requiredPageCount = targetIndex / pageSize + 1
+        while recordPage < requiredPageCount && hasMoreRecords {
+            loadMoreRecordsIfNeeded()
+        }
+        recordScrollTargetID = sortedCache[targetIndex].id
+        recordScrollRequest += 1
+    }
+
+    /// 編集日と金額の並び替えでは先頭の決済セルへ移動する
+    private func prepareFirstRecordScroll() {
+        guard let firstRecord = records.first else { return }
+        recordScrollTargetID = firstRecord.id
+        recordScrollRequest += 1
     }
 
     /// 入力順ソート用の代表日時（未設定時は利用日へフォールバック）

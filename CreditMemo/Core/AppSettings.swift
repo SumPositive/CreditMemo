@@ -48,7 +48,7 @@ enum AppStorageKey {
     /// 引き落とし日が土日祝なら翌営業日へ繰り下げる（日本ロケール・締日/支払日型のみ）
     static let shiftDueDateOffHoliday = "setting.shiftDueDateOffHoliday"
     static let paymentWindowDays = "setting.paymentWindowDays"
-    /// 引き落とし状況で最後に選んだ集計タブ
+    /// 引き落とし状況で最後に選んだ集計タブ、初期値は口座
     static let paymentGroupMode = "setting.paymentGroupMode"
     /// 引き落とし状況で最後に選んだ絞り込み種別
     static let paymentFilterMode = "setting.paymentFilterMode"

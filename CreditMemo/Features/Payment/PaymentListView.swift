@@ -14,7 +14,7 @@ struct PaymentListView: View {
     @AppStorage(AppStorageKey.userLevel) private var userLevel: UserLevel = .beginner
     @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
     @AppStorage(AppStorageKey.paymentWindowDays) private var paymentWindowDays = 15
-    @AppStorage(AppStorageKey.paymentGroupMode) private var savedGroupModeRawValue = PaymentGroupMode.date.rawValue
+    @AppStorage(AppStorageKey.paymentGroupMode) private var savedGroupModeRawValue = PaymentGroupMode.bank.rawValue
     @AppStorage(AppStorageKey.paymentFilterMode) private var savedFilterModeRawValue = PaymentFilterMode.all.rawValue
     @AppStorage(AppStorageKey.paymentFilterCardID) private var savedFilterCardID = ""
     @AppStorage(AppStorageKey.paymentFilterBankID) private var savedFilterBankID = ""
@@ -30,7 +30,7 @@ struct PaymentListView: View {
     @State private var unpaidGrouped = PaymentUnpaidGrouped(sections: [])
     /// 済みを過去へ何日前まで表示しているか（90日単位で広げる）
     @State private var paidWindowDays = 90
-    @State private var groupMode: PaymentGroupMode = .date
+    @State private var groupMode: PaymentGroupMode = .bank
     @State private var filterMode: PaymentFilterMode = .all
     @State private var selectedBank: E8bank?
     @State private var selectedCard: E1card?
@@ -54,7 +54,7 @@ struct PaymentListView: View {
         // 通常起動では前回選んだ集計タブを復元する
         let savedGroupMode = PaymentGroupMode(
             rawValue: UserDefaults.standard.string(forKey: AppStorageKey.paymentGroupMode) ?? ""
-        ) ?? .date
+        ) ?? .bank
         let savedFilterMode = PaymentFilterMode(
             rawValue: UserDefaults.standard.string(forKey: AppStorageKey.paymentFilterMode) ?? ""
         ) ?? .all
