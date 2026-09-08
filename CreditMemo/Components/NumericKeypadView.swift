@@ -1,6 +1,61 @@
 import SwiftUI
 import UIKit
 
+/// 簡易電卓で使う四則演算子
+enum NumericCalculatorOperator: CaseIterable, Identifiable {
+    case divide
+    case multiply
+    case subtract
+    case add
+
+    var id: Self { self }
+
+    var symbol: String {
+        switch self {
+        case .divide:   "÷"
+        case .multiply: "×"
+        case .subtract: "−"
+        case .add:      "+"
+        }
+    }
+}
+
+/// 通貨の最小単位へそろえる丸め方法
+enum NumericCalculatorRounding: CaseIterable, Identifiable {
+    case up
+    case halfUp
+    case bankers
+    case down
+
+    var id: Self { self }
+
+    var localizedKey: LocalizedStringKey {
+        switch self {
+        case .up:      "calculator.rounding.up"
+        case .halfUp:  "calculator.rounding.halfUp"
+        case .bankers: "settings.roundBankers"
+        case .down:    "calculator.rounding.down"
+        }
+    }
+
+    private var decimalMode: Decimal.RoundingMode {
+        switch self {
+        case .up:      .up
+        case .halfUp:  .plain
+        case .bankers: .bankers
+        case .down:    .down
+        }
+    }
+
+    /// 指定桁へ選択中の方法で丸める
+    func round(_ value: Decimal, scale: Int) -> Decimal {
+        var source = value
+        var result = Decimal()
+        NSDecimalRound(&result, &source, scale, decimalMode)
+        return result
+    }
+}
+
 // MARK: - テンキーオーバーレイ
 
 /// システムシートを使わず画面下部へ固定する00キー付きテンキー
@@ -14,6 +69,11 @@ struct NumericKeypadOverlay: View {
     @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
     @State private var digits: String = ""
     @State private var isNegative: Bool = false
+    @State private var accumulator: Decimal?
+    @State private var pendingOperator: NumericCalculatorOperator?
+    @State private var calculationResult: Decimal?
+    @State private var rounding: NumericCalculatorRounding = .halfUp
+    @State private var calculationErrorKey: LocalizedStringKey?
 
     private var isEmpty: Bool { digits.isEmpty }
     private var isCompact: Bool { UIScreen.main.bounds.height <= 700 }
@@ -22,23 +82,84 @@ struct NumericKeypadOverlay: View {
     private var displayScale: CGFloat { min(uiScale, 1.2) }
     private var sheetSpacing: CGFloat { (isCompact ? 10 : 14) * fontScale.uiScale }
     private var displayFontSize: CGFloat { (isCompact ? 44 : 52) * displayScale }
-    private var locale: Locale { .current }
+    private var locale: Locale { Decimal.effectiveCurrencyLocale }
     private var fractionDigits: Int { Decimal.currencyFractionDigits(locale: locale) }
 
+    private var enteredValue: Decimal? {
+        guard !isEmpty, let number = Decimal(string: digits) else { return nil }
+        let value: Decimal
+        if pendingOperator == .multiply || pendingOperator == .divide {
+            // 乗除算の右辺は通貨額ではなく整数倍率として扱う
+            value = number
+        } else {
+            value = Decimal.fromMinorUnits(number, locale: locale)
+        }
+        return isNegative ? -value : value
+    }
+
+    private var activeValue: Decimal {
+        if pendingOperator != nil, let calculationResult { return calculationResult }
+        if let enteredValue { return enteredValue }
+        if let calculationResult { return calculationResult }
+        if let accumulator { return accumulator }
+        let magnitude = placeholder < 0 ? -placeholder : placeholder
+        return isNegative ? -magnitude : magnitude
+    }
+
     private var committedValue: Decimal {
-        guard !isEmpty, let minorUnits = Decimal(string: digits) else { return placeholder }
-        let absValue = min(Decimal.fromMinorUnits(minorUnits, locale: locale), maxValue)
-        return isNegative ? -absValue : absValue
+        rounding.round(activeValue, scale: fractionDigits)
+    }
+
+    private var needsRounding: Bool {
+        guard calculationResult != nil else { return false }
+        return NumericCalculatorRounding.down.round(activeValue, scale: fractionDigits) != activeValue
     }
 
     /// 入力中の金額表示は、通貨記号の位置も含めてロケールへ合わせる
     private var displayAmountText: String {
-        committedValue.currencyString(locale: locale)
+        if calculationResult == nil && !digits.isEmpty
+            && (pendingOperator == .multiply || pendingOperator == .divide) {
+            return scalarDisplayText
+        }
+        // 上段は選択中の方法で丸めた最終金額を表示する
+        return currencyText(
+            needsRounding ? committedValue : activeValue,
+            fractionDigits: fractionDigits
+        )
     }
 
     private var displayColor: Color {
-        guard !isEmpty else { return Color(.tertiaryLabel) }
-        return isNegative ? .red : Color(.label)
+        let isPristine = digits.isEmpty && accumulator == nil && calculationResult == nil
+        guard !isPristine else { return Color(.tertiaryLabel) }
+        return activeValue < 0 ? .red : Color(.label)
+    }
+
+    private var scalarDisplayText: String {
+        guard let number = Decimal(string: digits) else { return "0" }
+        let value = isNegative ? -number : number
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.locale = locale
+        formatter.maximumFractionDigits = 0
+        return formatter.string(from: value as NSDecimalNumber) ?? "\(value)"
+    }
+
+    private var expressionText: String? {
+        guard let accumulator, let pendingOperator else { return nil }
+        let left = numberText(
+            accumulator,
+            fractionDigits: hasSubCurrencyFraction(accumulator) ? fractionDigits + 1 : fractionDigits
+        )
+        guard !digits.isEmpty else { return "\(left) \(pendingOperator.symbol)" }
+        let right: String
+        if pendingOperator == .multiply || pendingOperator == .divide {
+            right = scalarDisplayText
+        } else if let enteredValue {
+            right = numberText(enteredValue, fractionDigits: fractionDigits)
+        } else {
+            right = digits
+        }
+        return "\(left) \(pendingOperator.symbol) \(right)"
     }
 
     /// 入力可能な最大小数単位の桁数
@@ -70,13 +191,41 @@ struct NumericKeypadOverlay: View {
                             transaction.disablesAnimations = true
                         }
 
-                    NumericKeypad(compact: isCompact, scale: uiScale) { key in
-                        handleKey(key)
+                    if let expressionText {
+                        Text(expressionText)
+                            .font(.title3.weight(.medium).monospacedDigit())
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.70)
+                            .padding(.horizontal, 16)
                     }
+
+                    if needsRounding {
+                        roundingPicker
+                    }
+
+                    if let calculationErrorKey {
+                        Text(calculationErrorKey)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
+
+                    HStack(alignment: .top, spacing: (isCompact ? 8 : 10) * uiScale) {
+                        NumericKeypad(compact: isCompact, scale: uiScale) { key in
+                            handleKey(key)
+                        }
+                        CalculatorOperatorKeypad(
+                            compact: isCompact,
+                            scale: uiScale,
+                            selectedOperator: pendingOperator,
+                            onSelect: selectOperator
+                        )
+                    }
+                    .padding(.horizontal, (isCompact ? 16 : 20) * uiScale)
 
                     Button {
                         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                        onCommit(committedValue)
+                        commitCalculation()
                     } label: {
                         Text("button.done")
                             .font(.headline)
@@ -106,6 +255,8 @@ struct NumericKeypadOverlay: View {
             isNegative = placeholder < 0
         }
         .modifier(ConditionalSheetDynamicTypeModifier(fontScale: fontScale))
+        // 親がシート表示でも、テンキー操作中は親シートの上下パンを止める
+        .background(SheetPanGestureDisabler())
         // 表示切替や入力更新でオーバーレイを動かさない
         .transaction { transaction in
             transaction.animation = nil
@@ -126,7 +277,7 @@ struct NumericKeypadOverlay: View {
                 .font(.headline)
             Spacer()
             Button {
-                isNegative.toggle()
+                toggleSign()
             } label: {
                 Image(systemName: "minus.forwardslash.plus").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                     .font(.body.weight(.semibold))
@@ -137,13 +288,65 @@ struct NumericKeypadOverlay: View {
         .padding(.horizontal, 12)
     }
 
+    private var roundingPicker: some View {
+        Menu {
+            ForEach(NumericCalculatorRounding.allCases) { option in
+                Button {
+                    rounding = option
+                } label: {
+                    if rounding == option {
+                        Label(option.localizedKey, systemImage: "checkmark")
+                    } else {
+                        Text(option.localizedKey)
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 8) {
+                // 左側には通貨記号を付けず、最小単位より1桁多い数値を表示する
+                Text("=\(numberText(activeValue, fractionDigits: fractionDigits + 1))")
+                    .font(.body.monospacedDigit())
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text(rounding.localizedKey)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.caption)
+            }
+            .padding(.horizontal, 14)
+            .frame(minHeight: 38 * uiScale)
+            .background(Color(.secondarySystemGroupedBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 20 * uiScale)
+    }
+
     private func handleKey(_ key: NumericKeypadKey) {
+        calculationErrorKey = nil
         switch key {
         case .digit(let d):   appendDigits(String(d))
         case .doubleZero:     appendDigits("00")
         case .delete:
-            if !digits.isEmpty { digits.removeLast() }
+            deleteLastInput()
         }
+    }
+
+    private func deleteLastInput() {
+        if !digits.isEmpty {
+            digits.removeLast()
+            updateCalculationPreview()
+            return
+        }
+        guard pendingOperator != nil, let left = accumulator else { return }
+
+        // 右辺を消し終えた次のBSで演算子を外し、左辺を再編集できる形へ戻す
+        pendingOperator = nil
+        calculationResult = nil
+        accumulator = nil
+        isNegative = left < 0
+        let magnitude = left < 0 ? -left : left
+        digits = (magnitude.minorUnits(locale: locale) as NSDecimalNumber).stringValue
     }
 
     private func appendDigits(_ suffix: String) {
@@ -153,10 +356,121 @@ struct NumericKeypadOverlay: View {
         } else {
             next = digits + suffix
         }
-        guard let minorUnits = Decimal(string: next), 0 <= minorUnits else { return }
+        guard let number = Decimal(string: next), 0 <= number else { return }
         guard next.count <= maxMinorUnitsText.count else { return }
-        guard Decimal.fromMinorUnits(minorUnits, locale: locale) <= maxValue else { return }
+        let candidate = pendingOperator == .multiply || pendingOperator == .divide
+            ? number
+            : Decimal.fromMinorUnits(number, locale: locale)
+        guard candidate <= maxValue else { return }
         digits = next
+        updateCalculationPreview()
+    }
+
+    private func toggleSign() {
+        if !digits.isEmpty {
+            isNegative.toggle()
+            updateCalculationPreview()
+            return
+        }
+        if let value = accumulator {
+            accumulator = -value
+            calculationResult = calculationResult.map { -$0 }
+            return
+        }
+        isNegative.toggle()
+    }
+
+    private func selectOperator(_ newOperator: NumericCalculatorOperator) {
+        calculationErrorKey = nil
+        if let currentOperator = pendingOperator,
+           let left = accumulator,
+           let right = enteredValue {
+            guard let result = calculate(left, currentOperator, right) else { return }
+            accumulator = result
+            calculationResult = result
+        } else if accumulator == nil {
+            accumulator = activeValue
+        }
+        pendingOperator = newOperator
+        digits = ""
+        isNegative = false
+    }
+
+    private func updateCalculationPreview() {
+        guard let left = accumulator,
+              let pendingOperator,
+              let right = enteredValue else {
+            calculationResult = nil
+            return
+        }
+        calculationResult = calculate(left, pendingOperator, right)
+    }
+
+    private func commitCalculation() {
+        if let left = accumulator,
+           let pendingOperator,
+           let right = enteredValue {
+            guard let result = calculate(left, pendingOperator, right) else { return }
+            calculationResult = result
+        }
+        onCommit(committedValue)
+    }
+
+    private func calculate(
+        _ left: Decimal,
+        _ operation: NumericCalculatorOperator,
+        _ right: Decimal
+    ) -> Decimal? {
+        let result: Decimal
+        switch operation {
+        case .divide:
+            guard right != 0 else {
+                calculationErrorKey = "calculator.error.divideByZero"
+                return nil
+            }
+            result = left / right
+        case .multiply:
+            result = left * right
+        case .subtract:
+            result = left - right
+        case .add:
+            result = left + right
+        }
+
+        let magnitude = result < 0 ? -result : result
+        guard magnitude <= maxValue else {
+            calculationErrorKey = "calculator.error.tooLarge"
+            return nil
+        }
+        calculationErrorKey = nil
+        return result
+    }
+
+    private func currencyText(_ value: Decimal, fractionDigits: Int) -> String {
+        let showSymbol = UserDefaults.standard.object(forKey: "setting.showCurrencySymbol") as? Bool ?? true
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.locale = locale
+        formatter.minimumFractionDigits = fractionDigits
+        formatter.maximumFractionDigits = fractionDigits
+        if !showSymbol {
+            formatter.currencySymbol = ""
+        }
+        let text = formatter.string(from: value as NSDecimalNumber) ?? "\(value)"
+        return showSymbol ? text : text.trimmingCharacters(in: .whitespaces)
+    }
+
+    private func numberText(_ value: Decimal, fractionDigits: Int) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.locale = locale
+        formatter.minimumFractionDigits = fractionDigits
+        formatter.maximumFractionDigits = fractionDigits
+        return formatter.string(from: value as NSDecimalNumber) ?? "\(value)"
+    }
+
+    private func hasSubCurrencyFraction(_ value: Decimal) -> Bool {
+        NumericCalculatorRounding.down.round(value, scale: fractionDigits) != value
     }
 }
 
@@ -197,8 +511,6 @@ struct NumericKeypad: View {
     }
 
     private var spacing: CGFloat    { (compact ? 8 : 10) * scale }
-    private var hPadding: CGFloat   { (compact ? 16 : 20) * scale }
-
     var body: some View {
         VStack(spacing: spacing) {
             ForEach(rows, id: \.self) { row in
@@ -217,7 +529,112 @@ struct NumericKeypad: View {
                 KeypadDeleteButton(compact: compact, scale: scale)              { onKey(.delete) }
             }
         }
-        .padding(.horizontal, hPadding)
+    }
+}
+
+/// 数字キー右端へ固定する四則演算子列
+private struct CalculatorOperatorKeypad: View {
+    let compact: Bool
+    let scale: CGFloat
+    let selectedOperator: NumericCalculatorOperator?
+    let onSelect: (NumericCalculatorOperator) -> Void
+
+    private var spacing: CGFloat { (compact ? 8 : 10) * scale }
+
+    var body: some View {
+        VStack(spacing: spacing) {
+            ForEach(NumericCalculatorOperator.allCases) { operation in
+                CalculatorOperatorButton(
+                    operation: operation,
+                    compact: compact,
+                    scale: scale,
+                    isSelected: selectedOperator == operation
+                ) {
+                    onSelect(operation)
+                }
+            }
+        }
+    }
+}
+
+/// 数字キーと同じ高さで表示する演算子ボタン
+private struct CalculatorOperatorButton: View {
+    let operation: NumericCalculatorOperator
+    let compact: Bool
+    let scale: CGFloat
+    let isSelected: Bool
+    let action: () -> Void
+
+    private var size: CGFloat { (compact ? 52 : 56) * scale }
+
+    var body: some View {
+        Button(action: action) {
+            Text(operation.symbol)
+                .font(compact ? .title2.weight(.semibold) : .title.weight(.semibold))
+                .foregroundStyle(isSelected ? Color.white : Color.accentColor)
+                .frame(width: size, height: size)
+                .background(isSelected ? Color.accentColor : Color(.tertiarySystemGroupedBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(operation.symbol))
+    }
+}
+
+/// 親がシステムシートの場合に祖先のパン操作だけを一時停止する
+@MainActor
+private struct SheetPanGestureDisabler: UIViewRepresentable {
+    @MainActor
+    final class Coordinator {
+        private var originalStates: [UIPanGestureRecognizer: Bool] = [:]
+        private var isActive = true
+
+        func disableAncestorPans(from view: UIView) {
+            guard isActive else { return }
+            var ancestor = view.superview
+            while let current = ancestor {
+                for case let gesture as UIPanGestureRecognizer in current.gestureRecognizers ?? [] {
+                    if originalStates[gesture] == nil {
+                        originalStates[gesture] = gesture.isEnabled
+                    }
+                    gesture.isEnabled = false
+                }
+                ancestor = current.superview
+            }
+        }
+
+        func restore() {
+            isActive = false
+            for (gesture, wasEnabled) in originalStates {
+                gesture.isEnabled = wasEnabled
+            }
+            originalStates.removeAll()
+        }
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView(frame: .zero)
+        view.isUserInteractionEnabled = false
+        DispatchQueue.main.async {
+            context.coordinator.disableAncestorPans(from: view)
+        }
+        return view
+    }
+
+    func updateUIView(_ view: UIView, context: Context) {
+        // シート階層の構築後や再描画後にも対象を取り直す
+        DispatchQueue.main.async {
+            context.coordinator.disableAncestorPans(from: view)
+        }
+    }
+
+    static func dismantleUIView(_ uiView: UIView, coordinator: Coordinator) {
+        // テンキーを閉じたら親画面のスクロールとシート操作を必ず戻す
+        coordinator.restore()
     }
 }
 
