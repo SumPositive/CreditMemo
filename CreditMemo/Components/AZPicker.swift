@@ -125,6 +125,8 @@ struct AZPickerStyle {
     var dropdownTextFitMode: AZPickerTextFitMode = .wrap
     /// 選択ボタン右端のインジケータ。デフォルトは非表示
     var dropdownIndicator: AZDropdownIndicator = .none
+    /// 選択ボタン枠内の上下余白。小さく添えるだけの表示では詰められるようにする
+    var collapsedVerticalPadding: CGFloat = 8
 
     /// 標準のフォーム向けスタイル
     static let form = AZPickerStyle()
@@ -243,7 +245,7 @@ struct AZDropdownPicker<Option: Hashable & Identifiable, Label: View>: View {
                 indicatorView
             }
             .padding(.horizontal, 10)
-            .padding(.vertical, 8)
+            .padding(.vertical, style.collapsedVerticalPadding)
             .frame(
                 minWidth: minWidth,
                 maxWidth: fillsWidth ? .infinity : nil,

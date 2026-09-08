@@ -20,12 +20,13 @@ enum NumericCalculatorOperator: CaseIterable, Identifiable {
     }
 }
 
-/// 通貨の最小単位へそろえる丸め方法
-enum NumericCalculatorRounding: CaseIterable, Identifiable {
-    case up
-    case halfUp
-    case bankers
-    case down
+/// 通貨の最小単位へそろえる丸め方法。
+/// 選択を保存できるよう、保存名を持つ
+enum NumericCalculatorRounding: String, CaseIterable, Hashable, Identifiable {
+    case up      = "up"
+    case halfUp  = "halfUp"
+    case bankers = "bankers"
+    case down    = "down"
 
     var id: Self { self }
 
@@ -72,7 +73,9 @@ struct NumericKeypadOverlay: View {
     @State private var accumulator: Decimal?
     @State private var pendingOperator: NumericCalculatorOperator?
     @State private var calculationResult: Decimal?
-    @State private var rounding: NumericCalculatorRounding = .halfUp
+    // 丸め方法は画面を閉じても選んだものを引き継ぐ。既定は四捨五入
+    @AppStorage(AppStorageKey.calculatorRounding) private var rounding: NumericCalculatorRounding = .halfUp
+    @State private var showRoundingPicker = false
     @State private var calculationErrorKey: LocalizedStringKey?
 
     private var isEmpty: Bool { digits.isEmpty }
@@ -82,6 +85,10 @@ struct NumericKeypadOverlay: View {
     private var displayScale: CGFloat { min(uiScale, 1.2) }
     private var sheetSpacing: CGFloat { (isCompact ? 10 : 14) * fontScale.uiScale }
     private var displayFontSize: CGFloat { (isCompact ? 44 : 52) * displayScale }
+    private var roundingControlWidth: CGFloat { isCompact ? 82 : 102 }
+    /// 丸め選択と計算式の塊を、シート標準の行間からどれだけ詰めるか。
+    /// 行間を食い潰さないよう、標準の間隔の半分までに留める
+    private var roundingRowTightening: CGFloat { sheetSpacing / 2 }
     private var locale: Locale { Decimal.effectiveCurrencyLocale }
     private var fractionDigits: Int { Decimal.currencyFractionDigits(locale: locale) }
 
@@ -178,30 +185,18 @@ struct NumericKeypadOverlay: View {
                 VStack(spacing: sheetSpacing) {
                     header
 
-                    // 金額は中央へ固定し、連続入力をアニメーションなしで反映する
-                    Text(displayAmountText)
-                        .font(.system(size: displayFontSize, weight: .bold, design: .rounded).monospacedDigit())
-                        .foregroundStyle(displayColor)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.65)
-                        .frame(maxWidth: .infinity)
-                        .padding(.horizontal)
-                        .transaction { transaction in
-                            transaction.animation = nil
-                            transaction.disablesAnimations = true
-                        }
+                    amountDisplayRow
 
                     if let expressionText {
-                        Text(expressionText)
-                            .font(.title3.weight(.medium).monospacedDigit())
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.70)
-                            .padding(.horizontal, 16)
-                    }
-
-                    if needsRounding {
-                        roundingPicker
+                        VStack(spacing: 0) {
+                            // 丸め選択は金額幅を狭めず、計算式との間へ表示する。
+                            // 金額・計算式に挟まれた添え物なので、上下は大きく詰める
+                            roundingControlRow
+                            calculationLine(expressionText)
+                        }
+                        // 金額との間、テンキーとの間もシート標準より詰める
+                        .padding(.top, -roundingRowTightening)
+                        .padding(.bottom, -roundingRowTightening)
                     }
 
                     if let calculationErrorKey {
@@ -288,38 +283,90 @@ struct NumericKeypadOverlay: View {
         .padding(.horizontal, 12)
     }
 
-    private var roundingPicker: some View {
-        Menu {
-            ForEach(NumericCalculatorRounding.allCases) { option in
-                Button {
-                    rounding = option
-                } label: {
-                    if rounding == option {
-                        Label(option.localizedKey, systemImage: "checkmark")
-                    } else {
+    /// 丸め後の最終金額を横幅いっぱいに表示する
+    private var amountDisplayRow: some View {
+        Text(displayAmountText)
+            .font(.system(size: displayFontSize, weight: .bold, design: .rounded).monospacedDigit())
+            .foregroundStyle(displayColor)
+            .lineLimit(1)
+            .minimumScaleFactor(0.38)
+            .allowsTightening(true)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 16)
+            // 連続入力と丸め変更はアニメーションなしで即時反映する
+            .transaction { transaction in
+                transaction.animation = nil
+                transaction.disablesAnimations = true
+            }
+    }
+
+    /// 選択中の丸め方法を計算式の直前へ小さく表示する
+    private var roundingControlRow: some View {
+        HStack(spacing: 4) {
+            Spacer(minLength: 0)
+
+            // 偶数丸めなど、方法ごとの違いをここから確かめられるようにする
+            BeginnerHintView(
+                detailTitleKey: "calculator.rounding.help.title",
+                detailMessageKey: "calculator.rounding.help"
+            )
+            .opacity(needsRounding ? 1 : 0)
+            .allowsHitTesting(needsRounding)
+
+            AZDropdownPicker(
+                options: NumericCalculatorRounding.allCases,
+                selection: $rounding,
+                isExpanded: $showRoundingPicker,
+                minWidth: 0,
+                fillsWidth: true,
+                style: roundingPickerStyle,
+                collapsedLabelOverride: { option in
+                    // 選択結果だけを小さくし、吹き出し内の文字サイズは維持する
+                    AnyView(
                         Text(option.localizedKey)
-                    }
+                            .font(.caption2.weight(.medium))
+                    )
                 }
+            ) { option in
+                Text(option.localizedKey)
             }
-        } label: {
-            HStack(spacing: 8) {
-                // 左側には通貨記号を付けず、最小単位より1桁多い数値を表示する
-                Text("=\(numberText(activeValue, fractionDigits: fractionDigits + 1))")
-                    .font(.body.monospacedDigit())
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                Text(rounding.localizedKey)
-                    .lineLimit(1)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-                Image(systemName: "chevron.up.chevron.down")
-                    .font(.caption)
-            }
-            .padding(.horizontal, 14)
-            .frame(minHeight: 38 * uiScale)
-            .background(Color(.secondarySystemGroupedBackground))
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .frame(width: roundingControlWidth)
+            .opacity(needsRounding ? 1 : 0)
+            .allowsHitTesting(needsRounding)
         }
-        .buttonStyle(.plain)
-        .padding(.horizontal, 20 * uiScale)
+        .padding(.horizontal, 16)
+    }
+
+    private var roundingPickerStyle: AZPickerStyle {
+        var style = AZPickerStyle.form
+        style.cornerRadius = 16
+        // 金額と計算式の間に小さく添えるだけなので、枠内の上下は詰める
+        style.collapsedVerticalPadding = 2
+        style.dropdownTextFitMode = .scale(minimumScaleFactor: 0.55)
+        style.dropdownOptionAlignment = .center
+        style.dropdownOptionStackAlignment = .center
+        style.dropdownOptionTextAlignment = .center
+        // 小型表示では丸め名称だけを見せ、右端の矢印は表示しない
+        style.dropdownIndicator = .none
+        return style
+    }
+
+    /// 計算式と丸め前の結果を一行にまとめる
+    private func calculationLine(_ expression: String) -> some View {
+        let resultSuffix: String = {
+            guard calculationResult != nil else { return "" }
+            let digits = needsRounding ? fractionDigits + 1 : fractionDigits
+            return " = \(numberText(activeValue, fractionDigits: digits))"
+        }()
+        return Text(expression + resultSuffix)
+            .font(.title3.weight(.medium).monospacedDigit())
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            // 最大額同士の式でも省略せず一行へ収める
+            .minimumScaleFactor(0.42)
+            .allowsTightening(true)
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.horizontal, 16)
     }
 
     private func handleKey(_ key: NumericKeypadKey) {

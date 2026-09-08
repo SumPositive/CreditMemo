@@ -8,6 +8,8 @@ enum AppStorageKey {
     static let fontScale         = "setting.fontScale"
     static let tagSortMode       = "setting.tagSortMode"
     static let afterSaveAction   = "setting.afterSaveAction"
+    /// テンキーの丸め方法。既定は四捨五入
+    static let calculatorRounding = "setting.calculatorRounding"
     static let openAddOnActive   = "setting.openAddOnActive"
     /// 起動（再表示）時に自動で開く画面の選択。旧 openAddOnActive を包含する
     static let launchAction      = "setting.launchAction"
