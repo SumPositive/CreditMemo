@@ -161,6 +161,8 @@ struct RecordListView: View {
     /// 並び替え後に基準となるセルへ移動するための要求
     @State private var recordScrollRequest = 0
     @State private var recordScrollTargetID: String?
+    /// 頭出しの再試行が有効かどうか。ユーザーがスクロールを始めたら false にする
+    @State private var isScrollRetryActive = false
     @State private var sheetTarget: RecordSheetTarget?
     /// 編集や追加が確定した時だけ、シートを閉じた後に一覧を再読込する
     @State private var reloadRecordsAfterSheet = false
@@ -447,6 +449,13 @@ struct RecordListView: View {
             // 頭出しはビューの生存に依存しないタイマーで数回繰り返す
             scheduleScrollRetries(proxy: proxy)
         }
+        // 指が触れた時点で頭出しの再試行を止め、ユーザーのスクロールを妨げない。
+        // 軽いタップでも止まるが、その時は頭出しは済んでいるので実害はない
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0).onChanged { _ in
+                cancelScrollRetries()
+            }
+        )
         .scalableNavigationTitle("record.list.title") {
             Image(systemName: "list.bullet.circle.fill")
                 .foregroundStyle(Color.cyan)
@@ -776,19 +785,33 @@ struct RecordListView: View {
         }
     }
 
-    /// 固定パネル直下へ対象セルをアニメーションなしで移動する
     /// List の遅延生成に合わせ、少し間隔を空けて複数回スクロールし直す。
-    /// ビュー更新で取り消されないよう Task ではなくメインキューへ積む
+    /// ビュー更新で取り消されないよう Task ではなくメインキューへ積む。
+    ///
+    /// 再試行中にユーザーがスクロールを始めたら、そこで打ち切る。
+    /// 続けてしまうと、せっかく動かした位置が頭出し位置へ引き戻されてしまう
     private func scheduleScrollRetries(proxy: ScrollViewProxy) {
         guard 0 < recordScrollRequest, let targetID = recordScrollTargetID else { return }
         let issuedRequest = recordScrollRequest
+        // この要求ぶんの再試行を有効にする（前の要求の残りはここで無効になる）
+        isScrollRetryActive = true
         for delay in [0.0, 0.05, 0.1, 0.2, 0.3, 0.45, 0.6] {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                // 新しい要求が来ていたら、古い要求の再試行は捨てる
-                guard recordScrollRequest == issuedRequest else { return }
+                // 新しい要求が来ている、またはユーザー操作で打ち切られたら捨てる
+                guard isScrollRetryActive, recordScrollRequest == issuedRequest else { return }
                 scrollToRecord(targetID, proxy: proxy)
             }
         }
+        // 最後の再試行より後に、残っている有効フラグを畳む
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) {
+            guard recordScrollRequest == issuedRequest else { return }
+            isScrollRetryActive = false
+        }
+    }
+
+    /// ユーザーが一覧を触ったので、以降の頭出し再試行を止める
+    private func cancelScrollRetries() {
+        isScrollRetryActive = false
     }
 
     private func scrollToRecord(_ recordID: String, proxy: ScrollViewProxy) {
