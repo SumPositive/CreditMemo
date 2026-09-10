@@ -187,6 +187,35 @@ struct TagSortModeDropdown: View {
     }
 }
 
+/// 複数タグ絞り込みの一致条件（OR／AND）を選ぶラジオボタン
+struct TagMatchModePicker: View {
+    @Binding var matchModeRaw: Int
+
+    private var selection: Binding<TagMatchMode> {
+        Binding(
+            get: { TagMatchMode(rawValue: matchModeRaw) ?? .defaultMode },
+            set: { matchModeRaw = $0.rawValue }
+        )
+    }
+
+    var body: some View {
+        // 選択肢は2つだけなので、折り返さず横幅を等分する
+        AZRadioPicker(
+            options: TagMatchMode.allCases,
+            selection: selection,
+            minOptionWidth: 0,
+            horizontalPadding: 4,
+            wrapsOptions: false,
+            fillsWidth: true
+        ) { mode in
+            Text(LocalizedStringKey(mode.localizedKey))
+                .allowsTightening(true)
+        }
+        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+        .frame(maxWidth: .infinity)
+    }
+}
+
 /// 各画面で共用するタグ選択一覧の見た目とソート領域
 struct TagSelectionList: View {
     let tags: [E5tag]
@@ -198,12 +227,15 @@ struct TagSelectionList: View {
 
     @Binding private var sortModeRaw: Int
     @Binding private var isSortExpanded: Bool
+    /// 複数タグの一致条件（OR／AND）。単一選択のシートでは nil にして行ごと隠す
+    private var matchModeRaw: Binding<Int>?
 
     init(
         tags: [E5tag],
         selectedIDs: Set<String>,
         sortModeRaw: Binding<Int>,
         isSortExpanded: Binding<Bool>,
+        matchModeRaw: Binding<Int>? = nil,
         showsAllOption: Bool = false,
         isAllSelected: Bool = false,
         onSelectAll: @escaping () -> Void = {},
@@ -211,6 +243,7 @@ struct TagSelectionList: View {
     ) {
         self.tags = tags
         self.selectedIDs = selectedIDs
+        self.matchModeRaw = matchModeRaw
         self.showsAllOption = showsAllOption
         self.isAllSelected = isAllSelected
         self.onSelectAll = onSelectAll
@@ -239,11 +272,16 @@ struct TagSelectionList: View {
         }
         .contentMargins(.top, 0, for: .scrollContent)
         .safeAreaInset(edge: .top, spacing: 0) {
-            // ソート領域は一覧外側と同じ薄いグレーで固定する
-            TagSortModeDropdown(
-                sortModeRaw: $sortModeRaw,
-                isExpanded: $isSortExpanded
-            )
+            // 一致条件とソート領域は一覧外側と同じ薄いグレーで固定する
+            VStack(spacing: 8) {
+                if let matchModeRaw {
+                    TagMatchModePicker(matchModeRaw: matchModeRaw)
+                }
+                TagSortModeDropdown(
+                    sortModeRaw: $sortModeRaw,
+                    isExpanded: $isSortExpanded
+                )
+            }
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
             .background(Color(uiColor: .systemGroupedBackground))
@@ -251,10 +289,16 @@ struct TagSelectionList: View {
     }
 
     /// ソート領域と追加行を含め、タグ数に合うシート高さを返す
-    static func detents(tagCount: Int, showsAllOption: Bool = false) -> Set<PresentationDetent> {
+    static func detents(
+        tagCount: Int,
+        showsAllOption: Bool = false,
+        showsMatchMode: Bool = false
+    ) -> Set<PresentationDetent> {
         let rowCount = tagCount + (showsAllOption ? 1 : 0)
         guard rowCount <= 5 else { return [.large] }
-        let contentHeight = ceil(150 + CGFloat(max(rowCount, 1)) * 50)
+        // 一致条件の行を出す分だけ、必要な高さを上乗せする
+        let baseHeight: CGFloat = showsMatchMode ? 200 : 150
+        let contentHeight = ceil(baseHeight + CGFloat(max(rowCount, 1)) * 50)
         return [.height(contentHeight), .large]
     }
 

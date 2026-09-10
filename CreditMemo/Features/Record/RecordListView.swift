@@ -150,6 +150,8 @@ struct RecordListView: View {
     @State private var filterKind: FilterKind = SavedConditions.shared.filterKind
     @State private var period: RecordPeriod = SavedConditions.shared.period
     @State private var selectedTags: [E5tag] = SavedConditions.shared.selectedTags
+    /// 複数タグの一致条件。既定はOR（いずれかのタグを持つ明細）
+    @AppStorage(AppStorageKey.tagMatchMode) private var tagMatchModeRaw: Int = TagMatchMode.defaultMode.rawValue
     @State private var sortTarget: SortTarget = SavedConditions.shared.sortTarget
     @State private var sortDirection: SortDirection = SavedConditions.shared.sortDirection
     @State private var records: [E3record] = []
@@ -235,11 +237,15 @@ struct RecordListView: View {
         case .bank(let id):
             return banks.first { $0.id == id }?.zName ?? NSLocalizedString("payment.filter.bank", comment: "")
         case .tag:
-            if selectedTags.count == 1 {
-                return selectedTags.first?.zName ?? NSLocalizedString("record.field.tag", comment: "")
+            if selectedTags.isEmpty {
+                return NSLocalizedString("record.field.tag", comment: "")
             }
-            return String(format: NSLocalizedString("record.filter.tagCount", comment: ""), selectedTags.count)
+            // 件数ではなく、選択したタグ名を一致条件の記号で列記する
+            return selectedTags.map(\.zName).joined(separator: tagMatchMode.separator)
         }
+    }
+    private var tagMatchMode: TagMatchMode {
+        TagMatchMode(rawValue: tagMatchModeRaw) ?? .defaultMode
     }
     private var filterSelectionBinding: Binding<FilterOption> {
         Binding(
@@ -492,6 +498,12 @@ struct RecordListView: View {
             resetAndLoadRecords()
             prepareCurrentSortScroll()
         }
+        .onChange(of: tagMatchModeRaw) { _, _ in
+            // 選択タグが同じでも、OR／ANDの切り替えで対象は変わる
+            guard filterKind == .tag else { return }
+            resetAndLoadRecords()
+            prepareCurrentSortScroll()
+        }
         .onChange(of: sortTarget) { _, newValue in
             SavedConditions.shared.sortTarget = newValue
             resetAndLoadRecords()
@@ -535,7 +547,11 @@ struct RecordListView: View {
             .presentationBackground(Color(uiColor: .systemBackground))
         }
         .sheet(isPresented: $showTagPicker) {
-            RecordTagFilterSheet(tags: tags, selectedTags: $selectedTags) {
+            RecordTagFilterSheet(
+                tags: tags,
+                selectedTags: $selectedTags,
+                matchModeRaw: $tagMatchModeRaw
+            ) {
                 filterKind = selectedTags.isEmpty ? .all : .tag
             }
             // シートにもアプリ内文字サイズ設定を明示適用する
@@ -588,10 +604,18 @@ struct RecordListView: View {
             Image(systemName: option.iconName).dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                 .imageScale(.medium)
             if option == filterSelectionBinding.wrappedValue {
-                Text(filterSummaryText)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.70)
-                    .allowsTightening(true)
+                if option == .tag {
+                    // 列記したタグ名は縮小せず、収まらない時だけ折り返す
+                    Text(filterSummaryText)
+                        .lineLimit(nil)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Text(filterSummaryText)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.70)
+                        .allowsTightening(true)
+                }
             } else {
                 Text(option.localizedKey)
                     .lineLimit(1)
@@ -780,7 +804,14 @@ struct RecordListView: View {
             if selectedIDs.isEmpty {
                 return true
             }
-            return record.e5tags.contains { selectedIDs.contains($0.id) }
+            switch tagMatchMode {
+            case .or:
+                // いずれかのタグを持てば対象にする
+                return record.e5tags.contains { selectedIDs.contains($0.id) }
+            case .and:
+                // 選択したタグをすべて持つ明細だけを対象にする
+                return selectedIDs.isSubset(of: Set(record.e5tags.map(\.id)))
+            }
         }
     }
 
@@ -883,18 +914,23 @@ private struct RecordSingleFilterPickerSheet<Item: Identifiable>: View {
 private struct RecordTagFilterSheet: View {
     let tags: [E5tag]
     @Binding var selectedTags: [E5tag]
+    @Binding var matchModeRaw: Int
     let onDone: () -> Void
 
     @Environment(\.dismiss) private var dismiss
     @AppStorage(AppStorageKey.tagSortMode) private var sortModeRaw: Int = SortMode.defaultForTags.rawValue
     @State private var showSortDropdown = false
+    /// キャンセルで元へ戻せるよう、選択操作はシート内の作業用コピーに対して行う
+    @State private var draftSelection: [E5tag] = []
+    /// 一致条件もキャンセルで元へ戻せるよう、作業用コピーを持つ
+    @State private var draftMatchModeRaw: Int = TagMatchMode.defaultMode.rawValue
 
     private var sortMode: SortMode {
         SortMode(rawValue: sortModeRaw) ?? .defaultForTags
     }
 
     private var selectedIDs: Set<String> {
-        Set(selectedTags.map(\.id))
+        Set(draftSelection.map(\.id))
     }
     private var displayTags: [E5tag] {
         tags.orderedForTagSelection(mode: sortMode, selectedIDs: selectedIDs)
@@ -902,7 +938,7 @@ private struct RecordTagFilterSheet: View {
 
     /// 少ない行は内容に合わせ、多い行は最初から最大まで開く
     private var tagPickerDetents: Set<PresentationDetent> {
-        TagSelectionList.detents(tagCount: tags.count)
+        TagSelectionList.detents(tagCount: tags.count, showsMatchMode: true)
     }
 
     var body: some View {
@@ -912,6 +948,7 @@ private struct RecordTagFilterSheet: View {
                 selectedIDs: selectedIDs,
                 sortModeRaw: $sortModeRaw,
                 isSortExpanded: $showSortDropdown,
+                matchModeRaw: $draftMatchModeRaw,
                 onSelectTag: toggle
             )
             .scalableNavigationTitle("record.field.tag")
@@ -920,7 +957,10 @@ private struct RecordTagFilterSheet: View {
                     Button("button.cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("button.done") {
+                    // 決定を押したときだけ絞り込み条件へ反映する
+                    Button("button.decide") {
+                        selectedTags = draftSelection
+                        matchModeRaw = draftMatchModeRaw
                         onDone()
                         dismiss()
                     }
@@ -928,13 +968,17 @@ private struct RecordTagFilterSheet: View {
             }
         }
         .presentationDetents(tagPickerDetents)
+        .onAppear {
+            draftSelection = selectedTags
+            draftMatchModeRaw = matchModeRaw
+        }
     }
 
     private func toggle(_ tag: E5tag) {
         if selectedIDs.contains(tag.id) {
-            selectedTags.removeAll { $0.id == tag.id }
+            draftSelection.removeAll { $0.id == tag.id }
         } else {
-            selectedTags.append(tag)
+            draftSelection.append(tag)
         }
     }
 }

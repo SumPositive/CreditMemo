@@ -3069,10 +3069,12 @@ private struct CategoryMultiPickerSheet: View {
     @State private var showSortDropdown = false
     @State private var displayOrder: [E5tag] = []
     @State private var itemIDsBeforeAdd: [String] = []
+    /// キャンセルで元へ戻せるよう、選択操作はシート内の作業用コピーに対して行う
+    @State private var draftSelection: [E5tag] = []
     private let maxSelection = 10
 
     private var sortMode: SortMode { SortMode(rawValue: sortModeRaw) ?? .defaultForTags }
-    private var selectedIDs: Set<String> { Set(selectedCategories.map(\.id)) }
+    private var selectedIDs: Set<String> { Set(draftSelection.map(\.id)) }
 
     /// 少ない行は内容に合わせ、多い行は最初から最大まで開く
     private var tagPickerDetents: Set<PresentationDetent> {
@@ -3107,13 +3109,17 @@ private struct CategoryMultiPickerSheet: View {
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("button.done") { dismiss() }
+                    // 決定を押したときだけ選択結果を呼び出し元へ反映する
+                    Button("button.decide") {
+                        selectedCategories = draftSelection
+                        dismiss()
+                    }
                 }
             }
             .sheet(isPresented: $showAdd, onDismiss: {
                 let newItems = items.filter { !itemIDsBeforeAdd.contains($0.id) }
-                for item in newItems where !selectedCategories.contains(where: { $0.id == item.id }) {
-                    selectedCategories.append(item)
+                for item in newItems where !draftSelection.contains(where: { $0.id == item.id }) {
+                    draftSelection.append(item)
                 }
                 // 追加直後は新規タグを最上段へ寄せ、同時に選択状態を反映する
                 rebuildDisplayOrder(prioritizedIDs: newItems.map(\.id))
@@ -3126,6 +3132,7 @@ private struct CategoryMultiPickerSheet: View {
         .presentationDetents(tagPickerDetents)
         .presentationBackground(Color(uiColor: .systemBackground))
         .onAppear {
+            draftSelection = selectedCategories
             rebuildDisplayOrder()
         }
         .onChange(of: items.map(\.id)) { _, _ in
@@ -3138,14 +3145,14 @@ private struct CategoryMultiPickerSheet: View {
     }
 
     private func toggleItem(_ item: E5tag) {
-        if let idx = selectedCategories.firstIndex(where: { $0.id == item.id }) {
-            selectedCategories.remove(at: idx)
+        if let idx = draftSelection.firstIndex(where: { $0.id == item.id }) {
+            draftSelection.remove(at: idx)
         } else {
             // 選択数の上限を超える追加は行わない
-            if maxSelection <= selectedCategories.count {
+            if maxSelection <= draftSelection.count {
                 return
             }
-            selectedCategories.append(item)
+            draftSelection.append(item)
         }
         rebuildDisplayOrder()
     }

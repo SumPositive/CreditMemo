@@ -68,6 +68,8 @@ enum AppStorageKey {
     static let badgePreset           = "setting.display.badgePreset"
     /// 引き落とし状況バッジの中央バンド高さ（base size 64 換算で 8..24）
     static let badgeMiddleHeight     = "setting.display.badgeMiddleHeight"
+    /// 履歴のタグ絞り込みの一致条件（OR／AND）。既定はOR
+    static let tagMatchMode      = "setting.tagMatchMode"
     /// 古い履歴の自動整理提案：次に提案してよい日時（referenceDate からの秒）。
     /// 「あとで」を選ぶと一定期間先へ進め、その日まで提案しない
     static let retentionSuggestSnoozeUntil = "setting.retention.suggestSnoozeUntil"
@@ -377,6 +379,34 @@ enum SortMode: Int, CaseIterable, Identifiable {
         case .count:  "sort.count"
         case .amount: "sort.amount"
         case .name:   "sort.name"
+        }
+    }
+}
+
+/// 複数タグで絞り込む時の一致条件
+enum TagMatchMode: Int, CaseIterable, Identifiable {
+    /// いずれかのタグを持つ明細を対象にする
+    case or  = 0
+    /// すべてのタグを持つ明細だけを対象にする
+    case and = 1
+
+    /// タグ絞り込みの既定値
+    static let defaultMode: TagMatchMode = .or
+
+    var id: Int { rawValue }
+
+    var localizedKey: String {
+        switch self {
+        case .or:  "tag.match.or"
+        case .and: "tag.match.and"
+        }
+    }
+
+    /// 選択タグ名を列記する時の区切り記号
+    var separator: String {
+        switch self {
+        case .or:  " / "
+        case .and: " & "
         }
     }
 }
