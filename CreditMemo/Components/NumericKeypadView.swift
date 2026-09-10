@@ -85,7 +85,9 @@ struct NumericKeypadOverlay: View {
     private var displayScale: CGFloat { min(uiScale, 1.2) }
     private var sheetSpacing: CGFloat { (isCompact ? 10 : 14) * fontScale.uiScale }
     private var displayFontSize: CGFloat { (isCompact ? 44 : 52) * displayScale }
-    private var roundingControlWidth: CGFloat { isCompact ? 82 : 102 }
+    /// 丸め名称の長さは言語で大きく変わるため、幅は内容に合わせて可変にする。
+    /// 行からはみ出さないよう上限だけ決めておく
+    private var roundingControlMaxWidth: CGFloat { (isCompact ? 150 : 190) * min(uiScale, 1.3) }
     /// 丸め選択と計算式の塊を、シート標準の行間からどれだけ詰めるか。
     /// 行間を食い潰さないよう、標準の間隔の半分までに留める
     private var roundingRowTightening: CGFloat { sheetSpacing / 2 }
@@ -318,19 +320,20 @@ struct NumericKeypadOverlay: View {
                 selection: $rounding,
                 isExpanded: $showRoundingPicker,
                 minWidth: 0,
-                fillsWidth: true,
                 style: roundingPickerStyle,
                 collapsedLabelOverride: { option in
                     // 選択結果だけを小さくし、吹き出し内の文字サイズは維持する
                     AnyView(
                         Text(option.localizedKey)
-                            .font(.caption2.weight(.medium))
+                            .font(.footnote.weight(.medium))
                     )
                 }
             ) { option in
                 Text(option.localizedKey)
             }
-            .frame(width: roundingControlWidth)
+            // 内容の自然幅で表示し、長い名称のときだけ上限で頭打ちにする。
+            // 上限側で縮小できるよう、fixedSize は使わず最大幅だけを与える
+            .frame(maxWidth: roundingControlMaxWidth, alignment: .trailing)
             .opacity(needsRounding ? 1 : 0)
             .allowsHitTesting(needsRounding)
         }

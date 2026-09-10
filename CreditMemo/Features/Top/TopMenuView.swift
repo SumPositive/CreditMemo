@@ -143,17 +143,17 @@ struct TopMenuView: View {
                     )
                 }
             }
-            // 明細
+            // 入力
             Section {
                 if supportsVoiceInput {
                     voiceRecordRow()
                 }
                 row(.addRecord, icon: "plus.circle.fill", color: .blue, key: "top.addRecord")
-                row(.recordList, icon: "list.bullet.circle.fill", color: .cyan, key: "top.recordList")
             }
 
-            // 集計
+            // 一覧・集計は関連が深いので同じグループにまとめる
             Section {
+                row(.recordList, icon: "list.bullet.circle.fill", color: .cyan, key: "top.recordList")
                 NavigationLink(value: AppDestination.paymentList) {
                     HStack(spacing: 12) {
                         ScaledMenuBadge()
@@ -251,6 +251,8 @@ struct TopMenuView: View {
         }
         // 先頭セクション前の余白を詰めて、ヘッダ直下をコンパクトにする
         .contentMargins(.top, 0, for: .scrollContent)
+        // グループ間の上下余白を詰めて、メニュー全体を見渡しやすくする
+        .listSectionSpacing(.custom(16))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .principal) {
