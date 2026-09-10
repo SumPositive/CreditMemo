@@ -1,4 +1,7 @@
-What's New in 2.6.2
-- Records and Debit Status now retain your selected display and filter options
-- When Records is sorted by date used, it opens near today's entries
-- Banner ads now appear only at the top of the main menu
+What's New in 2.7.0
+- The amount keypad now supports arithmetic (+, -, ×, ÷)
+- Label entry now suggests candidates from your past entries
+- Tag filtering in Records now lets you choose OR or AND
+- Debit Status filters now support tags
+- Records sorted by date used now shows a monthly total
+- Records sorted by date used now opens at today's entries, even when future entries exist

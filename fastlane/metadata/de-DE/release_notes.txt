@@ -1,4 +1,7 @@
-Neu in 2.6.2
-- Zahlungsübersicht und Abbuchungsstatus behalten nun die gewählten Anzeige- und Filteroptionen bei
-- Bei Sortierung nach Nutzungsdatum startet die Zahlungsübersicht bei Einträgen nahe dem heutigen Datum
-- Bannerwerbung erscheint nur noch oben im Hauptmenü
+Neu in 2.7.0
+- Der Ziffernblock für Beträge beherrscht jetzt Grundrechenarten (+, -, ×, ÷)
+- Bei der Eingabe von Bezeichnungen werden nun Vorschläge aus früheren Einträgen angezeigt
+- Beim Filtern nach Tags in der Zahlungsübersicht lässt sich jetzt ODER oder UND wählen
+- Der Abbuchungsstatus lässt sich jetzt auch nach Tags filtern
+- Bei Sortierung nach Nutzungsdatum zeigt die Zahlungsübersicht nun eine Monatssumme
+- Bei Sortierung nach Nutzungsdatum startet die Zahlungsübersicht nun beim heutigen Datum, auch wenn künftige Einträge vorhanden sind
