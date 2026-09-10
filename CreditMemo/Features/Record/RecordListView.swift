@@ -163,6 +163,8 @@ struct RecordListView: View {
     @State private var recordScrollTargetID: String?
     /// 頭出しの再試行が有効かどうか。ユーザーがスクロールを始めたら false にする
     @State private var isScrollRetryActive = false
+    /// 同じ更新周期で来た条件変更をまとめて1回だけ再読込するための予約フラグ
+    @State private var isConditionReloadScheduled = false
     @State private var sheetTarget: RecordSheetTarget?
     /// 編集や追加が確定した時だけ、シートを閉じた後に一覧を再読込する
     @State private var reloadRecordsAfterSheet = false
@@ -512,34 +514,28 @@ struct RecordListView: View {
         }
         .onChange(of: period) { _, newValue in
             SavedConditions.shared.period = newValue
-            resetAndLoadRecords()
-            prepareCurrentSortScroll()
+            reloadForConditionChange()
         }
         .onChange(of: filterKind) { _, newValue in
             SavedConditions.shared.filterKind = newValue
-            resetAndLoadRecords()
-            prepareCurrentSortScroll()
+            reloadForConditionChange()
         }
         .onChange(of: selectedTagIDs) { _, _ in
             SavedConditions.shared.selectedTags = selectedTags
-            resetAndLoadRecords()
-            prepareCurrentSortScroll()
+            reloadForConditionChange()
         }
         .onChange(of: tagMatchModeRaw) { _, _ in
             // 選択タグが同じでも、OR／ANDの切り替えで対象は変わる
             guard filterKind == .tag else { return }
-            resetAndLoadRecords()
-            prepareCurrentSortScroll()
+            reloadForConditionChange()
         }
         .onChange(of: sortTarget) { _, newValue in
             SavedConditions.shared.sortTarget = newValue
-            resetAndLoadRecords()
-            prepareCurrentSortScroll()
+            reloadForConditionChange()
         }
         .onChange(of: sortDirection) { _, newValue in
             SavedConditions.shared.sortDirection = newValue
-            resetAndLoadRecords()
-            prepareCurrentSortScroll()
+            reloadForConditionChange()
         }
         .sheet(isPresented: $showCardPicker) {
             RecordSingleFilterPickerSheet(
@@ -686,6 +682,21 @@ struct RecordListView: View {
         // クリアボタンでは絞り込みだけを解除し、並び順は維持する。
         selectedTags = []
         filterKind = .all
+    }
+
+    /// 表示条件が変わったときの再読込。
+    ///
+    /// タグシートの「決定」は 選択タグ・OR/AND・フィルター種別 を続けて書き換えるため、
+    /// それぞれの .onChange で読み込むと全件取得とソートが最大3回走る。
+    /// 同じ更新周期で来た変更をまとめ、実際の再読込は1回だけにする
+    private func reloadForConditionChange() {
+        guard !isConditionReloadScheduled else { return }
+        isConditionReloadScheduled = true
+        DispatchQueue.main.async {
+            isConditionReloadScheduled = false
+            resetAndLoadRecords()
+            prepareCurrentSortScroll()
+        }
     }
 
     private func resetAndLoadRecords() {
