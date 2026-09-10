@@ -2500,12 +2500,17 @@ private var isValid: Bool {
                 resetForm(keepDateAndCard: false)
                 initialDraft = currentDraft()
                 showBanner()
-                DispatchQueue.main.async { showAmountPad = true }
+                // 連続入力でも、テンキーを出すかは「テンキー自動表示」設定に従う
+                if autoOpenAmountPad && !SnapshotSeed.isActive {
+                    DispatchQueue.main.async { showAmountPad = true }
+                }
             case .sameDayCard:
                 resetForm(keepDateAndCard: true)
                 initialDraft = currentDraft()
                 showBanner()
-                DispatchQueue.main.async { showAmountPad = true }
+                if autoOpenAmountPad && !SnapshotSeed.isActive {
+                    DispatchQueue.main.async { showAmountPad = true }
+                }
             case .showHistory:
                 onSaved?(bankChanged)
             }

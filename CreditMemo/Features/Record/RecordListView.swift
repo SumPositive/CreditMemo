@@ -189,37 +189,27 @@ struct RecordListView: View {
     private var filtered: [E3record] {
         records
     }
-    /// 利用日順では、読み込み済みの決済を月単位にまとめる
-    private var monthlyRecordGroups: [RecordMonthGroup] {
-        guard sortTarget == .date else { return [] }
-
-        var groups: [RecordMonthGroup] = []
-        for record in filtered {
-            let monthID = recordMonthID(for: record.dateUse)
-            if groups.last?.id == monthID {
-                groups[groups.count - 1].records.append(record)
-                groups[groups.count - 1].total += record.nAmount
-            } else {
-                groups.append(
-                    RecordMonthGroup(
-                        id: monthID,
-                        monthDate: record.dateUse,
-                        records: [record],
-                        total: record.nAmount,
-                        showsTotal: true
-                    )
-                )
-            }
+    /// その決済が「読み込み済みの中で、その月の最後の1件」なら月計を返す。
+    /// 次ページに同じ月が続く場合は、まだ合計が確定しないので返さない
+    private func monthTotalAfter(_ record: E3record) -> Decimal? {
+        guard sortTarget == .date else { return nil }
+        guard let index = records.firstIndex(where: { $0.id == record.id }) else { return nil }
+        let monthID = recordMonthID(for: record.dateUse)
+        // 同じ月がまだ後ろに残っていれば、ここは月の区切りではない
+        if index + 1 < records.count,
+           recordMonthID(for: records[index + 1].dateUse) == monthID {
+            return nil
         }
-
-        // 次ページにも同じ月が続く場合は、途中の月合計を表示しない
-        if let lastGroup = groups.last,
-           records.count < sortedCache.count,
-           recordMonthID(for: sortedCache[records.count].dateUse) == lastGroup.id {
-            groups[groups.count - 1].showsTotal = false
+        // 未読込のページに同じ月が続くなら、合計が確定していないので出さない
+        if records.count < sortedCache.count,
+           recordMonthID(for: sortedCache[records.count].dateUse) == monthID {
+            return nil
         }
-        return groups
+        return records
+            .filter { recordMonthID(for: $0.dateUse) == monthID }
+            .reduce(Decimal.zero) { $0 + $1.nAmount }
     }
+
     private var selectedTagIDs: [String] {
         selectedTags.map(\.id).sorted()
     }
@@ -384,18 +374,28 @@ struct RecordListView: View {
                     .listRowInsets(EdgeInsets(top: -8, leading: 16, bottom: 2, trailing: 16))
             }
             if sortTarget == .date {
-                ForEach(monthlyRecordGroups) { group in
-                    ForEach(group.records) { record in
-                        recordRows(for: record, proxy: proxy)
+                // 月グループでネストすると、月計の出し分け（showsTotal）が変わるたびに
+                // 内側の決済セルごと作り直され、頭出しの .task が取り消されてしまう。
+                // セルは常に平坦な ForEach で並べ、月計はその間に挿し込む
+                ForEach(filtered) { record in
+                    // 頭出しの対象になるので、決済セルは単独の行として id を持たせる
+                    recordRow(for: record)
+                        .id(record.id)
+                    ForEach(draftCopies(for: record)) { draft in
+                        draftCopyRow(draft)
                     }
-                    if group.showsTotal {
-                        RecordMonthTotalRow(monthDate: group.monthDate, total: group.total)
-                            .id("record-month-total-\(group.id)")
+                    if let total = monthTotalAfter(record) {
+                        RecordMonthTotalRow(monthDate: record.dateUse, total: total)
+                            .id("record-month-total-\(recordMonthID(for: record.dateUse))")
                     }
                 }
             } else {
                 ForEach(filtered) { record in
-                    recordRows(for: record, proxy: proxy)
+                    recordRow(for: record)
+                        .id(record.id)
+                    ForEach(draftCopies(for: record)) { draft in
+                        draftCopyRow(draft)
+                    }
                 }
             }
 
@@ -426,18 +426,10 @@ struct RecordListView: View {
         .safeAreaInset(edge: .top, spacing: 0) {
             conditionPanel
         }
-        .task(id: recordScrollRequest) {
-            guard 0 < recordScrollRequest, let recordScrollTargetID else { return }
-            // Listの遅延生成に備え、短い間隔で同じ位置へ再試行する
-            for delay in [UInt64(0), 50_000_000, 100_000_000, 150_000_000, 200_000_000] {
-                if 0 < delay {
-                    try? await Task.sleep(nanoseconds: delay)
-                } else {
-                    await Task.yield()
-                }
-                guard !Task.isCancelled else { return }
-                scrollToRecord(recordScrollTargetID, proxy: proxy)
-            }
+        .onChange(of: recordScrollRequest) { _, _ in
+            // .task(id:) は List の再構築で取り消され、初回の1回しか実行されない。
+            // 頭出しはビューの生存に依存しないタイマーで数回繰り返す
+            scheduleScrollRetries(proxy: proxy)
         }
         .scalableNavigationTitle("record.list.title") {
             Image(systemName: "list.bullet.circle.fill")
@@ -478,9 +470,19 @@ struct RecordListView: View {
         }
         .onAppear {
             if records.isEmpty {
+                // 初回はここで読み込むだけにする。頭出しは実際に行が載ってから
+                // 下の .onChange(of: records.isEmpty) 側で要求する
                 resetAndLoadRecords()
+            } else {
+                // 再入場時に読込済みでも現在の並び順に応じた位置へ合わせる
+                prepareCurrentSortScroll()
             }
-            // 再入場時に読込済みでも現在の並び順に応じた位置へ合わせる
+        }
+        .onChange(of: records.isEmpty) { _, isEmpty in
+            // 空→読込済みになった最初の1回だけ、当日に近い明細へ頭出しする。
+            // onAppear と同じ更新周期で要求すると、Listがまだ行を作っておらず
+            // scrollTo の対象が見つからないため、行が載ってから改めて要求する
+            guard !isEmpty else { return }
             prepareCurrentSortScroll()
         }
         .onChange(of: period) { _, newValue in
@@ -563,23 +565,14 @@ struct RecordListView: View {
         }
     }
 
-    /// 決済セルと、その直下にある保存前のコピーをまとめて表示する
-    @ViewBuilder
-    private func recordRows(for record: E3record, proxy: ScrollViewProxy) -> some View {
+    /// 決済セル単体。頭出しの対象になるので、必ず1行だけを返す
+    private func recordRow(for record: E3record) -> some View {
         Button {
             sheetTarget = .edit(record)
         } label: {
             RecordSummaryRow(record: record)
         }
         .buttonStyle(.plain)
-        .id(record.id)
-        .task(id: recordScrollRequest) {
-            // 対象セル自身の生成後にも実行し、List側の要求取りこぼしを補う
-            guard 0 < recordScrollRequest,
-                  record.id == recordScrollTargetID else { return }
-            await Task.yield()
-            scrollToRecord(record.id, proxy: proxy)
-        }
         // 右スワイプで、その場に明細の複製を追加する
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             Button {
@@ -590,12 +583,12 @@ struct RecordListView: View {
             .tint(.blue)
             .accessibilityLabel(Text("button.copy"))
         }
+    }
 
-        // コピー仮明細はコピー元の直下に並べて表示する
-        ForEach(draftCopies(for: record)) { draft in
-            RecordDraftCopyRow(draft: draft) {
-                sheetTarget = .draftCopy(draft)
-            }
+    /// コピー仮明細のセル。コピー元の直下に並べる
+    private func draftCopyRow(_ draft: RecordDraftCopy) -> some View {
+        RecordDraftCopyRow(draft: draft) {
+            sheetTarget = .draftCopy(draft)
         }
     }
 
@@ -765,6 +758,20 @@ struct RecordListView: View {
     }
 
     /// 固定パネル直下へ対象セルをアニメーションなしで移動する
+    /// List の遅延生成に合わせ、少し間隔を空けて複数回スクロールし直す。
+    /// ビュー更新で取り消されないよう Task ではなくメインキューへ積む
+    private func scheduleScrollRetries(proxy: ScrollViewProxy) {
+        guard 0 < recordScrollRequest, let targetID = recordScrollTargetID else { return }
+        let issuedRequest = recordScrollRequest
+        for delay in [0.0, 0.05, 0.1, 0.2, 0.3, 0.45, 0.6] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                // 新しい要求が来ていたら、古い要求の再試行は捨てる
+                guard recordScrollRequest == issuedRequest else { return }
+                scrollToRecord(targetID, proxy: proxy)
+            }
+        }
+    }
+
     private func scrollToRecord(_ recordID: String, proxy: ScrollViewProxy) {
         var transaction = Transaction()
         transaction.disablesAnimations = true
@@ -862,13 +869,6 @@ struct RecordListView: View {
 }
 
 /// 利用日順で表示する月単位の決済と合計
-private struct RecordMonthGroup: Identifiable {
-    let id: String
-    let monthDate: Date
-    var records: [E3record]
-    var total: Decimal
-    var showsTotal: Bool
-}
 
 // MARK: - Record Filter Sheets
 
