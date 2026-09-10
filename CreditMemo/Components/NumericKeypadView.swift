@@ -85,9 +85,6 @@ struct NumericKeypadOverlay: View {
     private var displayScale: CGFloat { min(uiScale, 1.2) }
     private var sheetSpacing: CGFloat { (isCompact ? 10 : 14) * fontScale.uiScale }
     private var displayFontSize: CGFloat { (isCompact ? 44 : 52) * displayScale }
-    /// 丸め名称の長さは言語で大きく変わるため、幅は内容に合わせて可変にする。
-    /// 行からはみ出さないよう上限だけ決めておく
-    private var roundingControlMaxWidth: CGFloat { (isCompact ? 150 : 190) * min(uiScale, 1.3) }
     /// 丸め選択と計算式の塊を、シート標準の行間からどれだけ詰めるか。
     /// 行間を食い潰さないよう、標準の間隔の半分までに留める
     private var roundingRowTightening: CGFloat { sheetSpacing / 2 }
@@ -322,21 +319,25 @@ struct NumericKeypadOverlay: View {
                 minWidth: 0,
                 style: roundingPickerStyle,
                 collapsedLabelOverride: { option in
-                    // 選択結果だけを小さくし、吹き出し内の文字サイズは維持する
+                    // 選択結果だけを小さくし、吹き出し内の文字サイズは維持する。
+                    // 長い名称は縮小して1行に収め、行からはみ出さないようにする
                     AnyView(
                         Text(option.localizedKey)
                             .font(.footnote.weight(.medium))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
                     )
                 }
             ) { option in
                 Text(option.localizedKey)
             }
-            // 内容の自然幅で表示し、長い名称のときだけ上限で頭打ちにする。
-            // 上限側で縮小できるよう、fixedSize は使わず最大幅だけを与える
-            .frame(maxWidth: roundingControlMaxWidth, alignment: .trailing)
+            // ピッカー自身が内容幅で収まるので、ここで幅を与えない。
+            // 余分な幅を抱えると (?) が丸め表示から離れて中央へ寄ってしまう
             .opacity(needsRounding ? 1 : 0)
             .allowsHitTesting(needsRounding)
         }
+        // 長い丸め名称でも行からはみ出さないよう、行全体で上限を持たせる
+        .frame(maxWidth: .infinity, alignment: .trailing)
         .padding(.horizontal, 16)
     }
 

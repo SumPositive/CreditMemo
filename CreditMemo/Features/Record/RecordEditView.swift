@@ -492,6 +492,8 @@ struct RecordEditView: View {
     /// 手動トグルで確定した開閉状態の保存先。次に新しい決済を開いた時の初期値になる。
     @AppStorage(AppStorageKey.similarSectionExpanded) private var similarSectionExpandedStored = true
     @FocusState private var isUsePointFocused: Bool
+    /// 候補カプセルで選んだ直後の値。日本語入力の書き戻し対策に使う
+    @State private var pendingUsePointSelection: String?
     @FocusState private var focusNote: Bool
     private let formTopAnchorID = "record-form-top"
     private let noteAnchorID = "record-note-anchor"
@@ -539,17 +541,115 @@ private var isValid: Bool {
         let hasLockedPart = record.e6parts.contains { $0.isChecked }
         return anyPartPaid || hasLockedPart
     }
-    private var shownUsePointCandidates: [String] {
-        // フォーカス時に候補をそのまま表示する
+    /// 候補に出す最大件数。閉じるボタンを置かないぶん横幅を使えるので多めに持つ
+    private static let usePointCandidateLimit = 20
+
+    /// キーボード上に出す候補バーの行数
+    private static let usePointCandidateRows = 2
+    /// 候補カプセルの行間
+    private var usePointCandidateRowSpacing: CGFloat { 6 }
+    /// カプセル1行分の高さ（文字サイズ設定に追従させる）
+    private var usePointCandidateRowHeight: CGFloat { 34 * min(fontScale.uiScale, 1.4) }
+    /// 候補バー全体の高さ。既定行数に収まらない分は中で縦スクロールさせる
+    private var usePointCandidateBarHeight: CGFloat {
+        let rows = CGFloat(Self.usePointCandidateRows)
+        return usePointCandidateRowHeight * rows + usePointCandidateRowSpacing * (rows - 1)
+    }
+
+    /// キーボード直上に出すラベル候補バー。折り返して複数行に候補を並べる。
+    /// キーボードは改行キー（完了）や画面タップで閉じられるので、
+    /// 閉じるボタンは置かず横幅すべてを候補に使う
+    @ViewBuilder private var usePointCandidateBar: some View {
+        // 「よくある決済」帯と同じ折り返しレイアウトで複数行に並べる。
+        // packToFill で行末の余白に後ろの候補を繰り上げ、行を無駄なく使う。
+        // 既定の行数に収まらない分は縦スクロールで見せる
+        ScrollView(.vertical) {
+            AZFlowLayout(
+                spacing: 8,
+                rowSpacing: usePointCandidateRowSpacing,
+                alignment: .leading,
+                packToFill: true
+            ) {
+                ForEach(shownUsePointCandidates, id: \.self) { candidate in
+                    Button {
+                        selectUsePointCandidate(candidate)
+                    } label: {
+                        candidateText(candidate)
+                            .lineLimit(1)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                Capsule().fill(Color(.tertiarySystemFill))
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 2)
+        }
+        .frame(height: usePointCandidateBarHeight)
+        .scrollIndicators(.hidden)
+        .scrollBounceBehavior(.basedOnSize)
+        // バー内を縦スクロールしても閉じない（3行目以降の候補を選べるように）
+        .scrollDismissesKeyboard(.never)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        // 背面のフォームが透けてタップ位置を誤解させないよう、不透明な帯にする
+        .background(.bar)
+        .overlay(alignment: .top) { Divider() }
+    }
+
+    /// 候補カプセルを選んだ時の確定処理。
+    /// 日本語入力の変換中（未確定文字がある状態）でタップされると、
+    /// 代入した直後に IME が未確定文字を書き戻して選択が消えてしまう。
+    /// 先にフォーカスを外して IME を終わらせ、その後で値を入れる
+    private func selectUsePointCandidate(_ candidate: String) {
+        // 選んだ値を覚えておく。IME の未確定文字が遅れて書き戻されても、
+        // onChange 側でこの値へ戻すので選択が消えない
+        pendingUsePointSelection = candidate
+        isUsePointFocused = false
+        DispatchQueue.main.async {
+            zName = candidate
+        }
+    }
+
+    /// 入力語と一致した部分を太字にして、どこが引っかかったか分かるようにする
+    private func candidateText(_ candidate: String) -> Text {
         let keyword = zName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !keyword.isEmpty,
+              let range = candidate.range(of: keyword, options: .caseInsensitive) else {
+            return Text(candidate).foregroundStyle(.primary)
+        }
+        return Text(candidate[candidate.startIndex..<range.lowerBound]).foregroundStyle(.secondary)
+            + Text(candidate[range]).foregroundStyle(.primary).bold()
+            + Text(candidate[range.upperBound...]).foregroundStyle(.secondary)
+    }
+
+    private var shownUsePointCandidates: [String] {
+        let keyword = zName.trimmingCharacters(in: .whitespacesAndNewlines)
+        // 未入力なら、よく使う順のまま先頭だけ見せる
         if keyword.isEmpty {
-            return Array(usePointCandidates.prefix(10))
+            return Array(usePointCandidates.prefix(Self.usePointCandidateLimit))
         }
-        let filtered = usePointCandidates.filter { $0.localizedCaseInsensitiveContains(keyword) }
-        if filtered.isEmpty {
-            return Array(usePointCandidates.prefix(10))
+        // 入力済みの語と完全に同じ候補だけになったら、選ぶ意味がないので出さない
+        if usePointCandidates.contains(where: { $0.compare(keyword, options: .caseInsensitive) == .orderedSame }),
+           usePointCandidates.filter({ $0.localizedCaseInsensitiveContains(keyword) }).count == 1 {
+            return []
         }
-        return Array(filtered.prefix(10))
+        // 前方一致を上位に、部分一致をその後ろに置く。
+        // 各グループ内は元の並び（よく使う順）を保つ
+        var prefixMatches: [String] = []
+        var containsMatches: [String] = []
+        for candidate in usePointCandidates {
+            if candidate.lowercased().hasPrefix(keyword.lowercased()) {
+                prefixMatches.append(candidate)
+            } else if candidate.localizedCaseInsensitiveContains(keyword) {
+                containsMatches.append(candidate)
+            }
+        }
+        // 一致する候補がなければ、無関係な候補を出さずに閉じる
+        return Array((prefixMatches + containsMatches).prefix(Self.usePointCandidateLimit))
     }
     private var similarCandidates: [E3record] {
         // 編集日（dateUpdate）降順でソートする。dateUpdate が nil のものは古いものとして扱う
@@ -675,7 +775,8 @@ private var isValid: Bool {
             .listSectionSpacing(.custom(16))
             // Form先頭の自動余白を抑えて、上ボタンをタイトル側へ寄せる
             .contentMargins(.top, 16, for: .scrollContent)
-            .scrollDismissesKeyboard(.interactively)
+            // 上下スクロールを始めたらキーボードを閉じる
+            .scrollDismissesKeyboard(.immediately)
             .onChange(of: scrollToTopRequest) { _, _ in
                 withAnimation(.easeInOut(duration: 0.22)) {
                     proxy.scrollTo(formTopAnchorID, anchor: .top)
@@ -687,18 +788,24 @@ private var isValid: Bool {
             .onChange(of: focusNote) { _, isFocused in
                 if isFocused { scrollNoteIntoView(proxy) }
             }
-            .safeAreaInset(edge: .bottom) {
-                if focusNote {
-                    // キーボード上へメモ入力行を逃がすため、フォーカス中だけ下端余白を追加する
-                    Color.clear.frame(height: 180)
-                }
-            }
             .simultaneousGesture(
                 TapGesture().onEnded {
                     // フォーム外側の軽いタップでラベル入力のフォーカスを外す
                     isUsePointFocused = false
                 }
             )
+            // 候補バーはこのジェスチャの外側に置く。内側だとカプセルを押した瞬間に
+            // フォーカスが外れ、バーごと消えてタップが成立しない
+            .safeAreaInset(edge: .bottom) {
+                if isUsePointFocused && !shownUsePointCandidates.isEmpty {
+                    // ラベル候補はキーボードの真上に置く。safeAreaInset なら実レイアウトの
+                    // 領域を確保するので、下の行に重なってタップが抜けることがない
+                    usePointCandidateBar
+                } else if focusNote {
+                    // キーボード上へメモ入力行を逃がすため、フォーカス中だけ下端余白を追加する
+                    Color.clear.frame(height: 180)
+                }
+            }
         }
         .scalableNavigationTitle(isNew ? "record.edit.title.add" : "record.edit.title.edit") {
             if isNew {
@@ -1868,16 +1975,31 @@ private var isValid: Bool {
                 .disabled(isCoreFieldsLocked)
             }
 
-            // ラベル（自由入力 + 頻度候補）
-            VStack(alignment: .leading, spacing: 8) {
+            // ラベル（自由入力。候補はキーボード上のツールバーに出す）
+            HStack(spacing: 8) {
                 TextField("record.field.usePoint", text: $zName)
                     .focused($isUsePointFocused)
+                    .onChange(of: isUsePointFocused) { _, focused in
+                        // 再び入力を始める時は、書き戻し対策の保留値を必ず解除する
+                        if focused { pendingUsePointSelection = nil }
+                    }
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
+                    .submitLabel(.done)
                     .onSubmit {
                         isUsePointFocused = false
                     }
                     .onChange(of: zName) { _, newValue in
+                        // 候補を選んだ直後は、IME が書き戻した未確定文字を無視して
+                        // 選んだ値を優先する（変換中のタップで選択が消えるのを防ぐ）
+                        if let pending = pendingUsePointSelection {
+                            if newValue == pending {
+                                pendingUsePointSelection = nil
+                            } else {
+                                zName = pending
+                            }
+                            return
+                        }
                         // ラベルは最大100文字までに制限する
                         if 100 < newValue.count {
                             zName = String(newValue.prefix(100))
@@ -1887,33 +2009,20 @@ private var isValid: Bool {
                         if trimmed != newValue { zName = trimmed }
                     }
 
-                if isUsePointFocused && !shownUsePointCandidates.isEmpty {
-                    VStack(spacing: 0) {
-                        ForEach(shownUsePointCandidates, id: \.self) { candidate in
-                            Button {
-                                zName = candidate
-                                isUsePointFocused = false
-                            } label: {
-                                HStack(spacing: 0) {
-                                    Text(candidate)
-                                        .lineLimit(1)
-                                        .truncationMode(.tail)
-                                        .foregroundStyle(.primary)
-                                    Spacer()
-                                }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .contentShape(Rectangle())
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 8)
-                            }
-                            .buttonStyle(.plain)
-                            if candidate != shownUsePointCandidates.last {
-                                Divider()
-                            }
-                        }
+                // 入力中だけ、まとめて消せるクリアボタンを出す
+                if !zName.isEmpty {
+                    Button {
+                        // 候補選択の保留値を先に捨ててから消す（消去が戻されないように）
+                        pendingUsePointSelection = nil
+                        zName = ""
+                        isUsePointFocused = true
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                            .foregroundStyle(.secondary)
                     }
-                    .background(Color(.secondarySystemBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(Text("button.clear"))
                 }
             }
         }
@@ -2601,6 +2710,7 @@ private var isValid: Bool {
     }
 
     private func resetForm(keepDateAndCard: Bool) {
+        pendingUsePointSelection = nil
         zName = ""
         zNote = ""
         nAmount = 0
@@ -2773,6 +2883,7 @@ private var isValid: Bool {
         // すでに選ばれているカプセルの再タップ → プリセットを解除する
         if pickedFrequentID == fp.id {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            pendingUsePointSelection = nil
             zName = ""
             selectedCard = nil
             selectedCategories = []
@@ -2782,6 +2893,7 @@ private var isValid: Bool {
             return
         }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        pendingUsePointSelection = nil
         zName = fp.label
         // 手段：カプセルの手段で上書き。手段なしのカプセルなら未選択に戻す
         selectedCard = fp.cardID.flatMap { id in cards.first { $0.id == id } }
