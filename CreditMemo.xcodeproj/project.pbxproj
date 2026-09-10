@@ -95,6 +95,7 @@
 		FA9E01B0FA9E01B0FA9E01B0 /* FrequentPaymentBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA9E02C0FA9E02C0FA9E02C0 /* FrequentPaymentBuilderTests.swift */; };
 		FA9E03D0FA9E03D0FA9E03D0 /* LocalizationIntegrityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA9E04E0FA9E04E0FA9E04E0 /* LocalizationIntegrityTests.swift */; };
 		FA9E05F0FA9E05F0FA9E05F0 /* BillingDateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA9E0600FA9E0600FA9E0600 /* BillingDateTests.swift */; };
+		758D137B593462989653E1BA /* CalculatorRoundingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85E51249D49F171236F7B9A9 /* CalculatorRoundingTests.swift */; };
 		FB43A45099256F6C054EA946 /* RetentionCleanupModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA4161E64C3E286BC8EFFCC2 /* RetentionCleanupModifier.swift */; };
 		FB7BA447A10C45AE80CA3130 /* PaymentListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CEE181027B6CB737447AA76 /* PaymentListView.swift */; };
 		FD5A531276F43BC69938EB01 /* CardService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72788E5488290A29CA71090E /* CardService.swift */; };
@@ -215,6 +216,7 @@
 		FA9E02C0FA9E02C0FA9E02C0 /* FrequentPaymentBuilderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrequentPaymentBuilderTests.swift; sourceTree = "<group>"; };
 		FA9E04E0FA9E04E0FA9E04E0 /* LocalizationIntegrityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizationIntegrityTests.swift; sourceTree = "<group>"; };
 		FA9E0600FA9E0600FA9E0600 /* BillingDateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BillingDateTests.swift; sourceTree = "<group>"; };
+		85E51249D49F171236F7B9A9 /* CalculatorRoundingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalculatorRoundingTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -444,6 +446,7 @@
 				FA9E02C0FA9E02C0FA9E02C0 /* FrequentPaymentBuilderTests.swift */,
 				FA9E04E0FA9E04E0FA9E04E0 /* LocalizationIntegrityTests.swift */,
 				FA9E0600FA9E0600FA9E0600 /* BillingDateTests.swift */,
+				85E51249D49F171236F7B9A9 /* CalculatorRoundingTests.swift */,
 				CFA602C1C12E74789D2D7737 /* Support */,
 			);
 			path = CreditMemoTests;
@@ -706,6 +709,7 @@
 				FA9E01B0FA9E01B0FA9E01B0 /* FrequentPaymentBuilderTests.swift in Sources */,
 				FA9E03D0FA9E03D0FA9E03D0 /* LocalizationIntegrityTests.swift in Sources */,
 				FA9E05F0FA9E05F0FA9E05F0 /* BillingDateTests.swift in Sources */,
+				758D137B593462989653E1BA /* CalculatorRoundingTests.swift in Sources */,
 				C67472FB132A9A7D1B368742 /* TestFixtures.swift in Sources */,
 				706E1FF4B34983748DA77BF0 /* TestStore.swift in Sources */,
 			);

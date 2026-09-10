@@ -391,12 +391,15 @@ struct NumericKeypadOverlay: View {
         }
         guard pendingOperator != nil, let left = accumulator else { return }
 
-        // 右辺を消し終えた次のBSで演算子を外し、左辺を再編集できる形へ戻す
+        // 右辺を消し終えた次のBSで演算子を外し、左辺を再編集できる形へ戻す。
+        // 左辺は計算途中の未丸めの値なので、表示していた金額と食い違わないよう
+        // 選択中の丸め方法で確定してから入力欄へ戻す
         pendingOperator = nil
         calculationResult = nil
         accumulator = nil
-        isNegative = left < 0
-        let magnitude = left < 0 ? -left : left
+        let settled = rounding.round(left, scale: fractionDigits)
+        isNegative = settled < 0
+        let magnitude = settled < 0 ? -settled : settled
         digits = (magnitude.minorUnits(locale: locale) as NSDecimalNumber).stringValue
     }
 
