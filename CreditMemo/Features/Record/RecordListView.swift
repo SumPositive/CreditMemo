@@ -173,6 +173,8 @@ struct RecordListView: View {
     /// 絞り込み済みの全件ソートキャッシュ。
     /// ページング時に毎回再ソートしないよう、recordPage == 0 のときだけ再構築する。
     @State private var sortedCache: [E3record] = []
+    /// 月計を出す決済の id → その月の合計。records 更新時にだけ作り直す
+    @State private var monthTotalsByRecordID: [String: Decimal] = [:]
 
     private let pageSize = 100
     private let filterOptions: [FilterOption] = [.all, .incomplete, .card, .bank, .tag]
@@ -189,25 +191,39 @@ struct RecordListView: View {
     private var filtered: [E3record] {
         records
     }
-    /// その決済が「読み込み済みの中で、その月の最後の1件」なら月計を返す。
-    /// 次ページに同じ月が続く場合は、まだ合計が確定しないので返さない
-    private func monthTotalAfter(_ record: E3record) -> Decimal? {
-        guard sortTarget == .date else { return nil }
-        guard let index = records.firstIndex(where: { $0.id == record.id }) else { return nil }
-        let monthID = recordMonthID(for: record.dateUse)
-        // 同じ月がまだ後ろに残っていれば、ここは月の区切りではない
-        if index + 1 < records.count,
-           recordMonthID(for: records[index + 1].dateUse) == monthID {
-            return nil
+    /// 月の最後の1件（＝その下に月計を出す決済）の id と、その月の合計。
+    /// セル描画のたびに全件を走査すると件数の二乗に比例して重くなるため、
+    /// 読み込み済みの明細を1回だけ走査して作っておく
+    private func makeMonthTotalsByRecordID() -> [String: Decimal] {
+        guard sortTarget == .date else { return [:] }
+
+        var totals: [String: Decimal] = [:]
+        var runningTotal = Decimal.zero
+        var currentMonthID: String?
+
+        for (index, record) in records.enumerated() {
+            let monthID = recordMonthID(for: record.dateUse)
+            if monthID != currentMonthID {
+                // 月が変わったので合計を持ち越さない
+                runningTotal = .zero
+                currentMonthID = monthID
+            }
+            runningTotal += record.nAmount
+
+            // 次の明細が同じ月なら、ここはまだ月の区切りではない
+            let nextIndex = index + 1
+            if nextIndex < records.count,
+               recordMonthID(for: records[nextIndex].dateUse) == monthID {
+                continue
+            }
+            // 未読込のページに同じ月が続くなら、合計が確定していないので出さない
+            if records.count < sortedCache.count,
+               recordMonthID(for: sortedCache[records.count].dateUse) == monthID {
+                continue
+            }
+            totals[record.id] = runningTotal
         }
-        // 未読込のページに同じ月が続くなら、合計が確定していないので出さない
-        if records.count < sortedCache.count,
-           recordMonthID(for: sortedCache[records.count].dateUse) == monthID {
-            return nil
-        }
-        return records
-            .filter { recordMonthID(for: $0.dateUse) == monthID }
-            .reduce(Decimal.zero) { $0 + $1.nAmount }
+        return totals
     }
 
     private var selectedTagIDs: [String] {
@@ -384,7 +400,7 @@ struct RecordListView: View {
                     ForEach(draftCopies(for: record)) { draft in
                         draftCopyRow(draft)
                     }
-                    if let total = monthTotalAfter(record) {
+                    if let total = monthTotalsByRecordID[record.id] {
                         RecordMonthTotalRow(monthDate: record.dateUse, total: total)
                             .id("record-month-total-\(recordMonthID(for: record.dateUse))")
                     }
@@ -668,6 +684,7 @@ struct RecordListView: View {
         hasMoreRecords = true
         records = []
         sortedCache = []
+        monthTotalsByRecordID = [:]
         loadMoreRecordsIfNeeded()
     }
 
@@ -706,6 +723,8 @@ struct RecordListView: View {
         }
         recordPage += 1
         hasMoreRecords = end < sortedCache.count
+        // 表示中の明細が変わったので、月計をまとめて作り直す
+        monthTotalsByRecordID = makeMonthTotalsByRecordID()
     }
 
     private func rebuildSortedCache() {
