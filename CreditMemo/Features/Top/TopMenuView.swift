@@ -125,16 +125,6 @@ struct TopMenuView: View {
 
     var body: some View {
         List(selection: $selectedDestination) {
-            if !SnapshotSeed.isActive {
-                Section {
-                    // 主画面上部にだけ通常バナーを表示する
-                    InlineAdBanner()
-                        .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-                }
-            }
-
             if userLevel == .beginner {
                 Section {
                     BeginnerHintView(
@@ -254,6 +244,11 @@ struct TopMenuView: View {
         // グループ間の上下余白を詰めて、メニュー全体を見渡しやすくする
         .listSectionSpacing(.custom(16))
         .navigationBarTitleDisplayMode(.inline)
+        // ヘッダはメニューの背景と同じ地色にする。
+        // ダークでは既定のマテリアルが重なって背景より明るく浮くため、
+        // 地色そのものを敷いて広告帯とヘッダを見分けられるようにする
+        .toolbarBackground(headerBackgroundColor, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .principal) {
                 Text("app.name")
@@ -261,6 +256,12 @@ struct TopMenuView: View {
                     .fontWeight(.medium)
                     .foregroundStyle(.tertiary)
             }
+        }
+        // 広告はナビゲーションバーの下、一覧の外側に置く。
+        // ナビゲーションバーを潰してそこへ広告を出すと、戻る・タイトルがある
+        // 位置に広告が来て誤タップを誘いかねないため、バーはそのまま残す
+        .safeAreaInset(edge: .top, spacing: 0) {
+            adBandHeader
         }
         .sheet(isPresented: $showVoiceRecordSheet, onDismiss: { handleVoiceAfterSave() }) {
             VoiceInputSheet(
@@ -348,6 +349,27 @@ struct TopMenuView: View {
             byAdding: .day, value: RetentionSuggest.snoozeDays, to: Date()
         ) ?? Date()
         retentionSnoozeUntil = next.timeIntervalSinceReferenceDate
+    }
+
+    /// ヘッダの地色。メニューの背景と同じにして、上下で地をそろえる
+    private var headerBackgroundColor: Color {
+        colorScheme == .dark ? .black : Color(uiColor: .systemGroupedBackground)
+    }
+
+    /// ナビゲーションバーの下に敷く広告帯。
+    /// 一覧の外側（safeAreaInset）に置くので、左右は画面の端まで届く。
+    /// 中身が空だとインセットが確定しないため、高さ0の実体を必ず返す
+    @ViewBuilder private var adBandHeader: some View {
+        if SnapshotSeed.isActive {
+            Color.clear.frame(height: 0)
+        } else {
+            VStack(spacing: 0) {
+                InlineAdBanner()
+                // 広告帯と最初のメニューセルの間を空ける
+                Color.clear.frame(height: 24)
+            }
+            .background(Color(uiColor: .systemGroupedBackground))
+        }
     }
 
     @ViewBuilder
