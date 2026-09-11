@@ -409,6 +409,20 @@ enum TagMatchMode: Int, CaseIterable, Identifiable {
         case .and: " & "
         }
     }
+
+    /// 明細のタグが絞り込み条件に一致するか。
+    /// 選択タグが空のときは絞り込みをかけない（すべて対象）
+    func matches(recordTagIDs: Set<String>, selectedTagIDs: Set<String>) -> Bool {
+        if selectedTagIDs.isEmpty { return true }
+        switch self {
+        case .or:
+            // いずれかのタグを持てば対象にする
+            return !recordTagIDs.isDisjoint(with: selectedTagIDs)
+        case .and:
+            // 選択したタグをすべて持つ明細だけを対象にする
+            return selectedTagIDs.isSubset(of: recordTagIDs)
+        }
+    }
 }
 
 /// 編集系画面が未保存変更を持つかどうかをアプリ全体で共有するクラス

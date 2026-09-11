@@ -195,39 +195,23 @@ struct RecordListView: View {
     private var filtered: [E3record] {
         records
     }
-    /// 月の最後の1件（＝その下に月計を出す決済）の id と、その月の合計。
+    /// 月計は RecordMonthTotals に計算させる。
     /// セル描画のたびに全件を走査すると件数の二乗に比例して重くなるため、
     /// 読み込み済みの明細を1回だけ走査して作っておく
     private func makeMonthTotalsByRecordID() -> [String: Decimal] {
         guard sortTarget == .date else { return [:] }
+        return RecordMonthTotals.totalsByRecordID(
+            loaded: records.map(summaryInput),
+            totalCount: sortedCache.count,
+            nextUnloadedDate: records.count < sortedCache.count
+                ? sortedCache[records.count].dateUse
+                : nil
+        )
+    }
 
-        var totals: [String: Decimal] = [:]
-        var runningTotal = Decimal.zero
-        var currentMonthID: String?
-
-        for (index, record) in records.enumerated() {
-            let monthID = recordMonthID(for: record.dateUse)
-            if monthID != currentMonthID {
-                // 月が変わったので合計を持ち越さない
-                runningTotal = .zero
-                currentMonthID = monthID
-            }
-            runningTotal += record.nAmount
-
-            // 次の明細が同じ月なら、ここはまだ月の区切りではない
-            let nextIndex = index + 1
-            if nextIndex < records.count,
-               recordMonthID(for: records[nextIndex].dateUse) == monthID {
-                continue
-            }
-            // 未読込のページに同じ月が続くなら、合計が確定していないので出さない
-            if records.count < sortedCache.count,
-               recordMonthID(for: sortedCache[records.count].dateUse) == monthID {
-                continue
-            }
-            totals[record.id] = runningTotal
-        }
-        return totals
+    /// 月計・頭出しの計算へ渡す最小限の情報へ変換する
+    private func summaryInput(_ record: E3record) -> RecordSummaryInput {
+        RecordSummaryInput(id: record.id, dateUse: record.dateUse, amount: record.nAmount)
     }
 
     private var selectedTagIDs: [String] {
@@ -757,21 +741,11 @@ struct RecordListView: View {
 
     /// 今日との差が最小の利用日を探し、対象行を含むページまで読み込む
     private func prepareClosestDateScroll() {
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        var targetIndex: Int?
-        var closestDistance = TimeInterval.greatestFiniteMagnitude
+        guard let targetIndex = RecordMonthTotals.closestToTodayIndex(
+            in: sortedCache.map(summaryInput),
+            today: Date()
+        ) else { return }
 
-        for index in sortedCache.indices {
-            let date = calendar.startOfDay(for: sortedCache[index].dateUse)
-            let distance = abs(date.timeIntervalSince(today))
-            if distance < closestDistance {
-                closestDistance = distance
-                targetIndex = index
-            }
-        }
-
-        guard let targetIndex else { return }
         let requiredPageCount = targetIndex / pageSize + 1
         while recordPage < requiredPageCount && hasMoreRecords {
             loadMoreRecordsIfNeeded()
@@ -809,7 +783,11 @@ struct RecordListView: View {
         for delay in [0.0, 0.05, 0.1, 0.2, 0.3, 0.45, 0.6] {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
                 // 新しい要求が来ている、またはユーザー操作で打ち切られたら捨てる
-                guard isScrollRetryActive, recordScrollRequest == issuedRequest else { return }
+                guard ScrollRetryPolicy.shouldScroll(
+                    isActive: isScrollRetryActive,
+                    issuedRequest: issuedRequest,
+                    currentRequest: recordScrollRequest
+                ) else { return }
                 scrollToRecord(targetID, proxy: proxy)
             }
         }
@@ -840,8 +818,7 @@ struct RecordListView: View {
 
     /// 現在のカレンダーで同じ年月を判定する識別子を返す
     private func recordMonthID(for date: Date) -> String {
-        let components = Calendar.current.dateComponents([.year, .month], from: date)
-        return "\(components.year ?? 0)-\(components.month ?? 0)"
+        RecordMonthTotals.monthID(for: date)
     }
 
     private func matchesFilter(_ record: E3record) -> Bool {
@@ -860,18 +837,10 @@ struct RecordListView: View {
         case .bank(let id):
             return record.e1card?.e8bank?.id == id
         case .tag:
-            let selectedIDs = Set(selectedTagIDs)
-            if selectedIDs.isEmpty {
-                return true
-            }
-            switch tagMatchMode {
-            case .or:
-                // いずれかのタグを持てば対象にする
-                return record.e5tags.contains { selectedIDs.contains($0.id) }
-            case .and:
-                // 選択したタグをすべて持つ明細だけを対象にする
-                return selectedIDs.isSubset(of: Set(record.e5tags.map(\.id)))
-            }
+            return tagMatchMode.matches(
+                recordTagIDs: Set(record.e5tags.map(\.id)),
+                selectedTagIDs: Set(selectedTagIDs)
+            )
         }
     }
 

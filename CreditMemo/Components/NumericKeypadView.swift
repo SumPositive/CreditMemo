@@ -470,34 +470,20 @@ struct NumericKeypadOverlay: View {
         onCommit(committedValue)
     }
 
+    /// 計算規則は NumericCalculatorEngine に持たせ、ここでは結果を画面状態へ反映する
     private func calculate(
         _ left: Decimal,
         _ operation: NumericCalculatorOperator,
         _ right: Decimal
     ) -> Decimal? {
-        let result: Decimal
-        switch operation {
-        case .divide:
-            guard right != 0 else {
-                calculationErrorKey = "calculator.error.divideByZero"
-                return nil
-            }
-            result = left / right
-        case .multiply:
-            result = left * right
-        case .subtract:
-            result = left - right
-        case .add:
-            result = left + right
-        }
-
-        let magnitude = result < 0 ? -result : result
-        guard magnitude <= maxValue else {
-            calculationErrorKey = "calculator.error.tooLarge"
+        switch NumericCalculatorEngine.calculate(left, operation, right, maxValue: maxValue) {
+        case .success(let result):
+            calculationErrorKey = nil
+            return result
+        case .failure(let error):
+            calculationErrorKey = LocalizedStringKey(error.localizedKey)
             return nil
         }
-        calculationErrorKey = nil
-        return result
     }
 
     private func currencyText(_ value: Decimal, fractionDigits: Int) -> String {
