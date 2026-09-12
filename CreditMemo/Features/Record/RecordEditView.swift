@@ -275,7 +275,7 @@ extension Color {
 /// 直接読み書きするので、閉じると親のカプセルが組み直る。
 private struct FrequentPaymentSettingsSheet: View {
     /// 同時に開くプルダウンは1つだけにするための識別子
-    private enum DropdownKind { case period, minUses, amount, sort }
+    private enum DropdownKind { case period, minUses, amount, sort, alignment }
 
     @Environment(\.dismiss) private var dismiss
     @AppStorage(AppStorageKey.fontScale)          private var fontScale: FontScale = .system
@@ -286,6 +286,7 @@ private struct FrequentPaymentSettingsSheet: View {
     @AppStorage(AppStorageKey.frequentMinUses)            private var frequentMinUses: FrequentMinUses = .one
     @AppStorage(AppStorageKey.frequentHideBaseWhenAmounts) private var frequentHideBaseWhenAmounts = false
     @AppStorage(AppStorageKey.frequentShowCardColor)      private var frequentShowCardColor = false
+    @AppStorage(AppStorageKey.frequentAlignment)          private var frequentAlignment: CapsuleAlignment = .justified
     @State private var expandedDropdown: DropdownKind?
 
     /// ポップオーバー候補一覧の文字サイズ（自動追従なら nil）
@@ -319,6 +320,9 @@ private struct FrequentPaymentSettingsSheet: View {
                     dropdownRow("settings.frequent.sort",
                                 options: FrequentSortOrder.allCases,
                                 selection: $frequentSortOrder, kind: .sort) { $0.localizedKey }
+                    dropdownRow("settings.frequent.alignment",
+                                options: CapsuleAlignment.allCases,
+                                selection: $frequentAlignment, kind: .alignment) { $0.localizedKey }
                 } header: {
                     Text("settings.frequent.section.display")
                 }
@@ -471,8 +475,8 @@ struct RecordEditView: View {
     private var didPickFrequentPayment: Bool { pickedFrequentID != nil }
     /// 「よくある決済」帯の表示行数（1〜5）。ハンドルのドラッグで変更し永続化する
     @AppStorage(AppStorageKey.frequentPaymentRows) private var frequentRows = 3
-    /// カプセル帯の並べ方（設定「ラベルやタグ一覧の並べ方」）
-    @AppStorage(AppStorageKey.capsuleAlignment) private var capsuleAlignment: CapsuleAlignment = .justified
+    /// ラベル一覧の並べ方（「よくある決済」設定で選ぶ）
+    @AppStorage(AppStorageKey.frequentAlignment) private var frequentAlignment: CapsuleAlignment = .justified
     /// パネル設定：ラベル抽出期間／金額表示条件／並び順ほか（設定シートで変更・永続化）
     @AppStorage(AppStorageKey.frequentPeriod)     private var frequentPeriod: FrequentPeriod = .year1
     @AppStorage(AppStorageKey.frequentAmountRule) private var frequentAmountRule: FrequentAmountRule = .threePlus
@@ -1752,24 +1756,26 @@ private var isValid: Bool {
                 // 幅で自動的に折り返すので、自前の幅測定に依存せず確実に複数行になる。
                 // packToFill=true で、行末の余白に後方の“収まる”カプセルを繰り上げて詰める。
                 // 縦は frequentRows 行ぶんの高さにクリップし、溢れる行は縦スクロールで見せる。
-                ScrollView(.vertical, showsIndicators: true) {
-                    // 寄せはタグ一覧と共通で、設定「ラベルやタグ一覧の並べ方」に従う
+                ScrollView(.vertical) {
+                    // 寄せは「よくある決済」設定の「ラベル一覧の並べ方」に従う
                     AZFlowLayout(spacing: frequentSpacing,
                                  rowSpacing: frequentRowSpacing,
-                                 alignment: capsuleAlignment.horizontalAlignment,
+                                 alignment: frequentAlignment.horizontalAlignment,
                                  packToFill: true,
-                                 justified: capsuleAlignment.isJustified) {
+                                 justified: frequentAlignment.isJustified) {
                         ForEach(cachedFrequentPayments) { fp in
                             frequentCapsule(fp)
                         }
                     }
                     // AZFlowLayout は内容幅に縮むことがあるので、帯自体の寄せも合わせる
                     .frame(maxWidth: .infinity, alignment: Alignment(
-                        horizontal: capsuleAlignment.horizontalAlignment,
+                        horizontal: frequentAlignment.horizontalAlignment,
                         vertical: .center
                     ))
                 }
                 .frame(height: frequentAreaHeight(for: frequentRows))
+                // スクロールインジケータは出さない（行数はハンドルで調整する）
+                .scrollIndicators(.hidden)
                 .animation(.easeOut(duration: 0.18), value: frequentRows)
 
                 frequentResizeHandle
@@ -1835,7 +1841,7 @@ private var isValid: Bool {
                 // 幅の割り当ては AZFlowLayout（Layoutプロトコル）が subview の実サイズに基づいて
                 // 正確に行うため、通常は fixedSize や maxWidth を指定する必要はない。
                 // 均等割りのときだけ、提案された幅までカプセルを広げる
-                .frame(maxWidth: capsuleAlignment.isJustified ? .infinity : nil)
+                .frame(maxWidth: frequentAlignment.isJustified ? .infinity : nil)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 7)
                 .background(

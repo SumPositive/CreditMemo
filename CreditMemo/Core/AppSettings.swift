@@ -43,8 +43,8 @@ enum AppStorageKey {
     static let frequentMinUses = "setting.frequentMinUses"
     /// 金額付きカプセルがあるとき、金額なしの基本カプセルを隠すか。既定 false
     static let frequentHideBaseWhenAmounts = "setting.frequentHideBaseWhenAmounts"
-    /// ラベル・タグのカプセル帯の並べ方（左寄せ／中央寄せ／右寄せ／均等）。既定は均等
-    static let capsuleAlignment = "setting.capsuleAlignment"
+    /// 「よくある決済」ラベル一覧の並べ方（均等／左寄せ／中央寄せ／右寄せ）。既定は均等
+    static let frequentAlignment = "setting.frequentAlignment"
     /// カプセルに決済手段の色（IDから一意生成）を表示するか。既定 false
     static let frequentShowCardColor = "setting.frequentShowCardColor"
     /// 一度きりの設定移行：テンキー自動表示を強制OFFにする処理を実行済みか（v○○更新時対応）
@@ -349,8 +349,8 @@ enum FrequentMinUses: Int, CaseIterable, Identifiable {
 }
 
 /// 「よくある決済」カプセルの並び順。
-/// ラベル・タグをカプセルで並べるときの寄せ方。
-/// 「よくある決済」のラベル一覧、タグ一覧、タグ複数選択シートで共通に使う
+/// 「よくある決済」ラベル一覧をカプセルで並べるときの寄せ方。
+/// タグ一覧・タグ複数選択シートは常に均等なので、この設定は使わない
 enum CapsuleAlignment: String, CaseIterable, Identifiable {
     case justified = "justified" // 均等に（間隔は固定でカプセル幅を広げる。最終行も同じ、既定）
     case leading  = "leading"   // 左寄せ
@@ -361,10 +361,10 @@ enum CapsuleAlignment: String, CaseIterable, Identifiable {
 
     var localizedKey: String {
         switch self {
-        case .justified: "settings.capsuleAlignment.justified"
-        case .leading:   "settings.capsuleAlignment.leading"
-        case .center:    "settings.capsuleAlignment.center"
-        case .trailing:  "settings.capsuleAlignment.trailing"
+        case .justified: "settings.frequent.alignment.justified"
+        case .leading:   "settings.frequent.alignment.leading"
+        case .center:    "settings.frequent.alignment.center"
+        case .trailing:  "settings.frequent.alignment.trailing"
         }
     }
 

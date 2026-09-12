@@ -76,6 +76,8 @@ struct TagListView: View {
                 TagCapsuleBand(items: bandItems)
             }
         }
+        // スクロールインジケータは出さない
+        .scrollIndicators(.hidden)
         .background(Color(uiColor: .systemGroupedBackground))
         // ソート条件はシートと同じく上部固定にする
         .safeAreaInset(edge: .top, spacing: 0) {
@@ -211,30 +213,23 @@ struct TagCapsuleBand: View {
         let action: () -> Void
     }
 
-    /// 並べ方は設定「ラベルやタグ一覧の並べ方」に従う
-    @AppStorage(AppStorageKey.capsuleAlignment)
-    private var capsuleAlignment: CapsuleAlignment = .justified
-
     let items: [Item]
 
     var body: some View {
-        // ソート順を優先しながら、行末の余白に収まる後方のタグを繰り上げて詰める
+        // ソート順を優先しながら、行末の余白に収まる後方のタグを繰り上げて詰める。
+        // タグ一覧は常に均等（間隔は固定でカプセル幅を広げる）にする
         AZFlowLayout(
             spacing: Self.capsuleSpacing,
             rowSpacing: Self.capsuleSpacing,
-            alignment: capsuleAlignment.horizontalAlignment,
+            alignment: .center,
             packToFill: true,
-            justified: capsuleAlignment.isJustified
+            justified: true
         ) {
             ForEach(items) { item in
                 capsule(item)
             }
         }
-        // AZFlowLayout は内容幅に縮むことがあるので、帯自体の寄せも設定に合わせる
-        .frame(maxWidth: .infinity, alignment: Alignment(
-            horizontal: capsuleAlignment.horizontalAlignment,
-            vertical: .center
-        ))
+        .frame(maxWidth: .infinity)
         .padding(.horizontal, Self.areaHorizontalPadding)
         .padding(.vertical, Self.areaVerticalPadding)
     }
@@ -248,9 +243,9 @@ struct TagCapsuleBand: View {
                 .font(.subheadline.weight(.semibold))
                 .lineLimit(1)
                 .truncationMode(.tail)
-                // 均等割りのとき、提案された幅までカプセルを広げる。
+                // 均等割りで提案された幅までカプセルを広げる。
                 // Text は自然幅で止まるので、ここを開けて背景ごと広げる
-                .frame(maxWidth: capsuleAlignment.isJustified ? .infinity : nil)
+                .frame(maxWidth: .infinity)
                 .padding(.horizontal, Self.capsuleHorizontalPadding)
                 .padding(.vertical, Self.capsuleVerticalPadding)
                 .background(
@@ -371,6 +366,8 @@ struct TagSelectionList: View {
             TagCapsuleBand(items: bandItems)
         }
         .contentMargins(.top, 0, for: .scrollContent)
+        // スクロールインジケータは出さない
+        .scrollIndicators(.hidden)
         .background(Color(uiColor: .systemGroupedBackground))
         .safeAreaInset(edge: .top, spacing: 0) {
             // 一致条件とソート領域は一覧外側と同じ薄いグレーで固定する
