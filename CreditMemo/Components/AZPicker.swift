@@ -541,7 +541,7 @@ struct AZFlowLayout: Layout {
     var spacing: CGFloat
     var rowSpacing: CGFloat
     /// 各行の横方向の寄せ。既定は従来どおり右寄せ（.trailing）。
-    /// 左寄せにしたい呼び出し側だけ .leading を指定する。
+    /// 左寄せ（.leading）・中央寄せ（.center）にしたい呼び出し側だけ指定する。
     var alignment: HorizontalAlignment = .trailing
     /// true のとき、行末の余白に後方の“収まる”subview を繰り上げて詰める（bin-packing）。
     /// 既定は false（並び順どおりの単純な折り返し）。
@@ -629,8 +629,14 @@ struct AZFlowLayout: Layout {
         for row in rows {
             let rowWidth = row.reduce(CGFloat.zero) { $0 + s[$1].width } + spacing * CGFloat(max(row.count - 1, 0))
             let rowHeight = row.reduce(CGFloat.zero) { max($0, s[$1].height) }
-            // 左寄せは行左端から、右寄せ（既定）は行右端から詰める
-            var x = alignment == .leading ? bounds.minX : bounds.maxX - rowWidth
+            // 左寄せは行左端から、中央寄せは余白を左右に二等分、
+            // 右寄せ（既定）は行右端から詰める
+            var x: CGFloat
+            switch alignment {
+            case .leading: x = bounds.minX
+            case .center:  x = bounds.minX + max(bounds.width - rowWidth, 0) / 2
+            default:       x = bounds.maxX - rowWidth
+            }
             for idx in row {
                 // 自然幅が帯幅を超える subview は帯幅で頭打ちにして提案する。
                 // これで内部（例：ラベル＋金額の HStack）に幅制限が伝わり、

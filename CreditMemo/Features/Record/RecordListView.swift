@@ -954,13 +954,18 @@ private struct RecordTagFilterSheet: View {
     private var selectedIDs: Set<String> {
         Set(draftSelection.map(\.id))
     }
-    private var displayTags: [E5tag] {
-        tags.orderedForTagSelection(mode: sortMode, selectedIDs: selectedIDs)
+    /// 表示順は表示時と並び順変更時にだけ組み直す。
+    /// 選択のたびに計算すると、タップしたタグが先頭へ動いて次を選びにくい
+    @State private var displayTags: [E5tag] = []
+
+    /// 先頭へ寄せる対象を明示的に受け取る（@State の反映順に依存しないため）
+    private func rebuildDisplayTags(hoisting ids: Set<String>) {
+        displayTags = tags.orderedForTagSelection(mode: sortMode, selectedIDs: ids)
     }
 
     /// 少ない行は内容に合わせ、多い行は最初から最大まで開く
     private var tagPickerDetents: Set<PresentationDetent> {
-        TagSelectionList.detents(tagCount: tags.count, showsMatchMode: true)
+        TagSelectionList.detents(tagNames: tags.map(\.zName), showsMatchMode: true)
     }
 
     var body: some View {
@@ -993,6 +998,15 @@ private struct RecordTagFilterSheet: View {
         .onAppear {
             draftSelection = selectedTags
             draftMatchModeRaw = matchModeRaw
+            // 表示時だけ、すでに選ばれているタグを先頭へ寄せる
+            rebuildDisplayTags(hoisting: Set(selectedTags.map(\.id)))
+        }
+        .onChange(of: sortModeRaw) { _, _ in
+            // 並び順を変えたときは選択済みを先頭に置き直す
+            rebuildDisplayTags(hoisting: selectedIDs)
+        }
+        .onChange(of: tags.map(\.id)) { _, _ in
+            rebuildDisplayTags(hoisting: selectedIDs)
         }
     }
 

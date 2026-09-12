@@ -1227,12 +1227,14 @@ private struct PaymentTagFilterPickerSheet: View {
     private var selectedIDs: Set<String> {
         Set(selected.map { [$0.id] } ?? [])
     }
+    /// 選択中のタグを先頭へ寄せる。タップすると即閉じるので、
+    /// 操作中に並びが変わることはない
     private var displayTags: [E5tag] {
         tags.orderedForTagSelection(mode: sortMode, selectedIDs: selectedIDs)
     }
     /// ソート行と「すべて」を含む高さに合わせてシートを開く
     private var pickerDetents: Set<PresentationDetent> {
-        TagSelectionList.detents(tagCount: tags.count, showsAllOption: true)
+        TagSelectionList.detents(tagNames: tags.map(\.zName), showsAllOption: true)
     }
 
     var body: some View {

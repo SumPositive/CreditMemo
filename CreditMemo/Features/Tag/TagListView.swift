@@ -138,13 +138,17 @@ extension Sequence where Element == E5tag {
         }
     }
 
-    /// 新規追加、選択済み、未選択の順でタグ選択用の表示順を作る
+    /// 新規追加ぶんと選択済みを先頭に寄せて、タグ選択用の表示順を作る。
+    ///
+    /// 先頭寄せは表示時（シートを開いた時）だけに使う。選択のたびに組み直すと
+    /// タップしたタグが動いて次を選びにくいので、操作中は並びを保つ
     func orderedForTagSelection(
         mode: SortMode,
-        selectedIDs: Set<String>,
+        selectedIDs: Set<String> = [],
         prioritizedIDs: Set<String> = []
     ) -> [E5tag] {
         let sorted = sortedByTagMode(mode)
+        guard !prioritizedIDs.isEmpty || !selectedIDs.isEmpty else { return sorted }
         let prioritized = sorted.filter { prioritizedIDs.contains($0.id) }
         let selected = sorted.filter {
             !prioritizedIDs.contains($0.id) && selectedIDs.contains($0.id)
@@ -253,24 +257,37 @@ struct TagSelectionList: View {
     }
 
     var body: some View {
-        List {
-            if showsAllOption {
-                Button(action: onSelectAll) {
-                    selectionRow(
+        // タグは「よくある決済」のラベル一覧と同じタグ式（カプセル）で並べる。
+        // AZFlowLayout の packToFill で、ソート順を優先しながら行末の余白に
+        // 収まる後方のタグを繰り上げて詰める。
+        ScrollView(.vertical) {
+            AZFlowLayout(
+                spacing: capsuleSpacing,
+                rowSpacing: capsuleSpacing,
+                alignment: .center,
+                packToFill: true
+            ) {
+                if showsAllOption {
+                    tagCapsule(
                         title: NSLocalizedString("label.all", comment: ""),
-                        isSelected: isAllSelected
+                        isSelected: isAllSelected,
+                        action: onSelectAll
+                    )
+                }
+                ForEach(tags) { tag in
+                    tagCapsule(
+                        title: tag.zName,
+                        isSelected: selectedIDs.contains(tag.id),
+                        action: { onSelectTag(tag) }
                     )
                 }
             }
-            ForEach(tags) { tag in
-                Button {
-                    onSelectTag(tag)
-                } label: {
-                    selectionRow(title: tag.zName, isSelected: selectedIDs.contains(tag.id))
-                }
-            }
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, Self.capsuleAreaHorizontalPadding)
+            .padding(.vertical, Self.capsuleAreaVerticalPadding)
         }
         .contentMargins(.top, 0, for: .scrollContent)
+        .background(Color(uiColor: .systemGroupedBackground))
         .safeAreaInset(edge: .top, spacing: 0) {
             // 一致条件とソート領域は一覧外側と同じ薄いグレーで固定する
             VStack(spacing: 8) {
@@ -288,31 +305,117 @@ struct TagSelectionList: View {
         }
     }
 
-    /// ソート領域と追加行を含め、タグ数に合うシート高さを返す
-    static func detents(
-        tagCount: Int,
-        showsAllOption: Bool = false,
-        showsMatchMode: Bool = false
-    ) -> Set<PresentationDetent> {
-        let rowCount = tagCount + (showsAllOption ? 1 : 0)
-        guard rowCount <= 5 else { return [.large] }
-        // 一致条件の行を出す分だけ、必要な高さを上乗せする
-        let baseHeight: CGFloat = showsMatchMode ? 200 : 150
-        let contentHeight = ceil(baseHeight + CGFloat(max(rowCount, 1)) * 50)
-        return [.height(contentHeight), .large]
+    // MARK: - シート高さ
+
+    /// カプセルの寸法。tagCapsule の指定と揃える（変えたら両方直す）
+    private static let capsuleSpacingValue: CGFloat = 8
+    private static let capsuleHorizontalPadding: CGFloat = 14
+    private static let capsuleVerticalPadding: CGFloat = 7
+    /// カプセル帯の左右余白（body の padding と揃える）
+    private static let capsuleAreaHorizontalPadding: CGFloat = 16
+    /// カプセル帯の上下余白（body の padding と揃える）
+    private static let capsuleAreaVerticalPadding: CGFloat = 12
+    /// 上部固定領域（ソート行、一致条件行）とツールバーぶんの高さ
+    private static let sortRowHeight: CGFloat = 58
+    private static let matchModeRowHeight: CGFloat = 50
+    private static let navigationBarHeight: CGFloat = 56
+    /// これを超える行数になったら最初から全開にする。
+    /// タグ式は1行に複数入るので、行数の上限はやや広く取る
+    private static let maxCompactRows = 8
+
+    /// タグ名1つ分のカプセル幅。実際の描画フォントで測るので、
+    /// 文字種（全角・半角・英大文字）や文字サイズ設定によらず実寸に一致する
+    private static func capsuleWidth(for name: String) -> CGFloat {
+        let base = UIFont.preferredFont(forTextStyle: .subheadline)
+        let font = UIFont.systemFont(ofSize: base.pointSize, weight: .semibold)
+        let textWidth = (name as NSString).size(withAttributes: [.font: font]).width
+        return ceil(textWidth) + capsuleHorizontalPadding * 2
     }
 
-    private func selectionRow(title: String, isSelected: Bool) -> some View {
-        HStack {
-            Text(title)
-                .foregroundStyle(Color(.label))
-            Spacer()
-            if isSelected {
-                Image(systemName: "checkmark").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
-                    .foregroundStyle(Color.accentColor)
+    /// AZFlowLayout(packToFill:) と同じ規則でカプセルを行へ詰め、必要な行数を返す
+    static func packedRowCount(names: [String], availableWidth: CGFloat) -> Int {
+        let widths = names.map { capsuleWidth(for: $0) }
+        guard !widths.isEmpty, availableWidth > 0 else { return 1 }
+
+        var placed = [Bool](repeating: false, count: widths.count)
+        var rows = 0
+        while let start = placed.firstIndex(of: false) {
+            placed[start] = true
+            var used = widths[start]
+            rows += 1
+            while true {
+                let free = availableWidth - used - capsuleSpacingValue
+                if free <= 0 { break }
+                // packToFill と同じく、収まる“最初の”後方要素を繰り上げる
+                guard let idx = ((start + 1)..<widths.count)
+                    .first(where: { !placed[$0] && widths[$0] <= free }) else { break }
+                placed[idx] = true
+                used += capsuleSpacingValue + widths[idx]
             }
         }
-        .contentShape(Rectangle())
+        return rows
+    }
+
+    /// タグ名から実際の詰まり方を見積もって、シート高さを返す。
+    /// 最終行が隠れるより1行多いほうが良いので、見積もりには1行ぶんの余裕を足す
+    static func detents(
+        tagNames: [String],
+        showsAllOption: Bool = false,
+        showsMatchMode: Bool = false,
+        availableWidth: CGFloat = UIScreen.main.bounds.width
+    ) -> Set<PresentationDetent> {
+        var names = tagNames
+        if showsAllOption {
+            names.insert(NSLocalizedString("label.all", comment: ""), at: 0)
+        }
+        let contentWidth = availableWidth - capsuleAreaHorizontalPadding * 2
+        // 端数の丸めや字幅の差で1行ずれても最終行が切れないよう、1行ぶん多めに取る
+        let rowCount = packedRowCount(names: names, availableWidth: contentWidth) + 1
+        guard rowCount <= maxCompactRows else { return [.large] }
+
+        // カプセル1行の高さ = 文字の行高 + 上下余白
+        let lineHeight = UIFont.preferredFont(forTextStyle: .subheadline).lineHeight
+        let capsuleHeight = ceil(lineHeight) + capsuleVerticalPadding * 2
+        let capsuleArea = capsuleHeight * CGFloat(rowCount)
+            + capsuleSpacingValue * CGFloat(rowCount - 1)
+            + capsuleAreaVerticalPadding * 2
+
+        let chrome = navigationBarHeight + sortRowHeight
+            + (showsMatchMode ? matchModeRowHeight : 0)
+        return [.height(ceil(capsuleArea + chrome)), .large]
+    }
+
+    /// カプセル間の横スペース（AZFlowLayout に渡す）
+    private var capsuleSpacing: CGFloat { Self.capsuleSpacingValue }
+
+    /// タグ1つ分のカプセル。選択中はアクセント塗りにして、チェックマークの代わりに
+    /// 塗りの有無で選択状態を示す（「よくある決済」のカプセルと同じ表現）
+    @ViewBuilder
+    private func tagCapsule(
+        title: String,
+        isSelected: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .padding(.horizontal, Self.capsuleHorizontalPadding)
+                .padding(.vertical, Self.capsuleVerticalPadding)
+                .background(
+                    Capsule().fill(isSelected ? Color.accentColor : Color(.secondarySystemBackground))
+                )
+                .foregroundStyle(isSelected ? Color.white : Color.accentColor)
+                .overlay(
+                    Capsule().stroke(
+                        isSelected ? Color.clear : Color.accentColor.opacity(0.35),
+                        lineWidth: 1
+                    )
+                )
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 }
 

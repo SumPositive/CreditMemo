@@ -3195,7 +3195,7 @@ private struct CategoryMultiPickerSheet: View {
 
     /// 少ない行は内容に合わせ、多い行は最初から最大まで開く
     private var tagPickerDetents: Set<PresentationDetent> {
-        TagSelectionList.detents(tagCount: items.count)
+        TagSelectionList.detents(tagNames: items.map(\.zName))
     }
 
     private var items: [E5tag] {
@@ -3239,7 +3239,10 @@ private struct CategoryMultiPickerSheet: View {
                     draftSelection.append(item)
                 }
                 // 追加直後は新規タグを最上段へ寄せ、同時に選択状態を反映する
-                rebuildDisplayOrder(prioritizedIDs: newItems.map(\.id))
+                rebuildDisplayOrder(
+                    prioritizedIDs: newItems.map(\.id),
+                    hoistedIDs: selectedIDs
+                )
             }) {
                 NavigationStack { TagEditView() }
                     // タグ追加シートの背面を透かさない
@@ -3250,14 +3253,17 @@ private struct CategoryMultiPickerSheet: View {
         .presentationBackground(Color(uiColor: .systemBackground))
         .onAppear {
             draftSelection = selectedCategories
-            rebuildDisplayOrder()
+            // 表示時だけ、すでに選ばれているタグを先頭へ寄せる。
+            // 代入直後の draftSelection に依存せず、元データから ID を作る
+            rebuildDisplayOrder(hoistedIDs: Set(selectedCategories.map(\.id)))
         }
         .onChange(of: items.map(\.id)) { _, _ in
             // 追加後や一覧更新後も、選択状態に合わせて表示順を組み直す
-            rebuildDisplayOrder()
+            rebuildDisplayOrder(hoistedIDs: selectedIDs)
         }
         .onChange(of: sortModeRaw) { _, _ in
-            rebuildDisplayOrder()
+            // 並び順を変えたときは選択済みを先頭に置き直す
+            rebuildDisplayOrder(hoistedIDs: selectedIDs)
         }
     }
 
@@ -3271,14 +3277,20 @@ private struct CategoryMultiPickerSheet: View {
             }
             draftSelection.append(item)
         }
-        rebuildDisplayOrder()
+        // 表示順はそのまま。タップしたタグが動くと次のタグを選びにくい
     }
 
-    private func rebuildDisplayOrder(prioritizedIDs: [String] = []) {
+    /// 表示順を組み直す。
+    /// hoistedIDs に渡したタグだけを先頭へ寄せる（表示時と並び順変更時に使う）。
+    /// 選択操作のたびに寄せるとタップしたタグが動くので、既定では寄せない
+    private func rebuildDisplayOrder(
+        prioritizedIDs: [String] = [],
+        hoistedIDs: Set<String> = []
+    ) {
         // 新規追加分を最上段、その次に選択済み、その後に未選択を並べる
         displayOrder = allCategories.orderedForTagSelection(
             mode: sortMode,
-            selectedIDs: selectedIDs,
+            selectedIDs: hoistedIDs,
             prioritizedIDs: Set(prioritizedIDs)
         )
     }

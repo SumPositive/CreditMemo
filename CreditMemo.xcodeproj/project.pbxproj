@@ -97,6 +97,7 @@
 		EF6B7ECED42F1514A7B8A859 /* AZPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA178EA89015430E9475246A /* AZPicker.swift */; };
 		F28F1CA1ADB2AA1EDF09E5C3 /* AppIconSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47366704A20E38D94F226911 /* AppIconSync.swift */; };
 		FA9E01B0FA9E01B0FA9E01B0 /* FrequentPaymentBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA9E02C0FA9E02C0FA9E02C0 /* FrequentPaymentBuilderTests.swift */; };
+		FA9E01B9FA9E01B9FA9E01B9 /* TagSelectionDetentsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA9E02C9FA9E02C9FA9E02C9 /* TagSelectionDetentsTests.swift */; };
 		FA9E03D0FA9E03D0FA9E03D0 /* LocalizationIntegrityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA9E04E0FA9E04E0FA9E04E0 /* LocalizationIntegrityTests.swift */; };
 		FA9E05F0FA9E05F0FA9E05F0 /* BillingDateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA9E0600FA9E0600FA9E0600 /* BillingDateTests.swift */; };
 		FB43A45099256F6C054EA946 /* RetentionCleanupModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA4161E64C3E286BC8EFFCC2 /* RetentionCleanupModifier.swift */; };
@@ -221,6 +222,7 @@
 		F48F8A016BBBC86AC36E7B1D /* StackedDateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StackedDateView.swift; sourceTree = "<group>"; };
 		F498D50B45D6B41AE4DCFEFE /* BankServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BankServiceTests.swift; sourceTree = "<group>"; };
 		FA9E02C0FA9E02C0FA9E02C0 /* FrequentPaymentBuilderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrequentPaymentBuilderTests.swift; sourceTree = "<group>"; };
+		FA9E02C9FA9E02C9FA9E02C9 /* TagSelectionDetentsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagSelectionDetentsTests.swift; sourceTree = "<group>"; };
 		FA9E04E0FA9E04E0FA9E04E0 /* LocalizationIntegrityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizationIntegrityTests.swift; sourceTree = "<group>"; };
 		FA9E0600FA9E0600FA9E0600 /* BillingDateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BillingDateTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -452,6 +454,7 @@
 				ECCD2D0A2970772B20DB0914 /* JSONRoundTripTests.swift */,
 				8895CB3BACA967062F27A4B1 /* RobustnessTests.swift */,
 				FA9E02C0FA9E02C0FA9E02C0 /* FrequentPaymentBuilderTests.swift */,
+				FA9E02C9FA9E02C9FA9E02C9 /* TagSelectionDetentsTests.swift */,
 				FA9E04E0FA9E04E0FA9E04E0 /* LocalizationIntegrityTests.swift */,
 				FA9E0600FA9E0600FA9E0600 /* BillingDateTests.swift */,
 				85E51249D49F171236F7B9A9 /* CalculatorRoundingTests.swift */,
@@ -716,6 +719,7 @@
 				D8E2B639AC10635DDF19B901 /* JSONRoundTripTests.swift in Sources */,
 				02AB06D4060EB7689B7A479D /* RobustnessTests.swift in Sources */,
 				FA9E01B0FA9E01B0FA9E01B0 /* FrequentPaymentBuilderTests.swift in Sources */,
+				FA9E01B9FA9E01B9FA9E01B9 /* TagSelectionDetentsTests.swift in Sources */,
 				FA9E03D0FA9E03D0FA9E03D0 /* LocalizationIntegrityTests.swift in Sources */,
 				FA9E05F0FA9E05F0FA9E05F0 /* BillingDateTests.swift in Sources */,
 				758D137B593462989653E1BA /* CalculatorRoundingTests.swift in Sources */,
