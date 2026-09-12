@@ -1918,9 +1918,13 @@ fastlane upload_metadata
 fastlane screenshots            # スクショ 生成確認
 fastlane upload_screenshots     # スクショ Upload
 -----
-2.7.0 公開、公開アプリパネル、取扱説明を更新して
+2.7.0 公開中、公開アプリパネル、取扱説明を更新して
 ------------------------------------------------
+Codex: AppStore レビューを取得して集計分析する
+$app-store-review-summary
+-----
 
+Nenrinの設定にある　アプリを評価する　を同様に実装したい
 
 タグ一覧をタグ式にする。よくある決済と同様にソートを優先しながら右側に余白があれば入るタグを詰め込むようにする
 

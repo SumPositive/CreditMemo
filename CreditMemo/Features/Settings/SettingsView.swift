@@ -32,6 +32,7 @@ struct SettingsView: View {
     @AppStorage(AppStorageKey.showCurrencySymbol)  private var showCurrencySymbol = true
 
     @Environment(\.modelContext) private var context
+    @Environment(\.openURL) private var openURL
     @State private var showShareSheet  = false
     @State private var showImportPicker = false
     @State private var showBadgeColorSheet = false
@@ -316,20 +317,36 @@ struct SettingsView: View {
                 }
             }
 
-            Section("settings.panel.cheer") {
-                // 広告とは分離し、投げ銭だけを設定画面に置く
-                Button("settings.cheer.tip") { showTipSheet = true }
+            // セクションタイトルを持たない案内セクションを「開発者を応援」の上に置く
+            Section {
+                Button("settings.docs") {
+                    // About画面を挟まず、直接アプリ内シートで取扱説明を開く
+                    showDocsSheet = true
+                }
+
+                Button {
+                    // requestReview は表示可否を OS が決めるため、押しても
+                    // 何も起きないことがある。ボタンからは App Store を直接開く
+                    if let url = APP_REVIEW_URL {
+                        openURL(url)
+                    }
+                } label: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("settings.review")
+                        // 要望や提案もレビューへ記入できることを案内する
+                        Text("settings.review.detail")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.leading)
+                    }
+                }
             }
 
             Section {
-                Button {
-                    // About画面を挟まず、直接アプリ内シートで取扱説明を開く
-                    showDocsSheet = true
-                } label: {
-                    Label("settings.about", systemImage: "info.circle")
-                }
+                // 広告とは分離し、投げ銭だけを設定画面に置く
+                Button("settings.cheer.tip") { showTipSheet = true }
             } header: {
-                Text("settings.panel.support")
+                Text("settings.panel.cheer")
             } footer: {
                 settingsFooter
             }

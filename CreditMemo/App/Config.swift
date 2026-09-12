@@ -2,6 +2,16 @@ import SwiftUI
 import Foundation
 import UIKit
 
+// MARK: - App Store
+
+/// App Store のアプリID
+let APP_STORE_ID = "432458298"
+
+/// レビュー入力欄を開いた状態で App Store アプリを表示する。
+/// https:// だと Safari が先に受け取り、リダイレクトで action= が落ちて
+/// 「アドレスが無効です」になるため、App Store を直接指す itms-apps:// を使う
+let APP_REVIEW_URL = URL(string: "itms-apps://apps.apple.com/app/id\(APP_STORE_ID)?action=write-review")
+
 // MARK: - URL
 
 /// ヘルプドキュメント URL（言語別・fontScale パラメータ付き）

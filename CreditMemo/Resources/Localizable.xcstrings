@@ -12158,6 +12158,41 @@
         }
       }
     },
+    "settings.docs" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bedienungsanleitung"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "User Guide"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取扱説明"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사용 설명서"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用說明"
+          }
+        }
+      }
+    },
     "settings.enableInstallment" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -15094,6 +15129,76 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "計算時使用銀行家舍入（JIS）"
+          }
+        }
+      }
+    },
+    "settings.review" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App bewerten"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rate This App"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アプリを評価する"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "앱 평가하기"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "為此應用評分"
+          }
+        }
+      }
+    },
+    "settings.review.detail" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wir freuen uns über Ihre Wünsche und Vorschläge. Sie helfen uns bei der Planung neuer Funktionen und Verbesserungen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "We would love to hear your requests and suggestions. They help guide the new features and improvements we consider next."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ご要望やご提案もぜひお聞かせください。今後の新機能や改善を検討する際の参考にさせていただきます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "요청이나 제안도 꼭 들려주세요. 앞으로의 새로운 기능과 개선을 검토할 때 참고하겠습니다."
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "也歡迎告訴我們您的需求與建議。這將成為我們規劃新功能與改善時的參考。"
           }
         }
       }
