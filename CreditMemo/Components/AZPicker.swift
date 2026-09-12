@@ -546,6 +546,11 @@ struct AZFlowLayout: Layout {
     /// true のとき、行末の余白に後方の“収まる”subview を繰り上げて詰める（bin-packing）。
     /// 既定は false（並び順どおりの単純な折り返し）。
     var packToFill: Bool = false
+    /// true のとき、各行の余りを subview の幅へ均等に配って行幅いっぱいに広げる。
+    /// 間隔は spacing のまま固定で、カプセル自体が広がる。
+    /// 幅を広げる方式なので最終行も（要素が1つでも）そのまま均等にできる。
+    /// 行分けの規則は変えないので、packToFill との併用もできる
+    var justified: Bool = false
 
     /// 各 subview の実サイズ。行分けと配置で共有する。
     private func sizes(_ subviews: Subviews) -> [CGSize] {
@@ -629,19 +634,33 @@ struct AZFlowLayout: Layout {
         for row in rows {
             let rowWidth = row.reduce(CGFloat.zero) { $0 + s[$1].width } + spacing * CGFloat(max(row.count - 1, 0))
             let rowHeight = row.reduce(CGFloat.zero) { max($0, s[$1].height) }
+
+            // 均等割りは行幅いっぱいに広げる。間隔は spacing のまま固定にして、
+            // 余りは各 subview の幅へ均等に配る（カプセル自体が広がる）。
+            // 幅を広げる方式なので、要素が1つだけの最終行も均等にできる
+            let canJustify = justified && !row.isEmpty
+            let extraWidth = canJustify
+                ? max(bounds.width - rowWidth, 0) / CGFloat(row.count)
+                : 0
+
             // 左寄せは行左端から、中央寄せは余白を左右に二等分、
-            // 右寄せ（既定）は行右端から詰める
+            // 右寄せ（既定）は行右端から詰める。均等割りの行は左端から広げる
             var x: CGFloat
-            switch alignment {
-            case .leading: x = bounds.minX
-            case .center:  x = bounds.minX + max(bounds.width - rowWidth, 0) / 2
-            default:       x = bounds.maxX - rowWidth
+            if canJustify {
+                x = bounds.minX
+            } else {
+                switch alignment {
+                case .leading: x = bounds.minX
+                case .center:  x = bounds.minX + max(bounds.width - rowWidth, 0) / 2
+                default:       x = bounds.maxX - rowWidth
+                }
             }
             for idx in row {
                 // 自然幅が帯幅を超える subview は帯幅で頭打ちにして提案する。
                 // これで内部（例：ラベル＋金額の HStack）に幅制限が伝わり、
                 // 優先度の低い要素だけが省略され、右端の要素は残せる。
-                let placeWidth = min(s[idx].width, bounds.width)
+                // 均等割りのときは余りを足した幅を提案してカプセルを広げる
+                let placeWidth = min(s[idx].width + extraWidth, bounds.width)
                 subviews[idx].place(
                     at: CGPoint(x: x, y: y),
                     proposal: ProposedViewSize(width: placeWidth, height: s[idx].height)

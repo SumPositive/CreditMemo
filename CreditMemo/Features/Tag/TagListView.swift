@@ -211,6 +211,10 @@ struct TagCapsuleBand: View {
         let action: () -> Void
     }
 
+    /// 並べ方は設定「ラベルやタグ一覧の並べ方」に従う
+    @AppStorage(AppStorageKey.capsuleAlignment)
+    private var capsuleAlignment: CapsuleAlignment = .justified
+
     let items: [Item]
 
     var body: some View {
@@ -218,14 +222,19 @@ struct TagCapsuleBand: View {
         AZFlowLayout(
             spacing: Self.capsuleSpacing,
             rowSpacing: Self.capsuleSpacing,
-            alignment: .center,
-            packToFill: true
+            alignment: capsuleAlignment.horizontalAlignment,
+            packToFill: true,
+            justified: capsuleAlignment.isJustified
         ) {
             ForEach(items) { item in
                 capsule(item)
             }
         }
-        .frame(maxWidth: .infinity)
+        // AZFlowLayout は内容幅に縮むことがあるので、帯自体の寄せも設定に合わせる
+        .frame(maxWidth: .infinity, alignment: Alignment(
+            horizontal: capsuleAlignment.horizontalAlignment,
+            vertical: .center
+        ))
         .padding(.horizontal, Self.areaHorizontalPadding)
         .padding(.vertical, Self.areaVerticalPadding)
     }
@@ -239,6 +248,9 @@ struct TagCapsuleBand: View {
                 .font(.subheadline.weight(.semibold))
                 .lineLimit(1)
                 .truncationMode(.tail)
+                // 均等割りのとき、提案された幅までカプセルを広げる。
+                // Text は自然幅で止まるので、ここを開けて背景ごと広げる
+                .frame(maxWidth: capsuleAlignment.isJustified ? .infinity : nil)
                 .padding(.horizontal, Self.capsuleHorizontalPadding)
                 .padding(.vertical, Self.capsuleVerticalPadding)
                 .background(

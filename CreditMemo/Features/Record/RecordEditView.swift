@@ -471,6 +471,8 @@ struct RecordEditView: View {
     private var didPickFrequentPayment: Bool { pickedFrequentID != nil }
     /// 「よくある決済」帯の表示行数（1〜5）。ハンドルのドラッグで変更し永続化する
     @AppStorage(AppStorageKey.frequentPaymentRows) private var frequentRows = 3
+    /// カプセル帯の並べ方（設定「ラベルやタグ一覧の並べ方」）
+    @AppStorage(AppStorageKey.capsuleAlignment) private var capsuleAlignment: CapsuleAlignment = .justified
     /// パネル設定：ラベル抽出期間／金額表示条件／並び順ほか（設定シートで変更・永続化）
     @AppStorage(AppStorageKey.frequentPeriod)     private var frequentPeriod: FrequentPeriod = .year1
     @AppStorage(AppStorageKey.frequentAmountRule) private var frequentAmountRule: FrequentAmountRule = .threePlus
@@ -1751,16 +1753,21 @@ private var isValid: Bool {
                 // packToFill=true で、行末の余白に後方の“収まる”カプセルを繰り上げて詰める。
                 // 縦は frequentRows 行ぶんの高さにクリップし、溢れる行は縦スクロールで見せる。
                 ScrollView(.vertical, showsIndicators: true) {
-                    // 寄せはタグ複数選択シートのタグ一覧と揃えて中央寄せにする
+                    // 寄せはタグ一覧と共通で、設定「ラベルやタグ一覧の並べ方」に従う
                     AZFlowLayout(spacing: frequentSpacing,
                                  rowSpacing: frequentRowSpacing,
-                                 alignment: .center,
-                                 packToFill: true) {
+                                 alignment: capsuleAlignment.horizontalAlignment,
+                                 packToFill: true,
+                                 justified: capsuleAlignment.isJustified) {
                         ForEach(cachedFrequentPayments) { fp in
                             frequentCapsule(fp)
                         }
                     }
-                    .frame(maxWidth: .infinity)
+                    // AZFlowLayout は内容幅に縮むことがあるので、帯自体の寄せも合わせる
+                    .frame(maxWidth: .infinity, alignment: Alignment(
+                        horizontal: capsuleAlignment.horizontalAlignment,
+                        vertical: .center
+                    ))
                 }
                 .frame(height: frequentAreaHeight(for: frequentRows))
                 .animation(.easeOut(duration: 0.18), value: frequentRows)
@@ -1826,7 +1833,9 @@ private var isValid: Bool {
                 .lineLimit(1)
                 .truncationMode(.tail)
                 // 幅の割り当ては AZFlowLayout（Layoutプロトコル）が subview の実サイズに基づいて
-                // 正確に行うため、ここで fixedSize や maxWidth を指定する必要はない。
+                // 正確に行うため、通常は fixedSize や maxWidth を指定する必要はない。
+                // 均等割りのときだけ、提案された幅までカプセルを広げる
+                .frame(maxWidth: capsuleAlignment.isJustified ? .infinity : nil)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 7)
                 .background(

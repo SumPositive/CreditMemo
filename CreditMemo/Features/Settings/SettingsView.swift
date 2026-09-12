@@ -30,6 +30,8 @@ struct SettingsView: View {
     @AppStorage(AppStorageKey.paymentWindowDays) private var paymentWindowDays = 15
     @AppStorage(AppStorageKey.exportFormat)        private var exportFormatRaw = JSONExport.OutputStyle.compact.rawValue
     @AppStorage(AppStorageKey.showCurrencySymbol)  private var showCurrencySymbol = true
+    /// ラベル・タグのカプセル帯の並べ方
+    @AppStorage(AppStorageKey.capsuleAlignment)    private var capsuleAlignment: CapsuleAlignment = .justified
 
     @Environment(\.modelContext) private var context
     @Environment(\.openURL) private var openURL
@@ -167,6 +169,24 @@ struct SettingsView: View {
                         }
                     }
                     .zIndex(expandedDropdown == .fontScale ? 60 : 0)
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    AZAdaptiveControlRow {
+                        settingTitle("settings.capsuleAlignment", help: "settings.help.capsuleAlignment")
+                            .fixedSize(horizontal: false, vertical: true)
+                    } control: {
+                        AZDropdownPicker(
+                            options: CapsuleAlignment.allCases,
+                            selection: $capsuleAlignment,
+                            isExpanded: dropdownBinding(.capsuleAlignment),
+                            minWidth: 130,
+                            popoverDynamicTypeSize: dropdownDynamicTypeSize
+                        ) { alignment in
+                            Text(LocalizedStringKey(alignment.localizedKey))
+                        }
+                    }
+                    .zIndex(expandedDropdown == .capsuleAlignment ? 60 : 0)
                 }
 
                 Toggle(showCurrencySymbolLabel, isOn: $showCurrencySymbol)
@@ -714,6 +734,7 @@ private enum SettingsDropdownKind {
     case appearance
     case fontScale
     case exportFormat
+    case capsuleAlignment
 }
 
 private struct PaymentWindowOption: Hashable, Identifiable {
