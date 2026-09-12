@@ -1751,15 +1751,16 @@ private var isValid: Bool {
                 // packToFill=true で、行末の余白に後方の“収まる”カプセルを繰り上げて詰める。
                 // 縦は frequentRows 行ぶんの高さにクリップし、溢れる行は縦スクロールで見せる。
                 ScrollView(.vertical, showsIndicators: true) {
+                    // 寄せはタグ複数選択シートのタグ一覧と揃えて中央寄せにする
                     AZFlowLayout(spacing: frequentSpacing,
                                  rowSpacing: frequentRowSpacing,
-                                 alignment: .leading,
+                                 alignment: .center,
                                  packToFill: true) {
                         ForEach(cachedFrequentPayments) { fp in
                             frequentCapsule(fp)
                         }
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(maxWidth: .infinity)
                 }
                 .frame(height: frequentAreaHeight(for: frequentRows))
                 .animation(.easeOut(duration: 0.18), value: frequentRows)
