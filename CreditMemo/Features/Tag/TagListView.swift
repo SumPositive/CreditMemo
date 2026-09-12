@@ -10,36 +10,20 @@ struct TagListView: View {
     @AppStorage(AppStorageKey.userLevel) private var userLevel: UserLevel = .beginner
 
     @State private var showAddSheet  = false
-    @State private var historyTarget: E5tag?
+    /// カプセルのタップで開く編集画面の対象
+    @State private var editTarget: E5tag?
     @State private var showSortDropdown = false
 
     private var sortMode: SortMode { SortMode(rawValue: sortModeRaw) ?? .defaultForTags }
 
-    /// 初心者ヒントの詳細シート本文（追加・ソート・スワイプ操作の説明）
+    /// 初心者ヒントの詳細シート本文（追加・ソートの説明）。
+    /// タグ式にしてスワイプ操作が無くなったので、その説明は載せない
     private var beginnerHelpDetail: some View {
         VStack(alignment: .leading, spacing: 18) {
             Text("tag.beginner.addText")
                 .font(.body)
                 .fixedSize(horizontal: false, vertical: true)
             beginnerSymbolHelpRow(systemName: "line.3.horizontal.decrease", textKey: "tag.beginner.sortText")
-            Text("tag.beginner.swipeIntro")
-                .font(.body)
-                .fixedSize(horizontal: false, vertical: true)
-            beginnerImageHelpRow(imageName: "RecordListIconSwipe", textKey: "tag.beginner.recordListSwipeText")
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    /// アセット画像（スワイプ用アイコン等）と説明文を並べる
-    private func beginnerImageHelpRow(imageName: String, textKey: LocalizedStringKey) -> some View {
-        HStack(alignment: .center, spacing: 12) {
-            Image(imageName)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 34, height: 34)
-            Text(textKey)
-                .font(.body)
-                .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -61,44 +45,47 @@ struct TagListView: View {
         tags.sortedByTagMode(sortMode)
     }
 
+    /// カプセル1つ = タグ1件。マスタなので選択状態は持たない
+    private var bandItems: [TagCapsuleBand.Item] {
+        sorted.map { tag in
+            TagCapsuleBand.Item(
+                id: tag.id,
+                title: tag.zName,
+                isSelected: false,
+                action: { editTarget = tag }
+            )
+        }
+    }
+
     var body: some View {
-        List {
-            // 決済手段・口座マスタと同じく、初心者ヒントを先頭 Section に置く
-            if userLevel == .beginner {
-                Section {
+        // 複数選択シートと同じ見栄え・同じ幅にするため、シートと同様に
+        // ScrollView へ直接カプセル帯を置く（List の inset 分だけ狭くならないように）
+        ScrollView(.vertical) {
+            VStack(spacing: 8) {
+                // 決済手段・口座マスタと同じく、初心者ヒントを先頭に置く
+                if userLevel == .beginner {
                     BeginnerHintView(
                         hintKey: "tag.beginner.hint"
                     ) {
                         beginnerHelpDetail
                     }
+                    .padding(.horizontal, TagCapsuleBand.areaHorizontalPadding)
                 }
+                // タグは複数選択シートと同じタグ式（カプセル）で並べる。
+                // タップで編集画面へ進み、履歴へは編集画面上部の「履歴」ボタンから行く
+                TagCapsuleBand(items: bandItems)
             }
-            // ソート条件はヒントの下、明細リストの上に置く
-            Section {
-                TagSortModeDropdown(
-                    sortModeRaw: $sortModeRaw,
-                    isExpanded: $showSortDropdown
-                )
-            }
-            ForEach(sorted) { tag in
-                NavigationLink {
-                    TagEditView(tag: tag)
-                } label: {
-                    TagRow(tag: tag)
-                }
-                // 右スワイプメニュー「履歴」。ロングスワイプの即時実行は使わない
-                // ラベルテキストは省略しアイコンのみで配置する。
-                // アイコン・色はメインメニューの「履歴」と統一し、背景は白にする
-                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                    Button {
-                        historyTarget = tag
-                    } label: {
-                        Label("", image: "RecordListIconSwipe")
-                    }
-                    .tint(Color(uiColor: .systemBackground))
-                    .accessibilityLabel(Text("tag.action.recordList"))
-                }
-            }
+        }
+        .background(Color(uiColor: .systemGroupedBackground))
+        // ソート条件はシートと同じく上部固定にする
+        .safeAreaInset(edge: .top, spacing: 0) {
+            TagSortModeDropdown(
+                sortModeRaw: $sortModeRaw,
+                isExpanded: $showSortDropdown
+            )
+            .padding(.horizontal, TagCapsuleBand.areaHorizontalPadding)
+            .padding(.vertical, 8)
+            .background(Color(uiColor: .systemGroupedBackground))
         }
         .scalableNavigationTitle("tag.list.title") {
             Image(systemName: "tag")
@@ -110,15 +97,19 @@ struct TagListView: View {
             }
         }
         .sheet(isPresented: $showAddSheet) {
-            NavigationStack { TagEditView(tag: nil) }
+            NavigationStack { TagEditView(tag: nil, isCompactSheet: true) }
                 // シートにもアプリ内文字サイズ設定を明示適用する
                 .appFontScale(fontScale)
                 // タグ追加シートの背面を透かさない
                 .presentationBackground(Color(uiColor: .systemBackground))
+                // 中身ぶんの高さで開く。.medium + .large にすると
+                // キーボード表示時に .large へ昇格して大きな余白ができる
+                .presentationDetents(TagEditView.addSheetDetents())
+                .presentationDragIndicator(.visible)
         }
-        .navigationDestination(item: $historyTarget) { tag in
-            // タグ一覧のスワイプから、該当タグで絞り込んだ履歴へ遷移する
-            RecordListView(initialTag: tag)
+        .navigationDestination(item: $editTarget) { tag in
+            // カプセルのタップから編集画面へ。履歴へはその画面の「履歴」ボタンで進む
+            TagEditView(tag: tag)
         }
     }
 }
@@ -157,6 +148,112 @@ extension Sequence where Element == E5tag {
             !prioritizedIDs.contains($0.id) && !selectedIDs.contains($0.id)
         }
         return prioritized + selected + unselected
+    }
+}
+
+// MARK: - Tag Capsule Band
+
+/// タグをカプセルで折り返して並べる共通の帯。
+/// タグ一覧（マスタ）と複数選択シートで同じ見栄え・同じ幅にするため、
+/// 寸法と配色はこの型にまとめる
+struct TagCapsuleBand: View {
+    /// カプセルの寸法。見栄えを揃えるため両画面でこの値を使う
+    static let capsuleSpacing: CGFloat = 8
+    static let capsuleHorizontalPadding: CGFloat = 14
+    static let capsuleVerticalPadding: CGFloat = 7
+    /// 帯の左右・上下余白
+    static let areaHorizontalPadding: CGFloat = 16
+    static let areaVerticalPadding: CGFloat = 12
+
+    /// 1行ぶんのカプセル高さ（文字サイズ設定に追従する）
+    static var capsuleHeight: CGFloat {
+        ceil(UIFont.preferredFont(forTextStyle: .subheadline).lineHeight)
+            + capsuleVerticalPadding * 2
+    }
+
+    /// タグ1つ分のカプセル幅。実際の描画フォントで測るので実寸に一致する
+    static func capsuleWidth(for name: String) -> CGFloat {
+        let base = UIFont.preferredFont(forTextStyle: .subheadline)
+        let font = UIFont.systemFont(ofSize: base.pointSize, weight: .semibold)
+        let textWidth = (name as NSString).size(withAttributes: [.font: font]).width
+        return ceil(textWidth) + capsuleHorizontalPadding * 2
+    }
+
+    /// AZFlowLayout(packToFill:) と同じ規則でカプセルを行へ詰め、必要な行数を返す
+    static func packedRowCount(names: [String], availableWidth: CGFloat) -> Int {
+        let widths = names.map { capsuleWidth(for: $0) }
+        guard !widths.isEmpty, availableWidth > 0 else { return 1 }
+
+        var placed = [Bool](repeating: false, count: widths.count)
+        var rows = 0
+        while let start = placed.firstIndex(of: false) {
+            placed[start] = true
+            var used = widths[start]
+            rows += 1
+            while true {
+                let free = availableWidth - used - capsuleSpacing
+                if free <= 0 { break }
+                // packToFill と同じく、収まる“最初の”後方要素を繰り上げる
+                guard let idx = ((start + 1)..<widths.count)
+                    .first(where: { !placed[$0] && widths[$0] <= free }) else { break }
+                placed[idx] = true
+                used += capsuleSpacing + widths[idx]
+            }
+        }
+        return rows
+    }
+
+    /// 表示するカプセル。選択状態は塗りで示す
+    struct Item: Identifiable {
+        let id: String
+        let title: String
+        let isSelected: Bool
+        let action: () -> Void
+    }
+
+    let items: [Item]
+
+    var body: some View {
+        // ソート順を優先しながら、行末の余白に収まる後方のタグを繰り上げて詰める
+        AZFlowLayout(
+            spacing: Self.capsuleSpacing,
+            rowSpacing: Self.capsuleSpacing,
+            alignment: .center,
+            packToFill: true
+        ) {
+            ForEach(items) { item in
+                capsule(item)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, Self.areaHorizontalPadding)
+        .padding(.vertical, Self.areaVerticalPadding)
+    }
+
+    /// カプセル1つ分。選択中はアクセント塗りにして、チェックマークの代わりに
+    /// 塗りの有無で選択状態を示す（「よくある決済」のカプセルと同じ表現）
+    @ViewBuilder
+    private func capsule(_ item: Item) -> some View {
+        Button(action: item.action) {
+            Text(item.title)
+                .font(.subheadline.weight(.semibold))
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .padding(.horizontal, Self.capsuleHorizontalPadding)
+                .padding(.vertical, Self.capsuleVerticalPadding)
+                .background(
+                    Capsule().fill(item.isSelected ? Color.accentColor : Color(.secondarySystemBackground))
+                )
+                .foregroundStyle(item.isSelected ? Color.white : Color.accentColor)
+                .overlay(
+                    Capsule().stroke(
+                        item.isSelected ? Color.clear : Color.accentColor.opacity(0.35),
+                        lineWidth: 1
+                    )
+                )
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(item.isSelected ? [.isButton, .isSelected] : .isButton)
     }
 }
 
@@ -257,34 +354,9 @@ struct TagSelectionList: View {
     }
 
     var body: some View {
-        // タグは「よくある決済」のラベル一覧と同じタグ式（カプセル）で並べる。
-        // AZFlowLayout の packToFill で、ソート順を優先しながら行末の余白に
-        // 収まる後方のタグを繰り上げて詰める。
+        // タグ一覧（マスタ）と同じ TagCapsuleBand を使い、見栄えと幅を揃える
         ScrollView(.vertical) {
-            AZFlowLayout(
-                spacing: capsuleSpacing,
-                rowSpacing: capsuleSpacing,
-                alignment: .center,
-                packToFill: true
-            ) {
-                if showsAllOption {
-                    tagCapsule(
-                        title: NSLocalizedString("label.all", comment: ""),
-                        isSelected: isAllSelected,
-                        action: onSelectAll
-                    )
-                }
-                ForEach(tags) { tag in
-                    tagCapsule(
-                        title: tag.zName,
-                        isSelected: selectedIDs.contains(tag.id),
-                        action: { onSelectTag(tag) }
-                    )
-                }
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.horizontal, Self.capsuleAreaHorizontalPadding)
-            .padding(.vertical, Self.capsuleAreaVerticalPadding)
+            TagCapsuleBand(items: bandItems)
         }
         .contentMargins(.top, 0, for: .scrollContent)
         .background(Color(uiColor: .systemGroupedBackground))
@@ -305,16 +377,33 @@ struct TagSelectionList: View {
         }
     }
 
+    // MARK: - 表示するカプセル
+
+    private var bandItems: [TagCapsuleBand.Item] {
+        var items: [TagCapsuleBand.Item] = []
+        if showsAllOption {
+            items.append(
+                TagCapsuleBand.Item(
+                    id: "__all__",
+                    title: NSLocalizedString("label.all", comment: ""),
+                    isSelected: isAllSelected,
+                    action: onSelectAll
+                )
+            )
+        }
+        items += tags.map { tag in
+            TagCapsuleBand.Item(
+                id: tag.id,
+                title: tag.zName,
+                isSelected: selectedIDs.contains(tag.id),
+                action: { onSelectTag(tag) }
+            )
+        }
+        return items
+    }
+
     // MARK: - シート高さ
 
-    /// カプセルの寸法。tagCapsule の指定と揃える（変えたら両方直す）
-    private static let capsuleSpacingValue: CGFloat = 8
-    private static let capsuleHorizontalPadding: CGFloat = 14
-    private static let capsuleVerticalPadding: CGFloat = 7
-    /// カプセル帯の左右余白（body の padding と揃える）
-    private static let capsuleAreaHorizontalPadding: CGFloat = 16
-    /// カプセル帯の上下余白（body の padding と揃える）
-    private static let capsuleAreaVerticalPadding: CGFloat = 12
     /// 上部固定領域（ソート行、一致条件行）とツールバーぶんの高さ
     private static let sortRowHeight: CGFloat = 58
     private static let matchModeRowHeight: CGFloat = 50
@@ -322,39 +411,6 @@ struct TagSelectionList: View {
     /// これを超える行数になったら最初から全開にする。
     /// タグ式は1行に複数入るので、行数の上限はやや広く取る
     private static let maxCompactRows = 8
-
-    /// タグ名1つ分のカプセル幅。実際の描画フォントで測るので、
-    /// 文字種（全角・半角・英大文字）や文字サイズ設定によらず実寸に一致する
-    private static func capsuleWidth(for name: String) -> CGFloat {
-        let base = UIFont.preferredFont(forTextStyle: .subheadline)
-        let font = UIFont.systemFont(ofSize: base.pointSize, weight: .semibold)
-        let textWidth = (name as NSString).size(withAttributes: [.font: font]).width
-        return ceil(textWidth) + capsuleHorizontalPadding * 2
-    }
-
-    /// AZFlowLayout(packToFill:) と同じ規則でカプセルを行へ詰め、必要な行数を返す
-    static func packedRowCount(names: [String], availableWidth: CGFloat) -> Int {
-        let widths = names.map { capsuleWidth(for: $0) }
-        guard !widths.isEmpty, availableWidth > 0 else { return 1 }
-
-        var placed = [Bool](repeating: false, count: widths.count)
-        var rows = 0
-        while let start = placed.firstIndex(of: false) {
-            placed[start] = true
-            var used = widths[start]
-            rows += 1
-            while true {
-                let free = availableWidth - used - capsuleSpacingValue
-                if free <= 0 { break }
-                // packToFill と同じく、収まる“最初の”後方要素を繰り上げる
-                guard let idx = ((start + 1)..<widths.count)
-                    .first(where: { !placed[$0] && widths[$0] <= free }) else { break }
-                placed[idx] = true
-                used += capsuleSpacingValue + widths[idx]
-            }
-        }
-        return rows
-    }
 
     /// タグ名から実際の詰まり方を見積もって、シート高さを返す。
     /// 最終行が隠れるより1行多いほうが良いので、見積もりには1行ぶんの余裕を足す
@@ -368,70 +424,21 @@ struct TagSelectionList: View {
         if showsAllOption {
             names.insert(NSLocalizedString("label.all", comment: ""), at: 0)
         }
-        let contentWidth = availableWidth - capsuleAreaHorizontalPadding * 2
+        let contentWidth = availableWidth - TagCapsuleBand.areaHorizontalPadding * 2
         // 端数の丸めや字幅の差で1行ずれても最終行が切れないよう、1行ぶん多めに取る
-        let rowCount = packedRowCount(names: names, availableWidth: contentWidth) + 1
+        let rowCount = TagCapsuleBand.packedRowCount(
+            names: names,
+            availableWidth: contentWidth
+        ) + 1
         guard rowCount <= maxCompactRows else { return [.large] }
 
-        // カプセル1行の高さ = 文字の行高 + 上下余白
-        let lineHeight = UIFont.preferredFont(forTextStyle: .subheadline).lineHeight
-        let capsuleHeight = ceil(lineHeight) + capsuleVerticalPadding * 2
-        let capsuleArea = capsuleHeight * CGFloat(rowCount)
-            + capsuleSpacingValue * CGFloat(rowCount - 1)
-            + capsuleAreaVerticalPadding * 2
+        let capsuleArea = TagCapsuleBand.capsuleHeight * CGFloat(rowCount)
+            + TagCapsuleBand.capsuleSpacing * CGFloat(rowCount - 1)
+            + TagCapsuleBand.areaVerticalPadding * 2
 
         let chrome = navigationBarHeight + sortRowHeight
             + (showsMatchMode ? matchModeRowHeight : 0)
-        return [.height(ceil(capsuleArea + chrome)), .large]
-    }
-
-    /// カプセル間の横スペース（AZFlowLayout に渡す）
-    private var capsuleSpacing: CGFloat { Self.capsuleSpacingValue }
-
-    /// タグ1つ分のカプセル。選択中はアクセント塗りにして、チェックマークの代わりに
-    /// 塗りの有無で選択状態を示す（「よくある決済」のカプセルと同じ表現）
-    @ViewBuilder
-    private func tagCapsule(
-        title: String,
-        isSelected: Bool,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(.subheadline.weight(.semibold))
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .padding(.horizontal, Self.capsuleHorizontalPadding)
-                .padding(.vertical, Self.capsuleVerticalPadding)
-                .background(
-                    Capsule().fill(isSelected ? Color.accentColor : Color(.secondarySystemBackground))
-                )
-                .foregroundStyle(isSelected ? Color.white : Color.accentColor)
-                .overlay(
-                    Capsule().stroke(
-                        isSelected ? Color.clear : Color.accentColor.opacity(0.35),
-                        lineWidth: 1
-                    )
-                )
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+        return [.height(ceil(capsuleArea + chrome))]
     }
 }
 
-private struct TagRow: View {
-    let tag: E5tag
-
-    var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(tag.zName)
-                if !tag.zNote.isEmpty {
-                    Text(tag.zNote).font(.caption).foregroundStyle(.secondary)
-                }
-            }
-            Spacer()
-        }
-        .contentShape(Rectangle())
-    }
-}

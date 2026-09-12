@@ -3244,9 +3244,13 @@ private struct CategoryMultiPickerSheet: View {
                     hoistedIDs: selectedIDs
                 )
             }) {
-                NavigationStack { TagEditView() }
+                NavigationStack { TagEditView(isCompactSheet: true) }
                     // タグ追加シートの背面を透かさない
                     .presentationBackground(Color(uiColor: .systemBackground))
+                    // 中身ぶんの高さで開く。.medium + .large にすると
+                    // キーボード表示時に .large へ昇格して大きな余白ができる
+                    .presentationDetents(TagEditView.addSheetDetents())
+                    .presentationDragIndicator(.visible)
             }
         }
         .presentationDetents(tagPickerDetents)

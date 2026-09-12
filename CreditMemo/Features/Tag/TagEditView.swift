@@ -8,6 +8,9 @@ import SwiftData
 
 struct TagEditView: View {
     var tag: E5tag?
+    /// 中身ぶんの高さで開くシート（タグ追加）として表示しているか。
+    /// true のときはキーボード回避の下端余白を入れない
+    var isCompactSheet = false
 
     @Environment(\.modelContext)    private var context
     @Environment(\.dismiss)         private var dismiss
@@ -48,6 +51,23 @@ struct TagEditView: View {
         }
     }
     private var isValid: Bool { !trimmedName.isEmpty && !hasDuplicateName }
+
+    /// 追加シートを開く高さ。
+    ///
+    /// `.medium` だとキーボードが出た時に `.large` へ昇格し、入力欄とキーボードの
+    /// 間に大きな余白ができる。中身（タグ名＋メモ）ぶんの高さだけを指定し、
+    /// 昇格先の `.large` を候補に入れないことで、余白が出ないようにする。
+    /// 文字サイズ設定で行高が変わるため、実フォントから計算する
+    static func addSheetDetents() -> Set<PresentationDetent> {
+        let lineHeight = UIFont.preferredFont(forTextStyle: .body).lineHeight
+        // フォーム1行 = 文字の行高 + 上下余白
+        let row = ceil(lineHeight) + 22
+        // メモ欄は2行ぶん見せる
+        let memo = ceil(lineHeight) * 2 + 22
+        // ナビゲーションバー + ハンドル + フォーム上余白 + セクション間隔 + ホームバー
+        let chrome: CGFloat = 50 + 8 + 16 + 16 + 34
+        return [.height(ceil(row + memo + chrome))]
+    }
     private var hasChanges: Bool {
         guard let initialDraft else { return false }
         return currentDraft() != initialDraft
@@ -125,7 +145,9 @@ struct TagEditView: View {
                 if isFocused { scrollNoteIntoView(proxy) }
             }
             .safeAreaInset(edge: .bottom) {
-                if focusNote {
+                // 中身ぶんの高さで開く追加シートでは、この余白がそのまま
+                // 空白として見えてしまうので入れない（シート自体が低いので不要）
+                if focusNote && !isCompactSheet {
                     // キーボード上へメモ入力行を逃がすため、フォーカス中だけ下端余白を追加する
                     Color.clear.frame(height: 180)
                 }
