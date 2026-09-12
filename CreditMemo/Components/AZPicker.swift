@@ -123,6 +123,11 @@ struct AZPickerStyle {
     var dropdownPopoverDynamicTypeRange: ClosedRange<DynamicTypeSize> = DynamicTypeSize.xSmall...DynamicTypeSize.accessibility5
     /// ドロップダウン選択中表示と候補一覧の幅不足時処理
     var dropdownTextFitMode: AZPickerTextFitMode = .wrap
+    /// ラベル内で指定した色をそのまま使う
+    var preservesLabelForegroundStyle: Bool = false
+    /// 折りたたみ時に表示する選択値の文字色。
+    /// 候補一覧の選択中項目と同じアクセント色にして、現在値が一目で分かるようにする
+    var dropdownSelectedValueColor: Color = .accentColor
     /// 選択ボタン右端のインジケータ。デフォルトは非表示
     var dropdownIndicator: AZDropdownIndicator = .none
     /// 選択ボタン枠内の上下余白。小さく添えるだけの表示では詰められるようにする
@@ -277,7 +282,8 @@ struct AZDropdownPicker<Option: Hashable & Identifiable, Label: View>: View {
             }
         }
         .font(.subheadline)
-        .foregroundStyle(Color.primary)
+        // ラベル側で色を決めている場合はそれを尊重する
+        .foregroundStyle(style.preservesLabelForegroundStyle ? AnyShapeStyle(.foreground) : AnyShapeStyle(style.dropdownSelectedValueColor))
         .azPickerTextFit(style.dropdownTextFitMode, alignment: .center)
     }
 

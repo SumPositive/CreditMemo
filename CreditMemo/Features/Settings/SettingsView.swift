@@ -110,37 +110,63 @@ struct SettingsView: View {
 
     var body: some View {
         List {
+            // プルダウン幅はセクション毎に最長候補へ合わせる。
+            // 表示=130（最長「Extra Large」）、決済・支払=210（最長「Aus Zahlungsliste kopieren」）、
+            // 共有=120（最長「Compact」）
             Section("settings.panel.display") {
-                AZAdaptiveRadioRow(
-                    options: UserLevel.allCases,
-                    selection: $userLevel,
-                    minOptionWidth: 82
-                ) {
-                    settingTitle("settings.userLevel", help: "settings.help.userLevel")
-                } label: { level in
-                    Text(LocalizedStringKey(level.localizedKey))
+                VStack(alignment: .leading, spacing: 8) {
+                    AZAdaptiveControlRow {
+                        settingTitle("settings.userLevel", help: "settings.help.userLevel")
+                            .fixedSize(horizontal: false, vertical: true)
+                    } control: {
+                        AZDropdownPicker(
+                            options: UserLevel.allCases,
+                            selection: $userLevel,
+                            isExpanded: dropdownBinding(.userLevel),
+                            minWidth: 130,
+                            popoverDynamicTypeSize: dropdownDynamicTypeSize
+                        ) { level in
+                            Text(LocalizedStringKey(level.localizedKey))
+                        }
+                    }
+                    .zIndex(expandedDropdown == .userLevel ? 60 : 0)
                 }
 
-                AZAdaptiveRadioRow(
-                    options: AppearanceMode.allCases,
-                    selection: $appearanceMode,
-                    minOptionWidth: 82
-                ) {
-                    Text("settings.appearance")
-                        .font(.subheadline)
-                } label: { mode in
-                    Text(LocalizedStringKey(mode.localizedKey))
+                VStack(alignment: .leading, spacing: 8) {
+                    AZAdaptiveControlRow {
+                        Text("settings.appearance")
+                            .font(.subheadline)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } control: {
+                        AZDropdownPicker(
+                            options: AppearanceMode.allCases,
+                            selection: $appearanceMode,
+                            isExpanded: dropdownBinding(.appearance),
+                            minWidth: 130,
+                            popoverDynamicTypeSize: dropdownDynamicTypeSize
+                        ) { mode in
+                            Text(LocalizedStringKey(mode.localizedKey))
+                        }
+                    }
+                    .zIndex(expandedDropdown == .appearance ? 60 : 0)
                 }
 
-                AZAdaptiveRadioRow(
-                    options: FontScale.allCases,
-                    selection: $fontScale,
-                    minOptionWidth: 72,
-                    horizontalPadding: 8
-                ) {
-                    settingTitle("settings.fontScale", help: "settings.help.fontScale")
-                } label: { scale in
-                    Text(LocalizedStringKey(scale.localizedKey))
+                VStack(alignment: .leading, spacing: 8) {
+                    AZAdaptiveControlRow {
+                        settingTitle("settings.fontScale", help: "settings.help.fontScale")
+                            .fixedSize(horizontal: false, vertical: true)
+                    } control: {
+                        AZDropdownPicker(
+                            options: FontScale.allCases,
+                            selection: $fontScale,
+                            isExpanded: dropdownBinding(.fontScale),
+                            minWidth: 130,
+                            popoverDynamicTypeSize: dropdownDynamicTypeSize
+                        ) { scale in
+                            Text(LocalizedStringKey(scale.localizedKey))
+                        }
+                    }
+                    .zIndex(expandedDropdown == .fontScale ? 60 : 0)
                 }
 
                 Toggle(showCurrencySymbolLabel, isOn: $showCurrencySymbol)
@@ -266,16 +292,22 @@ struct SettingsView: View {
                     }
 
                     if userLevel != .beginner {
-                        AZAdaptiveRadioRow(
-                            options: JSONExport.OutputStyle.allCases,
-                            selection: exportFormatBinding,
-                            minOptionWidth: 88
-                        ) {
+                        AZAdaptiveControlRow {
                             Text("settings.exportFormat.title")
                                 .font(.subheadline)
-                        } label: { style in
-                            Text(LocalizedStringKey(style.localizedKey))
+                                .fixedSize(horizontal: false, vertical: true)
+                        } control: {
+                            AZDropdownPicker(
+                                options: JSONExport.OutputStyle.allCases,
+                                selection: exportFormatBinding,
+                                isExpanded: dropdownBinding(.exportFormat),
+                                minWidth: 120,
+                                popoverDynamicTypeSize: dropdownDynamicTypeSize
+                            ) { style in
+                                Text(LocalizedStringKey(style.localizedKey))
+                            }
                         }
+                        .zIndex(expandedDropdown == .exportFormat ? 60 : 0)
                     }
                 }
 
@@ -678,6 +710,10 @@ private enum SettingsDropdownKind {
     case paymentWindow
     case launchAction
     case newPaymentAssist
+    case userLevel
+    case appearance
+    case fontScale
+    case exportFormat
 }
 
 private struct PaymentWindowOption: Hashable, Identifiable {
