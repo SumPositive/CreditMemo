@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 #if canImport(GoogleMobileAds)
 @preconcurrency import GoogleMobileAds
 #endif
@@ -49,29 +50,61 @@ struct InlineAdBanner: View {
     private var adBandNoiseBackground: some View {
         Color(uiColor: .tertiarySystemFill)
             .overlay {
-                Canvas { context, size in
-                    // 描き直しても同じ模様になるよう、固定の種から粒を置く
-                    var rng = NoiseGenerator(seed: 0xA5A5_1234)
-                    let count = Int(size.width * size.height / 12)
-                    for _ in 0..<max(count, 0) {
-                        let x = rng.cgFloat(in: 0...size.width)
-                        let y = rng.cgFloat(in: 0...size.height)
-                        let side = rng.cgFloat(in: 0.5...1.4)
-                        let rect = CGRect(x: x, y: y, width: side, height: side)
-                        // 明暗どちらの粒も置いて、ざらつきを均等に見せる
-                        let isBright = rng.next() % 2 == 0
-                        let base: Color = isBright ? .white : .black
-                        context.fill(
-                            Path(rect),
-                            with: .color(base.opacity(rng.double(in: 0.02...0.07)))
-                        )
-                    }
-                }
-                // 粒を敷き詰めるだけなので、はみ出しと再描画を抑える
-                .drawingGroup()
-                .allowsHitTesting(false)
+                Image(uiImage: AdBandNoiseImage.shared)
+                    .resizable(resizingMode: .tile)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
             }
             .clipped()
+    }
+}
+
+/// 砂嵐の粒を焼き付けた繰り返しタイル画像。
+/// 生成は初回アクセス時の一度きりで、以後は同じ1枚を使い回す。
+/// Canvas で毎回粒を描くと、広告の隣で描画コストを払い続けることになるため
+private enum AdBandNoiseImage {
+    /// タイル1辺の長さ。大きすぎると画像が重くなり、小さすぎると繰り返しに気付かれる
+    static let tileSize: CGFloat = 96
+
+    /// 粒の密度。側辺の2乗をこの値で割った数だけ粒を置く。
+    /// 小さくするほど粒が詰まって、きめの細かい砂目になる
+    static let density: CGFloat = 4
+
+    /// 粒1つの大きさの範囲（pt）。
+    /// 1pt前後に抑えると、粒の粗さではなく面の質感として見える
+    static let dotSizeRange: ClosedRange<CGFloat> = 0.5...1.0
+
+    /// 粒の濃さの範囲。これを上げると砂目がはっきりし、下げると地に溶ける
+    static let dotAlphaRange: ClosedRange<CGFloat> = 0.06...0.13
+
+    static let shared: UIImage = makeTile()
+
+    private static func makeTile() -> UIImage {
+        let side = tileSize
+        let format = UIGraphicsImageRendererFormat.preferred()
+        // 粒は1pt前後の点なので、等倍で焼けば十分（画像サイズも小さく保てる）
+        format.scale = 1
+        format.opaque = false
+
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: side, height: side), format: format)
+        let image = renderer.image { context in
+            let cg = context.cgContext
+            // 描き直しても同じ模様になるよう、固定の種から粒を置く
+            var rng = NoiseGenerator(seed: 0xA5A5_1234)
+            let count = Int(side * side / density)
+            for _ in 0..<max(count, 0) {
+                let x = rng.cgFloat(in: 0...side)
+                let y = rng.cgFloat(in: 0...side)
+                let dotSide = rng.cgFloat(in: dotSizeRange)
+                // 明暗どちらの粒も置いて、ざらつきを均等に見せる
+                let isBright = rng.next() % 2 == 0
+                let base: UIColor = isBright ? .white : .black
+                cg.setFillColor(base.withAlphaComponent(rng.cgFloat(in: dotAlphaRange)).cgColor)
+                cg.fill(CGRect(x: x, y: y, width: dotSide, height: dotSide))
+            }
+        }
+        // ダークモードでも同じ粒を使う（明暗両方の粒を含むため反転の必要がない）
+        return image.withRenderingMode(.alwaysOriginal)
     }
 }
 
@@ -89,10 +122,6 @@ private struct NoiseGenerator: RandomNumberGenerator {
         z = (z ^ (z >> 30)) &* 0xBF58_476D_1CE4_E5B9
         z = (z ^ (z >> 27)) &* 0x94D0_49BB_1331_11EB
         return z ^ (z >> 31)
-    }
-
-    mutating func double(in range: ClosedRange<Double>) -> Double {
-        Double.random(in: range, using: &self)
     }
 
     mutating func cgFloat(in range: ClosedRange<CGFloat>) -> CGFloat {
