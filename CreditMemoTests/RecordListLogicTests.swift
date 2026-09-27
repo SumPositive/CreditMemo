@@ -7,6 +7,18 @@ import Testing
 /// 日付はテスト実行日に左右されないよう、固定のカレンダー（JST）で組み立てる。
 struct RecordListLogicTests {
 
+    /// リポジトリ内の決済一覧ソースを読める環境か
+    static let canReadRecordListSource = FileManager.default.fileExists(
+        atPath: recordListSourceURL.path
+    )
+
+    private static var recordListSourceURL: URL {
+        URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()   // CreditMemoTests/
+            .deletingLastPathComponent()   // リポジトリルート
+            .appendingPathComponent("CreditMemo/Features/Record/RecordListView.swift")
+    }
+
     private var calendar: Calendar = {
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = TimeZone(identifier: "Asia/Tokyo") ?? .current
@@ -32,6 +44,33 @@ struct RecordListLogicTests {
             nextUnloadedDate: nextUnloaded,
             calendar: calendar
         )
+    }
+
+    // MARK: - セルスワイプの回帰防止
+
+    @Test(
+        "決済一覧のスクロール監視がセルスワイプを奪わない",
+        .enabled(if: canReadRecordListSource)
+    )
+    func recordListScrollTrackingDoesNotAddDragGesture() throws {
+        let source = try String(contentsOf: Self.recordListSourceURL, encoding: .utf8)
+        let start = try #require(source.range(of: ".onChange(of: recordScrollRequest)"))
+        let end = try #require(
+            source.range(
+                of: ".scalableNavigationTitle",
+                range: start.upperBound..<source.endIndex
+            )
+        )
+        let listModifiers = source[start.lowerBound..<end.lowerBound]
+
+        // List全体へドラッグ判定を重ねると、セルのswipeActionsと競合する
+        #expect(listModifiers.contains(".onScrollPhaseChange"))
+        #expect(!listModifiers.contains(".simultaneousGesture"))
+        #expect(!listModifiers.contains("DragGesture"))
+
+        // コピー導線と仮明細作成処理も同時に残っていることを確認する
+        #expect(source.contains(".swipeActions(edge: .trailing"))
+        #expect(source.contains("addDraftCopy(from: record)"))
     }
 
     // MARK: - 月計

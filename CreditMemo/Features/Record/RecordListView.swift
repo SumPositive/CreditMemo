@@ -577,6 +577,8 @@ struct RecordListView: View {
             RecordSummaryRow(record: record)
         }
         .buttonStyle(.plain)
+        // UIテストから言語に依存せず明細セルを操作できるようにする
+        .accessibilityIdentifier("record.row.\(record.id)")
         // 右スワイプで、その場に明細の複製を追加する
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             Button {
@@ -586,6 +588,7 @@ struct RecordListView: View {
             }
             .tint(.blue)
             .accessibilityLabel(Text("button.copy"))
+            .accessibilityIdentifier("record.copy.\(record.id)")
         }
     }
 
@@ -1061,6 +1064,8 @@ private struct RecordDraftCopyRow: View {
                 .stroke(Color.blue.opacity(0.25), lineWidth: 1)
         )
         .accessibilityLabel(Text("button.copy"))
+        // コピー操作後に仮明細が現れたことをUIテストで確認する
+        .accessibilityIdentifier("record.draftCopy.\(draft.id.uuidString)")
     }
 }
 
