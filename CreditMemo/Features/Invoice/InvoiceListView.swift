@@ -104,6 +104,36 @@ struct InvoiceListView: View {
         return currentAmount == .zero ? displayAmount : currentAmount
     }
 
+    /// 引落確定額の保存単位は、現在の手段または口座の絞り込みから決める
+    private var confirmedAmountScope: ConfirmedDebitAmountSessionStore.Scope? {
+        guard let scope = invoiceFilter?.scope else { return nil }
+        switch scope {
+        case .card(let cardID):
+            return .card(cardID)
+        case .bank(let bankID):
+            return .bank(bankID)
+        case .tag:
+            return nil
+        }
+    }
+
+    /// 引落確定額は手段または口座で絞り込んだ未払画面だけで扱う
+    private var canEditConfirmedAmount: Bool {
+        !displayIsPaid && confirmedAmountScope != nil
+    }
+
+    /// DBへ保存せず、アプリ起動中の入力値だけを参照する
+    private var confirmedAmount: Decimal? {
+        guard let scope = confirmedAmountScope else { return nil }
+        return confirmedAmountStore.amount(for: scope, date: displayDate)
+    }
+
+    /// 翌月へ移す候補額が正数になるよう「合計 − 確定額」で表示する
+    private var confirmedAmountDifference: Decimal? {
+        guard canEditConfirmedAmount, let confirmedAmount else { return nil }
+        return (currentDisplayAmount - confirmedAmount).roundedAmount()
+    }
+
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
     @Environment(\.badgeTheme) private var badgeTheme
@@ -127,6 +157,12 @@ struct InvoiceListView: View {
     @State private var bulkChangeCardID: String?
     /// 「まとめて変更」シートで選択中の日付
     @State private var bulkChangeDraftDate: Date = Date()
+    /// 確定額入力用テンキーの表示状態
+    @State private var showConfirmedAmountPad = false
+    /// テンキーを開いた時点の確定額
+    @State private var confirmedAmountDraft: Decimal = .zero
+    /// 画面を移動してもタスク終了までは入力値を共有する
+    @State private var confirmedAmountStore = ConfirmedDebitAmountSessionStore.shared
 
     init(payment: E7payment, filter: InvoiceListFilter? = nil) {
         self.payment = payment
@@ -404,14 +440,82 @@ struct InvoiceListView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            HStack {
-                Text("label.total")
+            HStack(spacing: 8) {
+                Text("invoice.detailTotal")
                 Spacer()
                 Text(currentDisplayAmount.currencyString())
                     .font(.headline.monospacedDigit())
                     .foregroundStyle(displayIsPaid ? badgeTheme.paidText : badgeTheme.unpaidText)
+                // 引落確定額の矢印幅を空け、3つの金額右端を揃える
+                summaryAccessoryChevron(isVisible: false)
+            }
+            if canEditConfirmedAmount {
+                // List標準の最小行高を避け、2セルをそれぞれ40ptで固定する
+                VStack(spacing: 0) {
+                    Button {
+                        // 未入力時は現在の合計を初期値にして一致確認を素早く行えるようにする
+                        confirmedAmountDraft = confirmedAmount ?? currentDisplayAmount
+                        showConfirmedAmountPad = true
+                    } label: {
+                        HStack(spacing: 8) {
+                            Text("invoice.confirmedAmount")
+                                .foregroundStyle(.primary)
+                            Spacer(minLength: 8)
+                            Text(confirmedAmount?.currencyString() ?? "—")
+                                .font(.body.monospacedDigit())
+                                .foregroundStyle(confirmedAmount == nil ? Color(.tertiaryLabel) : Color.accentColor)
+                            summaryAccessoryChevron(isVisible: true)
+                        }
+                        .padding(.horizontal, 20)
+                        .frame(height: 40)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+
+                    Divider()
+                        .padding(.horizontal, 20)
+
+                    HStack(spacing: 8) {
+                        Text("invoice.differenceAmount")
+                        Spacer()
+                        Text(confirmedAmountDifference?.currencyString() ?? "—")
+                            .font(.headline.monospacedDigit())
+                            .foregroundStyle(differenceAmountColor)
+                        // 引落確定額の矢印幅を空け、3つの金額右端を揃える
+                        summaryAccessoryChevron(isVisible: false)
+                    }
+                    .padding(.horizontal, 20)
+                    .frame(height: 40)
+                }
+                .listRowInsets(EdgeInsets())
             }
         }
+    }
+
+    /// 差額なしは確認済みの緑、差額ありは注意の橙で示す
+    private var differenceAmountColor: Color {
+        guard let difference = confirmedAmountDifference else { return Color(.tertiaryLabel) }
+        return difference == .zero ? .green : .orange
+    }
+
+    /// 金額列の位置を揃えるため、非操作行でも矢印と同じ幅を予約する
+    private func summaryAccessoryChevron(isVisible: Bool) -> some View {
+        Image(systemName: "chevron.right")
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(Color(.tertiaryLabel))
+            .opacity(isVisible ? 1 : 0)
+            .accessibilityHidden(!isVisible)
+    }
+
+    /// 入力した引落確定額をアプリ起動中だけ保持する
+    private func saveConfirmedAmount(_ amount: Decimal) {
+        guard canEditConfirmedAmount, let scope = confirmedAmountScope else {
+            showConfirmedAmountPad = false
+            return
+        }
+        // DBへは保存せず、アプリ起動中の手段・口座別メモとして保持する
+        confirmedAmountStore.setAmount(amount.roundedAmount(), for: scope, date: displayDate)
+        showConfirmedAmountPad = false
     }
 
     @ViewBuilder
@@ -553,6 +657,8 @@ struct InvoiceListView: View {
                 .accessibilityLabel(Text("button.back"))
             }
         }
+        // 確定額入力中は背面のナビゲーション操作を隠す
+        .toolbar(showConfirmedAmountPad ? .hidden : .visible, for: .navigationBar)
         .sheet(item: $editRecord) { record in
             NavigationStack {
                 RecordEditView(
@@ -642,6 +748,17 @@ struct InvoiceListView: View {
             }
             .appFontScale(fontScale)
             .presentationBackground(Color(uiColor: .systemBackground))
+        }
+        .overlay {
+            if showConfirmedAmountPad {
+                NumericKeypadOverlay(
+                    title: "invoice.confirmedAmount",
+                    placeholder: confirmedAmountDraft,
+                    maxValue: APP_MAX_AMOUNT,
+                    onCancel: { showConfirmedAmountPad = false },
+                    onCommit: saveConfirmedAmount
+                )
+            }
         }
     }
 }

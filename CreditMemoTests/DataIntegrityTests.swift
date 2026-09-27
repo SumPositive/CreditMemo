@@ -120,6 +120,10 @@ struct DataIntegrityTests {
         #expect(invoice.e1paid == nil)
         #expect(invoice.e1unpaid?.id == card.id)
         #expect(invoice.isPaid == false)
+        // 引落確定額はDBではなく、アプリ起動中の手段・口座別メモとして保持する
+        let confirmedAmountStore = ConfirmedDebitAmountSessionStore.shared
+        confirmedAmountStore.setAmount(1_400, for: .card(card.id), date: invoice.date)
+        confirmedAmountStore.setAmount(1_500, for: .bank(bank.id), date: invoice.date)
 
         try RecordService.setInvoicesPaid([invoice], isPaid: true, context: context)
         #expect(invoice.isPaid == true)
@@ -128,6 +132,9 @@ struct DataIntegrityTests {
         // 対応する payment も済み側へ移っているか確認
         #expect(invoice.e7payment?.e8paid?.id == bank.id)
         #expect(invoice.e7payment?.e8unpaid == nil)
+        // 済みへの保存成功後は両方のセッション値を破棄する
+        #expect(confirmedAmountStore.amount(for: .card(card.id), date: invoice.date) == nil)
+        #expect(confirmedAmountStore.amount(for: .bank(bank.id), date: invoice.date) == nil)
 
         // 済み → 未払 へ戻す
         try RecordService.setInvoicesPaid([invoice], isPaid: false, context: context)
@@ -136,6 +143,9 @@ struct DataIntegrityTests {
         #expect(invoice.e1unpaid?.id == card.id)
         #expect(invoice.e7payment?.e8paid == nil)
         #expect(invoice.e7payment?.e8unpaid?.id == bank.id)
+        // 未払へ戻しても破棄済みの引落確定額は復活しない
+        #expect(confirmedAmountStore.amount(for: .card(card.id), date: invoice.date) == nil)
+        #expect(confirmedAmountStore.amount(for: .bank(bank.id), date: invoice.date) == nil)
 
         // 集計値 (card.sumPaid 等) は SwiftData の inverse 同期が
         // インメモリストアで効かない既知の制約のため、ここでは検証しない

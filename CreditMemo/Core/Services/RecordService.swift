@@ -20,6 +20,13 @@ enum RecordService {
         var partDueDateByPartNo: [Int16: Date] = [:]
     }
 
+    /// 済みへの変更後に引落確定額を破棄する対象
+    private struct ConfirmedAmountTarget: Hashable {
+        let date: Date
+        let cardID: String?
+        let bankID: String?
+    }
+
     /// 全件再構築中の請求・支払検索をメモリ上で再利用する
     @MainActor
     private final class BillingRebuildLookup {
@@ -626,6 +633,7 @@ enum RecordService {
         isPaid: Bool,
         context: ModelContext
     ) throws {
+        let confirmedTargets = confirmedAmountTargets(in: invoices)
         let records = uniqueRecords(in: invoices)
         for invoice in invoices {
             if isPaid {
@@ -651,6 +659,10 @@ enum RecordService {
         }
 
         try commit(context)
+        if isPaid {
+            // DB保存の成功後、済みになった範囲のセッション値だけを破棄する
+            clearConfirmedAmountsIfPaid(targets: confirmedTargets, context: context)
+        }
     }
 
     /// 請求1件単位で未払/済みを切り替える
@@ -659,6 +671,7 @@ enum RecordService {
         isPaid: Bool,
         context: ModelContext
     ) throws {
+        let confirmedTargets = confirmedAmountTargets(in: [invoice])
         let records = uniqueRecords(in: [invoice])
         if isPaid {
             lockDueDates(in: invoice)
@@ -677,6 +690,10 @@ enum RecordService {
             recalculateCard(card)
         }
         try commit(context)
+        if isPaid {
+            // DB保存の成功後、済みになった範囲のセッション値だけを破棄する
+            clearConfirmedAmountsIfPaid(targets: confirmedTargets, context: context)
+        }
     }
 
     /// 明細1件だけを反対状態の請求へ移す
@@ -685,8 +702,54 @@ enum RecordService {
         isPaid: Bool,
         context: ModelContext
     ) throws {
+        let confirmedTargets = part.e2invoice.map { confirmedAmountTargets(in: [$0]) } ?? []
         setPartPaidWithoutCommit(part, isPaid: isPaid, context: context)
         try commit(context)
+        if isPaid {
+            // 最後の未払明細が済みになった時だけセッション値を破棄する
+            clearConfirmedAmountsIfPaid(targets: confirmedTargets, context: context)
+        }
+    }
+
+    /// 対象請求から手段・口座・引落日の組み合わせを退避する
+    private static func confirmedAmountTargets(in invoices: [E2invoice]) -> Set<ConfirmedAmountTarget> {
+        Set(invoices.map { invoice in
+            ConfirmedAmountTarget(
+                date: Calendar.current.startOfDay(for: invoice.date),
+                cardID: invoice.e1card?.id,
+                bankID: invoice.e1card?.e8bank?.id
+            )
+        })
+    }
+
+    /// 手段または口座の未払請求が無くなった時だけ起動中の引落確定額を消す
+    private static func clearConfirmedAmountsIfPaid(
+        targets: Set<ConfirmedAmountTarget>,
+        context: ModelContext
+    ) {
+        let store = ConfirmedDebitAmountSessionStore.shared
+        for target in targets {
+            let dayStart = target.date
+            guard let nextDay = Calendar.current.date(byAdding: .day, value: 1, to: dayStart) else { continue }
+            let descriptor = FetchDescriptor<E2invoice>(
+                predicate: #Predicate<E2invoice> { dayStart <= $0.date && $0.date < nextDay }
+            )
+            let dayInvoices = context.fetchReporting(descriptor, entity: "E2invoice")
+
+            if let cardID = target.cardID {
+                let hasUnpaidCard = dayInvoices.contains { !$0.isPaid && $0.e1card?.id == cardID }
+                if !hasUnpaidCard {
+                    store.removeAmount(for: .card(cardID), date: dayStart)
+                }
+            }
+
+            if let bankID = target.bankID {
+                let hasUnpaidBank = dayInvoices.contains { !$0.isPaid && $0.e1card?.e8bank?.id == bankID }
+                if !hasUnpaidBank {
+                    store.removeAmount(for: .bank(bankID), date: dayStart)
+                }
+            }
+        }
     }
 
     /// setPartPaid の保存を伴わない版。複数明細をまとめて 1 回で保存する呼び出し元向け。

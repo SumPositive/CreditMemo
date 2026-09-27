@@ -77,6 +77,42 @@ enum AppStorageKey {
     static let retentionSuggestSnoozeUntil = "setting.retention.suggestSnoozeUntil"
 }
 
+/// 引落確定額をアプリ起動中だけ保持する
+@Observable
+final class ConfirmedDebitAmountSessionStore {
+    nonisolated(unsafe) static let shared = ConfirmedDebitAmountSessionStore()
+
+    /// 手段と口座は同じIDでも混同しないよう別スコープにする
+    enum Scope: Hashable {
+        case card(String)
+        case bank(String)
+    }
+
+    private struct Key: Hashable {
+        let scope: Scope
+        let date: Date
+    }
+
+    private var amounts: [Key: Decimal] = [:]
+
+    func amount(for scope: Scope, date: Date) -> Decimal? {
+        amounts[key(for: scope, date: date)]
+    }
+
+    func setAmount(_ amount: Decimal, for scope: Scope, date: Date) {
+        amounts[key(for: scope, date: date)] = amount
+    }
+
+    func removeAmount(for scope: Scope, date: Date) {
+        amounts.removeValue(forKey: key(for: scope, date: date))
+    }
+
+    /// 同じ引落日を時刻差で別扱いしないよう日初へそろえる
+    private func key(for scope: Scope, date: Date) -> Key {
+        Key(scope: scope, date: Calendar.current.startOfDay(for: date))
+    }
+}
+
 /// 古い履歴の自動整理提案のパラメータ（判断代行のためアプリ側で固定）
 enum RetentionSuggest {
     /// 提案の基準となる保持年数（この年数より古い＝整理対象）
