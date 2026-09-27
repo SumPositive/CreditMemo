@@ -4,28 +4,6 @@
 <dict>
 	<key>CFBundleDisplayName</key>
 	<string>Deferin</string>
-	<!-- INAlternativeAppNames は最大3件まで。表示名 Deferin は .applicationName で自動的に反応するため別名には含めない -->
-	<key>INAlternativeAppNames</key>
-	<array>
-		<dict>
-			<key>INAlternativeAppName</key>
-			<string>ディファリン</string>
-			<key>INAlternativeAppNamePronunciationHint</key>
-			<string>でぃふぁりん</string>
-		</dict>
-		<dict>
-			<key>INAlternativeAppName</key>
-			<string>クレメモ</string>
-			<key>INAlternativeAppNamePronunciationHint</key>
-			<string>くれめも</string>
-		</dict>
-		<dict>
-			<key>INAlternativeAppName</key>
-			<string>CrediMemo</string>
-			<key>INAlternativeAppNamePronunciationHint</key>
-			<string>くれめも</string>
-		</dict>
-	</array>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIcons</key>
@@ -33,27 +11,60 @@
 		<key>CFBundleAlternateIcons</key>
 		<dict>
 			<key>AppIcon-berry</key>
-			<dict><key>CFBundleIconName</key><string>AppIcon-berry</string></dict>
+			<dict>
+				<key>CFBundleIconName</key>
+				<string>AppIcon-berry</string>
+			</dict>
 			<key>AppIcon-candy</key>
-			<dict><key>CFBundleIconName</key><string>AppIcon-candy</string></dict>
+			<dict>
+				<key>CFBundleIconName</key>
+				<string>AppIcon-candy</string>
+			</dict>
 			<key>AppIcon-chic</key>
-			<dict><key>CFBundleIconName</key><string>AppIcon-chic</string></dict>
+			<dict>
+				<key>CFBundleIconName</key>
+				<string>AppIcon-chic</string>
+			</dict>
 			<key>AppIcon-forest</key>
-			<dict><key>CFBundleIconName</key><string>AppIcon-forest</string></dict>
+			<dict>
+				<key>CFBundleIconName</key>
+				<string>AppIcon-forest</string>
+			</dict>
 			<key>AppIcon-french</key>
-			<dict><key>CFBundleIconName</key><string>AppIcon-french</string></dict>
+			<dict>
+				<key>CFBundleIconName</key>
+				<string>AppIcon-french</string>
+			</dict>
 			<key>AppIcon-lagoon</key>
-			<dict><key>CFBundleIconName</key><string>AppIcon-lagoon</string></dict>
+			<dict>
+				<key>CFBundleIconName</key>
+				<string>AppIcon-lagoon</string>
+			</dict>
 			<key>AppIcon-mono</key>
-			<dict><key>CFBundleIconName</key><string>AppIcon-mono</string></dict>
+			<dict>
+				<key>CFBundleIconName</key>
+				<string>AppIcon-mono</string>
+			</dict>
 			<key>AppIcon-monoBlue</key>
-			<dict><key>CFBundleIconName</key><string>AppIcon-monoBlue</string></dict>
+			<dict>
+				<key>CFBundleIconName</key>
+				<string>AppIcon-monoBlue</string>
+			</dict>
 			<key>AppIcon-ocean</key>
-			<dict><key>CFBundleIconName</key><string>AppIcon-ocean</string></dict>
+			<dict>
+				<key>CFBundleIconName</key>
+				<string>AppIcon-ocean</string>
+			</dict>
 			<key>AppIcon-pastel</key>
-			<dict><key>CFBundleIconName</key><string>AppIcon-pastel</string></dict>
+			<dict>
+				<key>CFBundleIconName</key>
+				<string>AppIcon-pastel</string>
+			</dict>
 			<key>AppIcon-sunset</key>
-			<dict><key>CFBundleIconName</key><string>AppIcon-sunset</string></dict>
+			<dict>
+				<key>CFBundleIconName</key>
+				<string>AppIcon-sunset</string>
+			</dict>
 		</dict>
 		<key>CFBundlePrimaryIcon</key>
 		<dict>
@@ -68,27 +79,60 @@
 		<key>CFBundleAlternateIcons</key>
 		<dict>
 			<key>AppIcon-berry</key>
-			<dict><key>CFBundleIconName</key><string>AppIcon-berry</string></dict>
+			<dict>
+				<key>CFBundleIconName</key>
+				<string>AppIcon-berry</string>
+			</dict>
 			<key>AppIcon-candy</key>
-			<dict><key>CFBundleIconName</key><string>AppIcon-candy</string></dict>
+			<dict>
+				<key>CFBundleIconName</key>
+				<string>AppIcon-candy</string>
+			</dict>
 			<key>AppIcon-chic</key>
-			<dict><key>CFBundleIconName</key><string>AppIcon-chic</string></dict>
+			<dict>
+				<key>CFBundleIconName</key>
+				<string>AppIcon-chic</string>
+			</dict>
 			<key>AppIcon-forest</key>
-			<dict><key>CFBundleIconName</key><string>AppIcon-forest</string></dict>
+			<dict>
+				<key>CFBundleIconName</key>
+				<string>AppIcon-forest</string>
+			</dict>
 			<key>AppIcon-french</key>
-			<dict><key>CFBundleIconName</key><string>AppIcon-french</string></dict>
+			<dict>
+				<key>CFBundleIconName</key>
+				<string>AppIcon-french</string>
+			</dict>
 			<key>AppIcon-lagoon</key>
-			<dict><key>CFBundleIconName</key><string>AppIcon-lagoon</string></dict>
+			<dict>
+				<key>CFBundleIconName</key>
+				<string>AppIcon-lagoon</string>
+			</dict>
 			<key>AppIcon-mono</key>
-			<dict><key>CFBundleIconName</key><string>AppIcon-mono</string></dict>
+			<dict>
+				<key>CFBundleIconName</key>
+				<string>AppIcon-mono</string>
+			</dict>
 			<key>AppIcon-monoBlue</key>
-			<dict><key>CFBundleIconName</key><string>AppIcon-monoBlue</string></dict>
+			<dict>
+				<key>CFBundleIconName</key>
+				<string>AppIcon-monoBlue</string>
+			</dict>
 			<key>AppIcon-ocean</key>
-			<dict><key>CFBundleIconName</key><string>AppIcon-ocean</string></dict>
+			<dict>
+				<key>CFBundleIconName</key>
+				<string>AppIcon-ocean</string>
+			</dict>
 			<key>AppIcon-pastel</key>
-			<dict><key>CFBundleIconName</key><string>AppIcon-pastel</string></dict>
+			<dict>
+				<key>CFBundleIconName</key>
+				<string>AppIcon-pastel</string>
+			</dict>
 			<key>AppIcon-sunset</key>
-			<dict><key>CFBundleIconName</key><string>AppIcon-sunset</string></dict>
+			<dict>
+				<key>CFBundleIconName</key>
+				<string>AppIcon-sunset</string>
+			</dict>
 		</dict>
 		<key>CFBundlePrimaryIcon</key>
 		<dict>
@@ -120,8 +164,28 @@
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>GADApplicationIdentifier</key>
-	<!-- DebugとReleaseでテスト用／本番用のAdMobアプリIDを切り替える -->
 	<string>$(ADMOB_APP_ID)</string>
+	<key>INAlternativeAppNames</key>
+	<array>
+		<dict>
+			<key>INAlternativeAppName</key>
+			<string>ディファリン</string>
+			<key>INAlternativeAppNamePronunciationHint</key>
+			<string>でぃふぁりん</string>
+		</dict>
+		<dict>
+			<key>INAlternativeAppName</key>
+			<string>クレメモ</string>
+			<key>INAlternativeAppNamePronunciationHint</key>
+			<string>くれめも</string>
+		</dict>
+		<dict>
+			<key>INAlternativeAppName</key>
+			<string>CrediMemo</string>
+			<key>INAlternativeAppNamePronunciationHint</key>
+			<string>くれめも</string>
+		</dict>
+	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>LSRequiresIPhoneOS</key>

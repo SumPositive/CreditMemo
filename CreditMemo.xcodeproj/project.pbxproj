@@ -632,7 +632,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 2660;
+				LastUpgradeCheck = 2700;
 				TargetAttributes = {
 					476BF29E563FFF97615D6381 = {
 						DevelopmentTeam = 5C2UYK6F45;
@@ -862,7 +862,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 2.7.0;
+				MARKETING_VERSION = 2.7.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.azukid.AzCreditS1;
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
@@ -1001,7 +1001,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 2.7.0;
+				MARKETING_VERSION = 2.7.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.azukid.AzCreditS1;
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
