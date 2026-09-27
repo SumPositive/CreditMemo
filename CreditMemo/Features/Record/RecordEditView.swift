@@ -3196,12 +3196,12 @@ private struct CategoryMultiPickerSheet: View {
     @Binding var selectedCategories: [E5tag]
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var context
     @Query private var allCategories: [E5tag]
     @AppStorage(AppStorageKey.tagSortMode) private var sortModeRaw: Int = SortMode.defaultForTags.rawValue
-    @State private var showAdd = false
     @State private var showSortDropdown = false
+    @State private var newTagName = ""
     @State private var displayOrder: [E5tag] = []
-    @State private var itemIDsBeforeAdd: [String] = []
     /// キャンセルで元へ戻せるよう、選択操作はシート内の作業用コピーに対して行う
     @State private var draftSelection: [E5tag] = []
     private let maxSelection = 10
@@ -3211,7 +3211,7 @@ private struct CategoryMultiPickerSheet: View {
 
     /// 少ない行は内容に合わせ、多い行は最初から最大まで開く
     private var tagPickerDetents: Set<PresentationDetent> {
-        TagSelectionList.detents(tagNames: items.map(\.zName))
+        TagSelectionList.detents(tagNames: items.map(\.zName), showsFindOrAdd: true)
     }
 
     private var items: [E5tag] {
@@ -3225,6 +3225,8 @@ private struct CategoryMultiPickerSheet: View {
                 selectedIDs: selectedIDs,
                 sortModeRaw: $sortModeRaw,
                 isSortExpanded: $showSortDropdown,
+                findOrAddName: $newTagName,
+                onFindOrAdd: findOrAddTag,
                 onSelectTag: toggleItem
             )
             // 決済一覧のタグシートと同じ一覧背景とタイトル表示を使う
@@ -3233,14 +3235,6 @@ private struct CategoryMultiPickerSheet: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("button.cancel") { dismiss() }
                 }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        itemIDsBeforeAdd = items.map(\.id)
-                        showAdd = true
-                    } label: {
-                        Image(systemName: "plus").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
-                    }
-                }
                 ToolbarItem(placement: .confirmationAction) {
                     // 決定を押したときだけ選択結果を呼び出し元へ反映する
                     Button("button.decide") {
@@ -3248,25 +3242,6 @@ private struct CategoryMultiPickerSheet: View {
                         dismiss()
                     }
                 }
-            }
-            .sheet(isPresented: $showAdd, onDismiss: {
-                let newItems = items.filter { !itemIDsBeforeAdd.contains($0.id) }
-                for item in newItems where !draftSelection.contains(where: { $0.id == item.id }) {
-                    draftSelection.append(item)
-                }
-                // 追加直後は新規タグを最上段へ寄せ、同時に選択状態を反映する
-                rebuildDisplayOrder(
-                    prioritizedIDs: newItems.map(\.id),
-                    hoistedIDs: selectedIDs
-                )
-            }) {
-                NavigationStack { TagEditView(isCompactSheet: true) }
-                    // タグ追加シートの背面を透かさない
-                    .presentationBackground(Color(uiColor: .systemBackground))
-                    // 中身ぶんの高さで開く。.medium + .large にすると
-                    // キーボード表示時に .large へ昇格して大きな余白ができる
-                    .presentationDetents(TagEditView.addSheetDetents())
-                    .presentationDragIndicator(.visible)
             }
         }
         .presentationDetents(tagPickerDetents)
@@ -3298,6 +3273,33 @@ private struct CategoryMultiPickerSheet: View {
             draftSelection.append(item)
         }
         // 表示順はそのまま。タップしたタグが動くと次のタグを選びにくい
+    }
+
+    /// 同名タグは再利用し、無い名前だけを追加してそのまま選択する
+    private func findOrAddTag() {
+        let name = newTagName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+
+        let normalizedName = name.normalizedTagLookupName
+        if let existing = allCategories.first(where: {
+            $0.zName.normalizedTagLookupName == normalizedName
+        }) {
+            if !selectedIDs.contains(existing.id), draftSelection.count < maxSelection {
+                draftSelection.append(existing)
+            }
+            newTagName = ""
+            return
+        }
+
+        // 新規タグは作成直後に選択し、検索欄を空へ戻して先頭に表示する
+        let tag = E5tag(zName: name, sortDate: Date(), sortName: name)
+        context.insert(tag)
+        context.saveReporting(operation: "CategoryMultiPickerSheet.findOrAddTag")
+        if draftSelection.count < maxSelection {
+            draftSelection.append(tag)
+        }
+        displayOrder.insert(tag, at: 0)
+        newTagName = ""
     }
 
     /// 表示順を組み直す。

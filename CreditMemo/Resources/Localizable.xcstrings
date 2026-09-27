@@ -16679,31 +16679,31 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tippe oben rechts auf +, um einen Tag hinzuzufügen.\n\nTippe auf eine Zeile, um sie zu bearbeiten."
+            "value" : "Im Eingabefeld oben kannst du Tags suchen oder hinzufügen.\n\nTippe auf einen Tag, um seinen Inhalt zu bearbeiten."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tap + at the top right to add a tag.\n\nTap a row to edit its contents."
+            "value" : "Use the field above to find or add a tag.\n\nTap a tag to edit its contents."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "右上の＋からタグを追加できます\n\n明細をタップすると内容を編集できます"
+            "value" : "上の入力欄からタグを探して追加できます\n\nタグをタップすると内容を編集できます"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "오른쪽 위 +에서 태그를 추가할 수 있습니다.\n\n행을 탭하면 내용을 편집할 수 있습니다."
+            "value" : "위 입력란에서 태그를 검색하거나 추가할 수 있습니다.\n\n태그를 탭하면 내용을 편집할 수 있습니다."
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "點選右上角 + 新增標籤。\n\n點選某行可編輯其內容。"
+            "value" : "使用上方輸入欄搜尋或新增標籤。\n\n點選標籤可編輯其內容。"
           }
         }
       }
@@ -16714,31 +16714,31 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Oben rechts auf + tippen, um einen Tag hinzuzufügen"
+            "value" : "Tags oben im Eingabefeld suchen oder hinzufügen"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tap + at top right to add a tag"
+            "value" : "Use the field above to find or add a tag"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "右上の＋からタグを追加できます"
+            "value" : "上の入力欄からタグを探して追加できます"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "오른쪽 위 +에서 태그 추가"
+            "value" : "위 입력란에서 태그 검색 또는 추가"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "點選右上角 + 新增標籤"
+            "value" : "使用上方輸入欄搜尋或新增標籤"
           }
         }
       }
@@ -17019,6 +17019,41 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "該標籤名稱已存在。"
+          }
+        }
+      }
+    },
+    "tag.list.findOrAdd" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suchen oder hinzufügen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search, or add if not found"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "探して無ければ追加"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "찾아보고 없으면 추가"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜尋，沒有就新增"
           }
         }
       }

@@ -6,10 +6,9 @@ struct TagListView: View {
     @Environment(\.modelContext) private var context
 
     @AppStorage(AppStorageKey.tagSortMode) private var sortModeRaw: Int = SortMode.defaultForTags.rawValue
-    @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
     @AppStorage(AppStorageKey.userLevel) private var userLevel: UserLevel = .beginner
 
-    @State private var showAddSheet  = false
+    @State private var newTagName = ""
     /// カプセルのタップで開く編集画面の対象
     @State private var editTarget: E5tag?
     @State private var showSortDropdown = false
@@ -45,9 +44,20 @@ struct TagListView: View {
         tags.sortedByTagMode(sortMode)
     }
 
+    /// 入力中は既存タグを絞り込み、探してから追加できるようにする
+    private var displayedTags: [E5tag] {
+        let input = trimmedNewTagName.normalizedTagLookupName
+        guard !input.isEmpty else { return sorted }
+        return sorted.filter { $0.zName.normalizedTagLookupName.contains(input) }
+    }
+
+    private var trimmedNewTagName: String {
+        newTagName.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     /// カプセル1つ = タグ1件。マスタなので選択状態は持たない
     private var bandItems: [TagCapsuleBand.Item] {
-        sorted.map { tag in
+        displayedTags.map { tag in
             TagCapsuleBand.Item(
                 id: tag.id,
                 title: tag.zName,
@@ -55,6 +65,11 @@ struct TagListView: View {
                 action: { editTarget = tag }
             )
         }
+    }
+
+    /// タイトル直下へ置く検索兼追加欄
+    private var findOrAddSection: some View {
+        TagFindOrAddSection(name: $newTagName, onCommit: findOrAddTag)
     }
 
     var body: some View {
@@ -78,13 +93,19 @@ struct TagListView: View {
         }
         // スクロールインジケータは出さない
         .scrollIndicators(.hidden)
+        // タグを見比べるためにスクロールしたらキーボードを閉じる
+        .scrollDismissesKeyboard(.immediately)
         .background(Color(uiColor: .systemGroupedBackground))
-        // ソート条件はシートと同じく上部固定にする
+        // 検索兼追加欄とソート条件はタイトル直下へ固定する
         .safeAreaInset(edge: .top, spacing: 0) {
-            TagSortModeDropdown(
-                sortModeRaw: $sortModeRaw,
-                isExpanded: $showSortDropdown
-            )
+            VStack(spacing: 8) {
+                findOrAddSection
+
+                TagSortModeDropdown(
+                    sortModeRaw: $sortModeRaw,
+                    isExpanded: $showSortDropdown
+                )
+            }
             .padding(.horizontal, TagCapsuleBand.areaHorizontalPadding)
             .padding(.vertical, 8)
             .background(Color(uiColor: .systemGroupedBackground))
@@ -93,26 +114,39 @@ struct TagListView: View {
             Image(systemName: "tag")
                 .foregroundStyle(Color.orange)
         }
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button { showAddSheet = true } label: { Image(systemName: "plus").dynamicTypeSize(...DynamicTypeSize.xxxLarge) }
-            }
-        }
-        .sheet(isPresented: $showAddSheet) {
-            NavigationStack { TagEditView(tag: nil, isCompactSheet: true) }
-                // シートにもアプリ内文字サイズ設定を明示適用する
-                .appFontScale(fontScale)
-                // タグ追加シートの背面を透かさない
-                .presentationBackground(Color(uiColor: .systemBackground))
-                // 中身ぶんの高さで開く。.medium + .large にすると
-                // キーボード表示時に .large へ昇格して大きな余白ができる
-                .presentationDetents(TagEditView.addSheetDetents())
-                .presentationDragIndicator(.visible)
-        }
         .navigationDestination(item: $editTarget) { tag in
             // カプセルのタップから編集画面へ。履歴へはその画面の「履歴」ボタンで進む
             TagEditView(tag: tag)
         }
+    }
+
+    /// 同名があれば既存タグを開き、無ければ新しいタグとして追加する
+    private func findOrAddTag() {
+        let name = trimmedNewTagName
+        guard !name.isEmpty else { return }
+
+        let normalizedName = name.normalizedTagLookupName
+        if let existing = tags.first(where: { $0.zName.normalizedTagLookupName == normalizedName }) {
+            newTagName = ""
+            editTarget = existing
+            return
+        }
+
+        // 新規追加は「最近順」で先頭表示されるよう作成日時を入れる
+        let tag = E5tag(zName: name, sortDate: Date(), sortName: name)
+        context.insert(tag)
+        context.saveReporting(operation: "TagListView.findOrAddTag")
+        newTagName = ""
+    }
+}
+
+extension String {
+    /// 大文字小文字・濁点・文字幅の違いを吸収してタグの検索と重複判定を揃える
+    var normalizedTagLookupName: String {
+        folding(
+            options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive],
+            locale: .current
+        )
     }
 }
 
@@ -295,6 +329,65 @@ struct TagSortModeDropdown: View {
     }
 }
 
+/// タグ一覧と選択シートで共用する検索兼追加欄
+struct TagFindOrAddSection: View {
+    @Binding var name: String
+    let onCommit: () -> Void
+
+    @FocusState private var isFocused: Bool
+
+    private var trimmedName: String {
+        name.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("tag.list.findOrAdd")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 4)
+
+            HStack(spacing: 12) {
+                TextField("tag.field.name", text: $name)
+                    .focused($isFocused)
+                    .submitLabel(.done)
+                    .onSubmit { commit() }
+                    .trimmingTrailingNewlines($name)
+
+                // 行内ボタンは入力欄のタップ判定と競合しないよう borderless にする
+                Button("button.add") { commit() }
+                    .buttonStyle(.borderless)
+                    .fontWeight(.semibold)
+                    .disabled(trimmedName.isEmpty)
+            }
+            .padding(.horizontal, 12)
+            .frame(minHeight: 44)
+            .background(
+                Color(uiColor: .secondarySystemGroupedBackground),
+                in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+            )
+        }
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button {
+                    isFocused = false
+                } label: {
+                    // 入力を終えて一覧へ戻る操作をアイコンで示す
+                    Image(systemName: "keyboard.chevron.compact.down")
+                }
+                .accessibilityLabel(Text("button.done"))
+            }
+        }
+    }
+
+    private func commit() {
+        guard !trimmedName.isEmpty else { return }
+        onCommit()
+        isFocused = false
+    }
+}
+
 /// 複数タグ絞り込みの一致条件（OR／AND）を選ぶラジオボタン
 struct TagMatchModePicker: View {
     @Binding var matchModeRaw: Int
@@ -332,6 +425,9 @@ struct TagSelectionList: View {
     let isAllSelected: Bool
     let onSelectAll: () -> Void
     let onSelectTag: (E5tag) -> Void
+    /// 指定された選択シートだけ検索兼追加欄を表示する
+    private var findOrAddName: Binding<String>?
+    private var onFindOrAdd: (() -> Void)?
 
     @Binding private var sortModeRaw: Int
     @Binding private var isSortExpanded: Bool
@@ -347,6 +443,8 @@ struct TagSelectionList: View {
         showsAllOption: Bool = false,
         isAllSelected: Bool = false,
         onSelectAll: @escaping () -> Void = {},
+        findOrAddName: Binding<String>? = nil,
+        onFindOrAdd: (() -> Void)? = nil,
         onSelectTag: @escaping (E5tag) -> Void
     ) {
         self.tags = tags
@@ -355,6 +453,8 @@ struct TagSelectionList: View {
         self.showsAllOption = showsAllOption
         self.isAllSelected = isAllSelected
         self.onSelectAll = onSelectAll
+        self.findOrAddName = findOrAddName
+        self.onFindOrAdd = onFindOrAdd
         self.onSelectTag = onSelectTag
         _sortModeRaw = sortModeRaw
         _isSortExpanded = isSortExpanded
@@ -368,10 +468,15 @@ struct TagSelectionList: View {
         .contentMargins(.top, 0, for: .scrollContent)
         // スクロールインジケータは出さない
         .scrollIndicators(.hidden)
+        // 検索後にタグを見比べるためスクロールしたらキーボードを閉じる
+        .scrollDismissesKeyboard(.immediately)
         .background(Color(uiColor: .systemGroupedBackground))
         .safeAreaInset(edge: .top, spacing: 0) {
-            // 一致条件とソート領域は一覧外側と同じ薄いグレーで固定する
+            // 検索兼追加欄・一致条件・ソート領域は一覧外側と同じ薄いグレーで固定する
             VStack(spacing: 8) {
+                if let findOrAddName, let onFindOrAdd {
+                    TagFindOrAddSection(name: findOrAddName, onCommit: onFindOrAdd)
+                }
                 if let matchModeRaw {
                     TagMatchModePicker(matchModeRaw: matchModeRaw)
                 }
@@ -400,7 +505,7 @@ struct TagSelectionList: View {
                 )
             )
         }
-        items += tags.map { tag in
+        items += displayedTags.map { tag in
             TagCapsuleBand.Item(
                 id: tag.id,
                 title: tag.zName,
@@ -411,11 +516,22 @@ struct TagSelectionList: View {
         return items
     }
 
+    /// 検索兼追加欄があるシートでは入力に合うタグだけを表示する
+    private var displayedTags: [E5tag] {
+        guard let findOrAddName else { return tags }
+        let input = findOrAddName.wrappedValue
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .normalizedTagLookupName
+        guard !input.isEmpty else { return tags }
+        return tags.filter { $0.zName.normalizedTagLookupName.contains(input) }
+    }
+
     // MARK: - シート高さ
 
     /// 上部固定領域（ソート行、一致条件行）とツールバーぶんの高さ
     private static let sortRowHeight: CGFloat = 58
     private static let matchModeRowHeight: CGFloat = 50
+    private static let findOrAddRowHeight: CGFloat = 78
     private static let navigationBarHeight: CGFloat = 56
     /// これを超える行数になったら最初から全開にする。
     /// タグ式は1行に複数入るので、行数の上限はやや広く取る
@@ -427,6 +543,7 @@ struct TagSelectionList: View {
         tagNames: [String],
         showsAllOption: Bool = false,
         showsMatchMode: Bool = false,
+        showsFindOrAdd: Bool = false,
         availableWidth: CGFloat = UIScreen.main.bounds.width
     ) -> Set<PresentationDetent> {
         var names = tagNames
@@ -447,7 +564,7 @@ struct TagSelectionList: View {
 
         let chrome = navigationBarHeight + sortRowHeight
             + (showsMatchMode ? matchModeRowHeight : 0)
+            + (showsFindOrAdd ? findOrAddRowHeight : 0)
         return [.height(ceil(capsuleArea + chrome))]
     }
 }
-
