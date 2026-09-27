@@ -80,6 +80,33 @@ final class CreditMemoUITests: XCTestCase {
         snapshot("04PayMethods")
     }
 
+    /// 決済一覧のセルをスワイプすると、コピー仮明細が追加されることを確認する
+    @MainActor
+    func testRecordSwipeCopyCreatesDraft() throws {
+        let app = XCUIApplication()
+        // インメモリの撮影用データを使い、実データへ影響させない
+        app.launchArguments = [
+            "-FASTLANE_SNAPSHOT", "YES",
+            "-ui_testing",
+            "-AppleLanguages", "(ja)",
+            "-AppleLocale", "ja_JP"
+        ]
+        app.launch()
+
+        openMenu(app, "menu.recordList")
+
+        let record = element(app, identifierBeginningWith: "record.row.")
+        XCTAssertTrue(record.waitForExistence(timeout: 10), "コピー元の明細セルが見つかりません")
+        record.swipeLeft()
+
+        let copyAction = element(app, identifierBeginningWith: "record.copy.")
+        XCTAssertTrue(copyAction.waitForExistence(timeout: 5), "スワイプ後にコピー操作が表示されません")
+        copyAction.tap()
+
+        let draft = element(app, identifierBeginningWith: "record.draftCopy.")
+        XCTAssertTrue(draft.waitForExistence(timeout: 5), "コピー操作後に仮明細が追加されません")
+    }
+
     /// サイドバー/メニューの行を識別子でタップして目的の画面を開く。
     /// - iPad(NavigationSplitView): サイドバーが常時見えているのでそのままタップできる。
     /// - iPhone(NavigationStack): 前のカットで push した画面が乗っているので、
@@ -109,5 +136,13 @@ final class CreditMemoUITests: XCTestCase {
             app.otherElements[identifier]
         ]
         return candidates.first(where: { $0.exists }) ?? app.buttons[identifier]
+    }
+
+    /// 識別子の接頭辞に一致する最初の要素
+    @MainActor
+    private func element(_ app: XCUIApplication, identifierBeginningWith prefix: String) -> XCUIElement {
+        app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@", prefix))
+            .firstMatch
     }
 }
