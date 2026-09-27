@@ -435,13 +435,12 @@ struct RecordListView: View {
             // 頭出しはビューの生存に依存しないタイマーで数回繰り返す
             scheduleScrollRetries(proxy: proxy)
         }
-        // 指が触れた時点で頭出しの再試行を止め、ユーザーのスクロールを妨げない。
-        // 軽いタップでも止まるが、その時は頭出しは済んでいるので実害はない
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0).onChanged { _ in
+        // Listへ独自のドラッグ判定を重ねず、セルのスワイプ操作と競合させない
+        .onScrollPhaseChange { _, newPhase in
+            if newPhase == .tracking {
                 cancelScrollRetries()
             }
-        )
+        }
         .scalableNavigationTitle("record.list.title") {
             Image(systemName: "list.bullet.circle.fill")
                 .foregroundStyle(Color.cyan)
