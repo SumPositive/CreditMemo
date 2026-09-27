@@ -1,7 +1,2 @@
-What's New in 2.7.0
-- The amount keypad now supports arithmetic (+, -, ×, ÷)
-- Label entry now suggests candidates from your past entries
-- Tag filtering in Records now lets you choose OR or AND
-- Debit Status filters now support tags
-- Records sorted by date used now shows a monthly total
-- Records sorted by date used now opens at today's entries, even when future entries exist
+What's New in 2.7.1
+- Fixed an issue where swiping a record did not create a copied draft

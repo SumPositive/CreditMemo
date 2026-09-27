@@ -1,7 +1,2 @@
-Neu in 2.7.0
-- Der Ziffernblock für Beträge beherrscht jetzt Grundrechenarten (+, -, ×, ÷)
-- Bei der Eingabe von Bezeichnungen werden nun Vorschläge aus früheren Einträgen angezeigt
-- Beim Filtern nach Tags in der Zahlungsübersicht lässt sich jetzt ODER oder UND wählen
-- Der Abbuchungsstatus lässt sich jetzt auch nach Tags filtern
-- Bei Sortierung nach Nutzungsdatum zeigt die Zahlungsübersicht nun eine Monatssumme
-- Bei Sortierung nach Nutzungsdatum startet die Zahlungsübersicht nun beim heutigen Datum, auch wenn künftige Einträge vorhanden sind
+Neu in 2.7.1
+- Ein Problem wurde behoben, durch das beim Wischen über einen Eintrag keine Kopie als Entwurf erstellt wurde

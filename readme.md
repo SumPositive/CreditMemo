@@ -37,6 +37,13 @@
 ![Version](https://img.shields.io/badge/version-2.7.0-brightgreen)
 [![App Store](https://img.shields.io/badge/App%20Store-Download-blue)](https://apps.apple.com/us/app/id432458298)
 
+## バージョン 2.7.1（準備中）の主な変更
+
+- **決済一覧の明細スワイプコピーを修正**（`RecordListView`）
+  - 明細セルをスワイプしてもコピー仮明細を作成できない不具合を修正
+  - `List`全体の`DragGesture(minimumDistance: 0)`がセルのスワイプ操作と競合していたため、独自ジェスチャーを削除
+  - 頭出し再試行の停止は`onScrollPhaseChange`で検知し、セル操作を妨げないようにした
+
 ## バージョン 2.7.0 の主な変更
 
 - **金額テンキーに四則演算を追加**（`NumericKeypadView`）
