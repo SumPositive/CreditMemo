@@ -1939,7 +1939,7 @@ fastlane upload_metadata
 fastlane screenshots            # スクショ 生成確認
 fastlane upload_screenshots     # スクショ Upload
 -----
-2.7.1 公開中、公開アプリパネル、取扱説明を更新して
+9/28 2.7.1 公開中、公開アプリパネル、取扱説明を更新して
 ------------------------------------------------
 Codex: AppStore レビューを取得して集計分析する
 $app-store-review-summary
@@ -1967,6 +1967,18 @@ Nenrinの設定にある　アプリを評価する　を同様に実装した�
 - タグ一覧をタグらしい表示に改めました
 - 引き落とし明細：「引落確定額」を入力して差額を表示するようになりました
 - 
-
-
+-----
+fastlane メタデータを更新して
+2.8.0 準備中、README.mdの開発メモ、公開アプリパネル、取扱説明を更新して
+-----
+cd /Users/sumpositive/GitLocal/CreditMemo
+fastlane upload_metadata 
+---
+fastlane screenshots            # スクショ 生成確認
+fastlane upload_screenshots     # スクショ Upload
+-----
+2.8.0 公開中、公開アプリパネル、取扱説明を更新して
+------------------------------------------------
+Codex: AppStore レビューを取得して集計分析する
+$app-store-review-summary
 -----

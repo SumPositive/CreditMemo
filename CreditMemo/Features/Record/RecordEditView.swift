@@ -985,9 +985,6 @@ private var isValid: Bool {
                             )
                         }
                     )
-                    // カレンダー下に「前月/翌月の支払日へ」ボタンを置く
-                    partDueDateShiftButtons
-                        .padding(.top, 8)
                 }
                 .padding(.horizontal, 16)
                 .onPreferenceChange(CalendarHeightPreferenceKey.self) { h in
@@ -998,8 +995,8 @@ private var isValid: Bool {
             }
             .modifier(ConditionalDynamicTypeModifier(fontScale: fontScale))
             .presentationBackground(Color(uiColor: .systemBackground))
-            // ボタン高さ ~50pt 分を確保
-            .presentationDetents([.height(ceil(50 + datePickerCalendarHeight + 44 + 50))])
+            // 前/次支払日ボタンは引落日セル側に移したので、カレンダー分だけ確保する
+            .presentationDetents([.height(ceil(50 + datePickerCalendarHeight + 44))])
             .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showDueDatePicker) {
@@ -1244,7 +1241,8 @@ private var isValid: Bool {
                 date: displayedPartDueDate(partNo: partNo),
                 isLocked: isDisplayedPartLocked(partNo: partNo),
                 onTapDate: allowsDateEdit ? { openPartDueDatePicker(partNo: partNo) } : nil,
-                onToggleLock: canTogglePartDueDateLock(partNo: partNo) ? { togglePartDueDateLock(partNo: partNo) } : nil
+                onToggleLock: canTogglePartDueDateLock(partNo: partNo) ? { togglePartDueDateLock(partNo: partNo) } : nil,
+                onShift: allowsDateEdit ? { shiftPartDueDate(partNo: partNo, months: $0) } : nil
             )
         } else {
             splitPaymentPartRow(partNo: partNo, allowsDateEdit: allowsDateEdit)
@@ -1254,6 +1252,12 @@ private var isValid: Bool {
     /// 2回払い用の2行行。右端の自動/手動は2行全体の右側に独立配置する
     private func splitPaymentPartRow(partNo: Int16, allowsDateEdit: Bool) -> some View {
         let isLocked = isDisplayedPartLocked(partNo: partNo)
+        // 前/次ボタンの間と右端のどちらにも置けるよう、自動/手動ボタンを先に作る
+        let modeButton = dueDateModeButton(
+            isLocked: isLocked,
+            showsModeLabel: true,
+            onToggleLock: canTogglePartDueDateLock(partNo: partNo) ? { togglePartDueDateLock(partNo: partNo) } : nil
+        )
         return HStack(alignment: .center, spacing: 8) {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
@@ -1267,34 +1271,28 @@ private var isValid: Bool {
                     partAmountButton(partNo: partNo)
                 }
 
-                HStack(spacing: 8) {
-                    Text("record.dueDate.label")
-                        .font(.body.weight(.regular))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-
-                    Button {
-                        openPartDueDatePicker(partNo: partNo)
-                    } label: {
-                        Text(AppDateFormat.singleLineText(displayedPartDueDate(partNo: partNo)))
-                            .font(.body)
-                            // 編集可能な時はアクセントカラー、固定時は通常色で見せる
-                            .foregroundStyle(allowsDateEdit ? Color.accentColor : Color.primary)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.75)
+                if allowsDateEdit {
+                    // 見出し＋（日付／前・自動・次）のグループ
+                    dueDateShiftGroup(
+                        date: displayedPartDueDate(partNo: partNo),
+                        onTapDate: { openPartDueDatePicker(partNo: partNo) },
+                        onShift: { shiftPartDueDate(partNo: partNo, months: $0) }
+                    ) {
+                        modeButton
                     }
-                    .buttonStyle(.plain)
-                    .disabled(!allowsDateEdit)
-
-                    Spacer(minLength: 0)
+                } else {
+                    HStack(spacing: 8) {
+                        dueDateHeading
+                        dueDateButton(date: displayedPartDueDate(partNo: partNo), onTapDate: nil)
+                        Spacer(minLength: 0)
+                    }
                 }
             }
 
-            dueDateModeButton(
-                isLocked: isLocked,
-                showsModeLabel: true,
-                onToggleLock: canTogglePartDueDateLock(partNo: partNo) ? { togglePartDueDateLock(partNo: partNo) } : nil
-            )
+            // 日付を変更できない時は、従来どおり右端に自動/手動を置く
+            if !allowsDateEdit {
+                modeButton
+            }
         }
     }
 
@@ -1316,50 +1314,89 @@ private var isValid: Bool {
 
     /// 引き落とし日（支払日）の共通行：日付（タップで変更）＋ ロックアイコン。
     /// `onTapDate` が nil の時は日付を編集不可、`onToggleLock` が nil の時は鍵を操作不可にする
+    /// `onShift` があれば見出し＋（日付／前・自動・次）のグループで表示する
     @ViewBuilder private func dueDateLockRow(
         date: Date,
         isLocked: Bool,
         showsModeLabel: Bool = true,
         onTapDate: (() -> Void)?,
-        onToggleLock: (() -> Void)?
+        onToggleLock: (() -> Void)?,
+        onShift: ((Int) -> Void)? = nil
     ) -> some View {
-        HStack(spacing: 8) {
-            // 日付の意味を行内で明示する
-            Text("record.dueDate.label")
-                .font(.body.weight(.regular))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                // 独語など長い訳でも欠けないよう少し縮小を許容する
-                .minimumScaleFactor(0.8)
-
-            Button {
-                onTapDate?()
-            } label: {
-                Text(AppDateFormat.singleLineText(date))
-                    .font(.body)
-                    // 編集可能な時はアクセントカラー、固定時は通常色で見せる
-                    .foregroundStyle(onTapDate == nil ? Color.primary : Color.accentColor)
-                    // 長い日付表記でも改行せず1行に収め、必要なら縮小する（2回払い行と同じ扱い）
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
+        if let onShift {
+            // 見出し＋（日付／前・自動・次）のグループ
+            dueDateShiftGroup(
+                date: date,
+                onTapDate: onTapDate,
+                onShift: onShift
+            ) {
+                dueDateModeButton(
+                    isLocked: isLocked,
+                    showsModeLabel: showsModeLabel,
+                    onToggleLock: onToggleLock
+                )
             }
-            .buttonStyle(.plain)
-            .disabled(onTapDate == nil)
-
-            Spacer(minLength: 0)
-
-            Button {
-                onToggleLock?()
-            } label: {
-                dueDateModeLabel(isLocked: isLocked, showsModeLabel: showsModeLabel)
+        } else {
+            // 前/次ボタンが無い時は、従来どおり右端に自動/手動を置く
+            HStack(spacing: 8) {
+                dueDateHeading
+                dueDateButton(date: date, onTapDate: onTapDate)
+                Spacer(minLength: 0)
+                dueDateModeButton(
+                    isLocked: isLocked,
+                    showsModeLabel: showsModeLabel,
+                    onToggleLock: onToggleLock
+                )
             }
-            .buttonStyle(.plain)
-            .disabled(onToggleLock == nil)
-            .accessibilityLabel(Text(isLocked ? "record.dueDate.locked" : "record.dueDate.unlocked"))
         }
     }
 
-    /// 自動/手動ボタン。2回払いでは右端に単独配置する
+    /// 「引落日」の見出し
+    private var dueDateHeading: some View {
+        Text("record.dueDate.label")
+            .font(.body.weight(.regular))
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            // 独語など長い訳でも欠けないよう少し縮小を許容する
+            .minimumScaleFactor(0.8)
+    }
+
+    /// 引落日の日付ボタン。`onTapDate` が nil の時は編集不可
+    private func dueDateButton(date: Date, onTapDate: (() -> Void)?) -> some View {
+        Button {
+            onTapDate?()
+        } label: {
+            // 年を小さく、月日・曜日を大きく見せる
+            Text(AppDateFormat.singleLineAttributed(date))
+                // 編集可能な時はアクセントカラー、固定時は通常色で見せる
+                .foregroundStyle(onTapDate == nil ? Color.primary : Color.accentColor)
+                // 長い日付表記でも改行せず1行に収め、必要なら縮小する
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+        }
+        .buttonStyle(.plain)
+        .disabled(onTapDate == nil)
+    }
+
+    /// 「引落日」見出しの右に、日付と前/自動/次ボタンの2行をまとめて中央寄せで置く
+    private func dueDateShiftGroup<Center: View>(
+        date: Date,
+        onTapDate: (() -> Void)?,
+        onShift: @escaping (Int) -> Void,
+        @ViewBuilder center: () -> Center
+    ) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            dueDateHeading
+            VStack(spacing: 6) {
+                dueDateButton(date: date, onTapDate: onTapDate)
+                partDueDateShiftButtons(onShift: onShift, center: center)
+            }
+            // 見出しの右側の幅いっぱいを使って中央に置く
+            .frame(maxWidth: .infinity)
+        }
+    }
+
+    /// 自動/手動ボタン。前/次支払日ボタンがあればその間、無ければ右端に置く
     private func dueDateModeButton(
         isLocked: Bool,
         showsModeLabel: Bool,
@@ -1379,7 +1416,8 @@ private var isValid: Bool {
     private func dueDateModeLabel(isLocked: Bool, showsModeLabel: Bool) -> some View {
         VStack(spacing: 2) {
             dueDateModeIcon(isLocked: isLocked)
-            if showsModeLabel {
+            // 達人モードではアイコンだけにする
+            if showsModeLabel && userLevel == .beginner {
                 Text(isLocked ? "record.dueDate.mode.manual" : "record.dueDate.mode.auto")
                     .font(.caption2.weight(.regular))
                     .foregroundStyle(dueDateModeColor(isLocked: isLocked))
@@ -1958,6 +1996,8 @@ private var isValid: Bool {
                 twoLineValueRow(
                     titleKey: "record.field.date",
                     valueText: AppDateFormat.singleLineText(dateUse),
+                    // 年を小さく、月日・曜日を大きく見せる
+                    valueAttributed: AppDateFormat.singleLineAttributed(dateUse),
                     // 選択値はアクセントカラーで見せる
                     valueColor: .accentColor
                 )
@@ -2179,37 +2219,61 @@ private var isValid: Bool {
         }
     }
 
-    /// 引き落とし日カレンダーシート下部の「前/次の支払日へ」ボタン。
-    /// シート上のカレンダーに対して動作し、タップで仮日付を確定する
-    @ViewBuilder
-    private var partDueDateShiftButtons: some View {
-        HStack {
+    /// 引落日セルの日付下に置く「◀前支払日」「次支払日▶」ボタン。間に center を挟む
+    /// List 行内で両ボタンが同時に反応しないよう bordered スタイルにする
+    private func partDueDateShiftButtons<Center: View>(
+        onShift: @escaping (Int) -> Void,
+        @ViewBuilder center: () -> Center
+    ) -> some View {
+        // ボタン同士の間隔は広めにとる
+        HStack(spacing: 20) {
             Button {
-                shiftPartDueDateInSheet(months: -1)
+                onShift(-1)
             } label: {
-                Label("record.dueDate.prev", systemImage: "chevron.left")
-                    .labelStyle(.titleAndIcon)
-                    .font(.caption)
+                // Label だとアイコンと文字の間が空くので、詰めて並べる
+                HStack(spacing: 2) {
+                    // 小さめの三角で「前へ」を示す
+                    Image(systemName: "arrowtriangle.left.fill")
+                        .imageScale(.small)
+                    Text("record.dueDate.prev")
+                }
+                .font(.caption)
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
-            Spacer(minLength: 8)
+            // 前/次の間に自動/手動ボタンを置く
+            center()
             Button {
-                shiftPartDueDateInSheet(months: 1)
+                onShift(1)
             } label: {
-                Label("record.dueDate.next", systemImage: "chevron.right")
-                    .labelStyle(.titleAndIcon)
-                    .font(.caption)
-                    .environment(\.layoutDirection, .rightToLeft)
+                HStack(spacing: 2) {
+                    Text("record.dueDate.next")
+                    // 小さめの三角で「次へ」を示す
+                    Image(systemName: "arrowtriangle.right.fill")
+                        .imageScale(.small)
+                }
+                .font(.caption)
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
         }
     }
 
-    /// シート上のカレンダーで「前/次の支払日へ」ボタンが押された時の処理。
-    /// 現在の draftPartDueDate を基準に ±N ヶ月シフトして即時確定する
-    private func shiftPartDueDateInSheet(months: Int) {
+    /// 引落日セルの前/次支払日ボタンの処理。
+    /// カレンダー選択と同じ確定経路（applyPartDueDate）を通すため、編集対象を一時的にセットする
+    private func shiftPartDueDate(partNo: Int16, months: Int) {
+        guard canManuallyEditPartNo(partNo) else { return }
+        editingPart = existingPart(partNo: partNo)
+        editingPartNoForDueDate = partNo
+        draftPartDueDate = displayedPartDueDate(partNo: partNo)
+        shiftDraftPartDueDate(months: months)
+        // シートを経由しないので onDismiss の後始末をここで行う
+        editingPart = nil
+        editingPartNoForDueDate = nil
+    }
+
+    /// 現在の draftPartDueDate を基準に ±N ヶ月の支払日へシフトして即時確定する
+    private func shiftDraftPartDueDate(months: Int) {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         let card = selectedCard ?? editingPart?.e3record?.e1card
         let base = draftPartDueDate
@@ -2230,7 +2294,7 @@ private var isValid: Bool {
         applyPartDueDate(normalized)
     }
 
-    /// 明細行用「日付＋ロック」行（前/次の支払日ボタンはシート側に移動済み）。
+    /// 明細行用「日付＋ロック」行
     /// ViewBuilder 内の多文評価で型推論が崩れないよう関数に分離する
     @ViewBuilder
     private func partDueDateLockRow(for part: E6part) -> some View {
@@ -2240,7 +2304,6 @@ private var isValid: Bool {
         let date = partDueDateOverridesByPartNo[part.nPartNo]
             ?? part.e2invoice?.date
             ?? Date()
-        // 前/次の支払日ボタンはカレンダーシート（openPartDueDatePicker）側に移動した
         dueDateLockRow(
             date: date,
             // ロックは自動更新禁止を示す。済みは操作不可として固定表示する
@@ -2839,6 +2902,7 @@ private var isValid: Bool {
     private func twoLineValueRow(
         titleKey: LocalizedStringKey,
         valueText: String,
+        valueAttributed: AttributedString? = nil,
         valueColor: Color = .primary,
         valueFont: Font = .body,
         showsChevron: Bool = true
@@ -2852,7 +2916,8 @@ private var isValid: Bool {
                     .truncationMode(.tail)
                     .fixedSize(horizontal: true, vertical: false)
                 Spacer(minLength: 8)
-                Text(valueText)
+                // 書式付きの値があればそちらを優先する
+                Text(valueAttributed ?? AttributedString(valueText))
                     .font(valueFont)
                     .foregroundStyle(valueColor)
                     .lineLimit(1)
@@ -2878,7 +2943,7 @@ private var isValid: Bool {
 
                 HStack(spacing: 6) {
                     Spacer(minLength: 8)
-                    Text(valueText)
+                    Text(valueAttributed ?? AttributedString(valueText))
                         .font(valueFont)
                         .foregroundStyle(valueColor)
                         .lineLimit(1)

@@ -8255,7 +8255,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "翌支払日へ"
+            "value" : "次支払日"
           }
         },
         "ko" : {
@@ -8290,7 +8290,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "前支払日へ"
+            "value" : "前支払日"
           }
         },
         "ko" : {

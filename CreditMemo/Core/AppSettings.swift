@@ -556,6 +556,23 @@ enum AppDateFormat {
         return westernSingleLineFormatter.string(from: date)
     }
 
+    /// 1行表示の日付で、年だけ小さく薄くする（決済一覧の日付表示に合わせ、月日・曜日を目立たせる）
+    static func singleLineAttributed(
+        _ date: Date,
+        font: Font = .title3,
+        yearFont: Font = .footnote
+    ) -> AttributedString {
+        var text = AttributedString(singleLineText(date))
+        text.font = font
+        // 年の位置は地域で変わるので、文字列から年の部分を探して差し替える
+        if let range = text.range(of: yearText(date)) {
+            text[range].font = yearFont
+            // 決済一覧の年と同じ控えめな色にする
+            text[range].foregroundColor = Color(.secondaryLabel)
+        }
+        return text
+    }
+
     /// 1行表示用: 月/日(曜)
     static func monthDayWeekdayText(_ date: Date) -> String {
         if Locale.current.identifier.hasPrefix("ja") {
