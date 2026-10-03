@@ -556,32 +556,49 @@ enum AppDateFormat {
         return westernSingleLineFormatter.string(from: date)
     }
 
-    /// 1行表示の日付で、年だけ小さく薄くする（決済一覧の日付表示に合わせ、月日・曜日を目立たせる）
+    /// 1行表示の日付で、月日だけ大きく太くし、年・曜日・区切りは小さく薄くする
     static func singleLineAttributed(
         _ date: Date,
-        font: Font = .title3,
+        font: Font = .title3.bold(),
         yearFont: Font = .footnote
     ) -> AttributedString {
-        var text = AttributedString(singleLineText(date))
+        let plain = singleLineText(date)
+        var text = AttributedString(plain)
+        // 月日は呼び出し側の色（アクセントカラー等）をそのまま使う
         text.font = font
-        // 年の位置は地域で変わるので、文字列から年の部分を探して差し替える
-        if let range = text.range(of: yearText(date)) {
+
+        // 並び順は地域で変わるため、年以外の数字が並ぶ範囲を「月日」とみなす
+        // （例: "2026 10/3(土)" → "10/3"、"Sat, 10/3/2026" → "10/3"、"Sa., 3.10.2026" → "3.10"）
+        let yearRange = plain.range(of: yearText(date))
+        let monthDayOffsets = plain.indices.enumerated().compactMap { offset, index in
+            plain[index].isNumber && !(yearRange?.contains(index) ?? false) ? offset : nil
+        }
+        // 月日が見つからない想定外の書式では全体を大きく見せる
+        guard let first = monthDayOffsets.first, let last = monthDayOffsets.last else { return text }
+
+        let lower = text.characters.index(text.startIndex, offsetBy: first)
+        let upper = text.characters.index(text.startIndex, offsetBy: last + 1)
+        // 月日の前後（年・曜日・区切り）は小さく、決済一覧の年と同じ控えめな色にする
+        for range in [text.startIndex..<lower, upper..<text.endIndex] where !range.isEmpty {
             text[range].font = yearFont
-            // 決済一覧の年と同じ控えめな色にする
             text[range].foregroundColor = Color(.secondaryLabel)
         }
         return text
     }
 
-    /// 1行表示用: 月/日(曜)
+    /// 1行表示用: 月/日 曜（曜日のカッコは付けない）
     static func monthDayWeekdayText(_ date: Date) -> String {
         if Locale.current.identifier.hasPrefix("ja") {
             return jaMonthDayWeekdayFormatter.string(from: date)
         }
+        let text: String
         if Locale.current.identifier.hasPrefix("en") {
-            return enMonthDayWeekdayFormatter.string(from: date)
+            text = enMonthDayWeekdayFormatter.string(from: date)
+        } else {
+            text = date.formatted(.dateTime.month().day().weekday(.abbreviated))
         }
-        return date.formatted(.dateTime.month().day().weekday(.abbreviated))
+        // 韓国語 "10. 3. (토)" など地域書式が付けるカッコを外す
+        return text.filter { !"()（）".contains($0) }
     }
 
     /// 自動ロケールのテンプレート方式フォーマッタ。
@@ -620,7 +637,7 @@ enum AppDateFormat {
     private static let jaMonthDayWeekdayFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "ja_JP")
-        formatter.dateFormat = "M/d(E)"
+        formatter.dateFormat = "M/d E"
         return formatter
     }()
     private static let enMonthDayWeekdayFormatter = autoTemplateFormatter("MdEEE")
