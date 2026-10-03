@@ -8103,31 +8103,31 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Fälligkeit"
+            "value" : "Zahltag"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Date"
+            "value" : "Due Date"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "引落日"
+            "value" : "支払日"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "날짜"
+            "value" : "결제일"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "扣款日"
+            "value" : "付款日"
           }
         }
       }
@@ -8138,31 +8138,31 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Datum gesperrt"
+            "value" : "Zahltag gesperrt"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Debit date locked"
+            "value" : "Due date locked"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "引き落とし日を固定中"
+            "value" : "支払日を固定中"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "출금일 고정 중"
+            "value" : "결제일 고정 중"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "扣款日已固定"
+            "value" : "付款日已固定"
           }
         }
       }
@@ -8272,6 +8272,41 @@
         }
       }
     },
+    "record.dueDate.nextShort" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Folgemonat"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "翌月へ"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "다음 달"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下個月"
+          }
+        }
+      }
+    },
     "record.dueDate.prev" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -8303,6 +8338,41 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "上個付款日"
+          }
+        }
+      }
+    },
+    "record.dueDate.prevShort" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vormonat"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prev"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "前月へ"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이전 달"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上個月"
           }
         }
       }
@@ -8348,31 +8418,31 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Datum automatisch"
+            "value" : "Zahltag automatisch"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Debit date auto-calculated"
+            "value" : "Due date auto-calculated"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "引き落とし日を自動計算中"
+            "value" : "支払日を自動計算中"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "출금일 자동 계산 중"
+            "value" : "결제일 자동 계산 중"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "扣款日自動計算中"
+            "value" : "付款日自動計算中"
           }
         }
       }

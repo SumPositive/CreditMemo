@@ -1378,21 +1378,34 @@ private var isValid: Bool {
         .disabled(onTapDate == nil)
     }
 
-    /// 「引落日」見出しの右に、日付と前/自動/次ボタンの2行をまとめて中央寄せで置く
+    /// 「支払日」見出しの右に、日付と前/自動/次ボタンの2行をまとめて中央寄せで置く
     private func dueDateShiftGroup<Center: View>(
         date: Date,
         onTapDate: (() -> Void)?,
         onShift: @escaping (Int) -> Void,
         @ViewBuilder center: () -> Center
     ) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            dueDateHeading
-            VStack(spacing: 6) {
-                dueDateButton(date: date, onTapDate: onTapDate)
-                partDueDateShiftButtons(onShift: onShift, center: center)
+        ViewThatFits(in: .horizontal) {
+            // ボタンが1行で収まる時は、見出しの右側に日付とボタンをまとめる
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                dueDateHeading
+                VStack(spacing: 6) {
+                    dueDateButton(date: date, onTapDate: onTapDate)
+                    partDueDateShiftButtons(onShift: onShift, center: center)
+                }
+                // 見出しの右側の幅いっぱいを使って中央に置く
+                .frame(maxWidth: .infinity)
             }
-            // 見出しの右側の幅いっぱいを使って中央に置く
-            .frame(maxWidth: .infinity)
+            // 英語や大きな文字で収まらない時は、ボタン行を見出しの下まで広げて2行以内に収める
+            VStack(spacing: 6) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    dueDateHeading
+                    dueDateButton(date: date, onTapDate: onTapDate)
+                        .frame(maxWidth: .infinity)
+                }
+                partDueDateShiftButtons(onShift: onShift, spacing: 12, lineLimit: 2, center: center)
+                    .frame(maxWidth: .infinity)
+            }
         }
     }
 
@@ -2223,10 +2236,12 @@ private var isValid: Bool {
     /// List 行内で両ボタンが同時に反応しないよう bordered スタイルにする
     private func partDueDateShiftButtons<Center: View>(
         onShift: @escaping (Int) -> Void,
+        spacing: CGFloat = 20,
+        lineLimit: Int = 1,
         @ViewBuilder center: () -> Center
     ) -> some View {
         // ボタン同士の間隔は広めにとる
-        HStack(spacing: 20) {
+        HStack(spacing: spacing) {
             Button {
                 onShift(-1)
             } label: {
@@ -2235,19 +2250,29 @@ private var isValid: Bool {
                     // 小さめの三角で「前へ」を示す
                     Image(systemName: "arrowtriangle.left.fill")
                         .imageScale(.small)
-                    Text("record.dueDate.prev")
+                    Text("record.dueDate.prevShort")
+                        .lineLimit(lineLimit)
+                        // 2行でも収まらない長い訳は少し縮める
+                        .minimumScaleFactor(0.8)
+                        .multilineTextAlignment(.center)
                 }
                 .font(.caption)
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
+            // 表示は短い訳でも、読み上げは「前の支払日」と分かる文言にする
+            .accessibilityLabel(Text("record.dueDate.prev"))
             // 前/次の間に自動/手動ボタンを置く
             center()
             Button {
                 onShift(1)
             } label: {
                 HStack(spacing: 2) {
-                    Text("record.dueDate.next")
+                    Text("record.dueDate.nextShort")
+                        .lineLimit(lineLimit)
+                        // 2行でも収まらない長い訳は少し縮める
+                        .minimumScaleFactor(0.8)
+                        .multilineTextAlignment(.center)
                     // 小さめの三角で「次へ」を示す
                     Image(systemName: "arrowtriangle.right.fill")
                         .imageScale(.small)
@@ -2256,6 +2281,7 @@ private var isValid: Bool {
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
+            .accessibilityLabel(Text("record.dueDate.next"))
         }
     }
 
