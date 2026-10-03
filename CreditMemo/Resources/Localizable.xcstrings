@@ -12578,6 +12578,76 @@
         }
       }
     },
+    "settings.fontScale.systemNote" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In der [Einstellungen-App](app-settings:) änderbar"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change it in the [Settings app](app-settings:)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "[設定アプリ](app-settings:)で変更できます"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "[설정 앱](app-settings:)에서 변경할 수 있습니다"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可在[設定 App](app-settings:)中變更"
+          }
+        }
+      }
+    },
+    "settings.fontScale.systemNoteNext" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ab dem nächsten Start in der [Einstellungen-App](app-settings:) änderbar"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From next time, change it in the [Settings app](app-settings:)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "次回から[設定アプリ](app-settings:)で変更できます"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "다음부터는 [설정 앱](app-settings:)에서 변경할 수 있습니다"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下次起可在[設定 App](app-settings:)中變更"
+          }
+        }
+      }
+    },
     "settings.fontScale.system" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -13774,31 +13844,31 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Soll sehbehindertenfreundlich sein.\n\nAuto: Folgt deinen iOS-Einstellungen für größeren Text.\n\nStandard: Die eigene Standardgröße der App.\n\nGroß: Etwa 1,5× Standard.\n\nSehr groß: Etwa 2× Standard.\n\nAb „Sehr groß“ können manche Layouts noch brechen. Bei Problemen bitte melden, wir bemühen uns."
+            "value" : "Die Schriftgröße folgt den Einstellungen deines iPhone.\n\nTippe auf „Einstellungen-App“, um die Einstellungen zu öffnen, kehre oben links zur Hauptliste zurück und passe sie unter Anzeige & Helligkeit > Textgröße an.\n\nFür noch größeren Text aktiviere Bedienungshilfen > Anzeige & Textgröße > Größerer Text.\n\nWenn du früher Standard, Groß oder Sehr groß gewählt hast, wähle Auto, um dieser Einstellung zu folgen."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aiming to be low-vision friendly.\n\nAuto: Follows your iOS Larger Text settings.\n\nStandard: The app's own standard size.\n\nLarge: About 1.5× Standard.\n\nX-Large: About 2× Standard.\n\nAt X-Large or beyond, some layouts may still break. If you run into problems, please report them and we'll do our best to address them."
+            "value" : "Text size follows your iPhone settings.\n\nTap \"Settings app\" to open Settings, go back to the main list at the top left, then adjust it in Display & Brightness > Text Size.\n\nFor even larger text, turn on Accessibility > Display & Text Size > Larger Text.\n\nIf you previously chose Standard, Large, or Extra Large, choose Auto to follow this setting."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ローガンフリーを目指します\n\n自動：システム設定のさらに大きな文字に対応します\n\n標準：アプリ独自の標準サイズ\n\n　大：標準の1.5倍くらいになります\n\n特大：標準の2倍くらいになります\n\n特大サイズくらいになると一部崩れるケースが残っています。どうしても困る場合は報告して頂ければ、できる限り対応したいと思っています。"
+            "value" : "文字サイズは iPhone の設定に従います。\n\n「設定アプリ」を押すと設定が開くので、左上で一覧に戻り、「画面表示と明るさ」→「テキストサイズを変更」で調整してください。\n\nさらに大きくするには、「アクセシビリティ」→「画面表示とテキストサイズ」→「さらに大きな文字」をオンにします。\n\n以前「標準／大／特大」を選んでいた場合は、「自動」にするとこの設定に従います。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "저시력 사용자를 배려합니다.\n\n자동: iOS의 큰 글자 설정을 따릅니다.\n\n표준: 앱 자체의 표준 크기.\n\n크게: 표준의 약 1.5배.\n\n아주 크게: 표준의 약 2배.\n\n아주 크게 이상에서는 일부 레이아웃이 깨질 수 있습니다. 문제가 있으면 알려 주시면 최대한 대응하겠습니다."
+            "value" : "글자 크기는 iPhone 설정을 따릅니다.\n\n\"설정 앱\"을 누르면 설정이 열리니, 왼쪽 위에서 목록으로 돌아가 \"디스플레이 및 밝기\" > \"텍스트 크기\"에서 조절해 주세요.\n\n더 크게 하려면 \"손쉬운 사용\" > \"디스플레이 및 텍스트 크기\" > \"더 큰 텍스트\"를 켭니다.\n\n이전에 표준, 크게, 아주 크게를 선택했다면 자동을 선택하면 이 설정을 따릅니다."
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "力求對低視力友好。\n\n自動：跟隨你的 iOS“更大字型”設定。\n\n標準：應用自身的標準大小。\n\n大：約為標準的 1.5 倍。\n\n特大：約為標準的 2 倍。\n\n在特大及以上，部分佈局仍可能錯位。如遇問題請反饋，我們會盡力處理。"
+            "value" : "字型大小依 iPhone 的設定。\n\n點一下「設定 App」即可開啟設定，請在左上角返回列表，再到「螢幕顯示與亮度」>「文字大小」調整。\n\n若要更大，請開啟「輔助使用」>「顯示與文字大小」>「放大文字」。\n\n若先前選擇了「標準／大／特大」，改選「自動」即可依此設定。"
           }
         }
       }

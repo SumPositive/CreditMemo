@@ -46,6 +46,11 @@ struct SettingsView: View {
     @State private var retentionOldCount = 0
     @State private var retentionCleanupTrigger = false
     @State private var expandedDropdown: SettingsDropdownKind?
+    /// 以前「標準／大／特大」を選んだ人だけ、戻せるよう選択肢を残す。
+    /// 文字サイズを変えると画面ごと作り直されて @State が初期化されるため、
+    /// 判定はアプリ起動後に初めて設定画面を開いた時の1回だけにする（自動に変えても次回起動までは戻せる）
+    private static let showsFontScalePicker = UserDefaults.standard.string(forKey: AppStorageKey.fontScale)
+        .flatMap(FontScale.init(rawValue:)).map { $0 != .system } ?? false
     @State private var alertItem: SettingsAlertItem?
     @State private var isWorking = false
     @State private var progressMessage = ""
@@ -80,6 +85,26 @@ struct SettingsView: View {
             return LaunchAction.allCases.filter { $0 != .voiceNewPayment }
         }
         return LaunchAction.allCases
+    }
+
+    /// 「設定アプリで変更できます」。訳文の [..](app-settings:) をリンクにして下線を付ける。
+    /// app-settings: は設定アプリのこのアプリのページを開く公開URL
+    /// （文字サイズの画面を直接開く公開URLは無いため、設定アプリを開くところまでにする）
+    private var fontScaleSystemNote: AttributedString {
+        Self.underlinedLinks(AttributedString(localized: "settings.fontScale.systemNote"))
+    }
+
+    /// 選択肢が残っている人が「自動」にした時の「次回から設定アプリで変更できます」
+    private var fontScaleSystemNextNote: AttributedString {
+        Self.underlinedLinks(AttributedString(localized: "settings.fontScale.systemNoteNext"))
+    }
+
+    private static func underlinedLinks(_ source: AttributedString) -> AttributedString {
+        var text = source
+        for run in text.runs where run.link != nil {
+            text[run.range].underlineStyle = .single
+        }
+        return text
     }
 
     private var dropdownDynamicTypeSize: DynamicTypeSize? {
@@ -156,17 +181,35 @@ struct SettingsView: View {
                         settingTitle("settings.fontScale", help: "settings.help.fontScale")
                             .fixedSize(horizontal: false, vertical: true)
                     } control: {
-                        AZDropdownPicker(
-                            options: FontScale.allCases,
-                            selection: $fontScale,
-                            isExpanded: dropdownBinding(.fontScale),
-                            minWidth: 130,
-                            popoverDynamicTypeSize: dropdownDynamicTypeSize
-                        ) { scale in
-                            Text(LocalizedStringKey(scale.localizedKey))
+                        // 「自動」の人には選択肢の代わりに、システム設定で変えられることを示す
+                        if Self.showsFontScalePicker {
+                            AZDropdownPicker(
+                                options: FontScale.allCases,
+                                selection: $fontScale,
+                                isExpanded: dropdownBinding(.fontScale),
+                                minWidth: 130,
+                                popoverDynamicTypeSize: dropdownDynamicTypeSize
+                            ) { scale in
+                                Text(LocalizedStringKey(scale.localizedKey))
+                            }
+                        } else {
+                            // 「設定アプリ」の部分だけ下線付きのリンクにし、押すと設定アプリを開く
+                            Text(fontScaleSystemNote)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.trailing)
                         }
                     }
                     .zIndex(expandedDropdown == .fontScale ? 60 : 0)
+
+                    // 自動にしても次回起動までは選択肢が残るので、次回からの変更先を伝える
+                    if Self.showsFontScalePicker && fontScale.followsSystem {
+                        Text(fontScaleSystemNextNote)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                            .multilineTextAlignment(.trailing)
+                    }
                 }
 
                 Toggle(showCurrencySymbolLabel, isOn: $showCurrencySymbol)
