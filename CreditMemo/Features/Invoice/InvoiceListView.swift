@@ -337,6 +337,72 @@ struct InvoiceListView: View {
         reloadKey = UUID()
     }
 
+    // MARK: Move To Next Month
+
+    /// 「支払を翌月へ」を出す、利用日から締日までの日数の上限
+    private static let moveToNextMonthClosingWindowDays = 5
+
+    /// 明細セルの「支払を翌月へ」を出せるか。締日間際（5日以内）の利用で、未払・解錠、
+    /// 分割の途中回でない明細に限る
+    /// （分割の途中回を動かすと次の回と同じ支払日に重なるため、決済編集で直してもらう）
+    private func canMovePartToNextMonth(_ part: E6part) -> Bool {
+        guard let record = part.e3record, let invoice = part.e2invoice else { return false }
+        guard !invoice.isPaid && !part.isChecked && record.payCount <= Int(part.nPartNo) else { return false }
+        let card = invoice.e1card ?? record.e1card
+        // 締日間際の利用だけ、売上の計上が遅れて翌々月に回ることが多い
+        guard let days = BillingService.daysUntilClosing(useDate: record.dateUse, card: card),
+              days <= Self.moveToNextMonthClosingWindowDays else { return false }
+        // 移した後の請求でまた出ないよう、規定の支払日にある明細だけにする
+        let defaultDate = BillingService.billingDate(
+            useDate: record.dateUse,
+            card: card,
+            partOffset: Int(part.nPartNo) - 1
+        )
+        return Calendar.current.isDate(invoice.date, inSameDayAs: defaultDate)
+    }
+
+    /// 締日間際の利用が翌々月の請求に回った時用に、明細1件の支払日を次の支払日へ移す
+    private func movePartToNextMonth(_ part: E6part) {
+        guard canMovePartToNextMonth(part),
+              let record = part.e3record,
+              let invoice = part.e2invoice else { return }
+        let card = invoice.e1card ?? record.e1card
+        let nextDate = BillingService.shiftedBillingDate(
+            from: invoice.date,
+            useDate: record.dateUse,
+            card: card,
+            months: 1
+        )
+        do {
+            // 決済編集で日付を変えた時と同じく、手動で決めた支払日として固定する
+            part.isDueDateLocked = true
+            try RecordService.setPartDueDate(part, date: nextDate, context: context)
+        } catch {
+            // 翌月への移動の保存失敗を診断送信する
+            AppTelemetry.reportSwiftDataError(error, operation: "InvoiceListView.movePartToNextMonth", entity: "E6part")
+            return
+        }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        if hasRemainingInvoices {
+            // 移した明細が消えるよう画面を再構築する
+            reloadKey = UUID()
+        } else {
+            // 最後の1件を移すと、この日の請求自体が無くなるので状況一覧へ戻る
+            dismiss()
+        }
+    }
+
+    /// この画面の日付・状態の請求がまだ残っているか（スナップショットに頼らず取り直す）
+    private var hasRemainingInvoices: Bool {
+        let dayStart = Calendar.current.startOfDay(for: displayDate)
+        guard let nextDay = Calendar.current.date(byAdding: .day, value: 1, to: dayStart) else { return true }
+        let descriptor = FetchDescriptor<E2invoice>(
+            predicate: #Predicate<E2invoice> { dayStart <= $0.date && $0.date < nextDay }
+        )
+        let fetched = context.fetchReporting(descriptor, entity: "E2invoice")
+        return !applyFilter(fetched.filter { $0.isPaid == displayIsPaid }).isEmpty
+    }
+
     // MARK: Check Toggle
 
     /// チェック状態を反転し、関連集計を更新する
@@ -583,7 +649,10 @@ struct InvoiceListView: View {
                                     // 明細セルタップで明細編集シートを開く
                                     editRecord = record
                                 }
-                            }
+                            },
+                            onMoveToNextMonth: canMovePartToNextMonth(part)
+                                ? { movePartToNextMonth(part) }
+                                : nil
                         )
                         // 右スワイプは編集画面を開かず、その場で明細を複製する
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
@@ -963,6 +1032,8 @@ private struct PartRow: View {
     let onTogglePaid: () -> Void
     let onToggleCheck: () -> Void
     let onEdit: () -> Void
+    /// 「支払を翌月へ」。nil の時はボタンを出さない
+    let onMoveToNextMonth: (() -> Void)?
     @Environment(\.badgeTheme) private var badgeTheme
     private var record: E3record? { part.e3record }
     private var isPaid: Bool { part.e2invoice?.isPaid ?? false }
@@ -974,43 +1045,19 @@ private struct PartRow: View {
 
     var body: some View {
         if let record {
-            HStack(spacing: 10) {
-                Button(action: onTogglePaid) {
-                    // 先頭に未払/済み切替ボタンを置く
-                    Image(systemName: isPaid ? "arrow.up.circle.fill" : "arrow.down.circle.fill").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
-                        .font(.title2.weight(.bold))
-                        .foregroundStyle(isPaid ? badgeTheme.bottomColor : badgeTheme.topColor)
-                        .frame(minWidth: 34, minHeight: 34)
+            VStack(alignment: .trailing, spacing: 6) {
+                partContent(record: record)
+                if let onMoveToNextMonth {
+                    HStack(spacing: 8) {
+                        // なぜ締日間際の明細だけに出るのかを説明する
+                        BeginnerHintView(
+                            detailTitleKey: "invoice.part.moveToNextMonth",
+                            detailMessageKey: "invoice.part.moveToNextMonth.help"
+                        )
+                        moveToNextMonthButton(action: onMoveToNextMonth)
+                    }
                 }
-                .buttonStyle(.plain)
-                .disabled(!canToggleToPaid)
-                .opacity(canToggleToPaid ? 1 : 0.35)
-
-                Button(action: onEdit) {
-                    // 明細本体は既存セルを流用し、状態表示だけ消す
-                    RecordSummaryRow(
-                        record: record,
-                        amountOverride: part.nAmount,
-                        showsStatus: false
-                    )
-                }
-                .buttonStyle(.plain)
-                .opacity(isChecked ? 0.45 : 1)
-
-                // 確定ロック（解錠 → 施錠でロック ON/OFF）
-                Button(action: onToggleCheck) {
-                    PartLockIcon(isLocked: isChecked)
-                }
-                .buttonStyle(.plain)
             }
-            .background(
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(Color.clear)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(Color.clear, lineWidth: 1)
-            )
         } else {
             HStack {
                 Text("—")
@@ -1020,6 +1067,65 @@ private struct PartRow: View {
                     .font(.body.monospacedDigit())
             }
         }
+    }
+
+    /// 締日間際の利用が翌々月に回った時、その場で支払日を次の支払日へ移すボタン。
+    /// 決済編集の「翌月へ▶」と同じ見た目にそろえる
+    private func moveToNextMonthButton(action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 2) {
+                Text("invoice.part.moveToNextMonth")
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                Image(systemName: "arrowtriangle.right.fill")
+                    .imageScale(.small)
+            }
+            .font(.caption)
+        }
+        // List 行内で明細本体のタップと同時に反応しないよう bordered スタイルにする
+        .buttonStyle(.bordered)
+        .controlSize(.small)
+    }
+
+    @ViewBuilder
+    private func partContent(record: E3record) -> some View {
+        HStack(spacing: 10) {
+            Button(action: onTogglePaid) {
+                // 先頭に未払/済み切替ボタンを置く
+                Image(systemName: isPaid ? "arrow.up.circle.fill" : "arrow.down.circle.fill").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                    .font(.title2.weight(.bold))
+                    .foregroundStyle(isPaid ? badgeTheme.bottomColor : badgeTheme.topColor)
+                    .frame(minWidth: 34, minHeight: 34)
+            }
+            .buttonStyle(.plain)
+            .disabled(!canToggleToPaid)
+            .opacity(canToggleToPaid ? 1 : 0.35)
+
+            Button(action: onEdit) {
+                // 明細本体は既存セルを流用し、状態表示だけ消す
+                RecordSummaryRow(
+                    record: record,
+                    amountOverride: part.nAmount,
+                    showsStatus: false
+                )
+            }
+            .buttonStyle(.plain)
+            .opacity(isChecked ? 0.45 : 1)
+
+            // 確定ロック（解錠 → 施錠でロック ON/OFF）
+            Button(action: onToggleCheck) {
+                PartLockIcon(isLocked: isChecked)
+            }
+            .buttonStyle(.plain)
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.clear)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.clear, lineWidth: 1)
+        )
     }
 }
 

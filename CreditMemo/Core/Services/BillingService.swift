@@ -81,6 +81,35 @@ enum BillingService {
         return cal.startOfDay(for: billed)
     }
 
+    /// 現在の支払日から、カードの支払周期で months 回分ずらした支払日を返す。
+    /// 現在日が規定の支払日に当たらない（手動で変えた）時は、単純に months ヶ月ずらす
+    static func shiftedBillingDate(from currentDate: Date, useDate: Date, card: E1card?, months: Int) -> Date {
+        let cal = Calendar.current
+        for offset in -12...12 {
+            let candidate = billingDate(useDate: useDate, card: card, partOffset: offset)
+            if cal.isDate(candidate, inSameDayAs: currentDate) {
+                return cal.startOfDay(for: billingDate(useDate: useDate, card: card, partOffset: offset + months))
+            }
+        }
+        let shifted = cal.date(byAdding: .month, value: months, to: currentDate) ?? currentDate
+        return cal.startOfDay(for: shifted)
+    }
+
+    /// 利用日からその回の締日までの日数（締日当日は0）を返す。
+    /// 締日の無い N日後型や決済手段未選択では nil
+    static func daysUntilClosing(useDate: Date, card: E1card?) -> Int? {
+        guard let card, card.nClosingDay != 0 else { return nil }
+        let dc = Calendar.current.dateComponents([.year, .month, .day], from: useDate)
+        let useDay = dc.day ?? 1
+        // 29 は月末締め
+        let closingDay = card.nClosingDay == 29
+            ? daysInMonth(year: dc.year ?? 2000, month: dc.month ?? 1)
+            : Int(card.nClosingDay)
+        // 締日を過ぎた利用は次の締日まで遠いので対象外にする
+        guard useDay <= closingDay else { return nil }
+        return closingDay - useDay
+    }
+
     /// E3record の各 E6part に対応する支払日リストを返す
     static func partDates(record: E3record, card: E1card) -> [Date] {
         (0..<record.payCount).map {

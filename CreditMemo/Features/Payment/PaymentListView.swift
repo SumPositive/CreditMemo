@@ -729,7 +729,7 @@ struct PaymentListView: View {
                     )
                 )
             }
-            .sorted { $1.date < $0.date }
+            .sorted(by: PaymentDisplayItem.displayOrder)
         case .date:
             let invoices = payments.flatMap { filteredInvoices(in: $0.e2invoices) }
             return groupedItems(
@@ -853,7 +853,7 @@ struct PaymentListView: View {
                 invoiceFilter: detailFilter(fallback: filters[bucketKey] ?? nil)
             )
         }
-        .sorted { $1.date < $0.date }
+        .sorted(by: PaymentDisplayItem.displayOrder)
     }
 
     private func uniquePayment(in invoices: [E2invoice]) -> E7payment? {
@@ -956,6 +956,19 @@ struct PaymentDisplayItem: Identifiable {
 
     var includesUnselectedCard: Bool {
         invoices.contains { $0.e1card == nil }
+    }
+
+    /// 一覧の並び順：日付の新しい順。同じ日は名称順、名称も同じなら id 順にして、
+    /// 再描画のたびに同日の行が入れ替わらないようにする（集計は Dictionary 経由で順序が不定なため）
+    static func displayOrder(_ lhs: PaymentDisplayItem, _ rhs: PaymentDisplayItem) -> Bool {
+        if lhs.date != rhs.date {
+            return rhs.date < lhs.date
+        }
+        let titleOrder = lhs.title.localizedStandardCompare(rhs.title)
+        if titleOrder != .orderedSame {
+            return titleOrder == .orderedAscending
+        }
+        return lhs.id < rhs.id
     }
 }
 
@@ -2106,13 +2119,13 @@ private struct PaymentUnpaidGrouped {
         // 期間が重複しないよう、直近/次/将来を排他的な範囲で分割する
         let currentItems = sorted
             .filter { firstRange.contains(Calendar.current.startOfDay(for: $0.date)) }
-            .sorted { $1.date < $0.date }
+            .sorted(by: PaymentDisplayItem.displayOrder)
         let nextItems = sorted
             .filter { secondRange.contains(Calendar.current.startOfDay(for: $0.date)) }
-            .sorted { $1.date < $0.date }
+            .sorted(by: PaymentDisplayItem.displayOrder)
         let futureItems = sorted
             .filter { futureLowerBound <= Calendar.current.startOfDay(for: $0.date) }
-            .sorted { $1.date < $0.date }
+            .sorted(by: PaymentDisplayItem.displayOrder)
 
         let currentTotal = currentItems.reduce(Decimal.zero) { $0 + $1.amount }
         let nextTotal    = nextItems.reduce(Decimal.zero)    { $0 + $1.amount }

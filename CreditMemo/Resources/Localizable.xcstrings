@@ -4911,6 +4911,76 @@
         }
       }
     },
+    "invoice.part.moveToNextMonth" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In den Folgemonat"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move to next month"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "支払を翌月へ"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "결제를 다음 달로"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "付款移至下個月"
+          }
+        }
+      }
+    },
+    "invoice.part.moveToNextMonth.help" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zahlungen kurz vor dem Abrechnungstag werden vom Händler oft verspätet gemeldet und deshalb einen Monat später als erwartet abgebucht.\n\nDeshalb erscheint diese Schaltfläche nur bei Posten, die höchstens 5 Tage vor dem Abrechnungstag genutzt wurden.\n\nWenn deine Kartenabrechnung den Posten erst im nächsten Monat zeigt, tippe auf die Schaltfläche, um ihn auf den nächsten Zahltag zu verschieben. Das verschobene Datum wird fixiert und nicht durch die automatische Berechnung zurückgesetzt.\n\nFalls du ihn versehentlich verschoben hast, tippe auf den Posten und nutze „Vormonat“ in „Zahlung ändern“, um ihn zurückzusetzen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Purchases made just before the closing day are often reported late by the store, so they get billed a month later than expected.\n\nThat is why this button appears only for items used within 5 days of the closing day.\n\nIf your card statement shows the item moved to the next bill, tap the button to move it to the next due date. The moved date is locked and will not be changed back by automatic calculation.\n\nIf you moved it by mistake, tap the item and use \"Prev\" in Edit Payment to move it back."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "締日の直前に利用した決済は、お店からカード会社への売上の連絡が遅れて、予定より1ヶ月遅い支払になることがよくあります。\n\nそのため、利用日が締日まで5日以内の明細にだけこのボタンを表示します。\n\nカードの利用明細で翌月の請求に回っていたら、ボタンを押して次の支払日へ移してください。移した明細の支払日は固定され、自動計算で元に戻ることはありません。\n\n間違えて移した時は、明細をタップして決済編集の「前月へ」で戻せます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "마감일 직전에 사용한 결제는 가맹점의 매출 전송이 늦어져 예정보다 한 달 늦게 결제되는 경우가 많습니다.\n\n그래서 사용일이 마감일까지 5일 이내인 항목에만 이 버튼을 표시합니다.\n\n카드 이용 내역에서 다음 달 청구로 넘어간 것을 확인하면, 버튼을 눌러 다음 결제일로 옮겨 주세요. 옮긴 항목의 결제일은 고정되며 자동 계산으로 되돌아가지 않습니다.\n\n잘못 옮겼다면 항목을 눌러 결제 편집의 \"이전 달\"로 되돌릴 수 있습니다."
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在結帳日前夕消費的款項，常因商店較晚向發卡機構請款，而比預期晚一個月扣款。\n\n因此，只有消費日距結帳日 5 天以內的明細才會顯示此按鈕。\n\n若信用卡帳單顯示該筆已移到下個月請款，請點一下按鈕移至下個付款日。移動後的付款日會固定，不會因自動計算而改回。\n\n若不小心移動了，可點一下該明細，在「編輯付款」中用「上個月」移回。"
+          }
+        }
+      }
+    },
     "invoice.statement.debitSuffix" : {
       "extractionState" : "manual",
       "localizations" : {
