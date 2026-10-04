@@ -3068,7 +3068,7 @@ private var isValid: Bool {
 // MARK: - Calendar View
 
 /// 同日再タップも拾える単一日付カレンダー
-private struct SingleDateCalendarView: UIViewRepresentable {
+struct SingleDateCalendarView: UIViewRepresentable {
     @Binding var selectedDate: Date
     let availableRange: ClosedRange<Date>
     let onSelect: (Date) -> Void
@@ -3282,7 +3282,7 @@ private struct PickerSheet<T: Identifiable>: View where T.ID: Equatable {
 
 // MARK: - Category Multi-Select Picker Sheet
 
-private struct CategoryMultiPickerSheet: View {
+struct CategoryMultiPickerSheet: View {
     let title: LocalizedStringKey
     @Binding var selectedCategories: [E5tag]
 
@@ -3423,7 +3423,7 @@ private struct SavedBanner: View {
     }
 }
 
-private struct CalendarHeightPreferenceKey: PreferenceKey {
+struct CalendarHeightPreferenceKey: PreferenceKey {
     static let defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         let next = nextValue()

@@ -1860,16 +1860,45 @@ private struct ReconciliationHelpSheet: View {
     }
 }
 
-/// 保存前の不足分仮明細だけを編集する簡易画面
+/// 保存前の不足分仮明細だけを編集する簡易画面。
+/// 項目の並びは新しい決済画面（RecordEditView）に揃える
 private struct ReconciliationDraftEditView: View {
     let draft: ReconciliationNewRecordDraft
     let onSave: (ReconciliationNewRecordDraft) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Query(sort: \E3record.dateUse, order: .reverse) private var pastRecords: [E3record]
+    @Query private var categories: [E5tag]
+    @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
+    @AppStorage(AppStorageKey.frequentAlignment) private var frequentAlignment: CapsuleAlignment = .justified
+    @AppStorage(AppStorageKey.frequentPeriod) private var frequentPeriod: FrequentPeriod = .year1
+    @AppStorage(AppStorageKey.frequentSortOrder) private var frequentSortOrder: FrequentSortOrder = .frequency
+    @AppStorage(AppStorageKey.frequentIncludeRepeat) private var frequentIncludeRepeat = false
+    @AppStorage(AppStorageKey.frequentMinUses) private var frequentMinUses: FrequentMinUses = .one
+    @AppStorage(AppStorageKey.frequentAmountRule) private var frequentAmountRule: FrequentAmountRule = .threePlus
+    @AppStorage(AppStorageKey.frequentHideBaseWhenAmounts) private var frequentHideBaseWhenAmounts = false
     @State private var useDate: Date
     @State private var name: String
     @State private var amount: Decimal
+    @State private var note: String
+    @State private var selectedTags: [E5tag]
     @State private var showAmountPad = false
+    @State private var showDatePicker = false
+    @State private var draftUseDate = Date()
+    @State private var datePickerCalendarHeight: CGFloat = 390
+    @State private var showTagPicker = false
+    @State private var frequentPayments: [FrequentPayment] = []
+    /// 照合中の決済手段で使ったカプセルの id（色分けに使う）
+    @State private var sameCardFrequentIDs: Set<String> = []
+    @State private var pickedFrequentID: String?
+    @State private var frequentCapsuleHeight: CGFloat = 0
+    /// カプセル全体の実測高さ。行数が少なければこの高さまで縮める
+    @State private var frequentContentHeight: CGFloat = 0
+    @FocusState private var focusNote: Bool
+
+    private let frequentSpacing: CGFloat = 8
+    private let frequentRowSpacing: CGFloat = 8
+    private let frequentMaxRows = 5
 
     init(
         draft: ReconciliationNewRecordDraft,
@@ -1882,6 +1911,8 @@ private struct ReconciliationDraftEditView: View {
         let defaultName = String(localized: "invoice.reconciliation.adjustment.title")
         _name = State(initialValue: draft.name == defaultName ? "" : draft.name)
         _amount = State(initialValue: draft.amount)
+        _note = State(initialValue: draft.note)
+        _selectedTags = State(initialValue: draft.tags)
     }
 
     private var canSave: Bool {
@@ -1889,43 +1920,102 @@ private struct ReconciliationDraftEditView: View {
             && !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    /// カプセル表示エリアの高さ。ラベルの行数に合わせて縮め、5行を超える分はスクロールで見せる
+    private var frequentAreaHeight: CGFloat {
+        let rowHeight = frequentCapsuleHeight > 0 ? frequentCapsuleHeight : 38
+        let rows = CGFloat(frequentMaxRows)
+        let maxHeight = rowHeight * rows + frequentRowSpacing * (rows - 1)
+        guard frequentContentHeight > 0 else { return rowHeight }
+        return min(frequentContentHeight, maxHeight)
+    }
+
+    private var tagValueText: String {
+        if selectedTags.isEmpty {
+            return NSLocalizedString("label.noSelection", comment: "")
+        }
+        return selectedTags.map(\.zName).joined(separator: " / ")
+    }
+
     var body: some View {
         Form {
+            if !frequentPayments.isEmpty {
+                frequentSection
+            }
+
             Section {
-                DatePicker(
-                    "record.field.date",
-                    selection: $useDate,
-                    in: APP_MIN_DATE...APP_MAX_DATE,
-                    displayedComponents: [.date]
-                )
-
-                TextField("record.field.usePoint", text: $name)
-
                 Button {
                     showAmountPad = true
                 } label: {
-                    HStack {
-                        Text("record.field.amount")
-                            .foregroundStyle(.primary)
-                        Spacer()
-                        Text(amount.currencyString())
-                            .monospacedDigit()
-                            .foregroundStyle(Color.accentColor)
-                    }
-                    .contentShape(Rectangle())
+                    valueRow(
+                        titleKey: "record.field.amount",
+                        value: AttributedString(amount.currencyString()),
+                        valueColor: COLOR_AMOUNT_POSITIVE,
+                        valueFont: .title2.bold().monospacedDigit(),
+                        showsChevron: false
+                    )
                 }
                 .buttonStyle(.plain)
-                .frame(maxWidth: .infinity)
+
+                // 利用日はセル全体のタップでカレンダーを開く（新しい決済と同じ）
+                Button {
+                    draftUseDate = useDate
+                    showDatePicker = true
+                } label: {
+                    valueRow(
+                        titleKey: "record.field.date",
+                        value: AppDateFormat.singleLineAttributed(useDate),
+                        valueColor: .accentColor
+                    )
+                }
+                .buttonStyle(.plain)
+
+                // 差額分は照合中の決済手段に固定する
+                valueRow(
+                    titleKey: "record.field.card",
+                    value: AttributedString(draft.card.zName),
+                    valueColor: .secondary,
+                    showsChevron: false
+                )
+
+                TextField("record.field.usePoint", text: $name)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .submitLabel(.done)
+                    .onChange(of: name) { _, newValue in
+                        // ラベルは最大100文字までに制限する
+                        if 100 < newValue.count {
+                            name = String(newValue.prefix(100))
+                        }
+                    }
             }
 
             Section {
-                LabeledContent("record.field.card", value: draft.card.zName)
-                LabeledContent(
-                    "invoice.reconciliation.payment",
-                    value: AppDateFormat.singleLineText(draft.dueDate)
+                Button {
+                    showTagPicker = true
+                } label: {
+                    valueRow(
+                        titleKey: "record.field.tag",
+                        value: AttributedString(tagValueText),
+                        valueColor: .accentColor
+                    )
+                }
+                .buttonStyle(.plain)
+
+                MemoEditor(placeholder: "record.field.note", text: $note, isFocused: $focusNote)
+            }
+
+            Section {
+                valueRow(
+                    titleKey: "invoice.reconciliation.payment",
+                    value: AttributedString(AppDateFormat.singleLineText(draft.dueDate)),
+                    valueColor: .secondary,
+                    showsChevron: false
                 )
             }
         }
+        .listSectionSpacing(.custom(16))
+        .contentMargins(.top, 16, for: .scrollContent)
+        .scrollDismissesKeyboard(.immediately)
         .navigationTitle("record.edit.title.edit")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -1940,6 +2030,54 @@ private struct ReconciliationDraftEditView: View {
         }
         // 金額入力中は編集画面のナビゲーション操作を隠す
         .toolbar(showAmountPad ? .hidden : .visible, for: .navigationBar)
+        .onAppear {
+            if frequentPayments.isEmpty {
+                let built = buildFrequentPayments()
+                frequentPayments = built.sameCard + built.others
+                sameCardFrequentIDs = Set(built.sameCard.map(\.id))
+            }
+        }
+        .sheet(isPresented: $showDatePicker) {
+            NavigationStack {
+                ScrollView {
+                    SingleDateCalendarView(
+                        selectedDate: $draftUseDate,
+                        availableRange: APP_MIN_DATE...APP_MAX_DATE
+                    ) { selectedDate in
+                        useDate = selectedDate
+                        showDatePicker = false
+                    }
+                    .frame(maxWidth: .infinity)
+                    .background(
+                        GeometryReader { geo in
+                            Color.clear.preference(
+                                key: CalendarHeightPreferenceKey.self,
+                                value: geo.size.height
+                            )
+                        }
+                    )
+                }
+                .padding(.horizontal, 16)
+                .onPreferenceChange(CalendarHeightPreferenceKey.self) { h in
+                    if 10 < h { datePickerCalendarHeight = h }
+                }
+                .navigationTitle("record.field.date")
+                .navigationBarTitleDisplayMode(.inline)
+            }
+            .appFontScale(fontScale)
+            .presentationBackground(Color(uiColor: .systemBackground))
+            // ナビゲーションバー(50) + カレンダー実測値 + ドラッグ indicator・ホームバー(44)
+            .presentationDetents([.height(ceil(50 + datePickerCalendarHeight + 44))])
+            .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $showTagPicker) {
+            CategoryMultiPickerSheet(
+                title: "record.field.tag",
+                selectedCategories: $selectedTags
+            )
+            .appFontScale(fontScale)
+            .presentationBackground(Color(uiColor: .systemBackground))
+        }
         .overlay {
             if showAmountPad {
                 NumericKeypadOverlay(
@@ -1957,6 +2095,159 @@ private struct ReconciliationDraftEditView: View {
         }
     }
 
+    /// ラベル一覧。照合中の決済手段のラベルを優先し、金額付きカプセルも出す
+    @ViewBuilder private var frequentSection: some View {
+        Section {
+            ScrollView(.vertical) {
+                AZFlowLayout(spacing: frequentSpacing,
+                             rowSpacing: frequentRowSpacing,
+                             alignment: frequentAlignment.horizontalAlignment,
+                             packToFill: true,
+                             justified: frequentAlignment.isJustified) {
+                    ForEach(frequentPayments) { fp in
+                        frequentCapsule(fp)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: Alignment(
+                    horizontal: frequentAlignment.horizontalAlignment,
+                    vertical: .center
+                ))
+                .background {
+                    // 折り返し後の全体の高さを測り、表示エリアを行数ぶんに合わせる
+                    GeometryReader { geo in
+                        Color.clear
+                            .onAppear { frequentContentHeight = geo.size.height }
+                            .onChange(of: geo.size.height) { _, h in frequentContentHeight = h }
+                    }
+                }
+            }
+            .frame(height: frequentAreaHeight)
+            .scrollBounceBehavior(.basedOnSize)
+            .scrollIndicators(.hidden)
+            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+        }
+    }
+
+    @ViewBuilder private func frequentCapsule(_ fp: FrequentPayment) -> some View {
+        let isSelected: Bool = {
+            guard pickedFrequentID == fp.id, name == fp.label else { return false }
+            if let fpAmount = fp.amount { return amount == fpAmount }
+            return true
+        }()
+        let isFirst = fp.id == frequentPayments.first?.id
+        // 照合中の手段のラベルはアクセント色、その他の手段はグレーで見分ける
+        let tint: Color = sameCardFrequentIDs.contains(fp.id) ? Color.accentColor : Color.secondary
+        Button {
+            applyFrequentPayment(fp)
+        } label: {
+            HStack(spacing: 5) {
+                // ラベルは幅が足りなければ末尾を…で省略し、金額は全桁残す
+                Text(fp.label)
+                    .layoutPriority(0)
+                if let fpAmount = fp.amount {
+                    Text(fpAmount.currencyString())
+                        .foregroundStyle(isSelected ? Color.white.opacity(0.85) : Color.secondary)
+                        .font(.subheadline.weight(.semibold).monospacedDigit())
+                        .fixedSize(horizontal: true, vertical: false)
+                        .layoutPriority(1)
+                }
+            }
+                .font(.subheadline.weight(.semibold))
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .frame(maxWidth: frequentAlignment.isJustified ? .infinity : nil)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 7)
+                .background(
+                    Capsule().fill(isSelected ? tint : Color(.secondarySystemBackground))
+                )
+                .foregroundStyle(isSelected ? Color.white : tint)
+                .overlay(
+                    Capsule().stroke(isSelected ? Color.clear : tint.opacity(0.35), lineWidth: 1)
+                )
+                .background {
+                    // 実際のカプセル高さを1つだけ測って行高に使う（フォント設定に追従）
+                    if isFirst {
+                        GeometryReader { geo in
+                            Color.clear
+                                .onAppear { frequentCapsuleHeight = geo.size.height }
+                                .onChange(of: geo.size.height) { _, h in frequentCapsuleHeight = h }
+                        }
+                    }
+                }
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// 新しい決済と同じ設定でラベル候補を作る。
+    /// 照合中の決済手段で使ったラベルを先に、それ以外の手段のラベルを後ろに並べる
+    private func buildFrequentPayments() -> (sameCard: [FrequentPayment], others: [FrequentPayment]) {
+        let cardID = draft.card.id
+        let config = FrequentPaymentConfig(
+            periodMonths: frequentPeriod.months,
+            amountMinCount: frequentAmountRule.minCount,
+            sortByRecency: frequentSortOrder == .recency,
+            includeRepeat: frequentIncludeRepeat,
+            minUses: frequentMinUses.count,
+            hideBaseWhenAmounts: frequentHideBaseWhenAmounts
+        )
+        let sameCardRecords = pastRecords.filter { $0.e1card?.id == cardID }
+        let sameCard = FrequentPaymentBuilder.build(from: sameCardRecords, config: config)
+        let sameCardIDs = Set(sameCard.map(\.id))
+        let others = FrequentPaymentBuilder.build(from: pastRecords, config: config)
+            .filter { !sameCardIDs.contains($0.id) }
+        return (sameCard, others)
+    }
+
+    /// カプセルのラベル・タグ（金額付きなら金額も）を入れる。選択中の再タップで解除する。
+    /// 決済手段は照合中のものに固定し、他の手段のカプセルを選んでも変えない
+    private func applyFrequentPayment(_ fp: FrequentPayment) {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        if pickedFrequentID == fp.id && name == fp.label {
+            name = ""
+            selectedTags = []
+            // 金額付きカプセルで入れた金額は差額分の金額へ戻す
+            if fp.amount != nil { amount = draft.amount }
+            pickedFrequentID = nil
+            return
+        }
+        name = fp.label
+        if let fpAmount = fp.amount {
+            amount = fpAmount
+        }
+        let tagByID = Dictionary(uniqueKeysWithValues: categories.map { ($0.id, $0) })
+        selectedTags = fp.tagIDs.compactMap { tagByID[$0] }
+        pickedFrequentID = fp.id
+    }
+
+    /// 見出しを左、値を右に置く1行セル（新しい決済画面の見た目に合わせる）
+    private func valueRow(
+        titleKey: LocalizedStringKey,
+        value: AttributedString,
+        valueColor: Color,
+        valueFont: Font = .body,
+        showsChevron: Bool = true
+    ) -> some View {
+        HStack(spacing: 8) {
+            Text(titleKey)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+            Spacer(minLength: 8)
+            Text(value)
+                .font(valueFont)
+                .foregroundStyle(valueColor)
+                .lineLimit(1)
+                .truncationMode(.tail)
+            if showsChevron {
+                Image(systemName: "chevron.right").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .contentShape(Rectangle())
+    }
+
     /// 編集内容を保存前の仮明細へ戻す
     private func save() {
         guard canSave else { return }
@@ -1966,7 +2257,9 @@ private struct ReconciliationDraftEditView: View {
             dueDate: draft.dueDate,
             amount: amount.roundedAmount(),
             name: name.trimmingCharacters(in: .whitespacesAndNewlines),
-            card: draft.card
+            card: draft.card,
+            note: note.trimmingCharacters(in: .whitespacesAndNewlines),
+            tags: selectedTags
         )
         onSave(updatedDraft)
         dismiss()

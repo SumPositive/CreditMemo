@@ -20,6 +20,8 @@ struct ReconciliationNewRecordDraft: Identifiable {
     let amount: Decimal
     let name: String
     let card: E1card
+    var note: String = ""
+    var tags: [E5tag] = []
 }
 
 /// E3record 保存・削除・繰り返し処理と集計再計算
@@ -696,12 +698,13 @@ enum RecordService {
             let record = E3record(
                 dateUse: Calendar.current.startOfDay(for: draft.useDate),
                 zName: draft.name,
-                zNote: "",
+                zNote: draft.note,
                 nAmount: draft.amount,
                 nPayType: 1,
                 nRepeat: 0
             )
             record.e1card = draft.card
+            record.e5tags = draft.tags
             context.insert(record)
             rebuildBilling(for: record, context: context)
             guard let part = record.e6parts.first else { continue }
@@ -757,12 +760,13 @@ enum RecordService {
             let record = E3record(
                 dateUse: Calendar.current.startOfDay(for: draft.useDate),
                 zName: draft.name,
-                zNote: "",
+                zNote: draft.note,
                 nAmount: draft.amount,
                 nPayType: 1,
                 nRepeat: 0
             )
             record.e1card = draft.card
+            record.e5tags = draft.tags
             context.insert(record)
             rebuildBilling(for: record, context: context)
             guard let part = record.e6parts.first else { continue }
