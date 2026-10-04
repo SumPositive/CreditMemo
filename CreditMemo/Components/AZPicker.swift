@@ -380,6 +380,8 @@ struct AZRadioPicker<Option: Hashable & Identifiable, Label: View>: View {
     var wrapsOptions: Bool = true
     /// 折り返さない時に各候補を均等幅で横いっぱいに広げる
     var fillsWidth: Bool = false
+    /// 横いっぱいに広げる時の候補別の幅比率
+    var optionWidthWeight: (Option) -> CGFloat = { _ in 1 }
     var style: AZPickerStyle = .form
     @ViewBuilder let label: (Option) -> Label
 
@@ -404,12 +406,20 @@ struct AZRadioPicker<Option: Hashable & Identifiable, Label: View>: View {
             AZFlowLayout(spacing: optionSpacing, rowSpacing: optionSpacing) {
                 optionButtons
             }
+        } else if fillsWidth {
+            // 指定した比率で横幅を配り、未指定時は従来どおり均等幅にする
+            AZWeightedHStackLayout(
+                spacing: optionSpacing,
+                weights: options.map { max(0.01, optionWidthWeight($0)) }
+            ) {
+                optionButtons
+            }
+            .frame(maxWidth: .infinity)
         } else {
             HStack(spacing: optionSpacing) {
                 optionButtons
             }
-            .frame(maxWidth: fillsWidth ? .infinity : nil)
-            .fixedSize(horizontal: !fillsWidth, vertical: false)
+            .fixedSize(horizontal: true, vertical: false)
         }
     }
 
@@ -458,6 +468,57 @@ struct AZRadioPicker<Option: Hashable & Identifiable, Label: View>: View {
                 )
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// 指定された比率で横幅を配分する1行レイアウト
+private struct AZWeightedHStackLayout: Layout {
+    let spacing: CGFloat
+    let weights: [CGFloat]
+
+    func sizeThatFits(
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout ()
+    ) -> CGSize {
+        let naturalWidths = subviews.map { $0.sizeThatFits(.unspecified).width }
+        let naturalWidth = naturalWidths.reduce(0, +) + spacing * CGFloat(max(0, subviews.count - 1))
+        let width = proposal.width ?? naturalWidth
+        let itemWidths = distributedWidths(totalWidth: width, count: subviews.count)
+        let height = zip(subviews, itemWidths).reduce(CGFloat.zero) { currentHeight, item in
+            let size = item.0.sizeThatFits(ProposedViewSize(width: item.1, height: proposal.height))
+            return max(currentHeight, size.height)
+        }
+        return CGSize(width: width, height: height)
+    }
+
+    func placeSubviews(
+        in bounds: CGRect,
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout ()
+    ) {
+        let itemWidths = distributedWidths(totalWidth: bounds.width, count: subviews.count)
+        var x = bounds.minX
+        for (index, subview) in subviews.enumerated() {
+            let width = itemWidths[index]
+            subview.place(
+                at: CGPoint(x: x, y: bounds.minY),
+                anchor: .topLeading,
+                proposal: ProposedViewSize(width: width, height: bounds.height)
+            )
+            x += width + spacing
+        }
+    }
+
+    /// 間隔を除いた幅を各候補の比率で分ける
+    private func distributedWidths(totalWidth: CGFloat, count: Int) -> [CGFloat] {
+        guard 0 < count else { return [] }
+        let effectiveWeights = Array(weights.prefix(count))
+            + Array(repeating: 1, count: max(0, count - weights.count))
+        let totalWeight = effectiveWeights.reduce(0, +)
+        let availableWidth = max(0, totalWidth - spacing * CGFloat(max(0, count - 1)))
+        return effectiveWeights.map { availableWidth * $0 / totalWeight }
     }
 }
 

@@ -62,6 +62,8 @@ enum AppStorageKey {
     static let paymentFilterBankID = "setting.paymentFilterBankID"
     /// 引き落とし状況で最後に選んだタグID
     static let paymentFilterTagID = "setting.paymentFilterTagID"
+    /// 照合途中として保存した請求合計
+    static let reconciliationProgressAmounts = "reconciliation.progressAmounts"
     /// 通常画面のバナー広告を表示する、初期値はOFF
     static let showBannerAds = "setting.showBannerAds"
     static let exportFormat          = "setting.exportFormat"
@@ -110,6 +112,46 @@ final class ConfirmedDebitAmountSessionStore {
     /// 同じ引落日を時刻差で別扱いしないよう日初へそろえる
     private func key(for scope: Scope, date: Date) -> Key {
         Key(scope: scope, date: Calendar.current.startOfDay(for: date))
+    }
+}
+
+/// 照合途中の請求合計を再起動後も復元する
+@Observable
+final class ReconciliationProgressStore {
+    nonisolated(unsafe) static let shared = ReconciliationProgressStore()
+
+    private var amounts: [String: String]
+
+    private init() {
+        amounts = UserDefaults.standard.dictionary(
+            forKey: AppStorageKey.reconciliationProgressAmounts
+        ) as? [String: String] ?? [:]
+    }
+
+    func amount(forCardID cardID: String, date: Date) -> Decimal? {
+        guard let value = amounts[key(forCardID: cardID, date: date)] else { return nil }
+        return Decimal(string: value, locale: Locale(identifier: "en_US_POSIX"))
+    }
+
+    func setAmount(_ amount: Decimal, forCardID cardID: String, date: Date) {
+        amounts[key(forCardID: cardID, date: date)] = NSDecimalNumber(decimal: amount).stringValue
+        save()
+    }
+
+    func removeAmount(forCardID cardID: String, date: Date) {
+        amounts.removeValue(forKey: key(forCardID: cardID, date: date))
+        save()
+    }
+
+    /// 同じ引落日を時刻差で別扱いしない識別子へそろえる
+    private func key(forCardID cardID: String, date: Date) -> String {
+        let day = Calendar.current.startOfDay(for: date)
+        return "\(cardID)|\(day.timeIntervalSinceReferenceDate)"
+    }
+
+    /// 照合途中の請求合計を設定領域へ保存する
+    private func save() {
+        UserDefaults.standard.set(amounts, forKey: AppStorageKey.reconciliationProgressAmounts)
     }
 }
 

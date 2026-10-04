@@ -15,7 +15,8 @@ struct PaymentListView: View {
     @AppStorage(AppStorageKey.userLevel) private var userLevel: UserLevel = .beginner
     @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
     @AppStorage(AppStorageKey.paymentWindowDays) private var paymentWindowDays = 15
-    @AppStorage(AppStorageKey.paymentGroupMode) private var savedGroupModeRawValue = PaymentGroupMode.bank.rawValue
+    // 初回は照合へ進みやすい「手段」を集計軸にする
+    @AppStorage(AppStorageKey.paymentGroupMode) private var savedGroupModeRawValue = PaymentGroupMode.card.rawValue
     @AppStorage(AppStorageKey.paymentFilterMode) private var savedFilterModeRawValue = PaymentFilterMode.all.rawValue
     @AppStorage(AppStorageKey.paymentFilterCardID) private var savedFilterCardID = ""
     @AppStorage(AppStorageKey.paymentFilterBankID) private var savedFilterBankID = ""
@@ -32,7 +33,7 @@ struct PaymentListView: View {
     @State private var unpaidGrouped = PaymentUnpaidGrouped(sections: [])
     /// 済みを過去へ何日前まで表示しているか（90日単位で広げる）
     @State private var paidWindowDays = 90
-    @State private var groupMode: PaymentGroupMode = .bank
+    @State private var groupMode: PaymentGroupMode = .card
     @State private var filterMode: PaymentFilterMode = .all
     @State private var selectedBank: E8bank?
     @State private var selectedCard: E1card?
@@ -58,7 +59,7 @@ struct PaymentListView: View {
         // 通常起動では前回選んだ集計タブを復元する
         let savedGroupMode = PaymentGroupMode(
             rawValue: UserDefaults.standard.string(forKey: AppStorageKey.paymentGroupMode) ?? ""
-        ) ?? .bank
+        ) ?? .card
         let savedFilterMode = PaymentFilterMode(
             rawValue: UserDefaults.standard.string(forKey: AppStorageKey.paymentFilterMode) ?? ""
         ) ?? .all
@@ -958,6 +959,24 @@ struct PaymentDisplayItem: Identifiable {
         invoices.contains { $0.e1card == nil }
     }
 
+    /// 配下の全明細が確認済みなら、支払状態とは別に照合済みとして表示する
+    var isReconciled: Bool {
+        guard let scope = invoiceFilter?.scope, case .card = scope else { return false }
+        let parts = invoices.flatMap(\.e6parts)
+        return !parts.isEmpty && parts.allSatisfy(\.isChecked)
+    }
+
+    /// 請求合計を保存済みで照合が未完了なら照合中として表示する
+    var isReconciling: Bool {
+        guard !isReconciled,
+              let scope = invoiceFilter?.scope,
+              case .card(let cardID) = scope else { return false }
+        return ReconciliationProgressStore.shared.amount(
+            forCardID: cardID,
+            date: date
+        ) != nil
+    }
+
     /// 一覧の並び順：日付の新しい順。同じ日は名称順、名称も同じなら id 順にして、
     /// 再描画のたびに同日の行が入れ替わらないようにする（集計は Dictionary 経由で順序が不定なため）
     static func displayOrder(_ lhs: PaymentDisplayItem, _ rhs: PaymentDisplayItem) -> Bool {
@@ -1031,12 +1050,21 @@ private struct PaymentGroupRadioPicker: View {
             optionSpacing: 4,
             groupPadding: 5,
             wrapsOptions: false,
-            fillsWidth: true
+            fillsWidth: true,
+            // 「手段（照合）」だけ基準幅の1.2倍にして補足文字を読みやすくする
+            optionWidthWeight: { $0 == .card ? 1.2 : 1 }
         ) { mode in
             Label {
-                Text(mode.localizedKey)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.50)
+                HStack(alignment: .firstTextBaseline, spacing: 1) {
+                    Text(mode.localizedKey)
+                    if mode == .card {
+                        // 照合モードを利用できる集計軸であることを小さく補足する
+                        Text("payment.group.card.reconciliationSuffix")
+                            .font(.caption)
+                    }
+                }
+                .lineLimit(1)
+                .minimumScaleFactor(0.50)
             } icon: {
                 Image(systemName: mode.iconName).dynamicTypeSize(...DynamicTypeSize.xxxLarge)
             }
@@ -1320,6 +1348,11 @@ private struct PaymentRow: View {
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                             .truncationMode(.tail)
+                        if item.isReconciled {
+                            reconciliationBadge
+                        } else if item.isReconciling {
+                            reconciliationInProgressBadge
+                        }
                         Spacer(minLength: 8)
                         Text(item.amount.currencyString())
                             .font(.body.monospacedDigit())
@@ -1335,6 +1368,11 @@ private struct PaymentRow: View {
                             .truncationMode(.tail)
                             .frame(maxWidth: .infinity, alignment: .leading)
                         HStack(spacing: 8) {
+                            if item.isReconciled {
+                                reconciliationBadge
+                            } else if item.isReconciling {
+                                reconciliationInProgressBadge
+                            }
                             Spacer(minLength: 0)
                             Text(item.amount.currencyString())
                                 .font(.body.monospacedDigit())
@@ -1350,6 +1388,34 @@ private struct PaymentRow: View {
         }
         .padding(.vertical, 2)
         .contentShape(Rectangle())
+    }
+
+    /// 照合済みと引き落とし済みを混同しない小さな状態表示
+    private var reconciliationBadge: some View {
+        Text("invoice.reconciliation.completed")
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.green)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(
+                Capsule()
+                    .fill(Color.green.opacity(0.12))
+            )
+            .fixedSize(horizontal: true, vertical: false)
+    }
+
+    /// 照合済みと区別できる照合途中の状態表示
+    private var reconciliationInProgressBadge: some View {
+        Text("invoice.reconciliation.inProgress")
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.orange)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(
+                Capsule()
+                    .fill(Color.orange.opacity(0.12))
+            )
+            .fixedSize(horizontal: true, vertical: false)
     }
 }
 

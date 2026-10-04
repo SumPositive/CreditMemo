@@ -6,6 +6,22 @@
 import Foundation
 import SwiftData
 
+/// 照合モードで確定する明細ごとの引き落とし日変更
+struct ReconciliationDueDateMove {
+    let part: E6part
+    let date: Date
+}
+
+/// 照合モードで確定時に追加する新しい仮明細
+struct ReconciliationNewRecordDraft: Identifiable {
+    let id: UUID
+    let useDate: Date
+    let dueDate: Date
+    let amount: Decimal
+    let name: String
+    let card: E1card
+}
+
 /// E3record 保存・削除・繰り返し処理と集計再計算
 @MainActor
 enum RecordService {
@@ -665,6 +681,110 @@ enum RecordService {
         }
     }
 
+    /// 照合モードの仮移動、確認ロック、未払/済みを1回の保存で確定する
+    static func applyReconciliation(
+        moves: [ReconciliationDueDateMove],
+        currentParts: [E6part],
+        newRecordDrafts: [ReconciliationNewRecordDraft],
+        finalIsPaid: Bool,
+        context: ModelContext
+    ) throws {
+        var finalCurrentParts = currentParts
+
+        // 不足分の仮明細を作成し、今回支払へ固定する
+        for draft in newRecordDrafts {
+            let record = E3record(
+                dateUse: Calendar.current.startOfDay(for: draft.useDate),
+                zName: draft.name,
+                zNote: "",
+                nAmount: draft.amount,
+                nPayType: 1,
+                nRepeat: 0
+            )
+            record.e1card = draft.card
+            context.insert(record)
+            rebuildBilling(for: record, context: context)
+            guard let part = record.e6parts.first else { continue }
+            movePartDueDateWithoutCommit(part, date: draft.dueDate, context: context)
+            part.isDueDateLocked = true
+            finalCurrentParts.append(part)
+        }
+
+        let currentPartIDs = Set(finalCurrentParts.map(\.id))
+        var touchedPartsByID = Dictionary(uniqueKeysWithValues: finalCurrentParts.map { ($0.id, $0) })
+        for move in moves {
+            touchedPartsByID[move.part.id] = move.part
+        }
+
+        // 済み明細も日付変更できるよう、一度未払へ戻してから仮移動を反映する
+        for move in moves {
+            if move.part.e2invoice?.isPaid == true {
+                setPartPaidWithoutCommit(move.part, isPaid: false, context: context)
+            }
+            move.part.isChecked = false
+            movePartDueDateWithoutCommit(move.part, date: move.date, context: context)
+            // 手動で確定した支払日は自動再計算から守る
+            move.part.isDueDateLocked = true
+        }
+
+        // 今回支払だけを照合済みにし、次回以降は未払・未確認のまま残す
+        for part in touchedPartsByID.values {
+            if currentPartIDs.contains(part.id) {
+                part.isChecked = true
+                part.isDueDateLocked = true
+                setPartPaidWithoutCommit(part, isPaid: finalIsPaid, context: context)
+            } else {
+                part.isChecked = false
+                if part.e2invoice?.isPaid == true {
+                    setPartPaidWithoutCommit(part, isPaid: false, context: context)
+                }
+            }
+        }
+
+        // 逆参照と派生集計をまとめて整えてから保存する
+        cleanupOrphanBilling(context: context)
+        try commit(context)
+    }
+
+    /// 照合途中の仮移動と仮明細だけを通常の明細として保存する
+    static func saveReconciliationProgress(
+        moves: [ReconciliationDueDateMove],
+        newRecordDrafts: [ReconciliationNewRecordDraft],
+        context: ModelContext
+    ) throws {
+        // 不足分の仮明細を作成し、今回の引き落とし日へ固定する
+        for draft in newRecordDrafts {
+            let record = E3record(
+                dateUse: Calendar.current.startOfDay(for: draft.useDate),
+                zName: draft.name,
+                zNote: "",
+                nAmount: draft.amount,
+                nPayType: 1,
+                nRepeat: 0
+            )
+            record.e1card = draft.card
+            context.insert(record)
+            rebuildBilling(for: record, context: context)
+            guard let part = record.e6parts.first else { continue }
+            movePartDueDateWithoutCommit(part, date: draft.dueDate, context: context)
+            part.isDueDateLocked = true
+        }
+
+        // 仮移動を確定し、照合済みにはせず未確認のまま残す
+        for move in moves {
+            if move.part.e2invoice?.isPaid == true {
+                setPartPaidWithoutCommit(move.part, isPaid: false, context: context)
+            }
+            move.part.isChecked = false
+            movePartDueDateWithoutCommit(move.part, date: move.date, context: context)
+            move.part.isDueDateLocked = true
+        }
+
+        // 逆参照と派生集計を整えてから保存する
+        cleanupOrphanBilling(context: context)
+        try commit(context)
+    }
+
     /// 請求1件単位で未払/済みを切り替える
     static func setInvoicePaid(
         _ invoice: E2invoice,
@@ -728,6 +848,7 @@ enum RecordService {
         context: ModelContext
     ) {
         let store = ConfirmedDebitAmountSessionStore.shared
+        let progressStore = ReconciliationProgressStore.shared
         for target in targets {
             let dayStart = target.date
             guard let nextDay = Calendar.current.date(byAdding: .day, value: 1, to: dayStart) else { continue }
@@ -740,6 +861,8 @@ enum RecordService {
                 let hasUnpaidCard = dayInvoices.contains { !$0.isPaid && $0.e1card?.id == cardID }
                 if !hasUnpaidCard {
                     store.removeAmount(for: .card(cardID), date: dayStart)
+                    // 引き落とし済みにした範囲の照合途中表示も終了する
+                    progressStore.removeAmount(forCardID: cardID, date: dayStart)
                 }
             }
 

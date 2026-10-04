@@ -2232,7 +2232,7 @@ private var isValid: Bool {
         }
     }
 
-    /// 引落日セルの日付下に置く「◀前支払日」「次支払日▶」ボタン。間に center を挟む
+    /// 引落日セルの日付下に置く「◀前回へ」「次回へ▶」ボタン。間に center を挟む
     /// List 行内で両ボタンが同時に反応しないよう bordered スタイルにする
     private func partDueDateShiftButtons<Center: View>(
         onShift: @escaping (Int) -> Void,
@@ -2380,7 +2380,7 @@ private var isValid: Bool {
     /// 表示中の日付に対する単純な月加算へフォールバックする
     private func shiftPartDueDateByMonth(_ part: E6part, months: Int, currentDate: Date) {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        // 前月/翌月の手動変更後は自動更新しない
+        // 前回/次回の手動変更後は自動更新しない
         setDraftPartDueDateLocked(part, isLocked: true)
         let card = selectedCard ?? part.e3record?.e1card
         guard let card else { return }

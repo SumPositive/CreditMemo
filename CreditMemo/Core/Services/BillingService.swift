@@ -95,6 +95,47 @@ enum BillingService {
         return cal.startOfDay(for: shifted)
     }
 
+    /// 支払日に対応する今回の締日を返す
+    static func closingDate(forBillingDate billingDate: Date, card: E1card) -> Date {
+        let calendar = Calendar.current
+        let billingDay = calendar.startOfDay(for: billingDate)
+
+        // N日後型は支払日から日数を戻した日を締日相当として扱う
+        if card.nClosingDay == 0 {
+            let useDate = calendar.date(
+                byAdding: .day,
+                value: -Int(card.nPayDay),
+                to: billingDay
+            ) ?? billingDay
+            return calendar.startOfDay(for: useDate)
+        }
+
+        // 休日繰り下げや月またぎにも対応するため、候補月から支払日が一致する締日を探す
+        for monthOffset in -4...0 {
+            let monthDate = calendar.date(byAdding: .month, value: monthOffset, to: billingDay) ?? billingDay
+            let components = calendar.dateComponents([.year, .month], from: monthDate)
+            let year = components.year ?? calendar.component(.year, from: monthDate)
+            let month = components.month ?? calendar.component(.month, from: monthDate)
+            let candidate = makeDate(year: year, month: month, payDay: Int(card.nClosingDay))
+            if calendar.isDate(Self.billingDate(useDate: candidate, card: card), inSameDayAs: billingDay) {
+                return calendar.startOfDay(for: candidate)
+            }
+        }
+
+        // 設定外の日付へ手動変更されている場合は支払月設定から締月を推定する
+        let fallbackMonth = calendar.date(
+            byAdding: .month,
+            value: -Int(card.nPayMonth),
+            to: billingDay
+        ) ?? billingDay
+        let components = calendar.dateComponents([.year, .month], from: fallbackMonth)
+        return makeDate(
+            year: components.year ?? calendar.component(.year, from: fallbackMonth),
+            month: components.month ?? calendar.component(.month, from: fallbackMonth),
+            payDay: Int(card.nClosingDay)
+        )
+    }
+
     /// 利用日からその回の締日までの日数（締日当日は0）を返す。
     /// 締日の無い N日後型や決済手段未選択では nil
     static func daysUntilClosing(useDate: Date, card: E1card?) -> Int? {

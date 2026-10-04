@@ -16,6 +16,81 @@ struct InvoiceListFilter: Equatable {
     let scope: Scope
 }
 
+/// 照合モードの昇降順
+private enum ReconciliationSortOrder: String, CaseIterable, Identifiable {
+    case ascending
+    case descending
+
+    var id: Self { self }
+
+    var localizedKey: LocalizedStringKey {
+        switch self {
+        case .ascending: "invoice.reconciliation.sort.ascending"
+        case .descending: "invoice.reconciliation.sort.descending"
+        }
+    }
+
+    /// 決済一覧と同じ昇降アイコンを使う
+    var symbolName: String {
+        "line.3.horizontal.decrease"
+    }
+
+    /// 昇順は決済一覧と同じく上下反転して示す
+    var yScale: CGFloat {
+        switch self {
+        case .ascending: -1
+        case .descending: 1
+        }
+    }
+}
+
+/// 最後に選んだ項目を第1キーとして並べ替える
+private enum ReconciliationSortField {
+    case useDate
+    case amount
+}
+
+/// 照合一覧へ実明細と追加前の仮明細を同じ順序で並べる
+private enum ReconciliationListItem: Identifiable {
+    case part(E6part)
+    case draft(ReconciliationNewRecordDraft)
+
+    var id: String {
+        switch self {
+        case .part(let part): "part-\(part.id)"
+        case .draft(let draft): "draft-\(draft.id.uuidString)"
+        }
+    }
+
+    var useDate: Date {
+        switch self {
+        case .part(let part): part.e3record?.dateUse ?? .distantPast
+        case .draft(let draft): draft.useDate
+        }
+    }
+
+    var amount: Decimal {
+        switch self {
+        case .part(let part): part.nAmount
+        case .draft(let draft): draft.amount
+        }
+    }
+}
+
+/// 照合モード中だけ一覧上端の標準余白を詰める
+private struct ReconciliationTopMarginModifier: ViewModifier {
+    let isEnabled: Bool
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if isEnabled {
+            content.contentMargins(.top, 4, for: .scrollContent)
+        } else {
+            content
+        }
+    }
+}
+
 struct InvoiceListView: View {
     private let payment: E7payment?
     /// `init(displayItem:)` 経由で渡される請求書スナップショット。
@@ -104,7 +179,7 @@ struct InvoiceListView: View {
         return currentAmount == .zero ? displayAmount : currentAmount
     }
 
-    /// 引落確定額の保存単位は、現在の手段または口座の絞り込みから決める
+    /// 請求合計の保存単位は、現在の手段または口座の絞り込みから決める
     private var confirmedAmountScope: ConfirmedDebitAmountSessionStore.Scope? {
         guard let scope = invoiceFilter?.scope else { return nil }
         switch scope {
@@ -117,21 +192,58 @@ struct InvoiceListView: View {
         }
     }
 
-    /// 引落確定額は手段または口座で絞り込んだ未払画面だけで扱う
-    private var canEditConfirmedAmount: Bool {
-        !displayIsPaid && confirmedAmountScope != nil
+    /// 照合モードは1つの決済手段に絞り込まれた時だけ利用できる
+    private var canUseReconciliationMode: Bool {
+        guard let scope = invoiceFilter?.scope, case .card = scope else { return false }
+        return !includesUnselectedCard
     }
 
-    /// DBへ保存せず、アプリ起動中の入力値だけを参照する
+    /// 表示中の全明細が確定済みなら照合済みとして扱う
+    private var isReconciliationCompleted: Bool {
+        let parts = invoices.flatMap { filteredParts(in: $0) }
+        return !parts.isEmpty && parts.allSatisfy(\.isChecked)
+    }
+
+    /// 保存済みの請求合計があり照合未完了なら照合中として扱う
+    private var isReconciliationInProgress: Bool {
+        guard !isReconciliationCompleted,
+              let scope = invoiceFilter?.scope,
+              case .card(let cardID) = scope else { return false }
+        return reconciliationProgressStore.amount(
+            forCardID: cardID,
+            date: displayDate
+        ) != nil
+    }
+
+    /// 照合対象の決済手段
+    private var reconciliationCard: E1card? {
+        guard let scope = invoiceFilter?.scope,
+              case .card(let cardID) = scope else { return nil }
+        return invoices.first { $0.e1card?.id == cardID }?.e1card
+    }
+
+    /// 照合対象としてタイトル下へ表示する決済手段名
+    private var reconciliationMethodName: String {
+        reconciliationCard?.zName ?? "—"
+    }
+
+    /// 保存済みの照合途中を優先し、なければアプリ起動中の入力値を参照する
     private var confirmedAmount: Decimal? {
         guard let scope = confirmedAmountScope else { return nil }
+        if case .card(let cardID) = scope,
+           let progressAmount = reconciliationProgressStore.amount(
+               forCardID: cardID,
+               date: displayDate
+           ) {
+            return progressAmount
+        }
         return confirmedAmountStore.amount(for: scope, date: displayDate)
     }
 
-    /// 翌月へ移す候補額が正数になるよう「合計 − 確定額」で表示する
+    /// 差額候補が正数になるよう「明細合計 − 請求合計」で表示する
     private var confirmedAmountDifference: Decimal? {
-        guard canEditConfirmedAmount, let confirmedAmount else { return nil }
-        return (currentDisplayAmount - confirmedAmount).roundedAmount()
+        guard let reconciliationConfirmedAmount else { return nil }
+        return (reconciliationCurrentAmount - reconciliationConfirmedAmount).roundedAmount()
     }
 
     @Environment(\.modelContext) private var context
@@ -157,12 +269,29 @@ struct InvoiceListView: View {
     @State private var bulkChangeCardID: String?
     /// 「まとめて変更」シートで選択中の日付
     @State private var bulkChangeDraftDate: Date = Date()
-    /// 確定額入力用テンキーの表示状態
+    /// 請求合計入力用テンキーの表示状態
     @State private var showConfirmedAmountPad = false
-    /// テンキーを開いた時点の確定額
+    /// テンキーを開いた時点の請求合計
     @State private var confirmedAmountDraft: Decimal = .zero
     /// 画面を移動してもタスク終了までは入力値を共有する
     @State private var confirmedAmountStore = ConfirmedDebitAmountSessionStore.shared
+    /// 保存した照合途中の請求合計を再起動後も共有する
+    @State private var reconciliationProgressStore = ReconciliationProgressStore.shared
+    /// 照合モード中は保存データを動かさず画面上だけで編集する
+    @State private var isReconciliationMode = false
+    @State private var reconciliationConfirmedAmount: Decimal? = nil
+    @State private var reconciliationDueDates: [String: Date] = [:]
+    @State private var reconciliationNewRecordDrafts: [ReconciliationNewRecordDraft] = []
+    /// 編集中の不足分仮明細
+    @State private var editingReconciliationDraft: ReconciliationNewRecordDraft?
+    /// 実明細の編集保存で再作成される前のパーツID
+    @State private var reconciliationEditingPartIDs: Set<String> = []
+    @State private var reconciliationPrimarySortField: ReconciliationSortField = .useDate
+    @State private var reconciliationDateSortOrder: ReconciliationSortOrder = .ascending
+    @State private var reconciliationAmountSortOrder: ReconciliationSortOrder = .ascending
+    @State private var showReconciliationDiscardConfirmation = false
+    /// 照合モードの説明シートを表示する
+    @State private var showReconciliationHelp = false
 
     init(payment: E7payment, filter: InvoiceListFilter? = nil) {
         self.payment = payment
@@ -337,70 +466,382 @@ struct InvoiceListView: View {
         reloadKey = UUID()
     }
 
-    // MARK: Move To Next Month
+    // MARK: Reconciliation
 
-    /// 「支払を翌月へ」を出す、利用日から締日までの日数の上限
-    private static let moveToNextMonthClosingWindowDays = 5
-
-    /// 明細セルの「支払を翌月へ」を出せるか。締日間際（5日以内）の利用で、未払・解錠、
-    /// 分割の途中回でない明細に限る
-    /// （分割の途中回を動かすと次の回と同じ支払日に重なるため、決済編集で直してもらう）
-    private func canMovePartToNextMonth(_ part: E6part) -> Bool {
-        guard let record = part.e3record, let invoice = part.e2invoice else { return false }
-        guard !invoice.isPaid && !part.isChecked && record.payCount <= Int(part.nPartNo) else { return false }
-        let card = invoice.e1card ?? record.e1card
-        // 締日間際の利用だけ、売上の計上が遅れて翌々月に回ることが多い
-        guard let days = BillingService.daysUntilClosing(useDate: record.dateUse, card: card),
-              days <= Self.moveToNextMonthClosingWindowDays else { return false }
-        // 移した後の請求でまた出ないよう、規定の支払日にある明細だけにする
-        let defaultDate = BillingService.billingDate(
-            useDate: record.dateUse,
-            card: card,
-            partOffset: Int(part.nPartNo) - 1
+    /// 今回支払と同じ決済手段に属する、今回と次回以降の明細
+    private var reconciliationParts: [E6part] {
+        let dayStart = Calendar.current.startOfDay(for: displayDate)
+        let nextDay = Calendar.current.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
+        let descriptor = FetchDescriptor<E2invoice>(
+            predicate: #Predicate<E2invoice> { nextDay <= $0.date }
         )
-        return Calendar.current.isDate(invoice.date, inSameDayAs: defaultDate)
+        let futureInvoices = applyFilter(
+            context.fetchReporting(descriptor, entity: "E2invoice").filter { !$0.isPaid }
+        )
+        let allParts = invoices.flatMap { filteredParts(in: $0) }
+            + futureInvoices.flatMap { filteredParts(in: $0) }
+        var seen = Set<String>()
+        let uniqueParts = allParts.filter { seen.insert($0.id).inserted }
+
+        return uniqueParts.sorted { lhs, rhs in
+            let leftDate = lhs.e3record?.dateUse ?? .distantPast
+            let rightDate = rhs.e3record?.dateUse ?? .distantPast
+            if leftDate == rightDate {
+                return lhs.id < rhs.id
+            }
+            switch reconciliationDateSortOrder {
+            case .descending:
+                return rightDate < leftDate
+            case .ascending:
+                return leftDate < rightDate
+            }
+        }
     }
 
-    /// 締日間際の利用が翌々月の請求に回った時用に、明細1件の支払日を次の支払日へ移す
-    private func movePartToNextMonth(_ part: E6part) {
-        guard canMovePartToNextMonth(part),
-              let record = part.e3record,
-              let invoice = part.e2invoice else { return }
-        let card = invoice.e1card ?? record.e1card
-        let nextDate = BillingService.shiftedBillingDate(
-            from: invoice.date,
-            useDate: record.dateUse,
-            card: card,
-            months: 1
-        )
-        do {
-            // 決済編集で日付を変えた時と同じく、手動で決めた支払日として固定する
-            part.isDueDateLocked = true
-            try RecordService.setPartDueDate(part, date: nextDate, context: context)
-        } catch {
-            // 翌月への移動の保存失敗を診断送信する
-            AppTelemetry.reportSwiftDataError(error, operation: "InvoiceListView.movePartToNextMonth", entity: "E6part")
-            return
+    /// 仮移動を含めた明細の支払日
+    private func reconciliationDueDate(for part: E6part) -> Date {
+        reconciliationDueDates[part.id] ?? part.e2invoice?.date ?? displayDate
+    }
+
+    /// 仮移動後に今回支払へ属するか
+    private func isReconciliationCurrent(_ part: E6part) -> Bool {
+        Calendar.current.isDate(reconciliationDueDate(for: part), inSameDayAs: displayDate)
+    }
+
+    /// 仮移動後の今回支払明細
+    private var reconciliationCurrentParts: [E6part] {
+        reconciliationParts.filter(isReconciliationCurrent)
+    }
+
+    /// 仮移動後の明細合計
+    private var reconciliationCurrentAmount: Decimal {
+        let savedAmount = reconciliationCurrentParts.reduce(.zero) { $0 + $1.nAmount }
+        let draftAmount = reconciliationNewRecordDrafts.reduce(.zero) { $0 + $1.amount }
+        return (savedAmount + draftAmount).roundedAmount()
+    }
+
+    /// 次回以降は単独で差額以内の明細だけを表示し、仮移動済みは常に残す
+    private var reconciliationVisibleParts: [E6part] {
+        let futureLimit: Decimal?
+        if let difference = confirmedAmountDifference, difference < .zero {
+            futureLimit = (-difference).roundedAmount()
+        } else {
+            futureLimit = nil
+        }
+
+        return reconciliationParts.filter { part in
+            if isReconciliationCurrent(part) || reconciliationDueDates[part.id] != nil {
+                return true
+            }
+            guard let futureLimit else { return false }
+            let amount = part.nAmount.roundedAmount()
+            return .zero < amount && amount <= futureLimit
+        }
+    }
+
+    /// 不足分の仮明細を先頭へ固定し、実明細だけを利用日順で並べる
+    private var reconciliationVisibleItems: [ReconciliationListItem] {
+        // 仮明細は利用日に関係なく、確定または削除されるまで先頭に表示する
+        let draftItems = reconciliationNewRecordDrafts.map(ReconciliationListItem.draft)
+        let sortedParts = reconciliationVisibleParts
+            .map(ReconciliationListItem.part)
+            .sorted(by: reconciliationItemComesBefore)
+        return draftItems + sortedParts
+    }
+
+    /// 第1キーが同値なら、もう一方の項目を第2キーとして比較する
+    private func reconciliationItemComesBefore(
+        _ lhs: ReconciliationListItem,
+        _ rhs: ReconciliationListItem
+    ) -> Bool {
+        switch reconciliationPrimarySortField {
+        case .useDate:
+            if lhs.useDate != rhs.useDate {
+                return reconciliationValue(lhs.useDate, comesBefore: rhs.useDate, order: reconciliationDateSortOrder)
+            }
+            if lhs.amount != rhs.amount {
+                return reconciliationValue(lhs.amount, comesBefore: rhs.amount, order: reconciliationAmountSortOrder)
+            }
+        case .amount:
+            if lhs.amount != rhs.amount {
+                return reconciliationValue(lhs.amount, comesBefore: rhs.amount, order: reconciliationAmountSortOrder)
+            }
+            if lhs.useDate != rhs.useDate {
+                return reconciliationValue(lhs.useDate, comesBefore: rhs.useDate, order: reconciliationDateSortOrder)
+            }
+        }
+        return lhs.id < rhs.id
+    }
+
+    /// 共通の昇順・降順規則で値を比較する
+    private func reconciliationValue<Value: Comparable>(
+        _ lhs: Value,
+        comesBefore rhs: Value,
+        order: ReconciliationSortOrder
+    ) -> Bool {
+        switch order {
+        case .ascending:
+            return lhs < rhs
+        case .descending:
+            return rhs < lhs
+        }
+    }
+
+    /// 引き落とし日以降の未払明細は、照合確定と同時に済みにする
+    private var shouldMarkPaidOnReconciliation: Bool {
+        let today = Calendar.current.startOfDay(for: Date())
+        return !displayIsPaid && Calendar.current.startOfDay(for: displayDate) <= today
+    }
+
+    /// 請求合計と仮移動後の明細合計が一致した時だけ照合を確定できる
+    private var canConfirmReconciliation: Bool {
+        reconciliationConfirmedAmount != nil && confirmedAmountDifference == .zero
+    }
+
+    /// 照合開始後に確定前の入力または移動があるか
+    private var hasReconciliationDraft: Bool {
+        reconciliationConfirmedAmount != confirmedAmount
+            || !reconciliationDueDates.isEmpty
+            || !reconciliationNewRecordDrafts.isEmpty
+    }
+
+    /// 差額を埋める明細の組み合わせを、新しい利用日を優先して選ぶ
+    private var reconciliationCandidateIDs: Set<String> {
+        guard let difference = confirmedAmountDifference, difference != .zero else { return [] }
+        let movesToFuture = .zero < difference
+        let targetAmount = (movesToFuture ? difference : -difference).roundedAmount()
+        let candidates = reconciliationParts
+            .filter { part in
+                canStageReconciliationMove(part)
+                    && isReconciliationCurrent(part) == movesToFuture
+                    && .zero < part.nAmount.roundedAmount()
+                    && part.nAmount.roundedAmount() <= targetAmount
+            }
+            .sorted(by: reconciliationCandidateOrder)
+
+        if let exactIDs = exactReconciliationCandidateIDs(
+            in: Array(candidates.prefix(40)),
+            targetAmount: targetAmount
+        ) {
+            return exactIDs
+        }
+
+        // 一致する組み合わせが無い時は、差額以下の明細を新しい順に候補へ残す
+        var remaining = targetAmount
+        var fallbackIDs = Set<String>()
+        for part in candidates {
+            let amount = part.nAmount.roundedAmount()
+            if amount <= remaining {
+                fallbackIDs.insert(part.id)
+                remaining = (remaining - amount).roundedAmount()
+            }
+        }
+        return fallbackIDs
+    }
+
+    /// 利用日の新しい明細を優先し、同日はIDで順序を固定する
+    private func reconciliationCandidateOrder(_ lhs: E6part, _ rhs: E6part) -> Bool {
+        let leftDate = lhs.e3record?.dateUse ?? .distantPast
+        let rightDate = rhs.e3record?.dateUse ?? .distantPast
+        if leftDate == rightDate {
+            return lhs.id < rhs.id
+        }
+        return rightDate < leftDate
+    }
+
+    /// 差額と完全一致する組み合わせを、新しい明細を優先して探索する
+    private func exactReconciliationCandidateIDs(
+        in candidates: [E6part],
+        targetAmount: Decimal
+    ) -> Set<String>? {
+        var combinations: [Decimal: [String]] = [.zero: []]
+        for part in candidates {
+            let amount = part.nAmount.roundedAmount()
+            let snapshot = combinations
+            for (sum, ids) in snapshot {
+                let nextSum = (sum + amount).roundedAmount()
+                if nextSum <= targetAmount && combinations[nextSum] == nil {
+                    combinations[nextSum] = ids + [part.id]
+                }
+            }
+        }
+        guard let ids = combinations[targetAmount], !ids.isEmpty else { return nil }
+        return Set(ids)
+    }
+
+    /// 分割の途中回を別月へ重ねないよう、最終回だけを照合移動の対象にする
+    private func canStageReconciliationMove(_ part: E6part) -> Bool {
+        guard let record = part.e3record else { return false }
+        return record.payCount <= Int(part.nPartNo)
+    }
+
+    /// 明細を保存せず今回または次回へ仮移動する
+    private func toggleReconciliationDueDate(_ part: E6part) {
+        guard canStageReconciliationMove(part), let record = part.e3record else { return }
+        let originalDate = part.e2invoice?.date ?? displayDate
+        let targetDate: Date
+        if isReconciliationCurrent(part) {
+            // 次回から今回へ戻した明細は、本来の支払日へ戻す
+            if displayDate < originalDate {
+                targetDate = originalDate
+            } else {
+                let card = part.e2invoice?.e1card ?? record.e1card
+                targetDate = BillingService.shiftedBillingDate(
+                    from: displayDate,
+                    useDate: record.dateUse,
+                    card: card,
+                    months: 1
+                )
+            }
+        } else {
+            targetDate = displayDate
+        }
+
+        if Calendar.current.isDate(targetDate, inSameDayAs: originalDate) {
+            reconciliationDueDates.removeValue(forKey: part.id)
+        } else {
+            reconciliationDueDates[part.id] = Calendar.current.startOfDay(for: targetDate)
         }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        if hasRemainingInvoices {
-            // 移した明細が消えるよう画面を再構築する
-            reloadKey = UUID()
-        } else {
-            // 最後の1件を移すと、この日の請求自体が無くなるので状況一覧へ戻る
-            dismiss()
-        }
     }
 
-    /// この画面の日付・状態の請求がまだ残っているか（スナップショットに頼らず取り直す）
-    private var hasRemainingInvoices: Bool {
-        let dayStart = Calendar.current.startOfDay(for: displayDate)
-        guard let nextDay = Calendar.current.date(byAdding: .day, value: 1, to: dayStart) else { return true }
-        let descriptor = FetchDescriptor<E2invoice>(
-            predicate: #Predicate<E2invoice> { dayStart <= $0.date && $0.date < nextDay }
+    /// マイナス差額と同額の新しい仮明細を今回の締日で追加する
+    private func addReconciliationDifferenceDraft() {
+        guard let difference = confirmedAmountDifference,
+              difference < .zero,
+              let card = reconciliationCard else { return }
+        let draft = ReconciliationNewRecordDraft(
+            id: UUID(),
+            useDate: BillingService.closingDate(forBillingDate: displayDate, card: card),
+            dueDate: displayDate,
+            amount: (-difference).roundedAmount(),
+            name: String(localized: "invoice.reconciliation.adjustment.title"),
+            card: card
         )
-        let fetched = context.fetchReporting(descriptor, entity: "E2invoice")
-        return !applyFilter(fetched.filter { $0.isPaid == displayIsPaid }).isEmpty
+        reconciliationNewRecordDrafts.append(draft)
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    /// 追加前の仮明細を照合内容から取り除く
+    private func removeReconciliationDraft(_ draft: ReconciliationNewRecordDraft) {
+        reconciliationNewRecordDrafts.removeAll { $0.id == draft.id }
+    }
+
+    /// 編集後の仮明細で保存前配列を置き換える
+    private func updateReconciliationDraft(_ draft: ReconciliationNewRecordDraft) {
+        guard let index = reconciliationNewRecordDrafts.firstIndex(where: { $0.id == draft.id }) else {
+            return
+        }
+        reconciliationNewRecordDrafts[index] = draft
+    }
+
+    /// 実明細の編集前に、保存後に無効となるパーツIDを退避する
+    private func editReconciliationRecord(_ record: E3record) {
+        reconciliationEditingPartIDs = Set(record.e6parts.map(\.id))
+        editRecord = record
+    }
+
+    /// 再作成されたパーツを読み直し、編集対象に残っていた仮移動を解除する
+    private func refreshReconciliationAfterRecordEdit() {
+        for partID in reconciliationEditingPartIDs {
+            reconciliationDueDates.removeValue(forKey: partID)
+        }
+        let validPartIDs = Set(reconciliationParts.map(\.id))
+        reconciliationDueDates = reconciliationDueDates.filter { validPartIDs.contains($0.key) }
+        reconciliationEditingPartIDs.removeAll()
+        reloadKey = UUID()
+    }
+
+    /// 保存済みデータを変更せず照合モードを開始する
+    private func beginReconciliation() {
+        guard canUseReconciliationMode else { return }
+        reconciliationConfirmedAmount = confirmedAmount
+        reconciliationDueDates.removeAll()
+        reconciliationNewRecordDrafts.removeAll()
+        reconciliationPrimarySortField = .useDate
+        reconciliationDateSortOrder = .ascending
+        reconciliationAmountSortOrder = .ascending
+        isReconciliationMode = true
+    }
+
+    /// 仮入力と仮移動を破棄して通常表示へ戻す
+    private func discardReconciliation() {
+        reconciliationConfirmedAmount = nil
+        reconciliationDueDates.removeAll()
+        reconciliationNewRecordDrafts.removeAll()
+        isReconciliationMode = false
+    }
+
+    /// 仮移動と照合状態をまとめて保存する
+    private func confirmReconciliation() {
+        guard canConfirmReconciliation,
+              let amount = reconciliationConfirmedAmount,
+              let scope = confirmedAmountScope else { return }
+        let moves = reconciliationParts.compactMap { part -> ReconciliationDueDateMove? in
+            guard let date = reconciliationDueDates[part.id] else { return nil }
+            return ReconciliationDueDateMove(part: part, date: date)
+        }
+        let finalIsPaid = displayIsPaid || shouldMarkPaidOnReconciliation
+
+        do {
+            try RecordService.applyReconciliation(
+                moves: moves,
+                currentParts: reconciliationCurrentParts,
+                newRecordDrafts: reconciliationNewRecordDrafts,
+                finalIsPaid: finalIsPaid,
+                context: context
+            )
+            // 保存成功後に照合額を残し、支払状態とは独立して参照できるようにする
+            confirmedAmountStore.setAmount(amount.roundedAmount(), for: scope, date: displayDate)
+            if case .card(let cardID) = scope {
+                // 照合完了後は照合中の保存値を削除する
+                reconciliationProgressStore.removeAmount(forCardID: cardID, date: displayDate)
+            }
+        } catch {
+            // 照合確定の保存失敗を診断送信する
+            AppTelemetry.reportSwiftDataError(error, operation: "InvoiceListView.confirmReconciliation", entity: "E6part")
+            return
+        }
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        dismiss()
+    }
+
+    /// 仮移動と仮明細を保存し、照合中として後から再開できるようにする
+    private func saveReconciliationProgress() {
+        guard let difference = confirmedAmountDifference,
+              difference != .zero,
+              let amount = reconciliationConfirmedAmount,
+              let scope = confirmedAmountScope else { return }
+        let moves = reconciliationParts.compactMap { part -> ReconciliationDueDateMove? in
+            guard let date = reconciliationDueDates[part.id] else { return nil }
+            return ReconciliationDueDateMove(part: part, date: date)
+        }
+
+        do {
+            try RecordService.saveReconciliationProgress(
+                moves: moves,
+                newRecordDrafts: reconciliationNewRecordDrafts,
+                context: context
+            )
+            if case .card(let cardID) = scope {
+                // 請求合計を残して、引き落とし状況で照合中と判定できるようにする
+                reconciliationProgressStore.setAmount(
+                    amount.roundedAmount(),
+                    forCardID: cardID,
+                    date: displayDate
+                )
+            }
+        } catch {
+            // 照合途中の保存失敗を診断送信する
+            AppTelemetry.reportSwiftDataError(
+                error,
+                operation: "InvoiceListView.saveReconciliationProgress",
+                entity: "E6part"
+            )
+            return
+        }
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        dismiss()
     }
 
     // MARK: Check Toggle
@@ -440,6 +881,36 @@ struct InvoiceListView: View {
         let dateText = AppDateFormat.singleLineText(displayDate)
         let suffix = NSLocalizedString("invoice.statement.debitSuffix", comment: "")
         return "\(dateText)\(suffix)"
+    }
+
+    /// 照合モード行の右側へ照合状態を表示する
+    @ViewBuilder
+    private var reconciliationStatusBadge: some View {
+        if isReconciliationCompleted {
+            reconciliationStatusBadge(
+                titleKey: "invoice.reconciliation.completed",
+                color: .green
+            )
+        } else if isReconciliationInProgress {
+            reconciliationStatusBadge(
+                titleKey: "invoice.reconciliation.inProgress",
+                color: .orange
+            )
+        }
+    }
+
+    /// 一覧と同じ配色の小さな照合状態バッジを作る
+    private func reconciliationStatusBadge(titleKey: LocalizedStringKey, color: Color) -> some View {
+        Text(titleKey)
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(color)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(
+                Capsule()
+                    .fill(color.opacity(0.12))
+            )
+            .fixedSize(horizontal: true, vertical: false)
     }
 
     private var cardSections: [InvoiceCardSection] {
@@ -502,85 +973,131 @@ struct InvoiceListView: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                     Spacer(minLength: 8)
-                    newPaymentButton(action: { addDraftPayment(card: nil) })
+                    if !isReconciliationMode {
+                        newPaymentButton(action: { addDraftPayment(card: nil) })
+                    }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             HStack(spacing: 8) {
                 Text("invoice.detailTotal")
                 Spacer()
-                Text(currentDisplayAmount.currencyString())
+                Text((isReconciliationMode ? reconciliationCurrentAmount : currentDisplayAmount).currencyString())
                     .font(.headline.monospacedDigit())
                     .foregroundStyle(displayIsPaid ? badgeTheme.paidText : badgeTheme.unpaidText)
-                // 引落確定額の矢印幅を空け、3つの金額右端を揃える
+                // 請求合計の矢印幅を空け、3つの金額右端を揃える
                 summaryAccessoryChevron(isVisible: false)
             }
-            if canEditConfirmedAmount {
-                // List標準の最小行高を避け、2セルをそれぞれ40ptで固定する
-                VStack(spacing: 0) {
+            if canUseReconciliationMode && !isReconciliationMode {
+                HStack(spacing: 12) {
                     Button {
-                        // 未入力時は現在の合計を初期値にして一致確認を素早く行えるようにする
-                        confirmedAmountDraft = confirmedAmount ?? currentDisplayAmount
-                        showConfirmedAmountPad = true
+                        beginReconciliation()
                     } label: {
                         HStack(spacing: 8) {
-                            Text("invoice.confirmedAmount")
-                                .foregroundStyle(.primary)
-                            Spacer(minLength: 8)
-                            Text(confirmedAmount?.currencyString() ?? "—")
-                                .font(.body.monospacedDigit())
-                                .foregroundStyle(confirmedAmount == nil ? Color(.tertiaryLabel) : Color.accentColor)
-                            summaryAccessoryChevron(isVisible: true)
+                            Image(systemName: "checkmark.circle")
+                            Text("invoice.reconciliation.start")
                         }
-                        .padding(.horizontal, 20)
-                        .frame(height: 40)
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .foregroundStyle(Color.accentColor)
 
-                    Divider()
-                        .padding(.horizontal, 20)
+                    Spacer()
 
-                    HStack(spacing: 8) {
-                        Text("invoice.differenceAmount")
-                        Spacer()
-                        Text(confirmedAmountDifference?.currencyString() ?? "—")
-                            .font(.headline.monospacedDigit())
-                            .foregroundStyle(differenceAmountColor)
-                        // 引落確定額の矢印幅を空け、3つの金額右端を揃える
-                        summaryAccessoryChevron(isVisible: false)
+                    // 照合中または照合済みの状態を操作名の右側へ表示する
+                    reconciliationStatusBadge
+
+                    Button {
+                        showReconciliationHelp = true
+                    } label: {
+                        Image(systemName: "questionmark.circle")
+                            .font(.body.weight(.semibold))
                     }
-                    .padding(.horizontal, 20)
-                    .frame(height: 40)
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Color.accentColor)
+                    .accessibilityLabel(Text("button.help"))
                 }
-                .listRowInsets(EdgeInsets())
+            }
+            if isReconciliationMode {
+                Button {
+                    // 未入力時は明細合計を初期値にして一致確認を素早く行えるようにする
+                    confirmedAmountDraft = reconciliationConfirmedAmount ?? reconciliationCurrentAmount
+                    showConfirmedAmountPad = true
+                } label: {
+                    HStack(spacing: 8) {
+                        Text("invoice.confirmedAmount")
+                        Spacer(minLength: 8)
+                        Text(reconciliationConfirmedAmount?.currencyString() ?? "—")
+                            .font(.body.monospacedDigit())
+                        summaryAccessoryChevron(isVisible: true, color: Color.accentColor)
+                    }
+                    .foregroundStyle(Color.accentColor)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+
+                HStack(spacing: 8) {
+                    Text("invoice.differenceAmount")
+                    Spacer()
+                    Text(confirmedAmountDifference?.currencyString() ?? "—")
+                        .font(.headline.monospacedDigit())
+                        .foregroundStyle(differenceAmountColor)
+                    // 請求合計の矢印幅を空け、3つの金額右端を揃える
+                    summaryAccessoryChevron(isVisible: false)
+                }
+
+                // 不足分の明細追加は差額の意味を確認してすぐ操作できる位置へ置く
+                reconciliationAdjustmentRow
+
+                // 確定操作を差額の直下へまとめる
+                reconciliationConfirmationRows
             }
         }
     }
 
-    /// 差額なしは確認済みの緑、差額ありは注意の橙で示す
+    /// 差額なしは緑、不足はオレンジ、オーバーは紫で示す
     private var differenceAmountColor: Color {
         guard let difference = confirmedAmountDifference else { return Color(.tertiaryLabel) }
-        return difference == .zero ? .green : .orange
+        if difference < .zero {
+            return .orange
+        }
+        if .zero < difference {
+            return .purple
+        }
+        return .green
+    }
+
+    /// 差額の正負に応じて具体的な調整方法を案内する
+    private var reconciliationDifferenceGuidanceKey: LocalizedStringKey {
+        guard let difference = confirmedAmountDifference else {
+            return "invoice.reconciliation.differenceRequired"
+        }
+        if difference < .zero {
+            return "invoice.reconciliation.difference.shortageGuidance"
+        }
+        return "invoice.reconciliation.difference.excessGuidance"
     }
 
     /// 金額列の位置を揃えるため、非操作行でも矢印と同じ幅を予約する
-    private func summaryAccessoryChevron(isVisible: Bool) -> some View {
+    private func summaryAccessoryChevron(
+        isVisible: Bool,
+        color: Color = Color(.tertiaryLabel)
+    ) -> some View {
         Image(systemName: "chevron.right")
             .font(.caption.weight(.semibold))
-            .foregroundStyle(Color(.tertiaryLabel))
+            .foregroundStyle(color)
             .opacity(isVisible ? 1 : 0)
             .accessibilityHidden(!isVisible)
     }
 
-    /// 入力した引落確定額をアプリ起動中だけ保持する
+    /// 請求合計を照合中の仮入力として保持する
     private func saveConfirmedAmount(_ amount: Decimal) {
-        guard canEditConfirmedAmount, let scope = confirmedAmountScope else {
+        guard isReconciliationMode, confirmedAmountScope != nil else {
             showConfirmedAmountPad = false
             return
         }
-        // DBへは保存せず、アプリ起動中の手段・口座別メモとして保持する
-        confirmedAmountStore.setAmount(amount.roundedAmount(), for: scope, date: displayDate)
+        // 照合を確定するまでは保存済みの値を変更しない
+        reconciliationConfirmedAmount = amount.roundedAmount()
         showConfirmedAmountPad = false
     }
 
@@ -610,113 +1127,299 @@ struct InvoiceListView: View {
         }
     }
 
+    /// 利用日と金額を左右に配置し、それぞれの並び順を切り替える
+    private var reconciliationSortRow: some View {
+        HStack(spacing: 16) {
+            reconciliationSortButton(
+                title: "record.sort.date",
+                field: .useDate,
+                order: reconciliationDateSortOrder
+            )
+            Spacer()
+            reconciliationSortButton(
+                title: "record.sort.amount",
+                field: .amount,
+                order: reconciliationAmountSortOrder
+            )
+        }
+    }
+
+    /// 選択中の項目は再タップで反転し、別項目への切替時は昇順から始める
+    private func selectReconciliationSort(_ field: ReconciliationSortField) {
+        switch field {
+        case .useDate:
+            if reconciliationPrimarySortField == .useDate {
+                reconciliationDateSortOrder = reconciliationDateSortOrder == .ascending ? .descending : .ascending
+            } else {
+                reconciliationPrimarySortField = .useDate
+                reconciliationDateSortOrder = .ascending
+            }
+        case .amount:
+            if reconciliationPrimarySortField == .amount {
+                reconciliationAmountSortOrder = reconciliationAmountSortOrder == .ascending ? .descending : .ascending
+            } else {
+                reconciliationPrimarySortField = .amount
+                reconciliationAmountSortOrder = .ascending
+            }
+        }
+    }
+
+    /// 項目名と同じ記号体系の昇降アイコンを表示する
+    private func reconciliationSortButton(
+        title: LocalizedStringKey,
+        field: ReconciliationSortField,
+        order: ReconciliationSortOrder
+    ) -> some View {
+        Button {
+            selectReconciliationSort(field)
+        } label: {
+            HStack(spacing: 8) {
+                Text(title)
+                Image(systemName: order.symbolName)
+                    .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                    .font(.caption.weight(.bold))
+                    .scaleEffect(x: 1, y: order.yScale)
+            }
+            // 第1キーは濃く、第2キーは薄いアクセント色で優先度を示す
+            .foregroundStyle(Color.accentColor.opacity(reconciliationPrimarySortField == field ? 1 : 0.4))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityValue(Text(order.localizedKey))
+    }
+
+    /// 今回と次回以降を利用日順で混在表示する照合一覧
+    private var reconciliationPartsSection: some View {
+        let candidateIDs = reconciliationCandidateIDs
+        let candidateColor = differenceAmountColor
+        return Section {
+            // 並び替え操作は明細一覧の先頭に固定する
+            reconciliationSortRow
+
+            ForEach(reconciliationVisibleItems) { item in
+                switch item {
+                case .part(let part):
+                    ReconciliationPartRow(
+                        part: part,
+                        dueDate: reconciliationDueDate(for: part),
+                        isCurrent: isReconciliationCurrent(part),
+                        isCandidate: candidateIDs.contains(part.id),
+                        candidateColor: candidateColor,
+                        isProvisional: reconciliationDueDates[part.id] != nil,
+                        canMove: canStageReconciliationMove(part),
+                        onEdit: {
+                            if let record = part.e3record {
+                                editReconciliationRecord(record)
+                            }
+                        },
+                        onToggleDueDate: { toggleReconciliationDueDate(part) }
+                    )
+                case .draft(let draft):
+                    ReconciliationDraftRow(
+                        draft: draft,
+                        onEdit: { editingReconciliationDraft = draft },
+                        onDelete: { removeReconciliationDraft(draft) }
+                    )
+                }
+            }
+        }
+    }
+
+    /// 差額の直下で確定条件と確定後の状態を案内する
+    @ViewBuilder
+    private var reconciliationConfirmationRows: some View {
+        if canConfirmReconciliation {
+            if shouldMarkPaidOnReconciliation {
+                Label("invoice.reconciliation.readyAfterDebit", systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.secondary)
+            } else {
+                Label("invoice.reconciliation.readyBeforeDebit", systemImage: "lock.fill")
+                    .foregroundStyle(.secondary)
+            }
+        } else {
+            Label(reconciliationDifferenceGuidanceKey, systemImage: "info.circle")
+                .foregroundStyle(.secondary)
+        }
+
+        // 差額が残る時は仮移動と仮明細を確定保存して後から照合を続けられる
+        if let difference = confirmedAmountDifference, difference != .zero {
+            Button(action: saveReconciliationProgress) {
+                Text("invoice.reconciliation.saveProgress")
+                    .fontWeight(.semibold)
+                    .frame(maxWidth: .infinity)
+            }
+        }
+
+        // 差額が0になり照合可能な時だけ確定操作を表示する
+        if canConfirmReconciliation {
+            Button(action: confirmReconciliation) {
+                if shouldMarkPaidOnReconciliation {
+                    Text("invoice.reconciliation.confirmAndPaid")
+                        .fontWeight(.semibold)
+                        .frame(maxWidth: .infinity)
+                } else {
+                    Text("invoice.reconciliation.confirm")
+                        .fontWeight(.semibold)
+                        .frame(maxWidth: .infinity)
+                }
+            }
+        }
+    }
+
+    /// 明細が不足している時だけ不足額の仮明細を追加する
+    @ViewBuilder
+    private var reconciliationAdjustmentRow: some View {
+        if let difference = confirmedAmountDifference, difference < .zero {
+            Button(action: addReconciliationDifferenceDraft) {
+                HStack(spacing: 8) {
+                    Image(systemName: "plus.circle.fill")
+                    Text("invoice.reconciliation.adjustment.add")
+                    Spacer()
+                }
+                .contentShape(Rectangle())
+            }
+            .foregroundStyle(Color.orange)
+        }
+    }
+
     var body: some View {
         List {
-            beginnerSection
-            statementSummarySection
-            unselectedDraftSection
-            copyHintSection
+            if isReconciliationMode {
+                statementSummarySection
+                reconciliationPartsSection
+            } else {
+                beginnerSection
+                statementSummarySection
+                unselectedDraftSection
+                copyHintSection
 
-            // カード別請求
-            ForEach(cardSections) { section in
-                Section {
-                    ForEach(draftPayments(for: section.card)) { draft in
-                        DraftPaymentRow(draft: draft) {
-                            editingDraftPayment = draft
-                        }
-                    }
-
-                    ForEach(section.parts) { part in
-                        PartRow(
-                            part: part,
-                            onTogglePaid: {
-                                do {
-                                    try RecordService.setPartPaid(
-                                        part,
-                                        isPaid: !(part.e2invoice?.isPaid ?? false),
-                                        context: context
-                                    )
-                                } catch {
-                                    // 済み切替の保存失敗を診断送信する
-                                    AppTelemetry.reportSwiftDataError(error, operation: "InvoiceListView.togglePartPaid", entity: "E6part")
-                                }
-                            },
-                            onToggleCheck: {
-                                toggleCheck(part)
-                            },
-                            onEdit: {
-                                if let record = part.e3record {
-                                    // 明細セルタップで明細編集シートを開く
-                                    editRecord = record
-                                }
-                            },
-                            onMoveToNextMonth: canMovePartToNextMonth(part)
-                                ? { movePartToNextMonth(part) }
-                                : nil
-                        )
-                        // 右スワイプは編集画面を開かず、その場で明細を複製する
-                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                            if part.e3record != nil {
-                                Button {
-                                    duplicatePart(part)
-                                } label: {
-                                    Label("button.copy", systemImage: "doc.on.doc.fill")
-                                }
-                                .tint(.blue)
-                                .accessibilityLabel(Text("button.copy"))
+                // カード別請求
+                ForEach(cardSections) { section in
+                    Section {
+                        ForEach(draftPayments(for: section.card)) { draft in
+                            DraftPaymentRow(draft: draft) {
+                                editingDraftPayment = draft
                             }
                         }
-                        // コピー仮明細はコピー元の直下に並べて表示する
-                        ForEach(draftCopies(for: part)) { draft in
-                            InvoiceDraftCopyRow(draft: draft) {
-                                editingDraftCopy = draft
+
+                        ForEach(section.parts) { part in
+                            PartRow(
+                                part: part,
+                                onTogglePaid: {
+                                    do {
+                                        try RecordService.setPartPaid(
+                                            part,
+                                            isPaid: !(part.e2invoice?.isPaid ?? false),
+                                            context: context
+                                        )
+                                    } catch {
+                                        // 済み切替の保存失敗を診断送信する
+                                        AppTelemetry.reportSwiftDataError(error, operation: "InvoiceListView.togglePartPaid", entity: "E6part")
+                                    }
+                                },
+                                onToggleCheck: {
+                                    toggleCheck(part)
+                                },
+                                onEdit: {
+                                    if let record = part.e3record {
+                                        // 明細セルタップで明細編集シートを開く
+                                        editRecord = record
+                                    }
+                                }
+                            )
+                            // 右スワイプは編集画面を開かず、その場で明細を複製する
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                if part.e3record != nil {
+                                    Button {
+                                        duplicatePart(part)
+                                    } label: {
+                                        Label("button.copy", systemImage: "doc.on.doc.fill")
+                                    }
+                                    .tint(.blue)
+                                    .accessibilityLabel(Text("button.copy"))
+                                }
+                            }
+                            // コピー仮明細はコピー元の直下に並べて表示する
+                            ForEach(draftCopies(for: part)) { draft in
+                                InvoiceDraftCopyRow(draft: draft) {
+                                    editingDraftCopy = draft
+                                }
                             }
                         }
-                    }
 
-                    // 明細が複数行のときのみ小計を表示する
-                    if 1 < section.parts.count {
+                        // 明細が複数行のときのみ小計を表示する
+                        if 1 < section.parts.count {
+                            HStack(spacing: 8) {
+                                // 変更可能（未払 + 解錠）な明細が 2 件以上ある時だけ「まとめて変更」を出す
+                                if 1 < bulkChangeMovableParts(in: section).count {
+                                    Button {
+                                        bulkChangeDraftDate = displayDate
+                                        bulkChangeCardID = section.id
+                                    } label: {
+                                        Text("invoice.bulkChangeDate.button")
+                                            .font(.caption.weight(.semibold))
+                                            .foregroundStyle(Color.blue)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                                Spacer()
+                                Text(section.sumAmount.currencyString())
+                                    .font(.subheadline.monospacedDigit().bold())
+                                    .foregroundStyle(displayIsPaid ? badgeTheme.paidText : badgeTheme.unpaidText)
+                            }
+                        }
+                    } header: {
                         HStack(spacing: 8) {
-                            // 変更可能（未払 + 解錠）な明細が 2 件以上ある時だけ「まとめて変更」を出す
-                            if bulkChangeMovableParts(in: section).count > 1 {
-                                Button {
-                                    bulkChangeDraftDate = displayDate
-                                    bulkChangeCardID = section.id
-                                } label: {
-                                    Text("invoice.bulkChangeDate.button")
-                                        .font(.caption.weight(.semibold))
-                                        .foregroundStyle(Color.blue)
-                                }
-                                .buttonStyle(.plain)
+                            Text(section.title)
+                            Spacer(minLength: 8)
+                            // 決済手段セクション見出しの右端に「新しい決済」ボタン（その手段をプリセット）
+                            if let card = section.card {
+                                newPaymentButton(action: { addDraftPayment(card: card) })
                             }
-                            Spacer()
-                            Text(section.sumAmount.currencyString())
-                                .font(.subheadline.monospacedDigit().bold())
-                                .foregroundStyle(displayIsPaid ? badgeTheme.paidText : badgeTheme.unpaidText)
-                        }
-                    }
-                } header: {
-                    HStack(spacing: 8) {
-                        Text(section.title)
-                        Spacer(minLength: 8)
-                        // 決済手段セクション見出しの右端に「新しい決済」ボタン（その手段をプリセット）
-                        if let card = section.card {
-                            newPaymentButton(action: { addDraftPayment(card: card) })
                         }
                     }
                 }
             }
         }
+        .modifier(ReconciliationTopMarginModifier(isEnabled: isReconciliationMode))
         // 保存後に reloadKey を更新すると、ここで識別が変わり List 全体が破棄→再構築される。
         // 結果として `cardSections`/`invoices` の計算が走り直し、追加された明細が見える。
         .id(reloadKey)
-        .scalableNavigationTitle("invoice.statement.title")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                // 照合中は画面名を照合状態と手段名へ置き換える
+                if isReconciliationMode {
+                    VStack(spacing: 0) {
+                        Text("invoice.reconciliation.start")
+                            .font(.caption)
+                            .foregroundStyle(Color.secondary)
+                        Text(reconciliationMethodName)
+                            .font(.title3.bold())
+                            .foregroundStyle(Color.primary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                    }
+                } else {
+                    Text("invoice.statement.title")
+                        .font(.title3.bold())
+                        .minimumScaleFactor(0.55)
+                        .lineLimit(1)
+                }
+            }
+        }
         // 標準戻るを隠すと右スワイプ戻りも止まるため、不意な画面戻りを防げる
         .navigationBarBackButtonHidden(true)
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
                 Button {
-                    dismiss()
+                    if isReconciliationMode && hasReconciliationDraft {
+                        showReconciliationDiscardConfirmation = true
+                    } else if isReconciliationMode {
+                        discardReconciliation()
+                    } else {
+                        dismiss()
+                    }
                 } label: {
                     Image(systemName: "chevron.left")
                         .imageScale(.large)
@@ -726,13 +1429,45 @@ struct InvoiceListView: View {
                 .accessibilityLabel(Text("button.back"))
             }
         }
-        // 確定額入力中は背面のナビゲーション操作を隠す
+        .confirmationDialog(
+            "invoice.reconciliation.discard.title",
+            isPresented: $showReconciliationDiscardConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("invoice.reconciliation.discard.action", role: .destructive) {
+                discardReconciliation()
+            }
+            Button("invoice.reconciliation.discard.continue", role: .cancel) {}
+        }
+        .sheet(isPresented: $showReconciliationHelp) {
+            ReconciliationHelpSheet()
+                .appFontScale(fontScale)
+                .presentationDetents([.medium])
+                // 共通ヘルプシートと同じドラッグハンドルを表示する
+                .presentationDragIndicator(.visible)
+                .presentationBackground(Color(uiColor: .systemBackground))
+        }
+        .sheet(item: $editingReconciliationDraft) { draft in
+            NavigationStack {
+                ReconciliationDraftEditView(draft: draft) { updatedDraft in
+                    updateReconciliationDraft(updatedDraft)
+                }
+            }
+            // 仮明細編集にもアプリ内文字サイズ設定を適用する
+            .appFontScale(fontScale)
+            .presentationBackground(Color(uiColor: .systemBackground))
+        }
+        // 請求合計入力中は背面のナビゲーション操作を隠す
         .toolbar(showConfirmedAmountPad ? .hidden : .visible, for: .navigationBar)
         .sheet(item: $editRecord) { record in
             NavigationStack {
                 RecordEditView(
                     mode: .edit(record),
                     onSaved: { bankChanged in
+                        if isReconciliationMode {
+                            // 再作成された明細で差額と移動候補を計算し直す
+                            refreshReconciliationAfterRecordEdit()
+                        }
                         // 口座変更時だけ payment 所属が変わり得るため状況一覧へ戻す
                         if bankChanged {
                             dismiss()
@@ -1032,8 +1767,6 @@ private struct PartRow: View {
     let onTogglePaid: () -> Void
     let onToggleCheck: () -> Void
     let onEdit: () -> Void
-    /// 「支払を翌月へ」。nil の時はボタンを出さない
-    let onMoveToNextMonth: (() -> Void)?
     @Environment(\.badgeTheme) private var badgeTheme
     private var record: E3record? { part.e3record }
     private var isPaid: Bool { part.e2invoice?.isPaid ?? false }
@@ -1045,19 +1778,7 @@ private struct PartRow: View {
 
     var body: some View {
         if let record {
-            VStack(alignment: .trailing, spacing: 6) {
-                partContent(record: record)
-                if let onMoveToNextMonth {
-                    HStack(spacing: 8) {
-                        // なぜ締日間際の明細だけに出るのかを説明する
-                        BeginnerHintView(
-                            detailTitleKey: "invoice.part.moveToNextMonth",
-                            detailMessageKey: "invoice.part.moveToNextMonth.help"
-                        )
-                        moveToNextMonthButton(action: onMoveToNextMonth)
-                    }
-                }
-            }
+            partContent(record: record)
         } else {
             HStack {
                 Text("—")
@@ -1067,24 +1788,6 @@ private struct PartRow: View {
                     .font(.body.monospacedDigit())
             }
         }
-    }
-
-    /// 締日間際の利用が翌々月に回った時、その場で支払日を次の支払日へ移すボタン。
-    /// 決済編集の「翌月へ▶」と同じ見た目にそろえる
-    private func moveToNextMonthButton(action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 2) {
-                Text("invoice.part.moveToNextMonth")
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-                Image(systemName: "arrowtriangle.right.fill")
-                    .imageScale(.small)
-            }
-            .font(.caption)
-        }
-        // List 行内で明細本体のタップと同時に反応しないよう bordered スタイルにする
-        .buttonStyle(.bordered)
-        .controlSize(.small)
     }
 
     @ViewBuilder
@@ -1126,6 +1829,348 @@ private struct PartRow: View {
             RoundedRectangle(cornerRadius: 10)
                 .stroke(Color.clear, lineWidth: 1)
         )
+    }
+}
+
+/// 照合モードの使い方を表示するシート
+private struct ReconciliationHelpSheet: View {
+    var body: some View {
+        // 共通ヘルプシートと揃え、ナビゲーションバーを置かず本文だけを表示する
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                HStack {
+                    Spacer()
+                    Image(systemName: "questionmark.circle")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(Color.accentColor)
+                    Spacer()
+                }
+
+                Text("invoice.reconciliation.help.message")
+                    .font(.body)
+                    .foregroundStyle(Color.primary)
+                    .lineLimit(nil)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(20)
+        }
+    }
+}
+
+/// 保存前の不足分仮明細だけを編集する簡易画面
+private struct ReconciliationDraftEditView: View {
+    let draft: ReconciliationNewRecordDraft
+    let onSave: (ReconciliationNewRecordDraft) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var useDate: Date
+    @State private var name: String
+    @State private var amount: Decimal
+    @State private var showAmountPad = false
+
+    init(
+        draft: ReconciliationNewRecordDraft,
+        onSave: @escaping (ReconciliationNewRecordDraft) -> Void
+    ) {
+        self.draft = draft
+        self.onSave = onSave
+        _useDate = State(initialValue: draft.useDate)
+        // 自動ラベルは初回編集時に消し、利用先を必ず入力してもらう
+        let defaultName = String(localized: "invoice.reconciliation.adjustment.title")
+        _name = State(initialValue: draft.name == defaultName ? "" : draft.name)
+        _amount = State(initialValue: draft.amount)
+    }
+
+    private var canSave: Bool {
+        .zero < amount.roundedAmount()
+            && !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var body: some View {
+        Form {
+            Section {
+                DatePicker(
+                    "record.field.date",
+                    selection: $useDate,
+                    in: APP_MIN_DATE...APP_MAX_DATE,
+                    displayedComponents: [.date]
+                )
+
+                TextField("record.field.usePoint", text: $name)
+
+                Button {
+                    showAmountPad = true
+                } label: {
+                    HStack {
+                        Text("record.field.amount")
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        Text(amount.currencyString())
+                            .monospacedDigit()
+                            .foregroundStyle(Color.accentColor)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .frame(maxWidth: .infinity)
+            }
+
+            Section {
+                LabeledContent("record.field.card", value: draft.card.zName)
+                LabeledContent(
+                    "invoice.reconciliation.payment",
+                    value: AppDateFormat.singleLineText(draft.dueDate)
+                )
+            }
+        }
+        .navigationTitle("record.edit.title.edit")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("button.cancel") { dismiss() }
+            }
+            ToolbarItem(placement: .confirmationAction) {
+                Button("button.save") { save() }
+                    .fontWeight(.semibold)
+                    .disabled(!canSave)
+            }
+        }
+        // 金額入力中は編集画面のナビゲーション操作を隠す
+        .toolbar(showAmountPad ? .hidden : .visible, for: .navigationBar)
+        .overlay {
+            if showAmountPad {
+                NumericKeypadOverlay(
+                    title: "record.field.amount",
+                    placeholder: amount,
+                    maxValue: APP_MAX_AMOUNT,
+                    onCancel: { showAmountPad = false },
+                    onCommit: { value in
+                        // 仮明細は請求へ加算するため正の金額だけを保持する
+                        amount = Swift.max(value, .zero).roundedAmount()
+                        showAmountPad = false
+                    }
+                )
+            }
+        }
+    }
+
+    /// 編集内容を保存前の仮明細へ戻す
+    private func save() {
+        guard canSave else { return }
+        let updatedDraft = ReconciliationNewRecordDraft(
+            id: draft.id,
+            useDate: Calendar.current.startOfDay(for: useDate),
+            dueDate: draft.dueDate,
+            amount: amount.roundedAmount(),
+            name: name.trimmingCharacters(in: .whitespacesAndNewlines),
+            card: draft.card
+        )
+        onSave(updatedDraft)
+        dismiss()
+    }
+}
+
+/// 差額分として追加し、照合確定まで保存しない仮明細セル
+private struct ReconciliationDraftRow: View {
+    let draft: ReconciliationNewRecordDraft
+    let onEdit: () -> Void
+    let onDelete: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .center, spacing: 8) {
+                Button(action: onEdit) {
+                    HStack(alignment: .center, spacing: 8) {
+                        StackedDateView(date: draft.useDate)
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(draft.name)
+                                .font(.body)
+                                .foregroundStyle(.primary)
+                                .lineLimit(1)
+                            Text(draft.card.zName)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+
+                        Spacer(minLength: 8)
+
+                        Text(draft.amount.currencyString())
+                            .font(.body.monospacedDigit())
+                            .foregroundStyle(.primary)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .frame(maxWidth: .infinity)
+
+                Button(role: .destructive, action: onDelete) {
+                    Image(systemName: "xmark.circle.fill")
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text("button.delete"))
+            }
+
+            Button(action: onEdit) {
+                HStack(spacing: 4) {
+                    Text("invoice.reconciliation.payment")
+                        .font(.caption2)
+                        .foregroundStyle(Color.secondary.opacity(0.75))
+                    Text("invoice.reconciliation.current")
+                    Text(AppDateFormat.monthDayWeekdayText(draft.dueDate))
+                        .monospacedDigit()
+                    Spacer()
+                    Text("invoice.reconciliation.adjustment.draft")
+                        .foregroundStyle(.orange)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .frame(maxWidth: .infinity)
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(Color.accentColor)
+        }
+        .padding(.vertical, 4)
+        .padding(.horizontal, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                // 不足分として追加した仮明細を薄い不足色で示す
+                .fill(Color.orange.opacity(0.10))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.orange.opacity(0.35), lineWidth: 1)
+        )
+    }
+}
+
+/// 照合モードで利用日順に表示する明細セル
+private struct ReconciliationPartRow: View {
+    let part: E6part
+    let dueDate: Date
+    let isCurrent: Bool
+    let isCandidate: Bool
+    let candidateColor: Color
+    let isProvisional: Bool
+    let canMove: Bool
+    let onEdit: () -> Void
+    let onToggleDueDate: () -> Void
+
+    private var record: E3record? { part.e3record }
+
+    var body: some View {
+        if let record {
+            VStack(alignment: .leading, spacing: 8) {
+                Button(action: onEdit) {
+                    RecordSummaryRow(
+                        record: record,
+                        amountOverride: part.nAmount,
+                        showsStatus: false
+                    )
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+
+                HStack(spacing: 6) {
+                    reconciliationStatusLabel
+                    if isCandidate {
+                        Text("invoice.reconciliation.candidate")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(candidateColor)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 3)
+                            .background(
+                                Capsule()
+                                    .fill(candidateColor.opacity(0.12))
+                            )
+                    }
+                    Spacer(minLength: 6)
+                    if canMove {
+                        Button(action: onToggleDueDate) {
+                            HStack(spacing: 4) {
+                                if isCurrent {
+                                    Text("invoice.reconciliation.moveNext")
+                                    Image(systemName: "arrowtriangle.right.fill")
+                                        .imageScale(.small)
+                                } else {
+                                    Image(systemName: "arrowtriangle.left.fill")
+                                        .imageScale(.small)
+                                    Text("invoice.reconciliation.moveCurrent")
+                                }
+                            }
+                            .font(.caption)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+                }
+            }
+            .padding(.vertical, 4)
+            .padding(.horizontal, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(rowBackgroundColor)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(rowBorderColor, lineWidth: 1)
+            )
+        } else {
+            HStack {
+                Text("—")
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text(part.nAmount.currencyString())
+                    .font(.body.monospacedDigit())
+            }
+        }
+    }
+
+    /// 仮移動と次回以降の背景を保ち、今回の移動候補だけ状態色で補う
+    private var rowBackgroundColor: Color {
+        if isProvisional && isCurrent {
+            return Color.blue.opacity(0.08)
+        }
+        if !isCurrent || isProvisional {
+            return Color(.secondarySystemFill)
+        }
+        return isCandidate ? candidateColor.opacity(0.06) : Color.clear
+    }
+
+    /// 背景色と同系色の枠で状態を補強する
+    private var rowBorderColor: Color {
+        if isProvisional && isCurrent {
+            return Color.blue.opacity(0.35)
+        }
+        if isProvisional {
+            return Color.secondary.opacity(0.35)
+        }
+        return isCandidate ? candidateColor.opacity(0.35) : Color.clear
+    }
+
+    /// 今回または次回以降の所属と支払日を同じ位置に表示する
+    private var reconciliationStatusLabel: some View {
+        HStack(spacing: 3) {
+            Text("invoice.reconciliation.payment")
+                .font(.caption2)
+                .foregroundStyle(Color.secondary.opacity(0.75))
+            if isCurrent {
+                Text("invoice.reconciliation.current")
+            } else {
+                Text("invoice.reconciliation.future")
+            }
+            Text(AppDateFormat.monthDayWeekdayText(dueDate))
+                .monospacedDigit()
+        }
+        .font(.caption2.weight(.semibold))
+        .foregroundStyle(isCurrent ? Color.accentColor : Color.secondary)
+        .lineLimit(1)
+        .minimumScaleFactor(0.7)
     }
 }
 
