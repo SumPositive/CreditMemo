@@ -448,6 +448,10 @@ struct RecordEditView: View {
     @State private var showBankPicker     = false
     @State private var showCategoryPicker = false
     @State private var showDeleteAlert    = false
+    /// 変更破棄の2回目のタップを待っているか
+    @State private var isDiscardArmed     = false
+    /// 変更破棄の確認状態を一定時間後に戻す
+    @State private var discardResetTask: Task<Void, Never>?
     @State private var isRepeatDropdownExpanded = false
     @State private var savedBanner        = false
     @State private var hasInitialized     = false
@@ -813,15 +817,7 @@ private var isValid: Bool {
                 }
             }
         }
-        .scalableNavigationTitle(isNew ? "record.edit.title.add" : "record.edit.title.edit") {
-            if isNew {
-                Image(systemName: "plus.circle.fill")
-                    .foregroundStyle(Color.blue)
-            } else {
-                Image(systemName: "square.and.pencil")
-                    .foregroundStyle(Color.orange)
-            }
-        }
+        .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden({
             switch mode {
             case .addNew:  return hasChanges
@@ -834,26 +830,51 @@ private var isValid: Bool {
         }
         .onDisappear {
             editingState.isEditingInProgress = false
+            discardResetTask?.cancel()
         }
+        // 確認中の破棄ボタンは2秒、またはボタン外のタップで通常のキャンセル表示へ戻る。
+        // 画面全体の SwiftUI タップ検知は中のボタンを横取りするので、ウィンドウで監視する
+        .onWindowTap(isActive: isDiscardArmed) { disarmDiscardConfirmation() }
+        // シート表示で変更があるときは下スワイプで閉じず、キャンセルの確認を通す
+        .interactiveDismissDisabled(hasChanges)
         .toolbar {
+            if !isDiscardArmed {
+                // 確認中は長い破棄ボタンのためにタイトルを隠す
+                ToolbarItem(placement: .principal) {
+                    HStack(spacing: 6) {
+                        if isNew {
+                            Image(systemName: "plus.circle.fill")
+                                .foregroundStyle(Color.blue)
+                        } else {
+                            Image(systemName: "square.and.pencil")
+                                .foregroundStyle(Color.orange)
+                        }
+                        Text(isNew ? "record.edit.title.add" : "record.edit.title.edit")
+                            .font(.title3.bold())
+                            .minimumScaleFactor(0.55)
+                            .lineLimit(1)
+                    }
+                    .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                }
+            }
             ToolbarItem(placement: .navigationBarLeading) {
                 switch mode {
                 case .addNew:
                     // メインメニューからの push 表示は戻る矢印で閉じられるのでキャンセル不要
                     // シート表示は戻るが無いので常時キャンセルを出す
                     if !isFromMainMenu {
-                        Button("button.cancel") { dismiss() }
+                        cancelButton
                     } else if hasChanges {
                         // メインメニュー経由でも変更後は戻る矢印が隠れるため、その時だけキャンセル
-                        Button("button.cancel") { dismiss() }
+                        cancelButton
                     }
                 case .addCopy:
                     // コピー新規は、変更有無に関係なく必ずキャンセルを出す
-                    Button("button.cancel") { dismiss() }
+                    cancelButton
                 case .edit:
                     if hasChanges {
                         // 編集中に変更がある場合は「キャンセル」を表示する
-                        Button("button.cancel") { dismiss() }
+                        cancelButton
                     } else {
                         Button { dismiss() } label: {
                             Image(systemName: "chevron.down")
@@ -864,17 +885,19 @@ private var isValid: Bool {
                     }
                 }
             }
-            ToolbarItem(placement: .navigationBarTrailing) {
-                // コピー新規はシートを開いた時点で意味のある新規データが揃っているため、
-                // 変更がなくても保存ボタンを強調表示してすぐ保存できるようにする。
-                let emphasizeSave: Bool = {
-                    if case .addCopy = mode { return true }
-                    return hasChanges
-                }()
-                Button("button.save") { save() }
-                    .disabled(!isValid)
-                    .fontWeight(emphasizeSave ? .semibold : .regular)
-                    .foregroundStyle(emphasizeSave ? .blue : .secondary)
+            if !isDiscardArmed {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    // コピー新規はシートを開いた時点で意味のある新規データが揃っているため、
+                    // 変更がなくても保存ボタンを強調表示してすぐ保存できるようにする。
+                    let emphasizeSave: Bool = {
+                        if case .addCopy = mode { return true }
+                        return hasChanges
+                    }()
+                    Button("button.save") { save() }
+                        .disabled(!isValid)
+                        .fontWeight(emphasizeSave ? .semibold : .regular)
+                        .foregroundStyle(emphasizeSave ? .blue : .secondary)
+                }
             }
         }
         // 独自テンキー表示中は背面のナビゲーション操作も隠す
@@ -1122,6 +1145,53 @@ private var isValid: Bool {
         .animation(.spring(duration: 0.3), value: savedBanner)
         // 自動時はシステム設定をそのまま使い、手動時のみ固定サイズを適用する
         .modifier(ConditionalDynamicTypeModifier(fontScale: fontScale))
+    }
+
+    // MARK: - Cancel
+
+    /// 変更があれば1回目で破棄確認に切り替え、2回目で閉じるキャンセルボタン
+    private var cancelButton: some View {
+        Button {
+            handleCancelTapped()
+        } label: {
+            Text(LocalizedStringKey(isDiscardArmed ? "button.discardChanges" : "button.cancel"))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                // 長い確認文がボタンの縁で欠けないよう確認中だけ余白を足す
+                .padding(.horizontal, isDiscardArmed ? 16 : 0)
+        }
+        .tint(isDiscardArmed ? .red : .accentColor)
+    }
+
+    private func handleCancelTapped() {
+        guard hasChanges else {
+            dismiss()
+            return
+        }
+        if isDiscardArmed {
+            discardResetTask?.cancel()
+            dismiss()
+            return
+        }
+        armDiscardConfirmation()
+    }
+
+    /// 2秒間だけ変更破棄の2回目のタップを受け付ける
+    private func armDiscardConfirmation() {
+        discardResetTask?.cancel()
+        withAnimation(.easeInOut(duration: 0.15)) { isDiscardArmed = true }
+        discardResetTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2))
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeInOut(duration: 0.15)) { isDiscardArmed = false }
+        }
+    }
+
+    /// 確認中にボタン外がタップされたら、待たずに通常のキャンセル表示へ戻す
+    private func disarmDiscardConfirmation() {
+        guard isDiscardArmed else { return }
+        discardResetTask?.cancel()
+        withAnimation(.easeInOut(duration: 0.15)) { isDiscardArmed = false }
     }
 
     // MARK: - Form Sections
@@ -3428,5 +3498,97 @@ struct CalendarHeightPreferenceKey: PreferenceKey {
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         let next = nextValue()
         if next > value { value = next }
+    }
+}
+
+// MARK: - Window Tap Observer
+
+/// ウィンドウ全体のタップを、中のボタン操作を妨げずに監視する（体調メモから移植）
+struct WindowTapObserver: UIViewRepresentable {
+    var isActive: Bool
+    var onTap: () -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView(frame: .zero)
+        view.isUserInteractionEnabled = false
+        return view
+    }
+
+    func updateUIView(_ view: UIView, context: Context) {
+        context.coordinator.onTap = onTap
+        // 表示直後はウィンドウが未確定のことがあるので、次の周回で付け外しする
+        DispatchQueue.main.async {
+            if isActive, let window = view.window {
+                context.coordinator.install(on: window)
+            } else {
+                context.coordinator.remove()
+            }
+        }
+    }
+
+    static func dismantleUIView(_ view: UIView, coordinator: Coordinator) {
+        coordinator.remove()
+    }
+
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        var onTap: () -> Void = {}
+        private var recognizer: UITapGestureRecognizer?
+
+        func install(on window: UIWindow) {
+            guard recognizer?.view !== window else { return }
+            remove()
+            let recognizer = UITapGestureRecognizer(target: self, action: #selector(handleTap))
+            // タップを横取りせず、ボタンなど本来の操作へそのまま渡す
+            recognizer.cancelsTouchesInView = false
+            recognizer.delaysTouchesBegan = false
+            recognizer.delaysTouchesEnded = false
+            recognizer.delegate = self
+            window.addGestureRecognizer(recognizer)
+            self.recognizer = recognizer
+        }
+
+        func remove() {
+            if let recognizer {
+                recognizer.view?.removeGestureRecognizer(recognizer)
+            }
+            recognizer = nil
+        }
+
+        @objc private func handleTap() {
+            // ボタンの処理が先に終わるよう次の周回で知らせる。
+            // 同じタップで押されたボタンが、解除後の状態を見て動くことを防ぐ
+            DispatchQueue.main.async { [onTap] in onTap() }
+        }
+
+        func gestureRecognizer(
+            _ gestureRecognizer: UIGestureRecognizer,
+            shouldReceive touch: UITouch
+        ) -> Bool {
+            // ナビゲーションバー（キャンセル・保存ボタン）のタップは対象外。
+            // 確認中のボタン自身を押したときに解除してしまわないようにする
+            var touchedView = touch.view
+            while let currentView = touchedView {
+                if currentView is UINavigationBar || currentView is UIToolbar { return false }
+                touchedView = currentView.superview
+            }
+            return true
+        }
+
+        func gestureRecognizer(
+            _ gestureRecognizer: UIGestureRecognizer,
+            shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+        ) -> Bool {
+            // 画面本来のタップ操作を妨げない
+            true
+        }
+    }
+}
+
+extension View {
+    /// 有効な間、画面のどこかがタップされたら知らせる（中のボタンの操作は妨げない）
+    func onWindowTap(isActive: Bool, perform action: @escaping () -> Void) -> some View {
+        background { WindowTapObserver(isActive: isActive, onTap: action) }
     }
 }

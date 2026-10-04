@@ -289,7 +289,10 @@ struct InvoiceListView: View {
     @State private var reconciliationPrimarySortField: ReconciliationSortField = .useDate
     @State private var reconciliationDateSortOrder: ReconciliationSortOrder = .ascending
     @State private var reconciliationAmountSortOrder: ReconciliationSortOrder = .ascending
-    @State private var showReconciliationDiscardConfirmation = false
+    /// 照合中の変更破棄で、2回目のタップを待っているか
+    @State private var isReconciliationDiscardArmed = false
+    /// 照合中の変更破棄の確認状態を一定時間後に戻す
+    @State private var reconciliationDiscardResetTask: Task<Void, Never>?
     /// 照合モードの説明シートを表示する
     @State private var showReconciliationHelp = false
 
@@ -762,6 +765,37 @@ struct InvoiceListView: View {
         reconciliationDateSortOrder = .ascending
         reconciliationAmountSortOrder = .ascending
         isReconciliationMode = true
+    }
+
+    /// 戻るボタン。照合中に変更があれば1回目で破棄確認に切り替え、2回目で破棄する
+    private func handleReconciliationBackTapped() {
+        guard isReconciliationMode else {
+            dismiss()
+            return
+        }
+        guard hasReconciliationDraft else {
+            discardReconciliation()
+            return
+        }
+        if isReconciliationDiscardArmed {
+            disarmReconciliationDiscard()
+            discardReconciliation()
+            return
+        }
+        reconciliationDiscardResetTask?.cancel()
+        withAnimation(.easeInOut(duration: 0.15)) { isReconciliationDiscardArmed = true }
+        reconciliationDiscardResetTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2))
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeInOut(duration: 0.15)) { isReconciliationDiscardArmed = false }
+        }
+    }
+
+    /// 確認中にボタン外がタップされたら、待たずに通常の戻る表示へ戻す
+    private func disarmReconciliationDiscard() {
+        guard isReconciliationDiscardArmed else { return }
+        reconciliationDiscardResetTask?.cancel()
+        withAnimation(.easeInOut(duration: 0.15)) { isReconciliationDiscardArmed = false }
     }
 
     /// 仮入力と仮移動を破棄して通常表示へ戻す
@@ -1389,7 +1423,10 @@ struct InvoiceListView: View {
         .toolbar {
             ToolbarItem(placement: .principal) {
                 // 照合中は画面名を照合状態と手段名へ置き換える
-                if isReconciliationMode {
+                if isReconciliationDiscardArmed {
+                    // 確認中は長い破棄ボタンのためにタイトルを隠す
+                    EmptyView()
+                } else if isReconciliationMode {
                     VStack(spacing: 0) {
                         Text("invoice.reconciliation.start")
                             .font(.caption)
@@ -1412,33 +1449,34 @@ struct InvoiceListView: View {
         .navigationBarBackButtonHidden(true)
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
-                Button {
-                    if isReconciliationMode && hasReconciliationDraft {
-                        showReconciliationDiscardConfirmation = true
-                    } else if isReconciliationMode {
-                        discardReconciliation()
-                    } else {
-                        dismiss()
+                if isReconciliationMode && hasReconciliationDraft {
+                    // 照合中に変更があれば、新しい決済と同じくキャンセル→破棄確認の2段にする
+                    Button {
+                        handleReconciliationBackTapped()
+                    } label: {
+                        Text(LocalizedStringKey(isReconciliationDiscardArmed ? "button.discardChanges" : "button.cancel"))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                            // 長い確認文がボタンの縁で欠けないよう確認中だけ余白を足す
+                            .padding(.horizontal, isReconciliationDiscardArmed ? 16 : 0)
                     }
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .imageScale(.large)
-                        .symbolRenderingMode(.hierarchical)
-                        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                    .tint(isReconciliationDiscardArmed ? .red : .accentColor)
+                } else {
+                    Button {
+                        handleReconciliationBackTapped()
+                    } label: {
+                        Image(systemName: "chevron.left")
+                            .imageScale(.large)
+                            .symbolRenderingMode(.hierarchical)
+                            .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                    }
+                    .accessibilityLabel(Text("button.back"))
                 }
-                .accessibilityLabel(Text("button.back"))
             }
         }
-        .confirmationDialog(
-            "invoice.reconciliation.discard.title",
-            isPresented: $showReconciliationDiscardConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("invoice.reconciliation.discard.action", role: .destructive) {
-                discardReconciliation()
-            }
-            Button("invoice.reconciliation.discard.continue", role: .cancel) {}
-        }
+        // 確認中の破棄ボタンは2秒、またはボタン外のタップで通常の戻る表示へ戻る
+        .onWindowTap(isActive: isReconciliationDiscardArmed) { disarmReconciliationDiscard() }
+        .onDisappear { reconciliationDiscardResetTask?.cancel() }
         .sheet(isPresented: $showReconciliationHelp) {
             ReconciliationHelpSheet()
                 .appFontScale(fontScale)
@@ -1895,6 +1933,13 @@ private struct ReconciliationDraftEditView: View {
     /// カプセル全体の実測高さ。行数が少なければこの高さまで縮める
     @State private var frequentContentHeight: CGFloat = 0
     @FocusState private var focusNote: Bool
+    /// 変更破棄の2回目のタップを待っているか
+    @State private var isDiscardArmed = false
+    /// 変更破棄の確認状態を一定時間後に戻す
+    @State private var discardResetTask: Task<Void, Never>?
+    /// 開いた時点の入力値（変更有無の判定に使う）
+    private let initialName: String
+    private let initialTagIDs: [String]
 
     private let frequentSpacing: CGFloat = 8
     private let frequentRowSpacing: CGFloat = 8
@@ -1909,10 +1954,21 @@ private struct ReconciliationDraftEditView: View {
         _useDate = State(initialValue: draft.useDate)
         // 自動ラベルは初回編集時に消し、利用先を必ず入力してもらう
         let defaultName = String(localized: "invoice.reconciliation.adjustment.title")
-        _name = State(initialValue: draft.name == defaultName ? "" : draft.name)
+        let startName = draft.name == defaultName ? "" : draft.name
+        _name = State(initialValue: startName)
+        initialName = startName
+        initialTagIDs = draft.tags.map(\.id)
         _amount = State(initialValue: draft.amount)
         _note = State(initialValue: draft.note)
         _selectedTags = State(initialValue: draft.tags)
+    }
+
+    private var hasChanges: Bool {
+        !Calendar.current.isDate(useDate, inSameDayAs: draft.useDate)
+            || name != initialName
+            || amount != draft.amount
+            || note != draft.note
+            || selectedTags.map(\.id) != initialTagIDs
     }
 
     private var canSave: Bool {
@@ -2016,16 +2072,43 @@ private struct ReconciliationDraftEditView: View {
         .listSectionSpacing(.custom(16))
         .contentMargins(.top, 16, for: .scrollContent)
         .scrollDismissesKeyboard(.immediately)
-        .navigationTitle("record.edit.title.edit")
+        // 確認中は長い破棄ボタンのためにタイトルを隠す
+        .navigationTitle(isDiscardArmed ? Text(verbatim: "") : Text("record.edit.title.edit"))
         .navigationBarTitleDisplayMode(.inline)
+        // 確認中の破棄ボタンは2秒、またはボタン外のタップで通常のキャンセル表示へ戻る
+        .onWindowTap(isActive: isDiscardArmed) { disarmDiscardConfirmation() }
+        .onDisappear { discardResetTask?.cancel() }
+        // 変更があるときは下スワイプで閉じず、キャンセルの確認を通す
+        .interactiveDismissDisabled(hasChanges)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("button.cancel") { dismiss() }
+                if hasChanges {
+                    Button {
+                        handleCancelTapped()
+                    } label: {
+                        Text(LocalizedStringKey(isDiscardArmed ? "button.discardChanges" : "button.cancel"))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                            // 長い確認文がボタンの縁で欠けないよう確認中だけ余白を足す
+                            .padding(.horizontal, isDiscardArmed ? 16 : 0)
+                    }
+                    .tint(isDiscardArmed ? .red : .accentColor)
+                } else {
+                    // 変更がなければ決済編集と同じく下矢印で閉じる
+                    Button { dismiss() } label: {
+                        Image(systemName: "chevron.down")
+                            .imageScale(.large)
+                            .symbolRenderingMode(.hierarchical)
+                            .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                    }
+                }
             }
-            ToolbarItem(placement: .confirmationAction) {
-                Button("button.save") { save() }
-                    .fontWeight(.semibold)
-                    .disabled(!canSave)
+            if !isDiscardArmed {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("button.save") { save() }
+                        .fontWeight(.semibold)
+                        .disabled(!canSave)
+                }
             }
         }
         // 金額入力中は編集画面のナビゲーション操作を隠す
@@ -2246,6 +2329,33 @@ private struct ReconciliationDraftEditView: View {
             }
         }
         .contentShape(Rectangle())
+    }
+
+    /// 変更があれば1回目で破棄確認に切り替え、2回目で閉じる
+    private func handleCancelTapped() {
+        guard hasChanges else {
+            dismiss()
+            return
+        }
+        if isDiscardArmed {
+            discardResetTask?.cancel()
+            dismiss()
+            return
+        }
+        discardResetTask?.cancel()
+        withAnimation(.easeInOut(duration: 0.15)) { isDiscardArmed = true }
+        discardResetTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2))
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeInOut(duration: 0.15)) { isDiscardArmed = false }
+        }
+    }
+
+    /// 確認中にボタン外がタップされたら、待たずに通常のキャンセル表示へ戻す
+    private func disarmDiscardConfirmation() {
+        guard isDiscardArmed else { return }
+        discardResetTask?.cancel()
+        withAnimation(.easeInOut(duration: 0.15)) { isDiscardArmed = false }
     }
 
     /// 編集内容を保存前の仮明細へ戻す
