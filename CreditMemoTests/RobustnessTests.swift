@@ -439,6 +439,49 @@ struct RobustnessTests {
         #expect(report.hasIssue == false)
     }
 
+    @Test("照合で追加した差額分の明細も、通常保存と同じくタグの利用統計を更新する")
+    func reconciliationDraftUpdatesTagStats() throws {
+        let context = try TestStore.makeContext()
+        let bank = TestFixtures.makeBank(name: "口座", in: context)
+        let card = TestFixtures.makeCard(name: "カード", bank: bank, in: context)
+        let tag = TestFixtures.makeTag(name: "タグ", in: context)
+        let record = try TestFixtures.saveRecord(
+            amount: 1_000,
+            dateUse: TestStore.date(2026, 4, 5),
+            card: card,
+            in: context
+        )
+        let part = try #require(record.e6parts.first)
+        let dueDate = try #require(part.e2invoice?.date)
+        let countBefore = tag.sortCount
+        let amountBefore = tag.sortAmount
+
+        let draft = ReconciliationNewRecordDraft(
+            id: UUID(),
+            useDate: TestStore.date(2026, 4, 20),
+            dueDate: dueDate,
+            amount: 500,
+            name: "差額分",
+            card: card,
+            tags: [tag]
+        )
+        try RecordService.applyReconciliation(
+            moves: [],
+            currentParts: [part],
+            newRecordDrafts: [draft],
+            finalIsPaid: false,
+            context: context
+        )
+
+        #expect(tag.sortCount == countBefore + 1)
+        #expect(tag.sortAmount == amountBefore + 500)
+        let added = try #require(
+            try context.fetch(FetchDescriptor<E3record>()).first { $0.zName == "差額分" }
+        )
+        #expect(added.dateUpdate != nil)
+        #expect(added.e5tags.map(\.id) == [tag.id])
+    }
+
     /// 同じストアを見る別 context。
     /// rollback 後の「DB に何が残っているか」を、登録済みインスタンス越しでなく確認するために使う
     private func freshContext(of context: ModelContext) -> ModelContext {

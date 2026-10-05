@@ -683,6 +683,30 @@ enum RecordService {
         }
     }
 
+    /// 照合で追加する差額分の明細を、通常の新規保存と同じ派生更新つきで作成する。
+    /// 保存はしないので、呼び出し側の保存単位にまとめて確定する
+    private static func insertReconciliationDraftRecord(
+        _ draft: ReconciliationNewRecordDraft,
+        context: ModelContext
+    ) -> E6part? {
+        let record = E3record(
+            dateUse: Calendar.current.startOfDay(for: draft.useDate),
+            zName: draft.name,
+            zNote: draft.note,
+            nAmount: draft.amount,
+            nPayType: 1,
+            nRepeat: 0
+        )
+        record.e1card = draft.card
+        record.e5tags = draft.tags
+        context.insert(record)
+        // 通常保存（save）と同じく、入力順の更新日時とタグの並び順用の利用統計を更新する
+        record.dateUpdate = Date()
+        rebuildBilling(for: record, context: context)
+        for cat in record.e5tags { updateCategoryStats(cat, amount: record.nAmount, date: Date()) }
+        return record.e6parts.first
+    }
+
     /// 照合モードの仮移動、確認ロック、未払/済みを1回の保存で確定する。
     /// 失敗時は context.rollback() で変更前状態へ戻してから例外を投げ直す
     static func applyReconciliation(
@@ -697,19 +721,7 @@ enum RecordService {
 
             // 不足分の仮明細を作成し、今回支払へ固定する
             for draft in newRecordDrafts {
-                let record = E3record(
-                    dateUse: Calendar.current.startOfDay(for: draft.useDate),
-                    zName: draft.name,
-                    zNote: draft.note,
-                    nAmount: draft.amount,
-                    nPayType: 1,
-                    nRepeat: 0
-                )
-                record.e1card = draft.card
-                record.e5tags = draft.tags
-                context.insert(record)
-                rebuildBilling(for: record, context: context)
-                guard let part = record.e6parts.first else { continue }
+                guard let part = insertReconciliationDraftRecord(draft, context: context) else { continue }
                 movePartDueDateWithoutCommit(part, date: draft.dueDate, context: context)
                 part.isDueDateLocked = true
                 finalCurrentParts.append(part)
@@ -767,19 +779,7 @@ enum RecordService {
         do {
             // 不足分の仮明細を作成し、今回の引き落とし日へ固定する
             for draft in newRecordDrafts {
-                let record = E3record(
-                    dateUse: Calendar.current.startOfDay(for: draft.useDate),
-                    zName: draft.name,
-                    zNote: draft.note,
-                    nAmount: draft.amount,
-                    nPayType: 1,
-                    nRepeat: 0
-                )
-                record.e1card = draft.card
-                record.e5tags = draft.tags
-                context.insert(record)
-                rebuildBilling(for: record, context: context)
-                guard let part = record.e6parts.first else { continue }
+                guard let part = insertReconciliationDraftRecord(draft, context: context) else { continue }
                 movePartDueDateWithoutCommit(part, date: draft.dueDate, context: context)
                 part.isDueDateLocked = true
             }
