@@ -45,8 +45,6 @@
   - 差額が不足のときは「足りない明細を追加する」で差額分の仮明細を追加（`ReconciliationNewRecordDraft`）。編集シートは新しい決済と同じ並びで、決済手段で絞ったラベル一覧（照合中の手段を優先、他の手段は後ろにグレー表示・金額付きカプセルあり）、利用日カレンダー、タグ、メモを入力できる。手段は照合中のものに固定
   - 差額が残ったまま「このまま保存する」で途中保存でき、引き落とし状況に「照合中」と表示（`RecordService.saveReconciliationProgress`）
   - 請求合計は SwiftData に持たない。照合中の値は UserDefaults（`ReconciliationProgressStore`、決済手段ID×引き落とし日）、照合済み・入力中の値はメモリ（`ConfirmedDebitAmountSessionStore`）。照合中の値は、未払請求が無くなったものを引き落とし状況の表示時に掃除し（`RecordService.pruneReconciliationProgress`）、JSON インポート後は全消去する
-- **引き落とし明細：締日間際の利用に「支払を翌月へ」ボタン**（`BillingService`）
-  - 利用日が締日まで5日以内の明細に表示
 - **決済編集の支払日まわりを改善**（`RecordEditView`）
   - 日付表示を見やすく整え（`AppDateFormat`）、支払日セルに前月へ／翌月へボタンを配置
 - **タグ一覧に「探して無ければ追加」を配置し、表示をタグ式に変更**（`TagListView`）

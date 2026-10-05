@@ -136,21 +136,6 @@ enum BillingService {
         )
     }
 
-    /// 利用日からその回の締日までの日数（締日当日は0）を返す。
-    /// 締日の無い N日後型や決済手段未選択では nil
-    static func daysUntilClosing(useDate: Date, card: E1card?) -> Int? {
-        guard let card, card.nClosingDay != 0 else { return nil }
-        let dc = Calendar.current.dateComponents([.year, .month, .day], from: useDate)
-        let useDay = dc.day ?? 1
-        // 29 は月末締め
-        let closingDay = card.nClosingDay == 29
-            ? daysInMonth(year: dc.year ?? 2000, month: dc.month ?? 1)
-            : Int(card.nClosingDay)
-        // 締日を過ぎた利用は次の締日まで遠いので対象外にする
-        guard useDay <= closingDay else { return nil }
-        return closingDay - useDay
-    }
-
     /// E3record の各 E6part に対応する支払日リストを返す
     static func partDates(record: E3record, card: E1card) -> [Date] {
         (0..<record.payCount).map {
