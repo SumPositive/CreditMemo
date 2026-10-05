@@ -6,7 +6,7 @@ Deferin records and manages payments across every method — credit cards, debit
 Choose from four text sizes: Auto, Standard, Large, and Extra Large. The setting applies across the whole app — entry screens, selection sheets, even the help pages — for a display that's kind to your eyes.
 
 [Debit management]
-See "before debit" and "already debited" on one screen. Totals are shown across three periods: current, next, and future. Switch payment status with a single button.
+See "before debit" and "already debited" on one screen. Totals are shown across three periods: current, next, and future. Switch payment status with a single button. Reconcile mode lets you match your card company's statement against your records while watching the difference.
 
 [Fast entry]
 When you enter a new payment, "Quote from History" automatically suggests similar past records. Unfilled fields such as label, payment method, and tags are filled in together, cutting the number of entry steps dramatically.

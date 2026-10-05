@@ -1,2 +1,6 @@
-What's New in 2.7.1
-- Fixed an issue where swiping a record did not create a copied draft
+What's New in 2.8.0
+- Added Reconcile mode for checking debits. Match your card company's statement against your Deferin records while watching the difference
+- In the tag list, you can now add a tag right away if the one you're looking for doesn't exist
+- Redesigned the tag list to look more like tags and be easier to scan
+- Canceling while entering data now asks for confirmation, so you won't lose your input by accident
+- Made the help text easier to read

@@ -34,10 +34,35 @@
 
 ![Platform](https://img.shields.io/badge/platform-iOS%2018%2B-blue)
 ![Swift](https://img.shields.io/badge/Swift-6-orange)
-![Version](https://img.shields.io/badge/version-2.7.0-brightgreen)
+![Version](https://img.shields.io/badge/version-2.7.1-brightgreen)
 [![App Store](https://img.shields.io/badge/App%20Store-Download-blue)](https://apps.apple.com/us/app/id432458298)
 
-## バージョン 2.7.1（準備中）の主な変更
+## バージョン 2.8.0（準備中）の主な変更
+
+- **引き落とし明細に照合モードを新設**（`InvoiceListView`）
+  - 決済手段1つに絞った引き落とし明細で利用できる。請求合計を入力すると「明細合計 − 請求合計」の差額と移動候補を表示
+  - 「次回へ」「今回へ」で明細の引き落とし日を仮移動し、確定時にまとめて保存（`RecordService.applyReconciliation`）。差額0で「照合済みにする」と今回分の明細を確認済み（ロック）にする
+  - 差額が不足のときは「足りない明細を追加する」で差額分の仮明細を追加（`ReconciliationNewRecordDraft`）。編集シートは新しい決済と同じ並びで、決済手段で絞ったラベル一覧（照合中の手段を優先、他の手段は後ろにグレー表示・金額付きカプセルあり）、利用日カレンダー、タグ、メモを入力できる。手段は照合中のものに固定
+  - 差額が残ったまま「このまま保存する」で途中保存でき、引き落とし状況に「照合中」と表示（`RecordService.saveReconciliationProgress`）
+  - 請求合計は SwiftData に持たない。照合中の値は UserDefaults（`ReconciliationProgressStore`、決済手段ID×引き落とし日）、照合済み・入力中の値はメモリ（`ConfirmedDebitAmountSessionStore`）。照合中の値は、未払請求が無くなったものを引き落とし状況の表示時に掃除し（`RecordService.pruneReconciliationProgress`）、JSON インポート後は全消去する
+- **引き落とし明細：締日間際の利用に「支払を翌月へ」ボタン**（`BillingService`）
+  - 利用日が締日まで5日以内の明細に表示
+- **決済編集の支払日まわりを改善**（`RecordEditView`）
+  - 日付表示を見やすく整え（`AppDateFormat`）、支払日セルに前月へ／翌月へボタンを配置
+- **タグ一覧に「探して無ければ追加」を配置し、表示をタグ式に変更**（`TagListView`）
+- **キャンセルを2段確認に統一**
+  - 新しい決済・決済編集・差額分の明細の編集・照合モードの戻るで、変更があれば「キャンセル」を表示。1回目で赤い「変更を取り消して閉じる」に変わり、2回目で閉じる（2秒またはボタン外のタップで元に戻る）。体調メモの測定シートと同じ方式（`WindowTapObserver` を移植）
+  - 変更がある間はシートの下スワイプで閉じない（`interactiveDismissDisabled`）
+  - 照合モードの確認ダイアログは廃止
+- **新しい決済の保存後「前画面に戻る」で空画面が出る不具合を修正**（`ContentView` / `RecordEditView`）
+  - メインメニュー経由のとき、保存通知で決済一覧へ切り替えてから閉じていたため。設定に応じて遷移先を1回だけ変える（前画面に戻る＝メニュー、決済一覧を表示＝決済一覧）
+- **設定：文字サイズは設定アプリへ誘導**（`SettingsView`）
+  - 「自動」に変更したとき「次回から設定アプリで変更できます」を表示
+- **ヘルプ文の文体を統一**（`Localizable.xcstrings`）
+  - 1文1段落・段落末の句点なし・空行区切りに揃えた（5言語）。「エキスポート」を「エクスポート」に統一、英語系のアプリ名を Deferin に統一
+  - 未使用の文言41件を削除
+
+## バージョン 2.7.1 の主な変更
 
 - **決済一覧の明細スワイプコピーを修正**（`RecordListView`）
   - 明細セルをスワイプしてもコピー仮明細を作成できない不具合を修正

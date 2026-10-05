@@ -1,2 +1,6 @@
-Neu in 2.7.1
-- Ein Problem wurde behoben, durch das beim Wischen über einen Eintrag keine Kopie als Entwurf erstellt wurde
+Neu in 2.8.0
+- Neuer Abgleichmodus für die Abbuchungsprüfung. Gleiche die Abrechnung deines Kartenanbieters mit deinen Einträgen in Deferin ab und behalte dabei die Differenz im Blick
+- In der Tag-Liste kannst du einen gesuchten Tag sofort hinzufügen, wenn es ihn noch nicht gibt
+- Die Tag-Liste wurde überarbeitet und sieht jetzt wie echte Tags aus – übersichtlicher als zuvor
+- Beim Abbrechen während der Eingabe erscheint jetzt eine Bestätigung, damit keine Eingaben versehentlich verloren gehen
+- Die Hilfetexte wurden leichter lesbar gestaltet

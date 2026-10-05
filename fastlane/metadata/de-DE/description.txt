@@ -6,7 +6,7 @@ Deferin erfasst und verwaltet Zahlungen aller Art – Kreditkarten, Debitkarten,
 Wähle aus vier Textgrößen: Automatisch, Standard, Groß und Sehr groß. Die Einstellung gilt für die gesamte App – Eingabemasken, Auswahlblätter, sogar die Hilfeseiten – für eine augenschonende Darstellung.
 
 [Abbuchungsverwaltung]
-Sieh „vor der Abbuchung" und „bereits abgebucht" auf einem Bildschirm. Summen werden für drei Zeiträume angezeigt: aktuell, nächster und zukünftig. Wechsle den Zahlungsstatus mit einem einzigen Knopf.
+Sieh „vor der Abbuchung" und „bereits abgebucht" auf einem Bildschirm. Summen werden für drei Zeiträume angezeigt: aktuell, nächster und zukünftig. Wechsle den Zahlungsstatus mit einem einzigen Knopf. Im Abgleichmodus gleichst du die Abrechnung deines Kartenanbieters mit deinen Einträgen ab und behältst dabei die Differenz im Blick.
 
 [Schnelle Eingabe]
 Bei der Eingabe einer neuen Zahlung schlägt „Aus Verlauf übernehmen" automatisch ähnliche frühere Einträge vor. Leere Felder wie Bezeichnung, Zahlungsmethode und Tags werden zusammen ausgefüllt und sparen viele Eingabeschritte.
