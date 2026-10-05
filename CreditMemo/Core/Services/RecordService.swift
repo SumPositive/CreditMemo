@@ -526,11 +526,22 @@ enum RecordService {
         return BillingIntegrityRepairResult(before: before, after: after)
     }
 
-    /// 和暦の年を西暦として保存した請求日だけを規定の引き落とし日へ戻す
+    /// 和暦の年を西暦として保存した利用日と請求日を戻し、請求日は規定の引き落とし日へ揃える
     static func repairJapaneseCalendarDueDatesIfNeeded(context: ModelContext) throws -> Int {
-        let parts = context.fetchReporting(FetchDescriptor<E6part>(), entity: "E6part")
         var repairedCount = 0
         do {
+            // 利用日も和暦の範囲（西暦 4018 年以降）で選ばれていた明細は、先に利用日を戻す。
+            // 本来の年は残っていないため、月日はそのままに最終更新日の年（無ければ今年）を使う
+            let records = context.fetchReporting(FetchDescriptor<E3record>(), entity: "E3record")
+            for record in records {
+                if let repairedDate = repairedJapaneseCalendarUseDate(record) {
+                    record.dateUse = repairedDate
+                    repairedCount += 1
+                }
+            }
+
+            // 利用日を戻した明細の引き落とし日も、続く処理で規定の日付へ戻る
+            let parts = context.fetchReporting(FetchDescriptor<E6part>(), entity: "E6part")
             for part in parts {
                 guard let invoice = part.e2invoice,
                       let record = part.e3record else { continue }
@@ -570,6 +581,25 @@ enum RecordService {
             context.rollback()
             throw error
         }
+    }
+
+    /// 和暦の年を西暦として保存した利用日なら、修復後の利用日を返す
+    private static func repairedJapaneseCalendarUseDate(_ record: E3record) -> Date? {
+        let cal = AppCalendar.gregorian
+        let useComponents = cal.dateComponents([.year, .month, .day], from: record.dateUse)
+        guard let useYear = useComponents.year, (4000...4200).contains(useYear) else { return nil }
+
+        // 最終更新日も範囲外なら今年を使う
+        let updateYear = record.dateUpdate.map { cal.component(.year, from: $0) }
+        let year = updateYear.flatMap { (2000...2100).contains($0) ? $0 : nil }
+            ?? cal.component(.year, from: Date())
+
+        // 2/29 が平年になる場合は月末へ寄せる
+        var components = DateComponents(year: year, month: useComponents.month, day: 1)
+        guard let firstDay = cal.date(from: components),
+              let dayRange = cal.range(of: .day, in: .month, for: firstDay) else { return nil }
+        components.day = min(useComponents.day ?? 1, dayRange.upperBound - 1)
+        return cal.date(from: components).map { cal.startOfDay(for: $0) }
     }
 
     /// SwiftData の関係と派生集計の不一致を軽量に確認する
