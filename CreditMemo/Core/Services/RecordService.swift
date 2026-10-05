@@ -908,9 +908,11 @@ enum RecordService {
         })
     }
 
-    /// 未払請求が残っていない照合途中の保存値を消す。
+    /// 請求が残っていない照合途中の保存値を消す。
     /// 明細の移動・削除や決済手段の削除で請求が無くなると保存値だけが残り、
-    /// 後で同じ手段・同じ引き落とし日の請求ができたときに古い請求合計で「照合中」になるのを防ぐ
+    /// 後で同じ手段・同じ引き落とし日の請求ができたときに古い請求合計で「照合中」になるのを防ぐ。
+    /// 照合は済みの請求でも途中保存できるため、未払/済みを問わず請求があれば残す
+    /// （済みにした時の終了処理は clearConfirmedAmountsIfPaid が担う）
     static func pruneReconciliationProgress(context: ModelContext) {
         let progressStore = ReconciliationProgressStore.shared
         for entry in progressStore.entries {
@@ -920,10 +922,10 @@ enum RecordService {
                 predicate: #Predicate<E2invoice> { dayStart <= $0.date && $0.date < nextDay }
             )
             let dayInvoices = context.fetchReporting(descriptor, entity: "E2invoice")
-            let hasUnpaidCard = dayInvoices.contains {
-                !$0.isPaid && $0.e1card?.id == entry.cardID && !$0.e6parts.isEmpty
+            let hasCardInvoice = dayInvoices.contains {
+                $0.e1card?.id == entry.cardID && !$0.e6parts.isEmpty
             }
-            if !hasUnpaidCard {
+            if !hasCardInvoice {
                 progressStore.removeAmount(forCardID: entry.cardID, date: dayStart)
             }
         }
