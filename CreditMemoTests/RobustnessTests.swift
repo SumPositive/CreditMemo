@@ -5,6 +5,24 @@ import Testing
 
 @MainActor
 struct RobustnessTests {
+    @Test("和暦・民国暦の設定でも年の表示に「西暦」などの紀元を付けない")
+    func gregorianLocaleOmitsEra() {
+        let date = TestStore.date(2026, 10, 3)
+        let cases: [(id: String, template: String, expected: String)] = [
+            ("ja_JP@calendar=japanese", "yMMMM", "2026年10月"),
+            ("en_US@calendar=japanese", "yyyyEEE", "Sat 2026"),
+            ("zh_TW@calendar=roc", "yyyyMdEEE", "2026/10/3（週六）"),
+            ("ko_KR@calendar=japanese", "yyyyEEE", "2026년 토"),
+        ]
+        for item in cases {
+            let formatter = DateFormatter()
+            formatter.locale = AppCalendar.gregorianLocale(Locale(identifier: item.id))
+            formatter.calendar = AppCalendar.gregorian
+            formatter.setLocalizedDateFormatFromTemplate(item.template)
+            #expect(formatter.string(from: date) == item.expected, "\(item.id)")
+        }
+    }
+
     @Test("和暦由来の遠未来の引き落とし日を支払状態ごと修復する")
     func repairsJapaneseCalendarDueDate() throws {
         let context = try TestStore.makeContext()

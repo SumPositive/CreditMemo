@@ -1095,7 +1095,7 @@ private struct RecordMonthTotalRow: View {
         let style = Date.FormatStyle(
             date: .omitted,
             time: .omitted,
-            locale: .autoupdatingCurrent,
+            locale: AppCalendar.locale,
             calendar: AppCalendar.gregorian
         ).month(.wide)
         let month = monthDate.formatted(style)

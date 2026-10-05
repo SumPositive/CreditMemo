@@ -653,7 +653,7 @@ enum AppDateFormat {
     /// フィールドの並び順・区切り記号は地域（en_US は月→日、独仏西などは日→月）に追従する
     private static func autoTemplateFormatter(_ template: String) -> DateFormatter {
         let formatter = DateFormatter()
-        formatter.locale = .autoupdatingCurrent
+        formatter.locale = AppCalendar.locale
         // 端末が和暦でも表示する年は保存・集計と同じ西暦に揃える
         formatter.calendar = AppCalendar.gregorian
         formatter.setLocalizedDateFormatFromTemplate(template)
@@ -673,7 +673,7 @@ enum AppDateFormat {
     // 年のみは並び順の問題がなく、ja テンプレートだと「2026年」になるため数字だけの固定書式にする
     private static let yearFormatter: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.locale = .autoupdatingCurrent
+        formatter.locale = AppCalendar.locale
         formatter.calendar = AppCalendar.gregorian
         formatter.dateFormat = "yyyy"
         return formatter

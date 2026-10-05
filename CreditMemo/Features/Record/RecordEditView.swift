@@ -3157,8 +3157,9 @@ struct SingleDateCalendarView: UIViewRepresentable {
 
     func makeUIView(context: Context) -> UICalendarView {
         let view = UICalendarView()
-        view.locale = Locale.current
-        // 表示言語は端末に合わせ、日付成分は西暦で固定する
+        // 表示言語は端末に合わせ、日付成分は西暦で固定する。
+        // ロケールの暦も西暦にし、見出しに「西暦」などの紀元を出さない
+        view.locale = AppCalendar.locale
         view.calendar = AppCalendar.gregorian
         view.availableDateRange = DateInterval(start: availableRange.lowerBound, end: availableRange.upperBound)
         view.fontDesign = .default

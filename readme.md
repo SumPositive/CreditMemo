@@ -44,7 +44,12 @@
   - 「次回へ」「今回へ」で明細の引き落とし日を仮移動し、確定時にまとめて保存（`RecordService.applyReconciliation`）。差額0で「照合済みにする」と今回分の明細を確認済み（ロック）にする
   - 差額が不足のときは「足りない明細を追加する」で差額分の仮明細を追加（`ReconciliationNewRecordDraft`）。編集シートは新しい決済と同じ並びで、決済手段で絞ったラベル一覧（照合中の手段を優先、他の手段は後ろにグレー表示・金額付きカプセルあり）、利用日カレンダー、タグ、メモを入力できる。手段は照合中のものに固定
   - 差額が残ったまま「このまま保存する」で途中保存でき、引き落とし状況に「照合中」と表示（`RecordService.saveReconciliationProgress`）
-  - 請求合計は SwiftData に持たない。照合中の値は UserDefaults（`ReconciliationProgressStore`、決済手段ID×引き落とし日）、照合済み・入力中の値はメモリ（`ConfirmedDebitAmountSessionStore`）。照合中の値は、未払請求が無くなったものを引き落とし状況の表示時に掃除し（`RecordService.pruneReconciliationProgress`）、JSON インポート後は全消去する
+  - 請求合計は SwiftData に持たない。照合中の値は UserDefaults（`ReconciliationProgressStore`、決済手段ID×引き落とし日）、照合済み・入力中の値はメモリ（`ConfirmedDebitAmountSessionStore`）。照合中の値は、請求（未払・済みを問わない）が無くなったものを引き落とし状況の表示時に掃除し（`RecordService.pruneReconciliationProgress`）、JSON インポート後は全消去する。済みにしたときと照合確定時にも消す
+  - 照合の確定・途中保存に失敗したときは `context.rollback()` で変更前へ戻す。差額候補の探索が明細数に対して指数的に増えないよう抑えた。照合から追加した明細もタグ利用統計へ反映する
+- **端末の暦設定（和暦）と週の始まりに対応**（`AppCalendar`）
+  - 保存・集計・日付表示・カレンダーを西暦の `AppCalendar.gregorian` に統一（`Calendar.current` を使わない。DESIGN.md 参照）。週の始まりの曜日だけ端末設定を反映
+  - 端末が和暦だと日付範囲が令和2000〜2100年（西暦4018〜4118年）になり、引き落とし日の変更で落ちる・年が「0008」「令和2000年」と表示される不具合があった（App Store レビューで判明）
+  - 起動時に西暦4018年以降へ保存された利用日・引き落とし日を修復（`RecordService.repairJapaneseCalendarDueDatesIfNeeded`）。利用日は月日を保ち、年を最終更新日の年（範囲外なら今年）で推定してから引き落とし日を計算し直す。済み・照合済みの状態は維持
 - **決済編集の支払日まわりを改善**（`RecordEditView`）
   - 日付表示を見やすく整え（`AppDateFormat`）、支払日セルに前月へ／翌月へボタンを配置
 - **タグ一覧に「探して無ければ追加」を配置し、表示をタグ式に変更**（`TagListView`）

@@ -66,6 +66,18 @@ enum AppCalendar {
         calendar.minimumDaysInFirstWeek = Calendar.autoupdatingCurrent.minimumDaysInFirstWeek
         return calendar
     }
+
+    /// 端末の言語・地域のまま、暦だけ西暦にしたロケール
+    static var locale: Locale { gregorianLocale(.autoupdatingCurrent) }
+
+    /// ロケールの暦を西暦に差し替える。
+    /// 和暦・民国暦のロケールのままテンプレートから書式を作ると紀元（G）が入り、
+    /// 西暦で書くと「西暦2026年」「AD 2026」「西元 2026年」になるため
+    static func gregorianLocale(_ base: Locale) -> Locale {
+        var components = Locale.Components(locale: base)
+        components.calendar = .gregorian
+        return Locale(components: components)
+    }
 }
 
 let APP_MIN_DATE = AppCalendar.gregorian.date(from: DateComponents(year: 2000, month: 1, day: 1))!

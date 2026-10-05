@@ -256,6 +256,8 @@ struct AppMain: App {
                 .modelContainer(container)
                 // SwiftUI の日付入力も西暦で表示する
                 .environment(\.calendar, AppCalendar.gregorian)
+                // ロケールの暦も西暦にし、DatePicker の見出しに「西暦」などの紀元を出さない
+                .environment(\.locale, AppCalendar.locale)
         } else {
             DatabaseErrorView(error: containerError) {
                 renameStoreForRecovery()
