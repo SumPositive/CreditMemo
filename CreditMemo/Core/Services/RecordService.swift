@@ -683,7 +683,8 @@ enum RecordService {
         }
     }
 
-    /// 照合モードの仮移動、確認ロック、未払/済みを1回の保存で確定する
+    /// 照合モードの仮移動、確認ロック、未払/済みを1回の保存で確定する。
+    /// 失敗時は context.rollback() で変更前状態へ戻してから例外を投げ直す
     static func applyReconciliation(
         moves: [ReconciliationDueDateMove],
         currentParts: [E6part],
@@ -691,102 +692,117 @@ enum RecordService {
         finalIsPaid: Bool,
         context: ModelContext
     ) throws {
-        var finalCurrentParts = currentParts
+        do {
+            var finalCurrentParts = currentParts
 
-        // 不足分の仮明細を作成し、今回支払へ固定する
-        for draft in newRecordDrafts {
-            let record = E3record(
-                dateUse: Calendar.current.startOfDay(for: draft.useDate),
-                zName: draft.name,
-                zNote: draft.note,
-                nAmount: draft.amount,
-                nPayType: 1,
-                nRepeat: 0
-            )
-            record.e1card = draft.card
-            record.e5tags = draft.tags
-            context.insert(record)
-            rebuildBilling(for: record, context: context)
-            guard let part = record.e6parts.first else { continue }
-            movePartDueDateWithoutCommit(part, date: draft.dueDate, context: context)
-            part.isDueDateLocked = true
-            finalCurrentParts.append(part)
-        }
-
-        let currentPartIDs = Set(finalCurrentParts.map(\.id))
-        var touchedPartsByID = Dictionary(uniqueKeysWithValues: finalCurrentParts.map { ($0.id, $0) })
-        for move in moves {
-            touchedPartsByID[move.part.id] = move.part
-        }
-
-        // 済み明細も日付変更できるよう、一度未払へ戻してから仮移動を反映する
-        for move in moves {
-            if move.part.e2invoice?.isPaid == true {
-                setPartPaidWithoutCommit(move.part, isPaid: false, context: context)
-            }
-            move.part.isChecked = false
-            movePartDueDateWithoutCommit(move.part, date: move.date, context: context)
-            // 手動で確定した支払日は自動再計算から守る
-            move.part.isDueDateLocked = true
-        }
-
-        // 今回支払だけを照合済みにし、次回以降は未払・未確認のまま残す
-        for part in touchedPartsByID.values {
-            if currentPartIDs.contains(part.id) {
-                part.isChecked = true
+            // 不足分の仮明細を作成し、今回支払へ固定する
+            for draft in newRecordDrafts {
+                let record = E3record(
+                    dateUse: Calendar.current.startOfDay(for: draft.useDate),
+                    zName: draft.name,
+                    zNote: draft.note,
+                    nAmount: draft.amount,
+                    nPayType: 1,
+                    nRepeat: 0
+                )
+                record.e1card = draft.card
+                record.e5tags = draft.tags
+                context.insert(record)
+                rebuildBilling(for: record, context: context)
+                guard let part = record.e6parts.first else { continue }
+                movePartDueDateWithoutCommit(part, date: draft.dueDate, context: context)
                 part.isDueDateLocked = true
-                setPartPaidWithoutCommit(part, isPaid: finalIsPaid, context: context)
-            } else {
-                part.isChecked = false
-                if part.e2invoice?.isPaid == true {
-                    setPartPaidWithoutCommit(part, isPaid: false, context: context)
+                finalCurrentParts.append(part)
+            }
+
+            let currentPartIDs = Set(finalCurrentParts.map(\.id))
+            var touchedPartsByID = Dictionary(uniqueKeysWithValues: finalCurrentParts.map { ($0.id, $0) })
+            for move in moves {
+                touchedPartsByID[move.part.id] = move.part
+            }
+
+            // 済み明細も日付変更できるよう、一度未払へ戻してから仮移動を反映する
+            for move in moves {
+                if move.part.e2invoice?.isPaid == true {
+                    setPartPaidWithoutCommit(move.part, isPaid: false, context: context)
+                }
+                move.part.isChecked = false
+                movePartDueDateWithoutCommit(move.part, date: move.date, context: context)
+                // 手動で確定した支払日は自動再計算から守る
+                move.part.isDueDateLocked = true
+            }
+
+            // 今回支払だけを照合済みにし、次回以降は未払・未確認のまま残す
+            for part in touchedPartsByID.values {
+                if currentPartIDs.contains(part.id) {
+                    part.isChecked = true
+                    part.isDueDateLocked = true
+                    setPartPaidWithoutCommit(part, isPaid: finalIsPaid, context: context)
+                } else {
+                    part.isChecked = false
+                    if part.e2invoice?.isPaid == true {
+                        setPartPaidWithoutCommit(part, isPaid: false, context: context)
+                    }
                 }
             }
-        }
 
-        // 逆参照と派生集計をまとめて整えてから保存する
-        cleanupOrphanBilling(context: context)
-        try commit(context)
+            // 逆参照と派生集計をまとめて整えてから保存する
+            cleanupOrphanBilling(context: context)
+            try commit(context)
+        } catch {
+            // 保存に失敗した仮明細の追加・仮移動・照合状態を ModelContext に残すと、
+            // 後続の自動保存で意図せず確定するため、変更前状態へ戻してから投げ直す
+            context.rollback()
+            throw error
+        }
     }
 
-    /// 照合途中の仮移動と仮明細だけを通常の明細として保存する
+    /// 照合途中の仮移動と仮明細だけを通常の明細として保存する。
+    /// 失敗時は context.rollback() で変更前状態へ戻してから例外を投げ直す
     static func saveReconciliationProgress(
         moves: [ReconciliationDueDateMove],
         newRecordDrafts: [ReconciliationNewRecordDraft],
         context: ModelContext
     ) throws {
-        // 不足分の仮明細を作成し、今回の引き落とし日へ固定する
-        for draft in newRecordDrafts {
-            let record = E3record(
-                dateUse: Calendar.current.startOfDay(for: draft.useDate),
-                zName: draft.name,
-                zNote: draft.note,
-                nAmount: draft.amount,
-                nPayType: 1,
-                nRepeat: 0
-            )
-            record.e1card = draft.card
-            record.e5tags = draft.tags
-            context.insert(record)
-            rebuildBilling(for: record, context: context)
-            guard let part = record.e6parts.first else { continue }
-            movePartDueDateWithoutCommit(part, date: draft.dueDate, context: context)
-            part.isDueDateLocked = true
-        }
-
-        // 仮移動を確定し、照合済みにはせず未確認のまま残す
-        for move in moves {
-            if move.part.e2invoice?.isPaid == true {
-                setPartPaidWithoutCommit(move.part, isPaid: false, context: context)
+        do {
+            // 不足分の仮明細を作成し、今回の引き落とし日へ固定する
+            for draft in newRecordDrafts {
+                let record = E3record(
+                    dateUse: Calendar.current.startOfDay(for: draft.useDate),
+                    zName: draft.name,
+                    zNote: draft.note,
+                    nAmount: draft.amount,
+                    nPayType: 1,
+                    nRepeat: 0
+                )
+                record.e1card = draft.card
+                record.e5tags = draft.tags
+                context.insert(record)
+                rebuildBilling(for: record, context: context)
+                guard let part = record.e6parts.first else { continue }
+                movePartDueDateWithoutCommit(part, date: draft.dueDate, context: context)
+                part.isDueDateLocked = true
             }
-            move.part.isChecked = false
-            movePartDueDateWithoutCommit(move.part, date: move.date, context: context)
-            move.part.isDueDateLocked = true
-        }
 
-        // 逆参照と派生集計を整えてから保存する
-        cleanupOrphanBilling(context: context)
-        try commit(context)
+            // 仮移動を確定し、照合済みにはせず未確認のまま残す
+            for move in moves {
+                if move.part.e2invoice?.isPaid == true {
+                    setPartPaidWithoutCommit(move.part, isPaid: false, context: context)
+                }
+                move.part.isChecked = false
+                movePartDueDateWithoutCommit(move.part, date: move.date, context: context)
+                move.part.isDueDateLocked = true
+            }
+
+            // 逆参照と派生集計を整えてから保存する
+            cleanupOrphanBilling(context: context)
+            try commit(context)
+        } catch {
+            // 保存に失敗した仮明細の追加・仮移動・照合状態を ModelContext に残すと、
+            // 後続の自動保存で意図せず確定するため、変更前状態へ戻してから投げ直す
+            context.rollback()
+            throw error
+        }
     }
 
     /// 請求1件単位で未払/済みを切り替える

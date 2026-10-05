@@ -343,6 +343,102 @@ struct RobustnessTests {
         #expect(report.hasIssue == false)
     }
 
+    @Test("照合の確定保存が失敗したら、仮明細・仮移動・照合済みが残らない")
+    func reconciliationApplyFailureRollsBack() throws {
+        let context = try TestStore.makeContext()
+        let bank = TestFixtures.makeBank(name: "口座", in: context)
+        let card = TestFixtures.makeCard(name: "カード", bank: bank, in: context)
+        let record = try TestFixtures.saveRecord(
+            amount: 1_000,
+            dateUse: TestStore.date(2026, 4, 5),
+            card: card,
+            in: context
+        )
+        let part = try #require(record.e6parts.first)
+        let originalDueDate = try #require(part.e2invoice?.date)
+        let snapshotBefore = try snapshot(context)
+
+        RecordService.commitFailureForTesting = TestSaveError.forced
+        defer { RecordService.commitFailureForTesting = nil }
+
+        let draft = ReconciliationNewRecordDraft(
+            id: UUID(),
+            useDate: TestStore.date(2026, 4, 20),
+            dueDate: originalDueDate,
+            amount: 500,
+            name: "差額分",
+            card: card
+        )
+        #expect(throws: TestSaveError.self) {
+            try RecordService.applyReconciliation(
+                moves: [ReconciliationDueDateMove(part: part, date: TestStore.date(2026, 6, 27))],
+                currentParts: [part],
+                newRecordDrafts: [draft],
+                finalIsPaid: false,
+                context: context
+            )
+        }
+
+        // 失敗後に未保存変更が残らない（後続の自動保存で確定してしまわない）
+        #expect(context.hasChanges == false)
+        #expect(try snapshot(context) == snapshotBefore)
+        // DB 上の明細は照合前のまま（未確認・元の引き落とし日）
+        let storedPart = try #require(
+            try freshContext(of: context).fetch(FetchDescriptor<E6part>()).first
+        )
+        #expect(storedPart.isChecked == false)
+        #expect(storedPart.e2invoice?.date == originalDueDate)
+
+        let report = RecordService.checkBillingIntegrity(context: context)
+        #expect(report.hasIssue == false)
+    }
+
+    @Test("照合の途中保存が失敗したら、仮明細・仮移動が残らない")
+    func reconciliationProgressFailureRollsBack() throws {
+        let context = try TestStore.makeContext()
+        let bank = TestFixtures.makeBank(name: "口座", in: context)
+        let card = TestFixtures.makeCard(name: "カード", bank: bank, in: context)
+        let record = try TestFixtures.saveRecord(
+            amount: 1_000,
+            dateUse: TestStore.date(2026, 4, 5),
+            card: card,
+            in: context
+        )
+        let part = try #require(record.e6parts.first)
+        let originalDueDate = try #require(part.e2invoice?.date)
+        let snapshotBefore = try snapshot(context)
+
+        RecordService.commitFailureForTesting = TestSaveError.forced
+        defer { RecordService.commitFailureForTesting = nil }
+
+        let draft = ReconciliationNewRecordDraft(
+            id: UUID(),
+            useDate: TestStore.date(2026, 4, 20),
+            dueDate: originalDueDate,
+            amount: 500,
+            name: "差額分",
+            card: card
+        )
+        #expect(throws: TestSaveError.self) {
+            try RecordService.saveReconciliationProgress(
+                moves: [ReconciliationDueDateMove(part: part, date: TestStore.date(2026, 6, 27))],
+                newRecordDrafts: [draft],
+                context: context
+            )
+        }
+
+        #expect(context.hasChanges == false)
+        #expect(try snapshot(context) == snapshotBefore)
+        let storedPart = try #require(
+            try freshContext(of: context).fetch(FetchDescriptor<E6part>()).first
+        )
+        #expect(storedPart.isDueDateLocked == false)
+        #expect(storedPart.e2invoice?.date == originalDueDate)
+
+        let report = RecordService.checkBillingIntegrity(context: context)
+        #expect(report.hasIssue == false)
+    }
+
     /// 同じストアを見る別 context。
     /// rollback 後の「DB に何が残っているか」を、登録済みインスタンス越しでなく確認するために使う
     private func freshContext(of context: ModelContext) -> ModelContext {

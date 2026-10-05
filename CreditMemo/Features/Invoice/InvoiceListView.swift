@@ -295,6 +295,8 @@ struct InvoiceListView: View {
     @State private var reconciliationDiscardResetTask: Task<Void, Never>?
     /// 照合モードの説明シートを表示する
     @State private var showReconciliationHelp = false
+    /// 照合の保存に失敗したことを知らせる
+    @State private var showReconciliationSaveFailed = false
 
     init(payment: E7payment, filter: InvoiceListFilter? = nil) {
         self.payment = payment
@@ -834,6 +836,7 @@ struct InvoiceListView: View {
         } catch {
             // 照合確定の保存失敗を診断送信する
             AppTelemetry.reportSwiftDataError(error, operation: "InvoiceListView.confirmReconciliation", entity: "E6part")
+            handleReconciliationSaveFailure()
             return
         }
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
@@ -872,10 +875,19 @@ struct InvoiceListView: View {
                 operation: "InvoiceListView.saveReconciliationProgress",
                 entity: "E6part"
             )
+            handleReconciliationSaveFailure()
             return
         }
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         dismiss()
+    }
+
+    /// 保存失敗時は照合モードの入力（請求合計・仮移動・仮明細）を保ったまま、
+    /// 巻き戻した保存済みデータで描き直して、もう一度保存できる状態に戻す
+    private func handleReconciliationSaveFailure() {
+        reloadKey = UUID()
+        UINotificationFeedbackGenerator().notificationOccurred(.error)
+        showReconciliationSaveFailed = true
     }
 
     // MARK: Check Toggle
@@ -1477,6 +1489,11 @@ struct InvoiceListView: View {
         // 確認中の破棄ボタンは2秒、またはボタン外のタップで通常の戻る表示へ戻る
         .onWindowTap(isActive: isReconciliationDiscardArmed) { disarmReconciliationDiscard() }
         .onDisappear { reconciliationDiscardResetTask?.cancel() }
+        .alert("alert.saveFailed", isPresented: $showReconciliationSaveFailed) {
+            Button("button.ok", role: .cancel) {}
+        } message: {
+            Text("invoice.reconciliation.saveFailed.message")
+        }
         .sheet(isPresented: $showReconciliationHelp) {
             ReconciliationHelpSheet()
                 .appFontScale(fontScale)
