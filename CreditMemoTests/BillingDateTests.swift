@@ -5,7 +5,7 @@ import Testing
 
 /// BillingService の支払日計算（締日・支払日・支払月・月末・うるう年・N日後型・祝日繰り下げ）。
 ///
-/// 日付は BillingService と同じ Calendar.current で組み立て、日付成分を一致させる
+/// 日付は BillingService と同じ西暦カレンダーで組み立て、日付成分を一致させる
 /// （TestStore.date は JST 固定なのでマシン TZ 差で日がずれ得る。ここでは使わない）。
 ///
 /// 祝日繰り下げ設定は UserDefaults.standard の実行時の値に依存させず、
@@ -18,11 +18,11 @@ import Testing
 @MainActor
 struct BillingDateTests {
     private func date(_ y: Int, _ m: Int, _ d: Int) -> Date {
-        Calendar.current.date(from: DateComponents(year: y, month: m, day: d)) ?? Date()
+        AppCalendar.gregorian.date(from: DateComponents(year: y, month: m, day: d)) ?? Date()
     }
 
     private func sameDay(_ a: Date, _ b: Date) -> Bool {
-        Calendar.current.isDate(a, inSameDayAs: b)
+        AppCalendar.gregorian.isDate(a, inSameDayAs: b)
     }
 
     /// 祝日繰り下げ設定を指定値にして body を実行し、必ず元の値へ戻す
@@ -39,6 +39,18 @@ struct BillingDateTests {
             }
         }
         return try body()
+    }
+
+    @Test("和暦の年設定に関係なく入力範囲と年表示は西暦になる")
+    func gregorianYearAndDateRange() {
+        let calendar = AppCalendar.gregorian
+        let japanese = Calendar(identifier: .japanese)
+        let sample = date(2026, 10, 5)
+        // 同じ日が和暦では8年でも、アプリの年は2026年で扱う
+        #expect(japanese.component(.year, from: sample) == 8)
+        #expect(calendar.component(.year, from: APP_MIN_DATE) == 2000)
+        #expect(calendar.component(.year, from: APP_MAX_DATE) == 2100)
+        #expect(AppDateFormat.yearText(sample) == "2026")
     }
 
     // MARK: - 繰り下げ OFF（純粋な支払日計算）

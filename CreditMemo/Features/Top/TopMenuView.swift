@@ -70,11 +70,11 @@ struct TopMenuView: View {
         // メニュー表示は「本日から N 日間の引き落とし合計」を使う
         let windowDays = max(1, min(paymentWindowDays, 60))
         let sorted = unpaidPayments.sorted { $0.date < $1.date }
-        let today = Calendar.current.startOfDay(for: Date())
-        let end = Calendar.current.date(byAdding: .day, value: windowDays - 1, to: today) ?? today
+        let today = AppCalendar.gregorian.startOfDay(for: Date())
+        let end = AppCalendar.gregorian.date(byAdding: .day, value: windowDays - 1, to: today) ?? today
         return sorted
             .filter {
-                let date = Calendar.current.startOfDay(for: $0.date)
+                let date = AppCalendar.gregorian.startOfDay(for: $0.date)
                 return today <= date && date <= end
             }
             .reduce(.zero) { partialResult, payment in
@@ -94,10 +94,10 @@ struct TopMenuView: View {
         // PaymentList の確認待ち判定（!isPaid + 直近1年）と一致させる
         // unpaidPayments は e8paid==nil の物理判定で、旧データや口座未設定で
         // isPaid と乖離しうるため、ここでは allPayments から直接判定する
-        let today = Calendar.current.startOfDay(for: Date())
-        let earliest = Calendar.current.date(byAdding: .year, value: -1, to: today) ?? today
+        let today = AppCalendar.gregorian.startOfDay(for: Date())
+        let earliest = AppCalendar.gregorian.date(byAdding: .year, value: -1, to: today) ?? today
         return allPayments.contains { payment in
-            let date = Calendar.current.startOfDay(for: payment.date)
+            let date = AppCalendar.gregorian.startOfDay(for: payment.date)
             guard earliest <= date && date < today else { return false }
             return !payment.isPaid
         }
@@ -345,7 +345,7 @@ struct TopMenuView: View {
 
     /// 「あとで」：次に提案してよい日時を snoozeDays 先へ進める
     private func snoozeRetentionSuggestion() {
-        let next = Calendar.current.date(
+        let next = AppCalendar.gregorian.date(
             byAdding: .day, value: RetentionSuggest.snoozeDays, to: Date()
         ) ?? Date()
         retentionSnoozeUntil = next.timeIntervalSinceReferenceDate

@@ -39,18 +39,18 @@ struct RecordListView: View {
         }
 
         var startDate: Date? {
-            let today = Calendar.current.startOfDay(for: Date())
+            let today = AppCalendar.gregorian.startOfDay(for: Date())
             switch self {
             case .oneMonth:
-                return Calendar.current.date(byAdding: .month, value: -1, to: today)
+                return AppCalendar.gregorian.date(byAdding: .month, value: -1, to: today)
             case .twoMonths:
-                return Calendar.current.date(byAdding: .month, value: -2, to: today)
+                return AppCalendar.gregorian.date(byAdding: .month, value: -2, to: today)
             case .threeMonths:
-                return Calendar.current.date(byAdding: .month, value: -3, to: today)
+                return AppCalendar.gregorian.date(byAdding: .month, value: -3, to: today)
             case .oneYear:
-                return Calendar.current.date(byAdding: .year, value: -1, to: today)
+                return AppCalendar.gregorian.date(byAdding: .year, value: -1, to: today)
             case .threeYears:
-                return Calendar.current.date(byAdding: .year, value: -3, to: today)
+                return AppCalendar.gregorian.date(byAdding: .year, value: -3, to: today)
             case .all:
                 return nil
             }
@@ -1091,8 +1091,14 @@ private struct RecordMonthTotalRow: View {
     let total: Decimal
 
     private var title: String {
-        // 月名は端末の言語に合わせて「9月」「September」などに整形する
-        let month = monthDate.formatted(.dateTime.month(.wide))
+        // 月名は西暦の月を端末の言語に合わせて表示する
+        let style = Date.FormatStyle(
+            date: .omitted,
+            time: .omitted,
+            locale: .autoupdatingCurrent,
+            calendar: AppCalendar.gregorian
+        ).month(.wide)
+        let month = monthDate.formatted(style)
         return String(format: NSLocalizedString("record.monthTotal", comment: ""), month)
     }
     private var amountColor: Color {

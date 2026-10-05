@@ -31,6 +31,8 @@ enum ExportFile {
     /// アプリ表示名は現在の言語の CFBundleDisplayName（ja=クレメモ / en=Deferin）を使う。
     static func jsonName(date: Date = Date()) -> String {
         let fmt = DateFormatter()
+        // 書き出しファイル名も和暦設定に左右されず西暦にする
+        fmt.calendar = AppCalendar.gregorian
         fmt.dateFormat = "yyyyMMdd_HHmmss"
         return "\(appDisplayName)_\(fmt.string(from: date)).json"
     }

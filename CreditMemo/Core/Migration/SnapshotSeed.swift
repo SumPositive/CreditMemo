@@ -66,7 +66,7 @@ enum SnapshotSeed {
         guard !usableCards.isEmpty else { return }
         func card(_ i: Int) -> E1card { usableCards[i % usableCards.count] }
 
-        let cal = Calendar.current
+        let cal = AppCalendar.gregorian
         let today = cal.startOfDay(for: Date())
         func day(_ offset: Int) -> Date { cal.date(byAdding: .day, value: offset, to: today) ?? today }
 

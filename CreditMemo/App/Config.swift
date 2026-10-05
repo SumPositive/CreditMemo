@@ -56,8 +56,20 @@ let APP_MAX_PART_COUNT = 99   // 分割払い最大回数
 
 // MARK: - 日付範囲
 
-let APP_MIN_DATE = Calendar.current.date(from: DateComponents(year: 2000, month: 1, day: 1))!
-let APP_MAX_DATE = Calendar.current.date(from: DateComponents(year: 2100, month: 12, day: 31))!
+/// 保存と集計では端末の暦設定に左右されない西暦を使う
+enum AppCalendar {
+    static var gregorian: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .autoupdatingCurrent
+        // 暦は西暦に固定し、週の開始曜日だけ端末設定を反映する
+        calendar.firstWeekday = Calendar.autoupdatingCurrent.firstWeekday
+        calendar.minimumDaysInFirstWeek = Calendar.autoupdatingCurrent.minimumDaysInFirstWeek
+        return calendar
+    }
+}
+
+let APP_MIN_DATE = AppCalendar.gregorian.date(from: DateComponents(year: 2000, month: 1, day: 1))!
+let APP_MAX_DATE = AppCalendar.gregorian.date(from: DateComponents(year: 2100, month: 12, day: 31))!
 
 // MARK: - Layout
 

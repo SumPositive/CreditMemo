@@ -109,8 +109,8 @@ struct InvoiceListView: View {
     /// payment 経由・displayItem 経由を問わず、`displayDate` 当日の同じ状態の請求書を拾う。
     /// 別の決済手段や別口座を選んで追加した場合でも、その新しい請求書がここで表示されるようにする。
     private var invoices: [E2invoice] {
-        let dayStart = Calendar.current.startOfDay(for: displayDate)
-        guard let nextDay = Calendar.current.date(byAdding: .day, value: 1, to: dayStart) else {
+        let dayStart = AppCalendar.gregorian.startOfDay(for: displayDate)
+        guard let nextDay = AppCalendar.gregorian.date(byAdding: .day, value: 1, to: dayStart) else {
             return applyFilter(payment?.e2invoices ?? staticInvoices ?? [])
         }
         let descriptor = FetchDescriptor<E2invoice>(
@@ -475,8 +475,8 @@ struct InvoiceListView: View {
 
     /// 今回支払と同じ決済手段に属する、今回と次回以降の明細
     private var reconciliationParts: [E6part] {
-        let dayStart = Calendar.current.startOfDay(for: displayDate)
-        let nextDay = Calendar.current.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
+        let dayStart = AppCalendar.gregorian.startOfDay(for: displayDate)
+        let nextDay = AppCalendar.gregorian.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
         let descriptor = FetchDescriptor<E2invoice>(
             predicate: #Predicate<E2invoice> { nextDay <= $0.date }
         )
@@ -510,7 +510,7 @@ struct InvoiceListView: View {
 
     /// 仮移動後に今回支払へ属するか
     private func isReconciliationCurrent(_ part: E6part) -> Bool {
-        Calendar.current.isDate(reconciliationDueDate(for: part), inSameDayAs: displayDate)
+        AppCalendar.gregorian.isDate(reconciliationDueDate(for: part), inSameDayAs: displayDate)
     }
 
     /// 仮移動後の今回支払明細
@@ -594,8 +594,8 @@ struct InvoiceListView: View {
 
     /// 引き落とし日以降の未払明細は、照合確定と同時に済みにする
     private var shouldMarkPaidOnReconciliation: Bool {
-        let today = Calendar.current.startOfDay(for: Date())
-        return !displayIsPaid && Calendar.current.startOfDay(for: displayDate) <= today
+        let today = AppCalendar.gregorian.startOfDay(for: Date())
+        return !displayIsPaid && AppCalendar.gregorian.startOfDay(for: displayDate) <= today
     }
 
     /// 請求合計と仮移動後の明細合計が一致した時だけ照合を確定できる
@@ -721,10 +721,10 @@ struct InvoiceListView: View {
             targetDate = displayDate
         }
 
-        if Calendar.current.isDate(targetDate, inSameDayAs: originalDate) {
+        if AppCalendar.gregorian.isDate(targetDate, inSameDayAs: originalDate) {
             reconciliationDueDates.removeValue(forKey: part.id)
         } else {
-            reconciliationDueDates[part.id] = Calendar.current.startOfDay(for: targetDate)
+            reconciliationDueDates[part.id] = AppCalendar.gregorian.startOfDay(for: targetDate)
         }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
@@ -2000,7 +2000,7 @@ private struct ReconciliationDraftEditView: View {
     }
 
     private var hasChanges: Bool {
-        !Calendar.current.isDate(useDate, inSameDayAs: draft.useDate)
+        !AppCalendar.gregorian.isDate(useDate, inSameDayAs: draft.useDate)
             || name != initialName
             || amount != draft.amount
             || note != draft.note
@@ -2399,7 +2399,7 @@ private struct ReconciliationDraftEditView: View {
         guard canSave else { return }
         let updatedDraft = ReconciliationNewRecordDraft(
             id: draft.id,
-            useDate: Calendar.current.startOfDay(for: useDate),
+            useDate: AppCalendar.gregorian.startOfDay(for: useDate),
             dueDate: draft.dueDate,
             amount: amount.roundedAmount(),
             name: name.trimmingCharacters(in: .whitespacesAndNewlines),

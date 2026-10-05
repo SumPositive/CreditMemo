@@ -166,8 +166,8 @@ struct PaymentListView: View {
 
     private var paymentStatusStartDate: Date {
         // 引き落とし状況は、古い決済で画面が重くならないよう直近1年だけを対象にする
-        let today = Calendar.current.startOfDay(for: Date())
-        return Calendar.current.date(byAdding: .year, value: -1, to: today) ?? today
+        let today = AppCalendar.gregorian.startOfDay(for: Date())
+        return AppCalendar.gregorian.date(byAdding: .year, value: -1, to: today) ?? today
     }
 
     /// 済みの全件（日付降順）。90日窓のフィルタ元にする。
@@ -181,8 +181,8 @@ struct PaymentListView: View {
 
     /// 現在の窓の下限（この日時より前は「これより古い」）
     private var paidWindowCutoff: Date {
-        let today = Calendar.current.startOfDay(for: Date())
-        return Calendar.current.date(byAdding: .day, value: -paidWindowDays, to: today) ?? today
+        let today = AppCalendar.gregorian.startOfDay(for: Date())
+        return AppCalendar.gregorian.date(byAdding: .day, value: -paidWindowDays, to: today) ?? today
     }
 
     private var hasAnyPayments: Bool {
@@ -636,7 +636,7 @@ struct PaymentListView: View {
         if !hasMorePaid {
             return
         }
-        let today = Calendar.current.startOfDay(for: Date())
+        let today = AppCalendar.gregorian.startOfDay(for: Date())
         // 現在の窓より古い最も新しい済みの日付（＝次に見せたいデータ）
         let cutoff = paidWindowCutoff
         guard let nextDate = allPaidPaymentsCache
@@ -651,8 +651,8 @@ struct PaymentListView: View {
             return
         }
         // その日を含むよう、90日刻みで切り上げた日数まで一気に広げる
-        let nextDay = Calendar.current.startOfDay(for: nextDate)
-        let daysToNext = Calendar.current.dateComponents([.day], from: nextDay, to: today).day ?? paidWindowDays
+        let nextDay = AppCalendar.gregorian.startOfDay(for: nextDate)
+        let daysToNext = AppCalendar.gregorian.dateComponents([.day], from: nextDay, to: today).day ?? paidWindowDays
         let steps = max(1, Int(ceil(Double(daysToNext) / Double(pruneBoundaryDays))))
         paidWindowDays = steps * pruneBoundaryDays
         applyPaidWindow()
@@ -661,8 +661,8 @@ struct PaymentListView: View {
 
     /// 翌日以降の未払は通常表示の対象として全件読む（本日は確認待ち側に含める）
     private func fetchUpcomingUnpaidPayments() -> [E7payment] {
-        let today = Calendar.current.startOfDay(for: Date())
-        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: today) ?? today
+        let today = AppCalendar.gregorian.startOfDay(for: Date())
+        let tomorrow = AppCalendar.gregorian.date(byAdding: .day, value: 1, to: today) ?? today
         let predicate = #Predicate<E7payment> { tomorrow <= $0.date }
         let descriptor = FetchDescriptor<E7payment>(
             predicate: predicate,
@@ -675,8 +675,8 @@ struct PaymentListView: View {
     /// 本日以前の未払は最大件数だけ表示する（確認待ち）。
     /// 既定は直近1年だが、ユーザーが確認して展開したときはカットオフを外して全期間を対象にする。
     private func fetchOverdueUnpaidPayments(limit: Int) -> [E7payment] {
-        let today = Calendar.current.startOfDay(for: Date())
-        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: today) ?? today
+        let today = AppCalendar.gregorian.startOfDay(for: Date())
+        let tomorrow = AppCalendar.gregorian.date(byAdding: .day, value: 1, to: today) ?? today
         // 展開時は遠い過去まで、通常は1年前を下限にする
         let startDate = showAllOverdueUnpaid ? Date.distantPast : paymentStatusStartDate
         let predicate = #Predicate<E7payment> { startDate <= $0.date && $0.date < tomorrow }
@@ -880,7 +880,7 @@ struct PaymentListView: View {
     }
 
     private func dayKey(_ date: Date) -> Int {
-        Int(Calendar.current.startOfDay(for: date).timeIntervalSince1970)
+        Int(AppCalendar.gregorian.startOfDay(for: date).timeIntervalSince1970)
     }
 }
 
@@ -2091,22 +2091,22 @@ private struct PaymentUnpaidSummaries {
     static func build(from payments: [E7payment], windowDays rawWindowDays: Int) -> PaymentUnpaidSummaries {
         let windowDays = max(1, min(rawWindowDays, 60))
         let sorted = payments.sorted { $0.date < $1.date }
-        let today = Calendar.current.startOfDay(for: Date())
+        let today = AppCalendar.gregorian.startOfDay(for: Date())
 
         // 起点は常に本日。データがなくても空集計を返す
         let firstRange  = windowRange(start: today, windowDays: windowDays)
         // 次の期間は現在期間の翌日から同じ幅で取る
-        let secondStart = Calendar.current.date(byAdding: .day, value: 1, to: firstRange.upperBound) ?? firstRange.upperBound
+        let secondStart = AppCalendar.gregorian.date(byAdding: .day, value: 1, to: firstRange.upperBound) ?? firstRange.upperBound
         let secondRange = windowRange(start: secondStart, windowDays: windowDays)
 
         let currentAmount = sorted
-            .filter { firstRange.contains(Calendar.current.startOfDay(for: $0.date)) }
+            .filter { firstRange.contains(AppCalendar.gregorian.startOfDay(for: $0.date)) }
             .reduce(Decimal.zero) { $0 + $1.sumAmount }
         let nextAmount = sorted
-            .filter { secondRange.contains(Calendar.current.startOfDay(for: $0.date)) }
+            .filter { secondRange.contains(AppCalendar.gregorian.startOfDay(for: $0.date)) }
             .reduce(Decimal.zero) { $0 + $1.sumAmount }
         let futureAmount = sorted
-            .filter { secondRange.upperBound < Calendar.current.startOfDay(for: $0.date) }
+            .filter { secondRange.upperBound < AppCalendar.gregorian.startOfDay(for: $0.date) }
             .reduce(Decimal.zero) { $0 + $1.sumAmount }
 
         return PaymentUnpaidSummaries(
@@ -2122,10 +2122,10 @@ private struct PaymentUnpaidSummaries {
     /// 期間終端を含むため ClosedRange を返す
     static func windowRange(start: Date, windowDays: Int) -> ClosedRange<Date> {
         if windowDays == 30 {
-            let end = Calendar.current.date(byAdding: .month, value: 1, to: start) ?? start
+            let end = AppCalendar.gregorian.date(byAdding: .month, value: 1, to: start) ?? start
             return start...end
         }
-        let end = Calendar.current.date(byAdding: .day, value: windowDays - 1, to: start) ?? start
+        let end = AppCalendar.gregorian.date(byAdding: .day, value: windowDays - 1, to: start) ?? start
         return start...end
     }
 
@@ -2176,23 +2176,23 @@ private struct PaymentUnpaidGrouped {
     static func build(from payments: [PaymentDisplayItem], windowDays rawWindowDays: Int) -> PaymentUnpaidGrouped {
         let windowDays = max(1, min(rawWindowDays, 60))
         let sorted = payments.sorted { $0.date < $1.date }
-        let today = Calendar.current.startOfDay(for: Date())
+        let today = AppCalendar.gregorian.startOfDay(for: Date())
 
         // 起点は常に本日（PaymentUnpaidSummaries と一致させる）
         let firstRange  = PaymentUnpaidSummaries.windowRange(start: today, windowDays: windowDays)
-        let secondStart = Calendar.current.date(byAdding: .day, value: 1, to: firstRange.upperBound) ?? firstRange.upperBound
+        let secondStart = AppCalendar.gregorian.date(byAdding: .day, value: 1, to: firstRange.upperBound) ?? firstRange.upperBound
         let secondRange = PaymentUnpaidSummaries.windowRange(start: secondStart, windowDays: windowDays)
-        let futureLowerBound = Calendar.current.date(byAdding: .day, value: 1, to: secondRange.upperBound) ?? secondRange.upperBound
+        let futureLowerBound = AppCalendar.gregorian.date(byAdding: .day, value: 1, to: secondRange.upperBound) ?? secondRange.upperBound
 
         // 期間が重複しないよう、直近/次/将来を排他的な範囲で分割する
         let currentItems = sorted
-            .filter { firstRange.contains(Calendar.current.startOfDay(for: $0.date)) }
+            .filter { firstRange.contains(AppCalendar.gregorian.startOfDay(for: $0.date)) }
             .sorted(by: PaymentDisplayItem.displayOrder)
         let nextItems = sorted
-            .filter { secondRange.contains(Calendar.current.startOfDay(for: $0.date)) }
+            .filter { secondRange.contains(AppCalendar.gregorian.startOfDay(for: $0.date)) }
             .sorted(by: PaymentDisplayItem.displayOrder)
         let futureItems = sorted
-            .filter { futureLowerBound <= Calendar.current.startOfDay(for: $0.date) }
+            .filter { futureLowerBound <= AppCalendar.gregorian.startOfDay(for: $0.date) }
             .sorted(by: PaymentDisplayItem.displayOrder)
 
         let currentTotal = currentItems.reduce(Decimal.zero) { $0 + $1.amount }

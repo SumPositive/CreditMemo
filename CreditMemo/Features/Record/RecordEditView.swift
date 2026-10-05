@@ -126,7 +126,7 @@ enum FrequentPaymentBuilder {
         }
         var buckets: [String: Bucket] = [:]
         let now = Date()
-        let cutoff = Calendar.current.date(byAdding: .month, value: -config.periodMonths, to: now) ?? .distantPast
+        let cutoff = AppCalendar.gregorian.date(byAdding: .month, value: -config.periodMonths, to: now) ?? .distantPast
 
         for record in pastRecords {
             // 期間外は打ち切らず読み飛ばす（未ソート配列でも後続の期間内記録を取りこぼさない）
@@ -234,7 +234,7 @@ enum FrequentPaymentBuilder {
     ) -> [String] {
         let cappedLimit = max(0, limit)
         guard cappedLimit > 0 else { return [] }
-        guard let cutoff = Calendar.current.date(
+        guard let cutoff = AppCalendar.gregorian.date(
             byAdding: .month, value: -max(0, periodMonths), to: now
         ) else { return [] }
 
@@ -1030,7 +1030,7 @@ private var isValid: Bool {
                         availableRange: APP_MIN_DATE...APP_MAX_DATE
                     ) { selectedDate in
                         // 新規入力で手動選択した引き落とし日は、その日で固定（ロック）する
-                        lockedDueDate = Calendar.current.startOfDay(for: selectedDate)
+                        lockedDueDate = AppCalendar.gregorian.startOfDay(for: selectedDate)
                         dueDateLocked = true
                         showDueDatePicker = false
                     }
@@ -1690,7 +1690,7 @@ private var isValid: Bool {
 
     /// 各回の支払日は必ず前の回の翌日以降にする
     private func normalizedPartDueDate(partNo: Int16, proposedDate: Date) -> Date {
-        let cal = Calendar.current
+        let cal = AppCalendar.gregorian
         let day = cal.startOfDay(for: proposedDate)
         guard payCount >= 2, partNo >= 2 else { return day }
         let prevDate = cal.startOfDay(for: rawPartDueDate(partNo: partNo - 1))
@@ -1704,16 +1704,16 @@ private var isValid: Bool {
     /// 補正前の日付を取得する。2回目補正の再帰を避けるために使う
     private func rawPartDueDate(partNo: Int16) -> Date {
         if let override = partDueDateOverridesByPartNo[partNo] {
-            return Calendar.current.startOfDay(for: override)
+            return AppCalendar.gregorian.startOfDay(for: override)
         }
         if !isNew, initialDraft?.payCount == payCount, let existing = existingPart(partNo: partNo) {
-            return Calendar.current.startOfDay(for: existing.e2invoice?.date ?? Date())
+            return AppCalendar.gregorian.startOfDay(for: existing.e2invoice?.date ?? Date())
         }
         if isNew && partNo == 1 && dueDateLocked {
-            return Calendar.current.startOfDay(for: lockedDueDate)
+            return AppCalendar.gregorian.startOfDay(for: lockedDueDate)
         }
         guard let card = selectedCard else {
-            return Calendar.current.startOfDay(for: dateUse)
+            return AppCalendar.gregorian.startOfDay(for: dateUse)
         }
         return BillingService.billingDate(
             useDate: dateUse,
@@ -1725,7 +1725,7 @@ private var isValid: Bool {
     /// 1回目変更で2回目以降になった時は2回目を翌月へ送る
     private func adjustSecondPartDateAfterFirstChange(_ firstDate: Date) {
         guard payCount >= 2 else { return }
-        let cal = Calendar.current
+        let cal = AppCalendar.gregorian
         let firstDay = cal.startOfDay(for: firstDate)
         let secondDay = cal.startOfDay(for: rawPartDueDate(partNo: 2))
         if firstDay < secondDay {
@@ -1783,7 +1783,7 @@ private var isValid: Bool {
         guard payCount >= 2, let partNo, partNo >= 2 else {
             return APP_MIN_DATE...APP_MAX_DATE
         }
-        let minimumDate = Calendar.current.date(
+        let minimumDate = AppCalendar.gregorian.date(
             byAdding: .day,
             value: 1,
             to: displayedPartDueDate(partNo: partNo - 1)
@@ -2373,7 +2373,7 @@ private var isValid: Bool {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         let card = selectedCard ?? editingPart?.e3record?.e1card
         let base = draftPartDueDate
-        let cal = Calendar.current
+        let cal = AppCalendar.gregorian
         let computed: Date
         if let card,
            let baseOffset = inferPartOffset(displayedDate: base, useDate: dateUse, card: card) {
@@ -2439,7 +2439,7 @@ private var isValid: Bool {
     private var dueDateDriversChangedFromInitialDraft: Bool {
         guard let initialDraft else { return false }
         // 初期ロード由来の onChange では、引き落とし日を規定日に戻さない
-        let dateChanged = !Calendar.current.isDate(initialDraft.dateUse, inSameDayAs: dateUse)
+        let dateChanged = !AppCalendar.gregorian.isDate(initialDraft.dateUse, inSameDayAs: dateUse)
         let cardChanged = initialDraft.cardID != selectedCard?.id
         return dateChanged || cardChanged
     }
@@ -2454,7 +2454,7 @@ private var isValid: Bool {
         setDraftPartDueDateLocked(part, isLocked: true)
         let card = selectedCard ?? part.e3record?.e1card
         guard let card else { return }
-        let cal = Calendar.current
+        let cal = AppCalendar.gregorian
         if let baseOffset = inferPartOffset(displayedDate: currentDate, useDate: dateUse, card: card) {
             // 表示日が BillingService 上の cycle と一致 → cycle 単位で動かす
             let computed = BillingService.billingDate(
@@ -2482,7 +2482,7 @@ private var isValid: Bool {
     /// 表示中の日付が BillingService.billingDate(useDate, card, partOffset: X) と
     /// 同じ日になる X を −12〜+12 の範囲で探す。見つからなければ nil
     private func inferPartOffset(displayedDate: Date, useDate: Date, card: E1card) -> Int? {
-        let cal = Calendar.current
+        let cal = AppCalendar.gregorian
         for offset in -12...12 {
             let candidate = BillingService.billingDate(
                 useDate: useDate,
@@ -2763,7 +2763,7 @@ private var isValid: Bool {
     }
 
     private func applyPartDueDate(_ date: Date) {
-        var selectedDate = Calendar.current.startOfDay(for: date)
+        var selectedDate = AppCalendar.gregorian.startOfDay(for: date)
         if editingPart?.nPartNo == 2 || editingPartNoForDueDate == 2 {
             // 2回目は1回目の翌日以降に丸める
             selectedDate = normalizedPartDueDate(partNo: 2, proposedDate: selectedDate)
@@ -2791,7 +2791,7 @@ private var isValid: Bool {
 
     private func applyExistingPartDueDate(_ selectedDate: Date, to part: E6part) {
         if let currentDate = part.e2invoice?.date,
-           Calendar.current.isDate(currentDate, inSameDayAs: selectedDate) {
+           AppCalendar.gregorian.isDate(currentDate, inSameDayAs: selectedDate) {
             // 元の日付に戻した場合は保存待ち変更から外す
             partDueDateOverridesByPartNo.removeValue(forKey: part.nPartNo)
         } else {
@@ -3146,21 +3146,27 @@ struct SingleDateCalendarView: UIViewRepresentable {
     let availableRange: ClosedRange<Date>
     let onSelect: (Date) -> Void
 
+    /// 旧データの日付が入力範囲外でもカレンダーを安全に開く
+    private var displayDate: Date {
+        min(max(selectedDate, availableRange.lowerBound), availableRange.upperBound)
+    }
+
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
     }
 
     func makeUIView(context: Context) -> UICalendarView {
         let view = UICalendarView()
-        view.calendar = Calendar.current
         view.locale = Locale.current
+        // 表示言語は端末に合わせ、日付成分は西暦で固定する
+        view.calendar = AppCalendar.gregorian
         view.availableDateRange = DateInterval(start: availableRange.lowerBound, end: availableRange.upperBound)
         view.fontDesign = .default
 
         let selection = UICalendarSelectionMultiDate(delegate: context.coordinator)
         view.selectionBehavior = selection
 
-        let components = Calendar.current.dateComponents([.year, .month, .day], from: selectedDate)
+        let components = AppCalendar.gregorian.dateComponents([.year, .month, .day], from: displayDate)
         selection.setSelectedDates([components], animated: false)
         view.setVisibleDateComponents(components, animated: false)
         return view
@@ -3179,7 +3185,7 @@ struct SingleDateCalendarView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: UICalendarView, context: Context) {
-        let components = Calendar.current.dateComponents([.year, .month, .day], from: selectedDate)
+        let components = AppCalendar.gregorian.dateComponents([.year, .month, .day], from: displayDate)
         if context.coordinator.currentComponents != components {
             context.coordinator.currentComponents = components
             if let selection = uiView.selectionBehavior as? UICalendarSelectionMultiDate {
@@ -3195,7 +3201,7 @@ struct SingleDateCalendarView: UIViewRepresentable {
 
         init(_ parent: SingleDateCalendarView) {
             self.parent = parent
-            self.currentComponents = Calendar.current.dateComponents([.year, .month, .day], from: parent.selectedDate)
+            self.currentComponents = AppCalendar.gregorian.dateComponents([.year, .month, .day], from: parent.displayDate)
         }
 
         func multiDateSelection(
@@ -3216,11 +3222,11 @@ struct SingleDateCalendarView: UIViewRepresentable {
             _ selection: UICalendarSelectionMultiDate,
             didSelectDate dateComponents: DateComponents
         ) {
-            guard let date = Calendar.current.date(from: dateComponents) else {
+            guard let date = AppCalendar.gregorian.date(from: dateComponents) else {
                 return
             }
-            let normalizedDate = Calendar.current.startOfDay(for: date)
-            let components = Calendar.current.dateComponents([.year, .month, .day], from: normalizedDate)
+            let normalizedDate = AppCalendar.gregorian.startOfDay(for: date)
+            let components = AppCalendar.gregorian.dateComponents([.year, .month, .day], from: normalizedDate)
             currentComponents = components
             // 常に1件だけ選択状態を維持する
             selection.setSelectedDates([components], animated: false)
@@ -3232,11 +3238,11 @@ struct SingleDateCalendarView: UIViewRepresentable {
             _ selection: UICalendarSelectionMultiDate,
             didDeselectDate dateComponents: DateComponents
         ) {
-            guard let date = Calendar.current.date(from: dateComponents) else {
+            guard let date = AppCalendar.gregorian.date(from: dateComponents) else {
                 return
             }
-            let normalizedDate = Calendar.current.startOfDay(for: date)
-            let components = Calendar.current.dateComponents([.year, .month, .day], from: normalizedDate)
+            let normalizedDate = AppCalendar.gregorian.startOfDay(for: date)
+            let components = AppCalendar.gregorian.dateComponents([.year, .month, .day], from: normalizedDate)
             currentComponents = components
             // 同日タップでも選択状態は維持しつつ閉じる
             selection.setSelectedDates([components], animated: false)

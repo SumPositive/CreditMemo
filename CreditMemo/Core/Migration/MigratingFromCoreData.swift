@@ -363,7 +363,7 @@ struct MigratingFromCoreData {
         let d = Int(yearMMDD) % 100
         var comps = DateComponents()
         comps.year = y; comps.month = m; comps.day = d
-        return Calendar.current.date(from: comps) ?? Date()
+        return AppCalendar.gregorian.date(from: comps) ?? Date()
     }
 
     @MainActor
@@ -374,7 +374,7 @@ struct MigratingFromCoreData {
         paymentByKey: inout [String: E7payment],
         context: ModelContext
     ) -> E7payment {
-        let day = Calendar.current.startOfDay(for: date)
+        let day = AppCalendar.gregorian.startOfDay(for: date)
         let bankKey = bank?.id ?? "__no_bank__"
         let stateKey = isPaid ? "paid" : "unpaid"
         let key = "\(bankKey)#\(Int(day.timeIntervalSince1970))#\(stateKey)"

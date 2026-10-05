@@ -4,3 +4,5 @@ What's New in 2.8.0
 - Redesigned the tag list to look more like tags and be easier to scan
 - Canceling while entering data now asks for confirmation, so you won't lose your input by accident
 - Made the help text easier to read
+- System settings: Fixed dates not displaying correctly when the Japanese calendar is selected
+- System settings: The calendar now follows your "First Day of Week" setting

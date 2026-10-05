@@ -84,7 +84,7 @@ enum RecordService {
             isPaid: Bool,
             context: ModelContext
         ) -> E2invoice {
-            let day = Calendar.current.startOfDay(for: date)
+            let day = AppCalendar.gregorian.startOfDay(for: date)
             let key = RecordService.invoiceKey(cardID: card?.id, date: day, isPaid: isPaid)
             if let invoiceByKeyValue = invoiceByKey[key] {
                 return invoiceByKeyValue
@@ -103,7 +103,7 @@ enum RecordService {
             isPaid: Bool,
             context: ModelContext
         ) -> E7payment {
-            let day = Calendar.current.startOfDay(for: date)
+            let day = AppCalendar.gregorian.startOfDay(for: date)
             // 口座未選択は物理的な所属を持たないため未払側のキーへ寄せる
             let physicalIsPaid = bank == nil ? false : isPaid
             let key = RecordService.paymentKey(bankID: bank?.id, date: day, isPaid: physicalIsPaid)
@@ -174,7 +174,7 @@ enum RecordService {
     ) throws -> E3record {
         // Siri や音声入力からの簡易保存を通常保存へつなぐ
         let record = E3record(
-            dateUse: Calendar.current.startOfDay(for: dateUse),
+            dateUse: AppCalendar.gregorian.startOfDay(for: dateUse),
             zName: label,
             zNote: "",
             nAmount: amount,
@@ -451,7 +451,7 @@ enum RecordService {
 
     /// 今日から years 年前の基準日時
     private static func yearsAgoCutoff(_ years: Int) -> Date? {
-        Calendar.current.date(byAdding: .year, value: -years, to: Date())
+        AppCalendar.gregorian.date(byAdding: .year, value: -years, to: Date())
     }
 
     /// 利用日が cutoff より前の明細を返す
@@ -524,6 +524,52 @@ enum RecordService {
         cleanupOrphanBilling(context: context)
         let after = checkBillingIntegrity(context: context)
         return BillingIntegrityRepairResult(before: before, after: after)
+    }
+
+    /// 和暦の年を西暦として保存した請求日だけを規定の引き落とし日へ戻す
+    static func repairJapaneseCalendarDueDatesIfNeeded(context: ModelContext) throws -> Int {
+        let parts = context.fetchReporting(FetchDescriptor<E6part>(), entity: "E6part")
+        var repairedCount = 0
+        do {
+            for part in parts {
+                guard let invoice = part.e2invoice,
+                      let record = part.e3record else { continue }
+                let dueYear = AppCalendar.gregorian.component(.year, from: invoice.date)
+                let useYear = AppCalendar.gregorian.component(.year, from: record.dateUse)
+                // 誤った下限 Reiwa 2000 は西暦 4018 年になる
+                guard (4000...4200).contains(dueYear),
+                      (2000...2100).contains(useYear),
+                      1 <= part.nPartNo else { continue }
+
+                let correctDate = BillingService.billingDate(
+                    useDate: record.dateUse,
+                    card: record.e1card,
+                    partOffset: Int(part.nPartNo) - 1
+                )
+                let wasChecked = part.isChecked
+                let wasPaid = invoice.isPaid
+                // 修復中だけ日付変更の制限を外し、照合と支払済みの状態は維持する
+                part.isChecked = false
+                movePartDueDate(
+                    part,
+                    date: correctDate,
+                    ignoresDueDateLock: true,
+                    preservesPaidState: true,
+                    context: context
+                )
+                part.isChecked = wasChecked
+                part.isDueDateLocked = wasPaid || wasChecked
+                repairedCount += 1
+            }
+            if 0 < repairedCount {
+                cleanupOrphanBilling(context: context)
+                try commit(context)
+            }
+            return repairedCount
+        } catch {
+            context.rollback()
+            throw error
+        }
     }
 
     /// SwiftData の関係と派生集計の不一致を軽量に確認する
@@ -690,7 +736,7 @@ enum RecordService {
         context: ModelContext
     ) -> E6part? {
         let record = E3record(
-            dateUse: Calendar.current.startOfDay(for: draft.useDate),
+            dateUse: AppCalendar.gregorian.startOfDay(for: draft.useDate),
             zName: draft.name,
             zNote: draft.note,
             nAmount: draft.amount,
@@ -855,7 +901,7 @@ enum RecordService {
     private static func confirmedAmountTargets(in invoices: [E2invoice]) -> Set<ConfirmedAmountTarget> {
         Set(invoices.map { invoice in
             ConfirmedAmountTarget(
-                date: Calendar.current.startOfDay(for: invoice.date),
+                date: AppCalendar.gregorian.startOfDay(for: invoice.date),
                 cardID: invoice.e1card?.id,
                 bankID: invoice.e1card?.e8bank?.id
             )
@@ -868,8 +914,8 @@ enum RecordService {
     static func pruneReconciliationProgress(context: ModelContext) {
         let progressStore = ReconciliationProgressStore.shared
         for entry in progressStore.entries {
-            let dayStart = Calendar.current.startOfDay(for: entry.date)
-            guard let nextDay = Calendar.current.date(byAdding: .day, value: 1, to: dayStart) else { continue }
+            let dayStart = AppCalendar.gregorian.startOfDay(for: entry.date)
+            guard let nextDay = AppCalendar.gregorian.date(byAdding: .day, value: 1, to: dayStart) else { continue }
             let descriptor = FetchDescriptor<E2invoice>(
                 predicate: #Predicate<E2invoice> { dayStart <= $0.date && $0.date < nextDay }
             )
@@ -892,7 +938,7 @@ enum RecordService {
         let progressStore = ReconciliationProgressStore.shared
         for target in targets {
             let dayStart = target.date
-            guard let nextDay = Calendar.current.date(byAdding: .day, value: 1, to: dayStart) else { continue }
+            guard let nextDay = AppCalendar.gregorian.date(byAdding: .day, value: 1, to: dayStart) else { continue }
             let descriptor = FetchDescriptor<E2invoice>(
                 predicate: #Predicate<E2invoice> { dayStart <= $0.date && $0.date < nextDay }
             )
@@ -1023,38 +1069,40 @@ enum RecordService {
         _ part: E6part,
         date: Date,
         ignoresDueDateLock: Bool = false,
+        preservesPaidState: Bool = false,
         context: ModelContext
     ) {
         guard let sourceInvoice = part.e2invoice else {
             return
         }
         // 済み・明細ロック中・引き落とし日ロック中の明細は支払日を変更しない
-        if sourceInvoice.isPaid || part.isChecked || (part.isDueDateLocked && !ignoresDueDateLock) {
+        if (sourceInvoice.isPaid && !preservesPaidState) || part.isChecked || (part.isDueDateLocked && !ignoresDueDateLock) {
             return
         }
 
-        let targetDate = Calendar.current.startOfDay(for: date)
-        if Calendar.current.isDate(sourceInvoice.date, inSameDayAs: targetDate) {
+        let targetDate = AppCalendar.gregorian.startOfDay(for: date)
+        if AppCalendar.gregorian.isDate(sourceInvoice.date, inSameDayAs: targetDate) {
             return
         }
 
         let card = sourceInvoice.e1card
         let bank = card?.e8bank
         let oldPayment = sourceInvoice.e7payment
+        let targetIsPaid = preservesPaidState && sourceInvoice.isPaid
         let targetInvoice = findOrCreateInvoice(
             card: card,
             date: targetDate,
-            fallbackInvoicePaid: false,
-            fallbackPaymentPaid: false,
+            fallbackInvoicePaid: targetIsPaid,
+            fallbackPaymentPaid: targetIsPaid,
             context: context
         )
-        setInvoiceState(targetInvoice, isPaid: false)
+        setInvoiceState(targetInvoice, isPaid: targetIsPaid)
 
         let targetPayment = findOrCreatePayment(
             date: targetDate,
             bank: bank,
-            isPaid: false,
-            fallbackPaid: false,
+            isPaid: targetIsPaid,
+            fallbackPaid: targetIsPaid,
             context: context
         )
         if targetInvoice.e7payment?.id != targetPayment.id {
@@ -1066,7 +1114,7 @@ enum RecordService {
             // SwiftData の逆参照が追従しない場合に備えて明示的に追加する
             targetPayment.e2invoices.append(targetInvoice)
         }
-        setPaymentBank(targetPayment, bank: bank, isPaid: false)
+        setPaymentBank(targetPayment, bank: bank, isPaid: targetIsPaid)
 
         // 明細を指定日の請求へ移し替える
         sourceInvoice.e6parts.removeAll { $0.id == part.id }
@@ -1094,12 +1142,12 @@ enum RecordService {
 
     private static func insertRepeatRecordIfNeeded(from source: E3record, context: ModelContext) -> E3record? {
         guard 0 < source.nRepeat else { return nil }
-        guard let nextDate = Calendar.current.date(
+        guard let nextDate = AppCalendar.gregorian.date(
             byAdding: .month, value: Int(source.nRepeat), to: source.dateUse
         ) else { return nil }
 
         let existsNext = source.e1card?.e3records.contains(where: {
-            Calendar.current.isDate($0.dateUse, equalTo: nextDate, toGranularity: .month)
+            AppCalendar.gregorian.isDate($0.dateUse, equalTo: nextDate, toGranularity: .month)
         }) ?? false
         if existsNext {
             return nil
@@ -1129,11 +1177,11 @@ enum RecordService {
     /// 済みから未払へ戻した時、条件一致する自動追加候補を消す
     private static func deleteRepeatRecordIfNeeded(from source: E3record, context: ModelContext) {
         guard 0 < source.nRepeat else { return }
-        guard let targetDate = Calendar.current.date(
+        guard let targetDate = AppCalendar.gregorian.date(
             byAdding: .month, value: Int(source.nRepeat), to: source.dateUse
         ) else { return }
 
-        let calendar = Calendar.current
+        let calendar = AppCalendar.gregorian
         let targetStart = calendar.startOfDay(for: targetDate)
         guard let targetEnd = calendar.date(byAdding: .day, value: 1, to: targetStart) else { return }
         let descriptor = FetchDescriptor<E3record>(
@@ -1220,7 +1268,7 @@ enum RecordService {
                 ? snapshot.partDueDateByPartNo[partNo]
                 : nil
             // 引き落とし日ロック済みの明細は、請求方式変更時も旧日付を維持する
-            let billingDate = Calendar.current.startOfDay(for: lockedDate ?? pair.0)
+            let billingDate = AppCalendar.gregorian.startOfDay(for: lockedDate ?? pair.0)
             // 2回払いで画面側が手動配分した金額を優先する
             let amount = validPartAmountOverrides[partNo] ?? pair.1
             rebuiltDates.append(billingDate)
@@ -1290,7 +1338,7 @@ enum RecordService {
         }
         var touchedPaymentKeys = snapshot.touchedPaymentKeys
         for date in rebuiltDates {
-            let day = Calendar.current.startOfDay(for: date)
+            let day = AppCalendar.gregorian.startOfDay(for: date)
             let paid = snapshot.invoicePaidByKey[
                 invoiceKey(cardID: record.e1card?.id, date: day, isPaid: true)
             ] ?? snapshot.invoicePaidByKey[
@@ -1380,7 +1428,7 @@ enum RecordService {
             snapshot.touchedCardIDs.insert(cardID)
         }
         for date in BillingService.partDates(record: record, card: record.e1card) {
-            let day = Calendar.current.startOfDay(for: date)
+            let day = AppCalendar.gregorian.startOfDay(for: date)
             let paid = snapshot.invoicePaidByKey[
                 invoiceKey(cardID: record.e1card?.id, date: day, isPaid: true)
             ] ?? snapshot.invoicePaidByKey[
@@ -1413,14 +1461,14 @@ enum RecordService {
 
     private static func invoiceKey(cardID: String?, date: Date, isPaid: Bool) -> String {
         let rawCardID = cardID ?? "__no_card__"
-        let day = Int(Calendar.current.startOfDay(for: date).timeIntervalSince1970)
+        let day = Int(AppCalendar.gregorian.startOfDay(for: date).timeIntervalSince1970)
         let state = isPaid ? "paid" : "unpaid"
         return "\(rawCardID)#\(day)#\(state)"
     }
 
     private static func paymentKey(bankID: String?, date: Date, isPaid: Bool) -> String {
         let rawBankID = bankID ?? "__no_bank__"
-        let day = Int(Calendar.current.startOfDay(for: date).timeIntervalSince1970)
+        let day = Int(AppCalendar.gregorian.startOfDay(for: date).timeIntervalSince1970)
         let state = isPaid ? "paid" : "unpaid"
         return "\(rawBankID)#\(day)#\(state)"
     }
@@ -1479,10 +1527,10 @@ enum RecordService {
         fallbackPaymentPaid: Bool?,
         context: ModelContext
     ) -> E2invoice {
-        let day = Calendar.current.startOfDay(for: date)
+        let day = AppCalendar.gregorian.startOfDay(for: date)
         if let card {
             if let ex = card.e2invoices.first(where: {
-                Calendar.current.isDate($0.date, inSameDayAs: day) && $0.isPaid == (fallbackInvoicePaid ?? fallbackPaymentPaid ?? false)
+                AppCalendar.gregorian.isDate($0.date, inSameDayAs: day) && $0.isPaid == (fallbackInvoicePaid ?? fallbackPaymentPaid ?? false)
             }) {
                 return ex
             }
@@ -1511,7 +1559,7 @@ enum RecordService {
         fallbackPaid: Bool?,
         context: ModelContext
     ) -> E7payment {
-        let day  = Calendar.current.startOfDay(for: date)
+        let day  = AppCalendar.gregorian.startOfDay(for: date)
         // 口座未選択は物理的な paid/unpaid 所属を持てないため、内部キーは未払側へ寄せる
         let physicalIsPaid = bank == nil ? false : isPaid
         let desc = FetchDescriptor<E7payment>(predicate: #Predicate { $0.date == day })
@@ -1607,7 +1655,7 @@ enum RecordService {
             if let existingPayment = paymentByKey[key] {
                 payment = existingPayment
             } else {
-                let newPayment = E7payment(date: Calendar.current.startOfDay(for: invoice.date))
+                let newPayment = E7payment(date: AppCalendar.gregorian.startOfDay(for: invoice.date))
                 setPaymentBank(newPayment, bank: bank, isPaid: bank == nil ? false : invoice.isPaid)
                 context.insert(newPayment)
                 paymentByKey[key] = newPayment

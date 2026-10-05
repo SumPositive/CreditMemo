@@ -182,6 +182,16 @@ struct AppMain: App {
 
     private func runPostMigrationInit(container: ModelContainer) {
         SeedData.seedIfNeeded(context: container.mainContext)
+        do {
+            // 和暦環境で遠未来に保存された引き落とし日を起動時に修復する
+            _ = try RecordService.repairJapaneseCalendarDueDatesIfNeeded(context: container.mainContext)
+        } catch {
+            AppTelemetry.reportSwiftDataError(
+                error,
+                operation: "AppMain.repairJapaneseCalendarDueDatesIfNeeded",
+                entity: "E6part"
+            )
+        }
         if let repairResult = RecordService.repairBillingIntegrityIfNeeded(context: container.mainContext) {
             AppTelemetry.reportBillingIntegrityRepair(repairResult)
         }
@@ -244,6 +254,8 @@ struct AppMain: App {
         if let container = sharedModelContainer {
             ContentView()
                 .modelContainer(container)
+                // SwiftUI の日付入力も西暦で表示する
+                .environment(\.calendar, AppCalendar.gregorian)
         } else {
             DatabaseErrorView(error: containerError) {
                 renameStoreForRecovery()

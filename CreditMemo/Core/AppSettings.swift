@@ -111,7 +111,7 @@ final class ConfirmedDebitAmountSessionStore {
 
     /// 同じ引落日を時刻差で別扱いしないよう日初へそろえる
     private func key(for scope: Scope, date: Date) -> Key {
-        Key(scope: scope, date: Calendar.current.startOfDay(for: date))
+        Key(scope: scope, date: AppCalendar.gregorian.startOfDay(for: date))
     }
 }
 
@@ -162,7 +162,7 @@ final class ReconciliationProgressStore {
 
     /// 同じ引落日を時刻差で別扱いしない識別子へそろえる
     private func key(forCardID cardID: String, date: Date) -> String {
-        let day = Calendar.current.startOfDay(for: date)
+        let day = AppCalendar.gregorian.startOfDay(for: date)
         return "\(cardID)|\(day.timeIntervalSinceReferenceDate)"
     }
 
@@ -582,11 +582,8 @@ enum AppDateFormat {
         if Locale.current.identifier.hasPrefix("ja") {
             return jaYearWeekdayFormatter.string(from: date)
         }
-        if Locale.current.identifier.hasPrefix("en") {
-            // en 2行表示: 1行目は "yyyy EEE"
-            return enYearWeekdayTwoLineFormatter.string(from: date)
-        }
-        return date.formatted(.dateTime.year().weekday(.abbreviated))
+        // 日本語以外は地域の並び順で年と曜日を表示する
+        return localizedYearWeekdayFormatter.string(from: date)
     }
 
     /// 下段表示: 月/日
@@ -599,10 +596,7 @@ enum AppDateFormat {
         if Locale.current.identifier.hasPrefix("ja") {
             return jaWeekdayFormatter.string(from: date)
         }
-        if Locale.current.identifier.hasPrefix("en") {
-            return enWeekdayFormatter.string(from: date)
-        }
-        return date.formatted(.dateTime.weekday(.abbreviated))
+        return localizedWeekdayFormatter.string(from: date)
     }
 
     /// 1行表示の日付
@@ -650,12 +644,7 @@ enum AppDateFormat {
         if Locale.current.identifier.hasPrefix("ja") {
             return jaMonthDayWeekdayFormatter.string(from: date)
         }
-        let text: String
-        if Locale.current.identifier.hasPrefix("en") {
-            text = enMonthDayWeekdayFormatter.string(from: date)
-        } else {
-            text = date.formatted(.dateTime.month().day().weekday(.abbreviated))
-        }
+        let text = localizedMonthDayWeekdayFormatter.string(from: date)
         // 韓国語 "10. 3. (토)" など地域書式が付けるカッコを外す
         return text.filter { !"()（）".contains($0) }
     }
@@ -665,6 +654,8 @@ enum AppDateFormat {
     private static func autoTemplateFormatter(_ template: String) -> DateFormatter {
         let formatter = DateFormatter()
         formatter.locale = .autoupdatingCurrent
+        // 端末が和暦でも表示する年は保存・集計と同じ西暦に揃える
+        formatter.calendar = AppCalendar.gregorian
         formatter.setLocalizedDateFormatFromTemplate(template)
         return formatter
     }
@@ -672,16 +663,18 @@ enum AppDateFormat {
     private static let jaYearWeekdayFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "ja_JP")
+        formatter.calendar = AppCalendar.gregorian
         formatter.dateFormat = "yyyy(E)"
         return formatter
     }()
 
-    // en を含む非 ja ロケールは並び順を地域へ追従させる
-    private static let enYearWeekdayTwoLineFormatter = autoTemplateFormatter("yyyyEEE")
+    // 非 ja ロケールは並び順を地域へ追従させる
+    private static let localizedYearWeekdayFormatter = autoTemplateFormatter("yyyyEEE")
     // 年のみは並び順の問題がなく、ja テンプレートだと「2026年」になるため数字だけの固定書式にする
     private static let yearFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = .autoupdatingCurrent
+        formatter.calendar = AppCalendar.gregorian
         formatter.dateFormat = "yyyy"
         return formatter
     }()
@@ -689,17 +682,19 @@ enum AppDateFormat {
     private static let jaWeekdayFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "ja_JP")
+        formatter.calendar = AppCalendar.gregorian
         formatter.dateFormat = "E"
         return formatter
     }()
-    private static let enWeekdayFormatter = autoTemplateFormatter("EEE")
+    private static let localizedWeekdayFormatter = autoTemplateFormatter("EEE")
     private static let jaMonthDayWeekdayFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "ja_JP")
+        formatter.calendar = AppCalendar.gregorian
         formatter.dateFormat = "M/d E"
         return formatter
     }()
-    private static let enMonthDayWeekdayFormatter = autoTemplateFormatter("MdEEE")
+    private static let localizedMonthDayWeekdayFormatter = autoTemplateFormatter("MdEEE")
     // 西欧の1行表示。年・月日・曜日の並びを地域へ完全に委ねる（年は末尾に来る）
     private static let westernSingleLineFormatter = autoTemplateFormatter("yyyyMdEEE")
 }

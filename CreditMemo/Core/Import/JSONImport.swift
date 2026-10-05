@@ -731,13 +731,13 @@ enum JSONImport {
 
     private static func invoiceKey(cardID: String?, date: Date) -> String {
         let rawCardID = cardID ?? "__no_card__"
-        let day = Int(Calendar.current.startOfDay(for: date).timeIntervalSince1970)
+        let day = Int(AppCalendar.gregorian.startOfDay(for: date).timeIntervalSince1970)
         return "\(rawCardID)#\(day)"
     }
 
     private static func paymentKey(bankID: String?, date: Date) -> String {
         let rawBankID = bankID ?? "__no_bank__"
-        let day = Int(Calendar.current.startOfDay(for: date).timeIntervalSince1970)
+        let day = Int(AppCalendar.gregorian.startOfDay(for: date).timeIntervalSince1970)
         return "\(rawBankID)#\(day)"
     }
 
@@ -887,7 +887,7 @@ enum JSONImport {
         isPaid: Bool,
         context: ModelContext
     ) -> E7payment {
-        let day = Calendar.current.startOfDay(for: date)
+        let day = AppCalendar.gregorian.startOfDay(for: date)
         let desc = FetchDescriptor<E7payment>(predicate: #Predicate { $0.date == day })
         let payments = context.fetchReporting(desc, entity: "E7payment")
         if let payment = payments.first(where: { $0.e8bank?.id == bank?.id && $0.isPaid == isPaid }) {

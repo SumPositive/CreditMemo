@@ -4,3 +4,5 @@ Neu in 2.8.0
 - Die Tag-Liste wurde überarbeitet und sieht jetzt wie echte Tags aus – übersichtlicher als zuvor
 - Beim Abbrechen während der Eingabe erscheint jetzt eine Bestätigung, damit keine Eingaben versehentlich verloren gehen
 - Die Hilfetexte wurden leichter lesbar gestaltet
+- Systemeinstellungen: Fehler behoben, durch den Datumsangaben beim japanischen Kalender nicht korrekt angezeigt wurden
+- Systemeinstellungen: Der Kalender berücksichtigt jetzt die Einstellung „Erster Wochentag“

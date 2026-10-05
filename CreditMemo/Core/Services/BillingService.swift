@@ -52,7 +52,7 @@ enum BillingService {
         payMonth: Int16,
         partOffset: Int
     ) -> Date {
-        let cal = Calendar.current
+        let cal = AppCalendar.gregorian
         let dc  = cal.dateComponents([.year, .month, .day], from: useDate)
         let useDay   = dc.day   ?? 1
         let useMonth = dc.month ?? 1
@@ -74,7 +74,7 @@ enum BillingService {
         daysLater: Int,
         partOffset: Int
     ) -> Date {
-        let cal = Calendar.current
+        let cal = AppCalendar.gregorian
         let baseDate = cal.startOfDay(for: useDate)
         let monthShifted = cal.date(byAdding: .month, value: partOffset, to: baseDate) ?? baseDate
         let billed = cal.date(byAdding: .day, value: daysLater, to: monthShifted) ?? monthShifted
@@ -84,7 +84,7 @@ enum BillingService {
     /// 現在の支払日から、カードの支払周期で months 回分ずらした支払日を返す。
     /// 現在日が規定の支払日に当たらない（手動で変えた）時は、単純に months ヶ月ずらす
     static func shiftedBillingDate(from currentDate: Date, useDate: Date, card: E1card?, months: Int) -> Date {
-        let cal = Calendar.current
+        let cal = AppCalendar.gregorian
         for offset in -12...12 {
             let candidate = billingDate(useDate: useDate, card: card, partOffset: offset)
             if cal.isDate(candidate, inSameDayAs: currentDate) {
@@ -97,7 +97,7 @@ enum BillingService {
 
     /// 支払日に対応する今回の締日を返す
     static func closingDate(forBillingDate billingDate: Date, card: E1card) -> Date {
-        let calendar = Calendar.current
+        let calendar = AppCalendar.gregorian
         let billingDay = calendar.startOfDay(for: billingDate)
 
         // N日後型は支払日から日数を戻した日を締日相当として扱う
@@ -206,12 +206,12 @@ enum BillingService {
     private static func daysInMonth(year: Int, month: Int) -> Int {
         var dc = DateComponents()
         dc.year = year; dc.month = month + 1; dc.day = 0
-        return Calendar.current.dateComponents([.day],
-            from: Calendar.current.date(from: dc)!).day ?? 28
+        return AppCalendar.gregorian.dateComponents([.day],
+            from: AppCalendar.gregorian.date(from: dc)!).day ?? 28
     }
 
     private static func makeDate(year: Int, month: Int, payDay: Int) -> Date {
-        let cal  = Calendar.current
+        let cal  = AppCalendar.gregorian
         var dc   = DateComponents(); dc.year = year; dc.month = month
         let base = cal.date(from: dc) ?? Date()
         let bc   = cal.dateComponents([.year, .month], from: base)

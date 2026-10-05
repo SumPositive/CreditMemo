@@ -5,6 +5,54 @@ import Testing
 
 @MainActor
 struct RobustnessTests {
+    @Test("和暦由来の遠未来の引き落とし日を支払状態ごと修復する")
+    func repairsJapaneseCalendarDueDate() throws {
+        let context = try TestStore.makeContext()
+        let bank = TestFixtures.makeBank(name: "口座", in: context)
+        let card = TestFixtures.makeCard(name: "カード", bank: bank, in: context)
+        let record = try TestFixtures.saveRecord(
+            amount: 1_000,
+            dateUse: TestStore.date(2026, 4, 5),
+            card: card,
+            in: context
+        )
+        let part = try #require(record.e6parts.first)
+        let correctDate = try #require(part.e2invoice?.date)
+        // 和暦 DatePicker の誤った下限を保存した状態を再現する
+        try RecordService.setPartDueDate(part, date: TestStore.date(4018, 1, 1), context: context)
+        try RecordService.setPartPaid(part, isPaid: true, context: context)
+        part.isChecked = true
+        try context.save()
+
+        #expect(try RecordService.repairJapaneseCalendarDueDatesIfNeeded(context: context) == 1)
+        let repaired = try #require(try context.fetch(FetchDescriptor<E6part>()).first)
+        #expect(repaired.e2invoice?.date == correctDate)
+        #expect(repaired.e2invoice?.isPaid == true)
+        #expect(repaired.isChecked)
+        #expect(repaired.isDueDateLocked)
+        #expect(try context.fetch(FetchDescriptor<E2invoice>()).count == 1)
+        #expect(try context.fetch(FetchDescriptor<E7payment>()).count == 1)
+        #expect(RecordService.checkBillingIntegrity(context: context).hasIssue == false)
+    }
+
+    @Test("正常な手動引き落とし日は起動時修復の対象にしない")
+    func keepsValidManualDueDate() throws {
+        let context = try TestStore.makeContext()
+        let card = TestFixtures.makeCard(name: "カード", in: context)
+        let record = try TestFixtures.saveRecord(
+            amount: 1_000,
+            dateUse: TestStore.date(2026, 4, 5),
+            card: card,
+            in: context
+        )
+        let part = try #require(record.e6parts.first)
+        let manualDate = TestStore.date(2026, 8, 12)
+        try RecordService.setPartDueDate(part, date: manualDate, context: context)
+
+        #expect(try RecordService.repairJapaneseCalendarDueDatesIfNeeded(context: context) == 0)
+        #expect(part.e2invoice.map { AppCalendar.gregorian.isDate($0.date, inSameDayAs: manualDate) } == true)
+    }
+
     @Test("決済を削除すると孤児の請求・支払も掃除される")
     func deleteRecordRemovesOrphanBilling() throws {
         let context = try TestStore.makeContext()
