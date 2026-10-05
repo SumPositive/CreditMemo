@@ -819,66 +819,31 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Gib deinem Konto einen kurzen Spitznamen. Diese App verschlüsselt keine Daten, vermeide also sensible Angaben. Falls du Kontonummern angibst, sind nur die letzten 3 Stellen sicher."
+            "value" : "Gib deinem Konto einen kurzen Spitznamen\n\nDiese App verschlüsselt keine Daten, vermeide also sensible Angaben. Falls du Kontonummern angibst, sind nur die letzten 3 Stellen sicher"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Give your account a short nickname. This app does not encrypt data, so avoid sensitive info. If you include account digits, only the last 3 are safe to store."
+            "value" : "Give your account a short nickname\n\nThis app does not encrypt data, so avoid sensitive info. If you include account digits, only the last 3 are safe to store"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "銀行名など短い呼び名をつけてください。暗号化しませんので機密情報は入れず、口座番号を入れるならば下3桁までが安全です。"
+            "value" : "銀行名など短い呼び名をつけてください\n\n暗号化しませんので機密情報は入れず、口座番号を入れるならば下3桁までが安全です"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "계좌에 짧은 별칭을 붙이세요. 이 앱은 데이터를 암호화하지 않으므로 민감한 정보는 피하세요. 계좌번호를 넣는다면 마지막 3자리까지만 안전합니다."
+            "value" : "계좌에 짧은 별칭을 붙이세요\n\n이 앱은 데이터를 암호화하지 않으므로 민감한 정보는 피하세요. 계좌번호를 넣는다면 마지막 3자리까지만 안전합니다"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "為賬戶起一個簡短的暱稱。本應用不加密資料，請勿填寫敏感資訊；如要填寫卡號，僅後 3 位較為安全。"
-          }
-        }
-      }
-    },
-    "bank.edit.beginner.hint" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kurzen Konto-Spitznamen verwenden"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Use a short account nickname"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "口座には短い呼び名を付けます"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "짧은 계좌 별칭 사용"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "使用簡短的賬戶暱稱"
+            "value" : "為帳戶起一個簡短的暱稱\n\n本應用不加密資料，請勿填寫敏感資訊；如要填寫帳號，僅後 3 位較為安全"
           }
         }
       }
@@ -1729,31 +1694,31 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "So werden Beträge auf die kleinste Währungseinheit gerundet.\n\n• Kaufmännisch runden: ab 0,5 wird aufgerundet.\n• Auf-/Abrunden: Nachkommastellen gehen immer nach oben bzw. unten.\n• Banker-Rundung: nur genaue Hälften gehen zum nächsten geraden Ergebnis (0,5→0, 1,5→2, 2,5→2, 3,5→4). Alles andere entspricht dem kaufmännischen Runden.\n\nDa sich Auf- und Abrunden abwechseln, weichen Summen über viele Einträge weniger ab – deshalb nutzen Buchhaltung und Statistik dieses Verfahren."
+            "value" : "So werden Beträge auf die kleinste Währungseinheit gerundet\n\n• Kaufmännisch runden: ab 0,5 wird aufgerundet\n• Auf-/Abrunden: Nachkommastellen gehen immer nach oben bzw. unten\n• Banker-Rundung: nur genaue Hälften gehen zum nächsten geraden Ergebnis (0,5→0, 1,5→2, 2,5→2, 3,5→4). Alles andere entspricht dem kaufmännischen Runden\n\nDa sich Auf- und Abrunden abwechseln, weichen Summen über viele Einträge weniger ab – deshalb nutzen Buchhaltung und Statistik dieses Verfahren"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "How amounts are rounded to the currency's smallest unit.\n\n• Round Half Up: 0.5 and above rounds up.\n• Round Up / Down: fractions always go up / down.\n• Banker's Rounding: only exact halves go to the nearest even result (0.5→0, 1.5→2, 2.5→2, 3.5→4). Everything else matches Round Half Up.\n\nBecause banker's rounding alternates between up and down, totals over many entries drift less, which is why accounting and statistics use it."
+            "value" : "How amounts are rounded to the currency's smallest unit\n\n• Round Half Up: 0.5 and above rounds up\n• Round Up / Down: fractions always go up / down\n• Banker's Rounding: only exact halves go to the nearest even result (0.5→0, 1.5→2, 2.5→2, 3.5→4). Everything else matches Round Half Up\n\nBecause banker's rounding alternates between up and down, totals over many entries drift less, which is why accounting and statistics use it"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "金額を通貨の単位にそろえる方法です。\n\n・四捨五入：0.5以上を切り上げます。\n・切り上げ／切り捨て：端数を常に上げる／下げます。\n・偶数丸め：ちょうど0.5のときだけ、結果が偶数になる側へ丸めます（0.5→0、1.5→2、2.5→2、3.5→4）。それ以外は四捨五入と同じです。\n\n偶数丸めは切り上げと切り捨てが交互になるため、多くの件数を合計したときの誤差が偏りにくく、会計や統計で使われます。"
+            "value" : "金額を通貨の単位にそろえる方法です\n\n・四捨五入：0.5以上を切り上げます\n・切り上げ／切り捨て：端数を常に上げる／下げます\n・偶数丸め：ちょうど0.5のときだけ、結果が偶数になる側へ丸めます（0.5→0、1.5→2、2.5→2、3.5→4）。それ以外は四捨五入と同じです\n\n偶数丸めは切り上げと切り捨てが交互になるため、多くの件数を合計したときの誤差が偏りにくく、会計や統計で使われます"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "금액을 통화의 최소 단위로 맞추는 방법입니다.\n\n• 반올림: 0.5 이상을 올립니다.\n• 올림／버림: 끝수를 항상 올리거나 버립니다.\n• 은행식 반올림: 정확히 0.5일 때만 결과가 짝수가 되는 쪽으로 맞춥니다(0.5→0, 1.5→2, 2.5→2, 3.5→4). 그 외에는 반올림과 같습니다.\n\n은행식 반올림은 올림과 버림이 번갈아 나타나므로 많은 건수를 합산할 때 오차가 한쪽으로 치우치지 않아 회계와 통계에서 쓰입니다."
+            "value" : "금액을 통화의 최소 단위로 맞추는 방법입니다\n\n• 반올림: 0.5 이상을 올립니다\n• 올림／버림: 끝수를 항상 올리거나 버립니다\n• 은행식 반올림: 정확히 0.5일 때만 결과가 짝수가 되는 쪽으로 맞춥니다(0.5→0, 1.5→2, 2.5→2, 3.5→4). 그 외에는 반올림과 같습니다\n\n은행식 반올림은 올림과 버림이 번갈아 나타나므로 많은 건수를 합산할 때 오차가 한쪽으로 치우치지 않아 회계와 통계에서 쓰입니다"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "將金額調整為貨幣最小單位的方式。\n\n・四捨五入：0.5 以上進位。\n・無條件進位／捨去：尾數一律進位或捨去。\n・偶數捨入：僅在剛好 0.5 時，捨入到結果為偶數的一側（0.5→0、1.5→2、2.5→2、3.5→4）。其餘與四捨五入相同。\n\n偶數捨入會讓進位與捨去交替出現，累計大量筆數時誤差較不會偏向一邊，因此常用於會計與統計。"
+            "value" : "將金額調整為貨幣最小單位的方式\n\n・四捨五入：0.5 以上進位\n・無條件進位／捨去：尾數一律進位或捨去\n・偶數捨入：僅在剛好 0.5 時，捨入到結果為偶數的一側（0.5→0、1.5→2、2.5→2、3.5→4）。其餘與四捨五入相同\n\n偶數捨入會讓進位與捨去交替出現，累計大量筆數時誤差較不會偏向一邊，因此常用於會計與統計"
           }
         }
       }
@@ -2568,66 +2533,31 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Gib deiner Karte einen kurzen Spitznamen. Diese App verschlüsselt keine Daten, vermeide also sensible Angaben. Falls du Kartennummern angibst, sind nur die letzten 3 Stellen sicher."
+            "value" : "Gib deiner Karte einen kurzen Spitznamen\n\nDiese App verschlüsselt keine Daten, vermeide also sensible Angaben. Falls du Kartennummern angibst, sind nur die letzten 3 Stellen sicher"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Give your card a short nickname. This app does not encrypt data, so avoid sensitive info. If you include card digits, only the last 3 are safe to store."
+            "value" : "Give your card a short nickname\n\nThis app does not encrypt data, so avoid sensitive info. If you include card digits, only the last 3 are safe to store"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "クレジットカードの名称などを短い呼び名をつけてください。暗号化しませんので機密情報は入れず、カード番号を入れるならば下3桁までが安全です。"
+            "value" : "クレジットカードの名称など短い呼び名をつけてください\n\n暗号化しませんので機密情報は入れず、カード番号を入れるならば下3桁までが安全です"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "카드에 짧은 별칭을 붙이세요. 이 앱은 데이터를 암호화하지 않으므로 민감한 정보는 피하세요. 카드번호를 넣는다면 마지막 3자리까지만 안전합니다."
+            "value" : "카드에 짧은 별칭을 붙이세요\n\n이 앱은 데이터를 암호화하지 않으므로 민감한 정보는 피하세요. 카드번호를 넣는다면 마지막 3자리까지만 안전합니다"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "為卡片起一個簡短的暱稱。本應用不加密資料，請勿填寫敏感資訊；如要填寫卡號，僅後 3 位較為安全。"
-          }
-        }
-      }
-    },
-    "card.edit.beginner.hint" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kurzen Spitznamen für die Zahlungsmethode verwenden"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Use a short payment method nickname"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "決済手段には短い呼び名を付けます"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "짧은 결제 수단 별칭 사용"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "使用簡短的付款方式暱稱"
+            "value" : "為卡片起一個簡短的暱稱\n\n本應用不加密資料，請勿填寫敏感資訊；如要填寫卡號，僅後 3 位較為安全"
           }
         }
       }
@@ -2803,41 +2733,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "結算日"
-          }
-        }
-      }
-    },
-    "card.field.closingDay.enHelp" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ausgaben nach diesem Tag werden auf den nächsten Monat übertragen. Ohne Angabe entspricht er dem Zahlungstag."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Spending after this day rolls over to the next month. If not set, it matches the payment day."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "この日以降の利用は翌月に繰り越します。未設定ならば支払日と同じになります。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "이 날 이후의 사용은 다음 달로 이월됩니다. 미설정이면 결제일과 같습니다."
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "此日之後的消費順延至下月。未設定時與付款日相同。"
           }
         }
       }
@@ -3083,111 +2978,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "付款月"
-          }
-        }
-      }
-    },
-    "card.help.manageLevel" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Gibt an, wie streng du verwalten möchtest. Hat keinen Einfluss auf Berechnungen oder Verarbeitung. Jederzeit änderbar."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Indicates how strictly you want to manage. It does not affect calculations or processing. You can change it anytime."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "管理の厳しさを示す設定です。計算や処理には影響しません。あとでいつでも変更できます。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "관리의 엄격함을 나타내는 설정입니다. 계산이나 처리에는 영향을 주지 않습니다. 언제든지 변경할 수 있습니다."
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "表示管理的嚴格程度。不影響計算或處理。可隨時更改。"
-          }
-        }
-      }
-    },
-    "card.help.name" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Erfasse den Namen einer Zahlungsmethode, die später von deinem Konto abgebucht wird. Bei PayPay werden kreditverknüpfte Nutzung und Aufladungen des PayPay-Guthabens erfasst; Ausgaben aus dem aufgeladenen Guthaben nicht."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Register the name of a payment method that is debited from your account later. For PayPay, credit-linked use and top-ups to the PayPay balance are tracked; spending from the topped-up PayPay balance is not."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "後日、口座から引き落とされる決済手段の名称を登録します。PayPayならばクレジット連携の利用やPayPay残高へのチャージが決済対象になります。チャージしたPayPay残高の利用は対象外です。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "후일 계좌에서 출금되는 결제 수단의 이름을 등록합니다. PayPay라면 신용 연동 사용과 PayPay 잔액 충전이 결제 대상이며, 충전한 PayPay 잔액의 사용은 대상이 아닙니다."
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "登記日後從賬戶扣款的付款方式名稱。以 PayPay 為例，信用關聯使用及向 PayPay 餘額充值屬於付款物件；使用已充值的 PayPay 餘額不在範圍內。"
-          }
-        }
-      }
-    },
-    "card.help.schedule" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Lege Abrechnungstag und Zahlungstag für diese Methode fest. Im Zweifel beim Kartenanbieter nachfragen und an das tatsächliche Abbuchungsdatum anpassen."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Set the closing day and payment day for this method. If you're not sure, ask the card issuer and adjust to match the actual debit date."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "この決済手段の締日と支払日を設定します。わからない場合はカード会社に確認し、実際の引き落とし日で調整してください。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "이 결제 수단의 마감일과 결제일을 설정합니다. 잘 모르면 카드사에 확인하고 실제 출금일에 맞춰 조정하세요."
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "設定此付款方式的結算日和付款日。若不確定，請諮詢髮卡機構，並按實際扣款日期調整。"
           }
         }
       }
@@ -4421,41 +4211,6 @@
         }
       }
     },
-    "invoice.beginner.lockHelp" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tippe auf das Schloss-Symbol, um wichtige Felder wie Datum und Betrag zu sperren. Das beeinflusst Summen oder Klassifizierung nicht. Entspricht der Prüf-Funktion der alten App."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tap the lock icon to lock major fields such as the date and amount. It does not affect totals or classification. This is the same as the check feature from the old app."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "鍵アイコンをタップすると日付や金額などの主要項目がロックされます。集計や分類の処理に影響はありません。旧アプリにあったチェック機能と同じです"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "잠금 아이콘을 탭하면 날짜·금액 등 주요 항목이 잠깁니다. 집계나 분류에는 영향이 없습니다. 이전 앱의 체크 기능과 같습니다."
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "點選鎖定圖示可鎖定日期、金額等主要欄位。不影響彙總或分類。與舊版應用的勾選功能相同。"
-          }
-        }
-      }
-    },
     "invoice.beginner.lockToggle" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5442,66 +5197,31 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Gleiche die Abrechnungspositionen des Anbieters des Zahlungsmittels mit den Posten in CrediMemo ab.\n\nGib den Rechnungsbetrag ein, um die Differenz und Verschiebungsvorschläge anzuzeigen. Verschiebe Posten vorläufig mit „Nächste“ oder „Diesmal“. Sobald die Differenz 0 beträgt, kannst du den Abgleich als erledigt markieren."
+            "value" : "Gleiche die Abrechnungspositionen des Anbieters des Zahlungsmittels mit den Posten in Deferin ab\n\nGib den Rechnungsbetrag ein, um die Differenz und Verschiebungsvorschläge anzuzeigen\n\nVerschiebe Zahlungen mit „Zur nächsten“ oder „Zu diesmal“ oder füge einen Posten für die Differenz hinzu, bis die Differenz 0 beträgt\n\nSpeicherst du zwischendurch, lautet der Status „Abgleich läuft“; speicherst du bei einer Differenz von 0, lautet er „Abgeglichen“"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Compare the payment method provider’s statement items with the items in CrediMemo.\n\nEnter the bill total to see the difference and suggested items to move. Move items provisionally with Next or Current. When the difference reaches zero, you can mark them as reconciled."
+            "value" : "Reconcile the payment method provider’s statement items with the items in Deferin\n\nEnter the bill total to see the difference and suggested items to move\n\nMove payments with “Next” or “Current”, or add an item for the difference, until the difference reaches zero\n\nSaving partway marks it “Reconciling”; saving with a zero difference marks it “Matched”"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "手段を提供する会社の請求明細とクレメモの明細を照合します。\n\n請求合計を入力すると、差額と移動候補が表示されます。「次回へ」「今回へ」で明細を仮移動し、差額が0になれば照合済みにできます。"
+            "value" : "手段を提供する会社の請求明細とクレメモの明細を照合してください\n\n請求合計を入力すると、差額と移動候補が表示されます\n\n支払を「次回へ」「今回へ」移動させたり、差分の明細を追加したりして差額を0にしてください\n\n途中で一旦保存すれば「照合中」、差額0で保存すれば「照合済み」になります"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "결제 수단 제공 회사의 청구 내역과 CrediMemo의 내역을 대조합니다.\n\n청구 합계를 입력하면 차액과 이동 후보가 표시됩니다. ‘다음’ 또는 ‘이번’으로 내역을 임시 이동하세요. 차액이 0이 되면 대조 완료로 표시할 수 있습니다."
+            "value" : "결제 수단 제공 회사의 청구 내역과 Deferin의 내역을 대조해 주세요\n\n청구 합계를 입력하면 차액과 이동 후보가 표시됩니다\n\n결제를 ‘다음으로’ ‘이번으로’ 이동하거나 차액만큼의 내역을 추가해서 차액을 0으로 맞춰 주세요\n\n도중에 저장하면 ‘대조 중’, 차액 0으로 저장하면 ‘대조 완료’가 됩니다"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "將付款方式提供公司的帳單明細與 CrediMemo 的明細進行核對。\n\n輸入帳單合計後，便會顯示差額與建議移動的明細。使用「下次」或「本次」暫時移動明細。差額變為 0 後，即可標記為已核對。"
-          }
-        }
-      }
-    },
-    "invoice.reconciliation.help.title" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Abgleichmodus"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reconciliation Mode"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "照合モード"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "대조 모드"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "核對模式"
+            "value" : "請將付款方式提供公司的帳單明細與 Deferin 的明細進行核對\n\n輸入帳單合計後，便會顯示差額與建議移動的明細\n\n請將付款「移至下次」或「移至本次」，或新增差額的明細，讓差額變為 0\n\n中途先儲存會成為「核對中」，差額為 0 時儲存則會成為「已核對」"
           }
         }
       }
@@ -8867,41 +8587,6 @@
         }
       }
     },
-    "record.beginner.guide.edit" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Falls Zahlungsmethode oder Abbuchungskonto nicht ausgewählt sind, wähle sie und speichere. Wenn du Zeit hast, nutze auch Labels und Tags."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "If payment method or debit account is unselected, choose them and save. If you have time, also use labels and tags."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "決済手段と引き落とし口座に未選択があれば、選択して保存してください。余裕があれば決済ラベルやタグも活用してください。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "결제 수단이나 출금 계좌가 미선택이면 선택 후 저장하세요. 여유가 있으면 라벨과 태그도 활용하세요."
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "若付款方式或扣款賬戶未選擇，請選擇後儲存。有時間也可使用標籤和標記。"
-          }
-        }
-      }
-    },
     "record.beginner.hint" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -8968,41 +8653,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "確認金額和付款方式後儲存"
-          }
-        }
-      }
-    },
-    "record.beginner.hint.edit" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fehlende Methode oder Konto bei Bedarf ergänzen"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fill missing method or account when needed"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "未選択があれば必要に応じて選びます"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "필요하면 미선택 수단·계좌를 채우기"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "需要時補全方式或賬戶"
           }
         }
       }
@@ -9108,41 +8758,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "刪除此付款"
-          }
-        }
-      }
-    },
-    "record.dueDate.help" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Wird automatisch aus deinen Eingaben bestimmt.\n\nDu kannst es durch Auswahl eines Datums ändern.\n\nSperren, um das Datum festzuhalten und weitere Änderungen zu verhindern."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Determined automatically from your inputs.\n\nYou can change it by picking a date.\n\nLock to fix the date and prevent further changes."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "入力に応じて自動的に決定します\n\n日付や金額をタップして変更できます\n\nロックすると固定化し、変更禁止になります"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "입력에 따라 자동으로 정해집니다.\n\n날짜를 선택해 변경할 수 있습니다.\n\n잠그면 날짜가 고정되어 더 이상 변경되지 않습니다."
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "根據輸入自動確定。\n\n可選擇日期進行更改。\n\n鎖定可固定日期並防止再更改。"
           }
         }
       }
@@ -9283,41 +8898,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "會自動更新為預設日期。點選鎖定（手動）。"
-          }
-        }
-      }
-    },
-    "record.dueDate.hint" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sperre das Abbuchungsdatum, wenn du es festhalten möchtest"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Lock the debit date when you want to keep it fixed"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "日付を固定したい時はロックします"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "날짜를 고정하려면 잠그세요"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "想固定扣款日時請鎖定"
           }
         }
       }
@@ -10304,111 +9884,6 @@
         }
       }
     },
-    "record.help.label" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dieses Label erscheint in Listen. Füge einen kurzen Hinweis wie Geschäft oder Zweck hinzu. Du kannst es später ändern oder unten eines auswählen."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This label shows in lists. Add a short clue like a shop or purpose. You can change it later or pick one below."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "一覧で目印になるラベルです。店名や目的など、あとで分かる短い言葉を入れてください。あとで変更できます。下の候補から選ぶこともできます。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "이 라벨은 목록에 표시됩니다. 상점이나 용도 등 짧은 단서를 넣으세요. 나중에 변경하거나 아래에서 선택할 수 있습니다."
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "此標籤會顯示在列表中。請填寫店名或用途等簡短提示。之後可更改，或從下方選擇。"
-          }
-        }
-      }
-    },
-    "record.help.repeat" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Wird diese Zahlung als bezahlt markiert, wird automatisch eine neue Zahlung für den nächsten Monat oder das gewählte Intervall hinzugefügt."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "When this payment is marked paid, a new payment is added automatically for the next month or the selected interval."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "この決済が引き落とし済みになった時、利用日を翌月などの指定日にした新しい決済を自動追加します。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "이 결제가 결제 완료로 표시되면 다음 달 또는 선택한 간격으로 새 결제가 자동으로 추가됩니다."
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "當此付款標為已付時，會自動為下個月或所選間隔新增一條新付款。"
-          }
-        }
-      }
-    },
-    "record.help.tag" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Du kannst mehrere Tags wählen. Tags lassen sich später ändern oder ergänzen. Mit Tags werden Tag-Listen und Summen verfügbar."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You can pick more than one tag. You can change or add tags later. Tags make tag lists and totals available."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "タグは複数選べます。あとで変更や追加もできます。タグを付けると、タグ別の一覧や集計が使えます。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "태그는 여러 개 선택할 수 있습니다. 나중에 변경하거나 추가할 수도 있습니다. 태그를 붙이면 태그별 목록과 집계를 사용할 수 있습니다."
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "可選擇多個標籤，之後也可更改或新增。新增標籤後，可使用按標籤的列表和彙總。"
-          }
-        }
-      }
-    },
     "record.list.beginner.guide" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -10440,76 +9915,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "在此修正已儲存的付款。\n\n將篩選切換為“有未填”可僅顯示資訊缺失的付款。\n\n也可滑動條目進行復制。只需輸入金額並儲存；未輸入金額會自動消失。"
-          }
-        }
-      }
-    },
-    "record.list.beginner.guide.leading" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Gespeicherte Zahlungen hier korrigieren."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fix saved payments here."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "保存後の修正はここで行います"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "저장한 결제는 여기서 수정합니다."
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在此修正已儲存的付款。"
-          }
-        }
-      }
-    },
-    "record.list.beginner.guide.trailing" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Stelle den Filter auf „Mit Lücken“, um nur Zahlungen mit fehlenden Angaben zu zeigen."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Set the filter to Incomplete to show only payments with missing info."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "フィルターを【未入力あり】にすれば未入力や未選択が残っている決済が表示されます。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "필터를 ‘미입력 있음’으로 설정하면 정보가 빠진 결제만 표시됩니다."
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "將篩選設為“有未填”可僅顯示資訊缺失的付款。"
           }
         }
       }
@@ -10790,41 +10195,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "拆分金額"
-          }
-        }
-      }
-    },
-    "record.partDueDate.help" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tippen, um das Abbuchungsdatum nur für diesen Eintrag zu ändern."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tap to change the debit date for this item only."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "タップすればこの明細だけの引き落とし日を変更できます。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "탭하면 이 항목만의 출금일을 변경할 수 있습니다."
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "點選可僅更改此條目的扣款日期。"
           }
         }
       }
@@ -11244,41 +10614,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "未找到相似付款。"
-          }
-        }
-      }
-    },
-    "record.similar.guide" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ähnliche frühere Zahlungen werden angezeigt. Wähle eine, um leere Felder zu füllen."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Similar past payments are shown. Select one to fill in blank fields."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "近い履歴を提示します。選択すれば未入力項目が補塡されます。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "비슷한 과거 결제를 표시합니다. 하나를 선택하면 빈 항목이 채워집니다."
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "顯示相似的過往付款。選擇一條可填充空白欄位。"
           }
         }
       }
@@ -11896,7 +11231,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "もう一度エキスポート"
+            "value" : "もう一度エクスポート"
           }
         },
         "ko" : {
@@ -11966,7 +11301,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "エキスポート"
+            "value" : "エクスポート"
           }
         },
         "ko" : {
@@ -12001,7 +11336,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "整理するデータはありません。バックアップのためにエキスポートしてください。"
+            "value" : "整理するデータはありません。バックアップのためにエクスポートしてください。"
           }
         },
         "ko" : {
@@ -12141,7 +11476,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "エキスポートして整理"
+            "value" : "エクスポートして整理"
           }
         },
         "ko" : {
@@ -12211,7 +11546,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%1$d年より前の決済が %2$d件あります。全データをJSONファイルにエキスポートして手元に残したうえで整理すると、表示が軽くなります。"
+            "value" : "%1$d年より前の決済が %2$d件あります。全データをJSONファイルにエクスポートして手元に残したうえで整理すると、表示が軽くなります。"
           }
         },
         "ko" : {
@@ -12246,7 +11581,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%d年より前の決済はありません。バックアップとして全データをエキスポートすることはできます。"
+            "value" : "%d年より前の決済はありません。バックアップとして全データをエクスポートすることはできます。"
           }
         },
         "ko" : {
@@ -14964,31 +14299,31 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Wähle, was nach dem Speichern einer neuen Zahlung passiert. Für Eintrag-nach-Eintrag nutze Fortlaufende Eingabe."
+            "value" : "Wähle, was nach dem Speichern einer neuen Zahlung passiert\n\nFür Eintrag-nach-Eintrag nutze Fortlaufende Eingabe"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Choose what happens after saving a new payment. Use Continuous Entry for back-to-back entries."
+            "value" : "Choose what happens after saving a new payment\n\nUse Continuous Entry for back-to-back entries"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "新しい決済を保存した後の画面遷移を選べます。連続して入力するなら「連続入力」が便利です。"
+            "value" : "新しい決済を保存した後の画面遷移を選べます\n\n連続して入力するなら「連続入力」が便利です"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "새 결제를 저장한 뒤의 동작을 선택합니다. 연달아 입력하려면 연속 입력을 사용하세요."
+            "value" : "새 결제를 저장한 뒤의 동작을 선택합니다\n\n연달아 입력하려면 연속 입력을 사용하세요"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "選擇儲存新付款後的行為。連續錄入時使用連續輸入。"
+            "value" : "選擇儲存新付款後的行為\n\n連續錄入時使用連續輸入"
           }
         }
       }
@@ -15034,31 +14369,31 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Erfasse eine in mehrere Raten (1–12) aufgeteilte Zahlung. Die Beträge werden standardmäßig gleichmäßig verteilt, und du kannst jede Rate manuell anpassen.\n\nIst dies aus, wird die Ratenzahlung für neue Einträge ausgeblendet. Vorhandene Einträge bleiben gültig.\n\nFür Bonus- oder Sonderzahlungstermine das Abbuchungsdatum manuell ändern. Deferin berechnet weder Zinsen noch Gebühren, nutze dies also nur für zins- und gebührenfreie Pläne."
+            "value" : "Erfasse eine in mehrere Raten (1–12) aufgeteilte Zahlung\n\nDie Beträge werden standardmäßig gleichmäßig verteilt, und du kannst jede Rate manuell anpassen\n\nIst dies aus, wird die Ratenzahlung für neue Einträge ausgeblendet. Vorhandene Einträge bleiben gültig\n\nFür Bonus- oder Sonderzahlungstermine das Abbuchungsdatum manuell ändern\n\nDeferin berechnet weder Zinsen noch Gebühren, nutze dies also nur für zins- und gebührenfreie Pläne"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Record a payment split into several installments (1–12). Amounts are divided evenly by default, and you can adjust each one manually.\n\nTurning this off hides installments for new records. Existing installment records stay valid.\n\nFor bonus or special payment dates, change the debit date manually. Deferin does not calculate interest or fees, so use this only for interest-free, fee-free plans."
+            "value" : "Record a payment split into several installments (1–12)\n\nAmounts are divided evenly by default, and you can adjust each one manually\n\nTurning this off hides installments for new records. Existing installment records stay valid\n\nFor bonus or special payment dates, change the debit date manually\n\nDeferin does not calculate interest or fees, so use this only for interest-free, fee-free plans"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "支払を複数回に分けて記録できます（1〜2回）。金額は自動で均等配分し、各回を手動で調整することもできます\n\nOFFにすると新しい決済で分割払いを選べなくなります。すでに保存した分割払いは変わらず有効です\n\nボーナス払いは引き落とし日を手動で変更してください。利息や手数料は計算しませんので、無利息・手数料無料の範囲でご利用ください。利息や手数料を含めた金額にすれば使えると思いますが想定外です"
+            "value" : "支払を複数回に分けて記録できます（1〜2回）\n\n金額は自動で均等配分し、各回を手動で調整することもできます\n\nOFFにすると新しい決済で分割払いを選べなくなります。すでに保存した分割払いは変わらず有効です\n\nボーナス払いは引き落とし日を手動で変更してください\n\n利息や手数料は計算しませんので、無利息・手数料無料の範囲でご利用ください。利息や手数料を含めた金額にすれば使えると思いますが想定外です"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "결제를 여러 번(1~12회)으로 나누어 기록할 수 있습니다. 금액은 기본적으로 균등 분할되며 각 회차를 수동으로 조정할 수도 있습니다.\n\n끄면 새 기록에서 분할 결제가 숨겨집니다. 이미 저장한 분할 결제는 그대로 유효합니다.\n\n보너스 결제일은 출금일을 수동으로 변경하세요. Deferin는 이자나 수수료를 계산하지 않으므로 무이자·무수수료 계획에만 사용하세요."
+            "value" : "결제를 여러 번(1~12회)으로 나누어 기록할 수 있습니다\n\n금액은 기본적으로 균등 분할되며 각 회차를 수동으로 조정할 수도 있습니다\n\n끄면 새 기록에서 분할 결제가 숨겨집니다. 이미 저장한 분할 결제는 그대로 유효합니다\n\n보너스 결제일은 출금일을 수동으로 변경하세요\n\nDeferin는 이자나 수수료를 계산하지 않으므로 무이자·무수수료 계획에만 사용하세요"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "記錄拆分為多期（1–12 期）的付款。金額預設平均分配，也可手動調整每一期。\n\n關閉後，新記錄將不顯示分期。已有的分期記錄仍然有效。\n\n獎金或特殊付款日請手動更改扣款日期。Deferin 不計算利息或手續費，請僅用於無息無手續費的計劃。"
+            "value" : "記錄拆分為多期（1–12 期）的付款\n\n金額預設平均分配，也可手動調整每一期\n\n關閉後，新記錄將不顯示分期。已有的分期記錄仍然有效\n\n獎金或特殊付款日請手動更改扣款日期\n\nDeferin 不計算利息或手續費，請僅用於無息無手續費的計劃"
           }
         }
       }
@@ -15104,31 +14439,31 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Teile alle Einträge und Stammdaten als JSON-Datei. Auch für Backups praktisch."
+            "value" : "Teile alle Einträge und Stammdaten als JSON-Datei\n\nAuch für Backups praktisch"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Share all records and master data as a JSON file. It's also handy for backups."
+            "value" : "Share all records and master data as a JSON file\n\nIt's also handy for backups"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "入力された全データをファイル(JSON)で共有できます。バックアップのためにも活用してください。"
+            "value" : "入力された全データをファイル(JSON)で共有できます\n\nバックアップのためにも活用してください"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "모든 기록과 마스터 데이터를 JSON 파일로 공유합니다. 백업에도 편리합니다."
+            "value" : "모든 기록과 마스터 데이터를 JSON 파일로 공유합니다\n\n백업에도 편리합니다"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "將所有記錄和主資料共享為 JSON 檔案。也便於備份。"
+            "value" : "將所有記錄和主資料共享為 JSON 檔案\n\n也便於備份"
           }
         }
       }
@@ -15139,31 +14474,31 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Die Schriftgröße folgt den Einstellungen deines iPhone.\n\nTippe auf „Einstellungen-App“, um die Einstellungen zu öffnen, kehre oben links zur Hauptliste zurück und passe sie unter Anzeige & Helligkeit > Textgröße an.\n\nFür noch größeren Text aktiviere Bedienungshilfen > Anzeige & Textgröße > Größerer Text.\n\nWenn du früher Standard, Groß oder Sehr groß gewählt hast, wähle Auto, um dieser Einstellung zu folgen."
+            "value" : "Die Schriftgröße folgt den Einstellungen deines iPhone\n\nTippe auf „Einstellungen-App“, um die Einstellungen zu öffnen, kehre oben links zur Hauptliste zurück und passe sie unter Anzeige & Helligkeit > Textgröße an\n\nFür noch größeren Text aktiviere Bedienungshilfen > Anzeige & Textgröße > Größerer Text\n\nWenn du früher Standard, Groß oder Sehr groß gewählt hast, wähle Auto, um dieser Einstellung zu folgen"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Text size follows your iPhone settings.\n\nTap \"Settings app\" to open Settings, go back to the main list at the top left, then adjust it in Display & Brightness > Text Size.\n\nFor even larger text, turn on Accessibility > Display & Text Size > Larger Text.\n\nIf you previously chose Standard, Large, or Extra Large, choose Auto to follow this setting."
+            "value" : "Text size follows your iPhone settings\n\nTap \"Settings app\" to open Settings, go back to the main list at the top left, then adjust it in Display & Brightness > Text Size\n\nFor even larger text, turn on Accessibility > Display & Text Size > Larger Text\n\nIf you previously chose Standard, Large, or Extra Large, choose Auto to follow this setting"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "文字サイズは iPhone の設定に従います。\n\n「設定アプリ」を押すと設定が開くので、左上で一覧に戻り、「画面表示と明るさ」→「テキストサイズを変更」で調整してください。\n\nさらに大きくするには、「アクセシビリティ」→「画面表示とテキストサイズ」→「さらに大きな文字」をオンにします。\n\n以前「標準／大／特大」を選んでいた場合は、「自動」にするとこの設定に従います。"
+            "value" : "文字サイズは iPhone の設定に従います\n\n「設定アプリ」を押すと設定が開くので、左上で一覧に戻り、「画面表示と明るさ」→「テキストサイズを変更」で調整してください\n\nさらに大きくするには、「アクセシビリティ」→「画面表示とテキストサイズ」→「さらに大きな文字」をオンにします\n\n以前「標準／大／特大」を選んでいた場合は、「自動」にするとこの設定に従います"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "글자 크기는 iPhone 설정을 따릅니다.\n\n\"설정 앱\"을 누르면 설정이 열리니, 왼쪽 위에서 목록으로 돌아가 \"디스플레이 및 밝기\" > \"텍스트 크기\"에서 조절해 주세요.\n\n더 크게 하려면 \"손쉬운 사용\" > \"디스플레이 및 텍스트 크기\" > \"더 큰 텍스트\"를 켭니다.\n\n이전에 표준, 크게, 아주 크게를 선택했다면 자동을 선택하면 이 설정을 따릅니다."
+            "value" : "글자 크기는 iPhone 설정을 따릅니다\n\n\"설정 앱\"을 누르면 설정이 열리니, 왼쪽 위에서 목록으로 돌아가 \"디스플레이 및 밝기\" > \"텍스트 크기\"에서 조절해 주세요\n\n더 크게 하려면 \"손쉬운 사용\" > \"디스플레이 및 텍스트 크기\" > \"더 큰 텍스트\"를 켭니다\n\n이전에 표준, 크게, 아주 크게를 선택했다면 자동을 선택하면 이 설정을 따릅니다"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "字型大小依 iPhone 的設定。\n\n點一下「設定 App」即可開啟設定，請在左上角返回列表，再到「螢幕顯示與亮度」>「文字大小」調整。\n\n若要更大，請開啟「輔助使用」>「顯示與文字大小」>「放大文字」。\n\n若先前選擇了「標準／大／特大」，改選「自動」即可依此設定。"
+            "value" : "字型大小依 iPhone 的設定\n\n點一下「設定 App」即可開啟設定，請在左上角返回列表，再到「螢幕顯示與亮度」>「文字大小」調整\n\n若要更大，請開啟「輔助使用」>「顯示與文字大小」>「放大文字」\n\n若先前選擇了「標準／大／特大」，改選「自動」即可依此設定"
           }
         }
       }
@@ -15174,31 +14509,31 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Importiere eine exportierte JSON-Datei. Erneutes Importieren derselben Datei aktualisiert ohne Duplikate."
+            "value" : "Importiere eine exportierte JSON-Datei\n\nErneutes Importieren derselben Datei aktualisiert ohne Duplikate"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Import an exported JSON file. Importing the same file again updates it without duplicates."
+            "value" : "Import an exported JSON file\n\nImporting the same file again updates it without duplicates"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "エキスポートしたファイル(JSON)を読み込みます。同じファイルを読み込んでも重複せずに上書きします。"
+            "value" : "エクスポートしたファイル(JSON)を読み込みます\n\n同じファイルを読み込んでも重複せずに上書きします"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "내보낸 JSON 파일을 가져옵니다. 같은 파일을 다시 가져와도 중복 없이 갱신됩니다."
+            "value" : "내보낸 JSON 파일을 가져옵니다\n\n같은 파일을 다시 가져와도 중복 없이 갱신됩니다"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "匯入已匯出的 JSON 檔案。再次匯入同一檔案會更新且不重複。"
+            "value" : "匯入已匯出的 JSON 檔案\n\n再次匯入同一檔案會更新且不重複"
           }
         }
       }
@@ -15209,31 +14544,31 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Beim Zurückkehren zur App wird automatisch der hier gewählte Bildschirm geöffnet. Während der Bearbeitung wird nicht unterbrochen."
+            "value" : "Beim Zurückkehren zur App wird automatisch der hier gewählte Bildschirm geöffnet\n\nWährend der Bearbeitung wird nicht unterbrochen"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "When you return to the app, it automatically opens the screen you choose here. It never interrupts while you are editing."
+            "value" : "When you return to the app, it automatically opens the screen you choose here\n\nIt never interrupts while you are editing"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "アプリを再表示したとき、自動的にここで選んだ画面を開きます。編集中は割り込みません。"
+            "value" : "アプリを再表示したとき、自動的にここで選んだ画面を開きます\n\n編集中は割り込みません"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "앱으로 돌아오면 여기서 선택한 화면이 자동으로 열립니다. 편집 중에는 방해하지 않습니다."
+            "value" : "앱으로 돌아오면 여기서 선택한 화면이 자동으로 열립니다\n\n편집 중에는 방해하지 않습니다"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "返回應用時，會自動開啟此處選擇的畫面。編輯中不會中斷。"
+            "value" : "返回應用時，會自動開啟此處選擇的畫面\n\n編輯中不會中斷"
           }
         }
       }
@@ -15273,107 +14608,37 @@
         }
       }
     },
-    "settings.help.openAddOnActive" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Wenn aktiviert, öffnet sich bei jeder Rückkehr zur App automatisch der Bildschirm für die neue Zahlung."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "When enabled, opens the new payment screen automatically each time you return to the app."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "オンにするとアプリを再表示したとき、自動的に新しい決済入力画面を開きます。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "켜면 앱으로 돌아올 때마다 새 결제 화면이 자동으로 열립니다."
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "啟用後，每次返回應用時會自動開啟新付款介面。"
-          }
-        }
-      }
-    },
-    "settings.help.paymentWindow" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Anzahl der Tage im Abbuchungsstatus-Bildschirm. 7 Tage zeigt z. B. Summen, die innerhalb von 7 Tagen ab heute fällig sind. Nutze dies zur Vorbereitung der Mittel."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Number of days shown in the Debit Status screen. For example, 7 days shows totals due within 7 days from today. Use this as a reference for preparing funds."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "「引き落とし状況」画面に表示する引き落とし合計の集計日数です。例えば7日にすると、今日から7日以内の引き落とし合計を表示します。資金準備の参考にしてください。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "출금 상태 화면에 표시할 일수입니다. 예를 들어 7일로 하면 오늘부터 7일 이내에 출금될 합계를 표시합니다. 자금 준비의 참고로 사용하세요."
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "扣款狀態介面顯示的天數。例如設為 7 天，會顯示今天起 7 天內到期的合計。可作為備款參考。"
-          }
-        }
-      }
-    },
     "settings.help.retention" : {
       "extractionState" : "manual",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Zu viele Daten können das Tempo verlangsamen. Etwa 3 Jahre passen zu dieser App. Beim Tippen werden zuerst alle Daten exportiert und dann ältere Einträge entfernt."
+            "value" : "Zu viele Daten können das Tempo verlangsamen\n\nEtwa 3 Jahre passen zu dieser App\n\nBeim Tippen werden zuerst alle Daten exportiert und dann ältere Einträge entfernt"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Too much data may slow things down; about 3 years fits this app. Tapping exports all your data first, then removes older records."
+            "value" : "Too much data may slow things down\n\nAbout 3 years fits this app\n\nTapping exports all your data first, then removes older records"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "データが溜まりすぎると動作が遅くなる可能性があります。このアプリの目的では3年くらいが適切です。タップすると、まず全データをエキスポートしてから古い決済を整理します。"
+            "value" : "データが溜まりすぎると動作が遅くなる可能性があります\n\nこのアプリの目的では3年くらいが適切です\n\nタップすると、まず全データをエクスポートしてから古い決済を整理します"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "데이터가 너무 많으면 느려질 수 있습니다. 약 3년이 이 앱에 적합합니다. 탭하면 먼저 전체 데이터를 내보낸 뒤 오래된 결제를 정리합니다."
+            "value" : "데이터가 너무 많으면 느려질 수 있습니다\n\n약 3년이 이 앱에 적합합니다\n\n탭하면 먼저 전체 데이터를 내보낸 뒤 오래된 결제를 정리합니다"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "資料過多可能變慢，約 3 年較適合本應用。點按會先匯出全部資料，再整理較舊的記錄。"
+            "value" : "資料過多可能變慢\n\n約 3 年較適合本應用\n\n點按會先匯出全部資料，再整理較舊的記錄"
           }
         }
       }
@@ -15454,381 +14719,31 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Anfänger zeigt Hinweise und Hilfe. Experte blendet sie aus. Wechsle zu Experte, sobald du den Ablauf beherrschst."
+            "value" : "Anfänger zeigt Hinweise und Hilfe. Experte blendet sie aus\n\nWechsle zu Experte, sobald du den Ablauf beherrschst"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Beginner shows hints and help. Expert hides them. Switch to Expert once you're comfortable with the flow."
+            "value" : "Beginner shows hints and help. Expert hides them\n\nSwitch to Expert once you're comfortable with the flow"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "初心者にはヒントやヘルプ表示します。達人になれば消えます。使い慣れて流れが分かってきたら、達人に切り替えてください。"
+            "value" : "初心者にはヒントやヘルプを表示します。達人になれば消えます\n\n使い慣れて流れが分かってきたら、達人に切り替えてください"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "초보자에게는 힌트와 도움말이 표시됩니다. 숙련자에게는 숨겨집니다. 흐름에 익숙해지면 숙련자로 바꾸세요."
+            "value" : "초보자에게는 힌트와 도움말이 표시됩니다. 숙련자에게는 숨겨집니다\n\n흐름에 익숙해지면 숙련자로 바꾸세요"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "新手會顯示提示和幫助。專家會隱藏它們。熟悉流程後可切換為專家。"
-          }
-        }
-      }
-    },
-    "settings.hint.afterSave" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Wähle, was nach dem Speichern geöffnet wird"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Choose what opens after saving"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "保存後に開く画面を選びます"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "저장 후 열 화면을 선택합니다"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "選擇儲存後開啟的介面"
-          }
-        }
-      }
-    },
-    "settings.hint.autoOpenAmountPad" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tastenfeld für neue Zahlungen automatisch öffnen"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Open the keypad automatically for new payments"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "新しい決済でテンキーを自動表示します"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "새 결제에서 키패드를 자동으로 엽니다"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "新付款時自動開啟鍵盤"
-          }
-        }
-      }
-    },
-    "settings.hint.export" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Alle Daten als JSON exportieren"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Export all data as JSON"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "全データをJSONで書き出します"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "모든 데이터를 JSON으로 내보내기"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "將所有資料匯出為 JSON"
-          }
-        }
-      }
-    },
-    "settings.hint.fontScale" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Auto folgt der iOS-Textgröße"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Auto follows iOS text size"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "自動はiOSの文字サイズに従います"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "자동은 iOS 글자 크기를 따릅니다"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "自動跟隨 iOS 字型大小"
-          }
-        }
-      }
-    },
-    "settings.hint.import" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Exportiertes JSON importieren"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Import exported JSON"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "書き出したJSONを読み込みます"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "내보낸 JSON 가져오기"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "匯入已匯出的 JSON"
-          }
-        }
-      }
-    },
-    "settings.hint.openAddOnActive" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Neue Zahlung beim Zurückkehren zur App öffnen"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Open new payment when returning to the app"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "アプリ再表示時に新しい決済を開きます"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "앱 복귀 시 새 결제 열기"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "返回應用時開啟新付款"
-          }
-        }
-      }
-    },
-    "settings.hint.paymentWindow" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Summen-Zeitraum für Abbuchungsstatus wählen"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Choose the total window for Debit Status"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "引き落とし状況の集計期間を選びます"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "출금 상태의 합계 기간을 선택"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "選擇扣款狀態的合計期間"
-          }
-        }
-      }
-    },
-    "settings.hint.retention" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Alte Einträge bei Bedarf löschen"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Delete old records when needed"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "必要に応じて古いデータを整理します"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "필요할 때 오래된 기록 정리"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "需要時清理舊記錄"
-          }
-        }
-      }
-    },
-    "settings.hint.shiftDueDateOffHoliday" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Abbuchungsdaten an Wochenenden/Feiertagen verschieben"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Shift weekend or holiday debit dates"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "土日祝の引き落とし日を繰り下げます"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "주말·공휴일 출금일을 미룹니다"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "順延週末或假日的扣款日"
-          }
-        }
-      }
-    },
-    "settings.hint.userLevel" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Anfänger zeigt Hilfe, Experte hält sie zurück"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Beginner shows help, Expert keeps it quiet"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "初心者は説明を表示し、達人は控えめにします"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "초보자는 도움말 표시, 숙련자는 간결하게"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "新手顯示幫助，專家保持簡潔"
+            "value" : "新手會顯示提示和幫助。專家會隱藏它們\n\n熟悉流程後可切換為專家"
           }
         }
       }
@@ -16061,7 +14976,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "全データをエキスポートする"
+            "value" : "全データをエクスポートする"
           }
         },
         "ko" : {
@@ -18909,356 +17824,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "付款方式"
-          }
-        }
-      }
-    },
-    "top.help.addRecord" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Beginne hier mit der Eingabe. Gib zuerst den Betrag ein; den Rest kannst du später aus dem Verlauf bearbeiten."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Start entering here. Enter the amount first; you can edit the rest later from history."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "まずここから入力します。金額だけ先に入れて、残りはあとで履歴から編集できます。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "여기서 입력을 시작합니다. 금액을 먼저 넣고 나머지는 나중에 기록에서 편집할 수 있습니다."
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "從這裡開始錄入。先輸入金額，其餘可稍後從歷史編輯。"
-          }
-        }
-      }
-    },
-    "top.help.bankList" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Erfasse Abbuchungskonten. Einfache Namen genügen. Wechsle pro Konto zwischen offen und bezahlt."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Register debit accounts. Simple names are fine. Switch between unpaid and paid per account."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "引き落とし口座を登録します。簡単な名前でも大丈夫です。口座ごとに未払と引き落とし済みを切り替えます。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "출금 계좌를 등록합니다. 간단한 이름도 괜찮습니다. 계좌별로 미결제와 결제 완료를 전환합니다."
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "登記扣款賬戶。簡單的名稱即可。可按賬戶切換未付與已付。"
-          }
-        }
-      }
-    },
-    "top.help.cardList" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Erfasse Namen bargeldloser Zahlungsmethoden. Vorlagen können bearbeitet oder entfernt werden."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Register names of cashless payment methods. Presets can be edited or removed."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "キャッシュレス決済手段の名前を登録します。プリセットは編集・削除できます。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "비현금 결제 수단의 이름을 등록합니다. 프리셋은 편집·삭제할 수 있습니다."
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "登記無現金付款方式的名稱。預設可編輯或刪除。"
-          }
-        }
-      }
-    },
-    "top.help.paymentList.line1" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Prüfe diesen Bildschirm regelmäßig."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Check this screen regularly."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "この画面を定期的に確認してください"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "이 화면을 정기적으로 확인하세요."
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "請定期檢視此介面。"
-          }
-        }
-      }
-    },
-    "top.help.paymentList.line2" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Wenn die Kontoabbuchung bestätigt ist,"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "If account debit is confirmed,"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "口座の引き落としを確認したら、"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "계좌 출금이 확인되면,"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "確認賬戶扣款後，"
-          }
-        }
-      }
-    },
-    "top.help.paymentList.line3" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : " tippen, um als Bezahlt zu markieren."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : " tap to mark as Paid."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "をタップして引き落とし済みにします"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : " 탭하여 결제 완료로 표시합니다."
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : " 點選可標為已付。"
-          }
-        }
-      }
-    },
-    "top.help.paymentList.line4" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Du kannst Einträge jederzeit auf Offen zurücksetzen."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You can move items back to Unpaid anytime."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "必要ならいつでも未払に戻せます"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "항목은 언제든지 미결제로 되돌릴 수 있습니다."
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "可隨時將條目改回未付。"
-          }
-        }
-      }
-    },
-    "top.help.recordList" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Neueste zuerst. Zum Bearbeiten tippen. Du kannst auch nur Zahlungen mit fehlenden Feldern anzeigen."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Shown newest first. Tap to edit. You can also view only payments with missing fields."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "新しい順に表示されます。タップして編集できます。不足項目のある決済だけを見ることもできます。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "최신순으로 표시됩니다. 탭하여 편집합니다. 항목이 빠진 결제만 볼 수도 있습니다."
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "按最新優先顯示。點選可編輯。也可僅檢視欄位缺失的付款。"
-          }
-        }
-      }
-    },
-    "top.help.settings" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Stelle die Benutzerstufe auf Experte, um diese Beschreibungen auszublenden."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Set User Level to Expert to hide these descriptions."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ユーザレベルを達人にすると、この説明文が消えます。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "사용자 수준을 숙련자로 설정하면 이 설명이 사라집니다."
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "將使用者級別設為專家可隱藏這些說明。"
-          }
-        }
-      }
-    },
-    "top.help.tagList" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Du kannst pro Zahlung mehrere Tags vergeben. Mit Tags kannst du nach Tag auflisten und zusammenfassen."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You can attach multiple tags per payment. With tags you can list and summarize by tag."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "決済ごとにタグを複数付けられます。タグを付けると、タグ別の一覧や集計ができます。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "결제마다 여러 태그를 붙일 수 있습니다. 태그로 태그별 목록과 집계를 할 수 있습니다."
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "每筆付款可附加多個標籤。使用標籤可按標籤列出和彙總。"
           }
         }
       }
