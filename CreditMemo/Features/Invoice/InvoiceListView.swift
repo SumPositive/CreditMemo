@@ -654,24 +654,43 @@ struct InvoiceListView: View {
         return rightDate < leftDate
     }
 
+    /// 差額探索で保持する「和」の上限。
+    /// 和の種類は明細数と金額の刻み次第で数十万まで増えうるため、描画のたびに走るこの探索を
+    /// 一定量で打ち切る。打ち切った時は完全一致なしとして、差額以下の明細を新しい順に候補へ残す
+    private static let reconciliationSearchLimit = 20_000
+
     /// 差額と完全一致する組み合わせを、新しい明細を優先して探索する
     private func exactReconciliationCandidateIDs(
         in candidates: [E6part],
         targetAmount: Decimal
     ) -> Set<String>? {
-        var combinations: [Decimal: [String]] = [.zero: []]
-        for part in candidates {
+        // 和ごとに「直前の和」と「加えた明細」だけを持ち、組み合わせは見つかってから辿って復元する。
+        // 明細IDの配列を和ごとに複製しないので、探索の手間は（明細数 × 和の数）に収まる
+        var reached: [Decimal: (previous: Decimal, index: Int)] = [:]
+        var sums: [Decimal] = [.zero]
+        search: for (index, part) in candidates.enumerated() {
             let amount = part.nAmount.roundedAmount()
-            let snapshot = combinations
-            for (sum, ids) in snapshot {
-                let nextSum = (sum + amount).roundedAmount()
-                if nextSum <= targetAmount && combinations[nextSum] == nil {
-                    combinations[nextSum] = ids + [part.id]
-                }
+            // この明細で増えた和は、同じ明細を2回使わないよう次の明細から使う
+            let count = sums.count
+            for position in 0..<count {
+                let nextSum = (sums[position] + amount).roundedAmount()
+                // 先に見つかった組み合わせ（＝新しい明細寄り）を優先して残す
+                guard nextSum <= targetAmount, reached[nextSum] == nil else { continue }
+                reached[nextSum] = (sums[position], index)
+                if nextSum == targetAmount { break search }
+                sums.append(nextSum)
+                if Self.reconciliationSearchLimit <= sums.count { break search }
             }
         }
-        guard let ids = combinations[targetAmount], !ids.isEmpty else { return nil }
-        return Set(ids)
+        guard reached[targetAmount] != nil else { return nil }
+
+        var ids = Set<String>()
+        var sum = targetAmount
+        while sum != .zero, let step = reached[sum] {
+            ids.insert(candidates[step.index].id)
+            sum = step.previous
+        }
+        return ids.isEmpty ? nil : ids
     }
 
     /// 分割の途中回を別月へ重ねないよう、最終回だけを照合移動の対象にする
