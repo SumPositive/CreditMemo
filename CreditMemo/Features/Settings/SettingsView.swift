@@ -659,6 +659,8 @@ struct SettingsView: View {
                     progressCompleted = progress.completed
                     progressTotal = progress.total
                 }
+                // 取込で請求が作り直されるため、照合途中の請求合計は当てにならず破棄する
+                ReconciliationProgressStore.shared.removeAll()
                 alertItem = .raw(title: importDoneTitleText, message: importDoneMessage(result))
             } catch {
                 alertItem = .raw(title: errorTitleText, message: error.localizedDescription)

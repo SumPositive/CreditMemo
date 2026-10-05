@@ -846,6 +846,27 @@ enum RecordService {
         })
     }
 
+    /// 未払請求が残っていない照合途中の保存値を消す。
+    /// 明細の移動・削除や決済手段の削除で請求が無くなると保存値だけが残り、
+    /// 後で同じ手段・同じ引き落とし日の請求ができたときに古い請求合計で「照合中」になるのを防ぐ
+    static func pruneReconciliationProgress(context: ModelContext) {
+        let progressStore = ReconciliationProgressStore.shared
+        for entry in progressStore.entries {
+            let dayStart = Calendar.current.startOfDay(for: entry.date)
+            guard let nextDay = Calendar.current.date(byAdding: .day, value: 1, to: dayStart) else { continue }
+            let descriptor = FetchDescriptor<E2invoice>(
+                predicate: #Predicate<E2invoice> { dayStart <= $0.date && $0.date < nextDay }
+            )
+            let dayInvoices = context.fetchReporting(descriptor, entity: "E2invoice")
+            let hasUnpaidCard = dayInvoices.contains {
+                !$0.isPaid && $0.e1card?.id == entry.cardID && !$0.e6parts.isEmpty
+            }
+            if !hasUnpaidCard {
+                progressStore.removeAmount(forCardID: entry.cardID, date: dayStart)
+            }
+        }
+    }
+
     /// 手段または口座の未払請求が無くなった時だけ起動中の引落確定額を消す
     private static func clearConfirmedAmountsIfPaid(
         targets: Set<ConfirmedAmountTarget>,

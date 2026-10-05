@@ -342,6 +342,8 @@ struct PaymentListView: View {
             }
         }
         .onAppear {
+            // 請求が無くなった照合途中の保存値を、照合中の表示判定より先に掃除する
+            RecordService.pruneReconciliationProgress(context: context)
             // 初回読込前に絞り込み対象を復元する
             restoreSavedFilterCondition()
             // 詳細から戻ったとき（autoScrollEnabled が OFF）は、ユーザーが広げた

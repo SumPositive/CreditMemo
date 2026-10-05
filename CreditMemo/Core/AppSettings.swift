@@ -143,6 +143,23 @@ final class ReconciliationProgressStore {
         save()
     }
 
+    /// 保存中の照合途中を（決済手段ID, 引き落とし日）で列挙する
+    var entries: [(cardID: String, date: Date)] {
+        amounts.keys.compactMap { key in
+            // 決済手段IDに区切り文字が含まれても壊れないよう、最後の区切りで分ける
+            guard let separator = key.lastIndex(of: "|"),
+                  let interval = TimeInterval(key[key.index(after: separator)...]) else { return nil }
+            return (String(key[..<separator]), Date(timeIntervalSinceReferenceDate: interval))
+        }
+    }
+
+    /// 照合途中をすべて破棄する（データ取込で請求が作り直されたときなど）
+    func removeAll() {
+        guard !amounts.isEmpty else { return }
+        amounts.removeAll()
+        save()
+    }
+
     /// 同じ引落日を時刻差で別扱いしない識別子へそろえる
     private func key(forCardID cardID: String, date: Date) -> String {
         let day = Calendar.current.startOfDay(for: date)
