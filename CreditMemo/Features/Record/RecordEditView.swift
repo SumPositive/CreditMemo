@@ -2670,7 +2670,10 @@ private var isValid: Bool {
             case .goBack:
                 // 呼び出し側が引き落とし明細などの場合、保存通知で親画面を閉じ直してもらう
                 onSaved?(bankChanged)
-                dismiss()
+                // メインメニュー経由は保存通知でメニューへ戻るので、重ねて閉じない
+                if !isFromMainMenu {
+                    dismiss()
+                }
             case .continuous:
                 resetForm(keepDateAndCard: false)
                 initialDraft = currentDraft()

@@ -285,11 +285,16 @@ struct AppDestinationView: View {
     let destination: AppDestination
     @Binding var selectedDestination: AppDestination?
     let addRecordRefreshID: UUID
+    @AppStorage(AppStorageKey.afterSaveAction) private var afterSaveAction: AfterSaveAction = .goBack
 
     var body: some View {
         switch destination {
         case .addRecord:
-            RecordEditView(mode: .addNew, onSaved: { _ in selectedDestination = .recordList }, isFromMainMenu: true)
+            RecordEditView(mode: .addNew, onSaved: { _ in
+                // 保存後は設定に応じて、決済一覧へ切り替えるか、メニューへ直接戻す。
+                // 決済一覧を経由して閉じると空画面が残るため、どちらも遷移先を1回だけ変える
+                selectedDestination = afterSaveAction == .showHistory ? .recordList : nil
+            }, isFromMainMenu: true)
                 .id(addRecordRefreshID)
         case .recordList:    RecordListView()
         case .paymentList:   PaymentListView()
