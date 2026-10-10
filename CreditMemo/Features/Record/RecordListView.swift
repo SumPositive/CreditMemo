@@ -161,6 +161,12 @@ struct RecordListView: View {
     /// 並び替え後に基準となるセルへ移動するための要求
     @State private var recordScrollRequest = 0
     @State private var recordScrollTargetID: String?
+    /// 頭出しで対象セルを置く位置。通常は上端、保存直後のコピー明細は中央
+    @State private var recordScrollAnchor: UnitPoint = .top
+    /// コピー仮明細を保存した直後の明細。読み直し後に中央へ出して細い青枠で示す
+    @State private var savedCopyRecordID: String?
+    /// 青枠で示している明細。次に一覧を読み直したら外す
+    @State private var highlightedRecordID: String?
     /// 頭出しの再試行が有効かどうか。ユーザーがスクロールを始めたら false にする
     @State private var isScrollRetryActive = false
     /// 同じ更新周期で来た条件変更をまとめて1回だけ再読込するための予約フラグ
@@ -450,7 +456,13 @@ struct RecordListView: View {
             guard reloadRecordsAfterSheet else { return }
             reloadRecordsAfterSheet = false
             resetAndLoadRecords()
-            // 保存後も現在位置を優先し、並び順に応じた頭出しは行わない
+            // 保存後も現在位置を優先し、並び順に応じた頭出しは行わない。
+            // ただしコピーを保存した時は、並び直しで見失わないよう保存した明細を中央に出して青枠で示す
+            if let savedID = savedCopyRecordID {
+                savedCopyRecordID = nil
+                highlightedRecordID = savedID
+                prepareSavedCopyScroll(savedID)
+            }
         }) { target in
             NavigationStack {
                 switch target {
@@ -468,6 +480,9 @@ struct RecordListView: View {
                         onSaved: { _ in
                             reloadRecordsAfterSheet = true
                             removeDraftCopy(draft)
+                        },
+                        onSavedRecord: { saved in
+                            savedCopyRecordID = saved.id
                         },
                         forceDismissOnNewSave: true
                     )
@@ -577,6 +592,16 @@ struct RecordListView: View {
             RecordSummaryRow(record: record)
         }
         .buttonStyle(.plain)
+        // コピーを保存した直後の明細だけ、細い青枠で今追加されたことを示す
+        .overlay {
+            if highlightedRecordID == record.id {
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(Color.blue.opacity(0.6), lineWidth: 1)
+                    .padding(.horizontal, -6)
+                    .padding(.vertical, -2)
+                    .allowsHitTesting(false)
+            }
+        }
         // UIテストから言語に依存せず明細セルを操作できるようにする
         .accessibilityIdentifier("record.row.\(record.id)")
         // 右スワイプで、その場に明細の複製を追加する
@@ -686,6 +711,8 @@ struct RecordListView: View {
     }
 
     private func resetAndLoadRecords() {
+        // 青枠は保存直後の1回だけ。読み直したら外す（保存直後は呼び出し側で付け直す）
+        highlightedRecordID = nil
         recordPage = 0
         hasMoreRecords = true
         records = []
@@ -753,6 +780,20 @@ struct RecordListView: View {
             loadMoreRecordsIfNeeded()
         }
         recordScrollTargetID = sortedCache[targetIndex].id
+        recordScrollAnchor = .top
+        recordScrollRequest += 1
+    }
+
+    /// 保存したコピー明細を含むページまで読み込み、中央へ頭出しする
+    private func prepareSavedCopyScroll(_ recordID: String) {
+        // 絞り込み条件に合わない明細は一覧に出ないので頭出ししない
+        guard let targetIndex = sortedCache.firstIndex(where: { $0.id == recordID }) else { return }
+        let requiredPageCount = targetIndex / pageSize + 1
+        while recordPage < requiredPageCount && hasMoreRecords {
+            loadMoreRecordsIfNeeded()
+        }
+        recordScrollTargetID = recordID
+        recordScrollAnchor = .center
         recordScrollRequest += 1
     }
 
@@ -760,6 +801,7 @@ struct RecordListView: View {
     private func prepareFirstRecordScroll() {
         guard let firstRecord = records.first else { return }
         recordScrollTargetID = firstRecord.id
+        recordScrollAnchor = .top
         recordScrollRequest += 1
     }
 
@@ -809,7 +851,7 @@ struct RecordListView: View {
         var transaction = Transaction()
         transaction.disablesAnimations = true
         withTransaction(transaction) {
-            proxy.scrollTo(recordID, anchor: .top)
+            proxy.scrollTo(recordID, anchor: recordScrollAnchor)
         }
     }
 

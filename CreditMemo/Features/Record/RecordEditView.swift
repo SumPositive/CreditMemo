@@ -384,6 +384,8 @@ private struct FrequentPaymentSettingsSheet: View {
 struct RecordEditView: View {
     let mode: RecordEditMode
     var onSaved: ((Bool) -> Void)? = nil
+    /// 新規保存に成功した時、保存したレコードを親画面へ渡す（一覧を並べ直さずその場に出す用）
+    var onSavedRecord: ((E3record) -> Void)? = nil
     /// 親画面からコピー新規を開いた時、保存後に親まで戻す
     var forceDismissOnNewSave = false
     /// `.addNew` のとき、開いた時点で初期選択しておきたい決済手段
@@ -2660,6 +2662,7 @@ private var isValid: Bool {
                 appLog(.error, "新規保存に失敗しました: \(error)")
                 return
             }
+            onSavedRecord?(r)
             if forceDismissOnNewSave {
                 // 上部ショートカット経由のコピー新規は、保存後に一覧まで戻す
                 onSaved?(bankChanged)

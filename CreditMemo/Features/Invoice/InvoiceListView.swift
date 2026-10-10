@@ -262,6 +262,10 @@ struct InvoiceListView: View {
     @State private var draftCopies: [InvoiceDraftCopy] = []
     /// タップされたコピー仮明細から開く編集シート
     @State private var editingDraftCopy: InvoiceDraftCopy?
+    /// コピー仮明細を保存した直後の明細。読み直し後に中央へ出して細い青枠で示す
+    @State private var savedCopyRecordID: String?
+    /// 青枠で示している明細。次に読み直したら外す
+    @State private var highlightedRecordID: String?
     /// 明細追加・編集を保存したとき、画面を「開き直す」ためのトリガー。
     /// 値を変えると `.id()` 経由でフォーム本体が破棄→再構築され、最新の SwiftData 状態が読み直される。
     @State private var reloadKey = UUID()
@@ -383,6 +387,25 @@ struct InvoiceListView: View {
         draftCopies.append(draft)
         // 一度でもコピーしたらヒントは隠す
         copySwipeHintDone = true
+    }
+
+    /// 保存したコピー明細を画面中央へ頭出しする。
+    /// List は作り直した直後で行の生成が遅れるため、少し間隔を空けて数回やり直す
+    private func scrollToSavedCopy(_ recordID: String, proxy: ScrollViewProxy) {
+        // 決済手段や引き落とし日を変えてこの画面から外れた明細は頭出ししない
+        guard let partID = cardSections
+            .flatMap(\.parts)
+            .first(where: { $0.e3record?.id == recordID })?
+            .id else { return }
+        for delay in [0.05, 0.2, 0.4] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                var transaction = Transaction()
+                transaction.disablesAnimations = true
+                withTransaction(transaction) {
+                    proxy.scrollTo(partID, anchor: .center)
+                }
+            }
+        }
     }
 
     /// 保存済みに置き換わったコピー仮明細を画面から消す
@@ -1348,108 +1371,130 @@ struct InvoiceListView: View {
     }
 
     var body: some View {
-        List {
-            if isReconciliationMode {
-                statementSummarySection
-                reconciliationPartsSection
-            } else {
-                beginnerSection
-                statementSummarySection
-                unselectedDraftSection
-                copyHintSection
+        ScrollViewReader { proxy in
+            List {
+                if isReconciliationMode {
+                    statementSummarySection
+                    reconciliationPartsSection
+                } else {
+                    beginnerSection
+                    statementSummarySection
+                    unselectedDraftSection
+                    copyHintSection
 
-                // カード別請求
-                ForEach(cardSections) { section in
-                    Section {
-                        ForEach(draftPayments(for: section.card)) { draft in
-                            DraftPaymentRow(draft: draft) {
-                                editingDraftPayment = draft
-                            }
-                        }
-
-                        ForEach(section.parts) { part in
-                            PartRow(
-                                part: part,
-                                onTogglePaid: {
-                                    do {
-                                        try RecordService.setPartPaid(
-                                            part,
-                                            isPaid: !(part.e2invoice?.isPaid ?? false),
-                                            context: context
-                                        )
-                                    } catch {
-                                        // 済み切替の保存失敗を診断送信する
-                                        AppTelemetry.reportSwiftDataError(error, operation: "InvoiceListView.togglePartPaid", entity: "E6part")
-                                    }
-                                },
-                                onToggleCheck: {
-                                    toggleCheck(part)
-                                },
-                                onEdit: {
-                                    if let record = part.e3record {
-                                        // 明細セルタップで明細編集シートを開く
-                                        editRecord = record
-                                    }
-                                }
-                            )
-                            // 右スワイプは編集画面を開かず、その場で明細を複製する
-                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                if part.e3record != nil {
-                                    Button {
-                                        duplicatePart(part)
-                                    } label: {
-                                        Label("button.copy", systemImage: "doc.on.doc.fill")
-                                    }
-                                    .tint(.blue)
-                                    .accessibilityLabel(Text("button.copy"))
+                    // カード別請求
+                    ForEach(cardSections) { section in
+                        Section {
+                            ForEach(draftPayments(for: section.card)) { draft in
+                                DraftPaymentRow(draft: draft) {
+                                    editingDraftPayment = draft
                                 }
                             }
-                            // コピー仮明細はコピー元の直下に並べて表示する
-                            ForEach(draftCopies(for: part)) { draft in
-                                InvoiceDraftCopyRow(draft: draft) {
-                                    editingDraftCopy = draft
+
+                            ForEach(section.parts) { part in
+                                PartRow(
+                                    part: part,
+                                    onTogglePaid: {
+                                        do {
+                                            try RecordService.setPartPaid(
+                                                part,
+                                                isPaid: !(part.e2invoice?.isPaid ?? false),
+                                                context: context
+                                            )
+                                        } catch {
+                                            // 済み切替の保存失敗を診断送信する
+                                            AppTelemetry.reportSwiftDataError(error, operation: "InvoiceListView.togglePartPaid", entity: "E6part")
+                                        }
+                                    },
+                                    onToggleCheck: {
+                                        toggleCheck(part)
+                                    },
+                                    onEdit: {
+                                        if let record = part.e3record {
+                                            // 明細セルタップで明細編集シートを開く
+                                            editRecord = record
+                                        }
+                                    }
+                                )
+                                // コピー保存直後の頭出し先にする
+                                .id(part.id)
+                                // コピーを保存した直後の明細だけ、細い青枠で今追加されたことを示す
+                                .overlay {
+                                    if let id = highlightedRecordID, part.e3record?.id == id {
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .stroke(Color.blue.opacity(0.6), lineWidth: 1)
+                                            .padding(.horizontal, -6)
+                                            .padding(.vertical, -2)
+                                            .allowsHitTesting(false)
+                                    }
+                                }
+                                // 右スワイプは編集画面を開かず、その場で明細を複製する
+                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                    if part.e3record != nil {
+                                        Button {
+                                            duplicatePart(part)
+                                        } label: {
+                                            Label("button.copy", systemImage: "doc.on.doc.fill")
+                                        }
+                                        .tint(.blue)
+                                        .accessibilityLabel(Text("button.copy"))
+                                    }
+                                }
+                                // コピー仮明細はコピー元の直下に並べて表示する
+                                ForEach(draftCopies(for: part)) { draft in
+                                    InvoiceDraftCopyRow(draft: draft) {
+                                        editingDraftCopy = draft
+                                    }
                                 }
                             }
-                        }
 
-                        // 明細が複数行のときのみ小計を表示する
-                        if 1 < section.parts.count {
+                            // 明細が複数行のときのみ小計を表示する
+                            if 1 < section.parts.count {
+                                HStack(spacing: 8) {
+                                    // 変更可能（未払 + 解錠）な明細が 2 件以上ある時だけ「まとめて変更」を出す
+                                    if 1 < bulkChangeMovableParts(in: section).count {
+                                        Button {
+                                            bulkChangeDraftDate = displayDate
+                                            bulkChangeCardID = section.id
+                                        } label: {
+                                            Text("invoice.bulkChangeDate.button")
+                                                .font(.caption.weight(.semibold))
+                                                .foregroundStyle(Color.blue)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                    Spacer()
+                                    Text(section.sumAmount.currencyString())
+                                        .font(.subheadline.monospacedDigit().bold())
+                                        .foregroundStyle(displayIsPaid ? badgeTheme.paidText : badgeTheme.unpaidText)
+                                }
+                            }
+                        } header: {
                             HStack(spacing: 8) {
-                                // 変更可能（未払 + 解錠）な明細が 2 件以上ある時だけ「まとめて変更」を出す
-                                if 1 < bulkChangeMovableParts(in: section).count {
-                                    Button {
-                                        bulkChangeDraftDate = displayDate
-                                        bulkChangeCardID = section.id
-                                    } label: {
-                                        Text("invoice.bulkChangeDate.button")
-                                            .font(.caption.weight(.semibold))
-                                            .foregroundStyle(Color.blue)
-                                    }
-                                    .buttonStyle(.plain)
+                                Text(section.title)
+                                Spacer(minLength: 8)
+                                // 決済手段セクション見出しの右端に「新しい決済」ボタン（その手段をプリセット）
+                                if let card = section.card {
+                                    newPaymentButton(action: { addDraftPayment(card: card) })
                                 }
-                                Spacer()
-                                Text(section.sumAmount.currencyString())
-                                    .font(.subheadline.monospacedDigit().bold())
-                                    .foregroundStyle(displayIsPaid ? badgeTheme.paidText : badgeTheme.unpaidText)
-                            }
-                        }
-                    } header: {
-                        HStack(spacing: 8) {
-                            Text(section.title)
-                            Spacer(minLength: 8)
-                            // 決済手段セクション見出しの右端に「新しい決済」ボタン（その手段をプリセット）
-                            if let card = section.card {
-                                newPaymentButton(action: { addDraftPayment(card: card) })
                             }
                         }
                     }
                 }
             }
+            .modifier(ReconciliationTopMarginModifier(isEnabled: isReconciliationMode))
+            // 保存後に reloadKey を更新すると、ここで識別が変わり List 全体が破棄→再構築される。
+            // 結果として `cardSections`/`invoices` の計算が走り直し、追加された明細が見える。
+            .id(reloadKey)
+            // 読み直しのたびに青枠を外し、コピー保存直後だけ保存した明細へ頭出しして青枠で示す
+            .onChange(of: reloadKey) { _, _ in
+                highlightedRecordID = savedCopyRecordID
+                savedCopyRecordID = nil
+                if let savedID = highlightedRecordID {
+                    scrollToSavedCopy(savedID, proxy: proxy)
+                }
+            }
         }
-        .modifier(ReconciliationTopMarginModifier(isEnabled: isReconciliationMode))
-        // 保存後に reloadKey を更新すると、ここで識別が変わり List 全体が破棄→再構築される。
-        // 結果として `cardSections`/`invoices` の計算が走り直し、追加された明細が見える。
-        .id(reloadKey)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .principal) {
@@ -1618,6 +1663,9 @@ struct InvoiceListView: View {
                     onSaved: { _ in
                         removeDraftCopy(draft)
                         reloadKey = UUID()
+                    },
+                    onSavedRecord: { saved in
+                        savedCopyRecordID = saved.id
                     },
                     forceDismissOnNewSave: true,
                     presetDueDate: draft.dueDate,
