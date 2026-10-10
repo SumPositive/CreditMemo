@@ -1,7 +1,8 @@
 
 CrediMemo クレメモ
+- グローバル名は `Deferin`
 - 日本語名は `クレメモ`
-- iOSアプリ `CrediMemo` のコードは `GitLocal/CreditMemo` にある
+- コードは `GitLocal/CreditMemo` にある
 - 取扱説明の日本語版は `GitLocal/azukid.com/docs/jp/sumpo/CreditMemo/` にある
 - 取扱説明の英語版は `GitLocal/azukid.com/docs/en/sumpo/CreditMemo/` にある
 
@@ -2011,12 +2012,9 @@ $app-store-review-summary
 
 決済一覧でコピーに加えて新規追加もできるようにしたい
 
-
-
-
-
-
-
+ラベル一覧の上にタグのような「探して無ければ追加」を置きたい
+ラベル一覧に表示されていないラベルも探して絞り込み表示する
+これによりラベル欄が不要になる
 
 
 ------------------------------------------------

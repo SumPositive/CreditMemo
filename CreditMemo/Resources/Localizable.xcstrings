@@ -4427,31 +4427,31 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "(Entwurf) Tippen zum Bearbeiten und Speichern\nOhne Speichern schließen verwirft diesen Entwurf"
+            "value" : "Dieser Entwurf wird automatisch entfernt\nTippen zum Bearbeiten und Speichern"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "(Draft) Tap to edit and save\nClose without saving to discard this draft"
+            "value" : "This draft will be removed automatically\nTap to edit and save"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "（仮明細）タップして編集・保存してください\nこの仮明細は自動的に消えます"
+            "value" : "この仮明細は自動的に消滅します\nタップして編集・保存してください"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "(임시 내역) 탭하여 편집·저장하세요\n저장하지 않고 닫으면 이 임시 내역은 사라집니다"
+            "value" : "이 임시 내역은 자동으로 사라집니다\n탭하여 편집·저장하세요"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "（暫存明細）點選以編輯並儲存\n未儲存即關閉將捨棄此暫存明細"
+            "value" : "此暫存明細將自動消失\n點選以編輯並儲存"
           }
         }
       }
