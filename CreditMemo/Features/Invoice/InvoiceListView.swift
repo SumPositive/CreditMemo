@@ -262,7 +262,7 @@ struct InvoiceListView: View {
     @State private var draftCopies: [InvoiceDraftCopy] = []
     /// タップされたコピー仮明細から開く編集シート
     @State private var editingDraftCopy: InvoiceDraftCopy?
-    /// コピー仮明細を保存した直後の明細。読み直し後に中央へ出して細い青枠で示す
+    /// 仮明細（コピー・新しい決済）を保存した直後の明細。読み直し後に中央へ出して細い青枠で示す
     @State private var savedCopyRecordID: String?
     /// 青枠で示している明細。次に読み直したら外す
     @State private var highlightedRecordID: String?
@@ -389,7 +389,7 @@ struct InvoiceListView: View {
         copySwipeHintDone = true
     }
 
-    /// 保存したコピー明細を画面中央へ頭出しする。
+    /// 仮明細から保存した明細を画面中央へ頭出しする。
     /// List は作り直した直後で行の生成が遅れるため、少し間隔を空けて数回やり直す
     private func scrollToSavedCopy(_ recordID: String, proxy: ScrollViewProxy) {
         // 決済手段や引き落とし日を変えてこの画面から外れた明細は頭出ししない
@@ -1418,7 +1418,7 @@ struct InvoiceListView: View {
                                 )
                                 // コピー保存直後の頭出し先にする
                                 .id(part.id)
-                                // コピーを保存した直後の明細だけ、細い青枠で今追加されたことを示す
+                                // 仮明細を保存した直後の明細だけ、細い青枠で今追加されたことを示す
                                 .overlay {
                                     if let id = highlightedRecordID, part.e3record?.id == id {
                                         RoundedRectangle(cornerRadius: 10)
@@ -1486,7 +1486,7 @@ struct InvoiceListView: View {
             // 保存後に reloadKey を更新すると、ここで識別が変わり List 全体が破棄→再構築される。
             // 結果として `cardSections`/`invoices` の計算が走り直し、追加された明細が見える。
             .id(reloadKey)
-            // 読み直しのたびに青枠を外し、コピー保存直後だけ保存した明細へ頭出しして青枠で示す
+            // 読み直しのたびに青枠を外し、仮明細の保存直後だけ保存した明細へ頭出しして青枠で示す
             .onChange(of: reloadKey) { _, _ in
                 highlightedRecordID = savedCopyRecordID
                 savedCopyRecordID = nil
@@ -1646,9 +1646,14 @@ struct InvoiceListView: View {
                         removeDraftPayment(draft)
                         reloadKey = UUID()
                     },
+                    onSavedRecord: { saved in
+                        savedCopyRecordID = saved.id
+                    },
                     forceDismissOnNewSave: true,
                     presetCard: draft.card,
                     presetDueDate: draft.dueDate,
+                    // 引き落とし日と口座は決まっているので、手段はこの口座のものから選ばせる
+                    presetBank: payment?.e8bank,
                     presetIsPaid: draft.isPaid
                 )
             }
@@ -1764,57 +1769,59 @@ private struct DraftPaymentRow: View {
     }
 
     var body: some View {
-        Button(action: onEdit) {
-            // コピー仮明細 (InvoiceDraftCopyRow / RecordDraftCopyRow) と揃え、
-            // 未払アイコン・金額・ロックアイコンは出さない
-            HStack(alignment: .center, spacing: 6) {
-                // 仮明細セルには利用日を表示する（引き落とし日ではなく）
-                StackedDateView(date: draft.useDate)
+        // コピー仮明細 (InvoiceDraftCopyRow / RecordDraftCopyRow) と同じ青枠・案内文（2行）に揃え、
+        // 未払アイコン・ロックアイコンは出さない
+        VStack(alignment: .trailing, spacing: 4) {
+            Button(action: onEdit) {
+                HStack(alignment: .center, spacing: 6) {
+                    // 仮明細セルには利用日を表示する（引き落とし日ではなく）
+                    StackedDateView(date: draft.useDate)
 
-                VStack(alignment: .leading, spacing: 4) {
-                    // 1 行目：ラベル位置に「新しい決済」
-                    Text("invoice.draft.title")
-                        .font(.body)
-                        .foregroundStyle(Color(.label))
-                        .lineLimit(1)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    // 2 行目：カード名（左） + ¥0（右）
-                    HStack(alignment: .firstTextBaseline, spacing: 4) {
-                        Text(cardNameText)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 4) {
+                        // 1 行目：ラベル位置に「新しい決済」
+                        Text("invoice.draft.title")
+                            .font(.body)
+                            .foregroundStyle(Color(.label))
                             .lineLimit(1)
-                            .truncationMode(.tail)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                        Text(Decimal.zero.currencyString())
-                            .font(.body.monospacedDigit())
-                            .foregroundStyle(COLOR_AMOUNT_POSITIVE)
-                            .lineLimit(1)
-                            .fixedSize(horizontal: true, vertical: false)
+                        // 2 行目：カード名（左） + ¥0（右）
+                        HStack(alignment: .firstTextBaseline, spacing: 4) {
+                            Text(cardNameText)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            Text(Decimal.zero.currencyString())
+                                .font(.body.monospacedDigit())
+                                .foregroundStyle(COLOR_AMOUNT_POSITIVE)
+                                .lineLimit(1)
+                                .fixedSize(horizontal: true, vertical: false)
+                        }
                     }
-                    // 3 行目：（追加）タップして編集 を右寄せ
-                    Text("invoice.draft.addedTapToEdit")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.orange)
-                        .lineLimit(1)
-                        .frame(maxWidth: .infinity, alignment: .trailing)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(minHeight: 48, alignment: .center)
+                .contentShape(Rectangle())
             }
-            .frame(minHeight: 48, alignment: .center)
-            .padding(.vertical, 4)
-            .padding(.horizontal, 8)
-            .background(
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(Color(.systemOrange).opacity(0.08))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(Color(.systemOrange).opacity(0.35), lineWidth: 1)
-            )
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            // 案内文は2行構成。右寄せのまま複数行を明示する
+            Text("invoice.copied.tapToEdit")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.blue)
+                .multilineTextAlignment(.trailing)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .buttonStyle(.plain)
+        .padding(.vertical, 4)
+        .padding(.horizontal, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.blue.opacity(0.05))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.blue.opacity(0.25), lineWidth: 1)
+        )
         .accessibilityLabel(Text("invoice.draft.title"))
     }
 }

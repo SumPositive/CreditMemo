@@ -9427,6 +9427,41 @@
         }
       }
     },
+    "record.field.card.noneForBank" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Für dieses Konto ist keine Zahlungsmethode registriert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No payment methods are registered for this account"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この口座で引き落とされる決済手段がありません"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 계좌로 출금되는 결제 수단이 없습니다"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "沒有從此帳戶扣款的付款方式"
+          }
+        }
+      }
+    },
     "record.field.date" : {
       "extractionState" : "manual",
       "localizations" : {

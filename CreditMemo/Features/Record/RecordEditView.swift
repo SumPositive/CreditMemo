@@ -394,6 +394,8 @@ struct RecordEditView: View {
     /// `.addNew` / `.addCopy` のとき、引き落とし日を初期指定する。
     /// 指定された場合は引き落とし日ロック状態で開き、保存時に override 機構で固定する
     var presetDueDate: Date? = nil
+    /// 引き落とし明細から追加する場合の口座。決済手段の候補をこの口座の手段に絞る
+    var presetBank: E8bank? = nil
     /// 済み側の引き落とし明細から追加する場合、保存直後に済みへ移す
     var presetIsPaid = false
     /// メインメニューの「新しい決済」から開いた場合のみ true。決済一覧からコピーセクションの表示に使う
@@ -509,6 +511,12 @@ struct RecordEditView: View {
     @FocusState private var focusNote: Bool
     private let formTopAnchorID = "record-form-top"
     private let noteAnchorID = "record-note-anchor"
+
+    /// 選択できる決済手段。口座の指定があればその口座の手段だけにする
+    private var selectableCards: [E1card] {
+        guard let presetBank else { return cards }
+        return cards.filter { $0.e8bank?.id == presetBank.id }
+    }
 
     private var isNew: Bool {
         switch mode {
@@ -1064,10 +1072,12 @@ private var isValid: Bool {
         }) {
             PickerSheet(
                 title: "record.field.card",
-                items: cards,
+                items: selectableCards,
                 selected: $selectedCard,
                 label: { $0.zName },
                 allowNone: true,
+                // 口座で絞って手段が無い時は、その旨だけを知らせる
+                emptyMessage: presetBank == nil ? nil : "record.field.card.noneForBank",
                 addContent: { AnyView(NavigationStack { CardEditView() }) }
             )
             .modifier(ConditionalDynamicTypeModifier(fontScale: fontScale))
@@ -3084,7 +3094,8 @@ private var isValid: Bool {
         pendingUsePointSelection = nil
         zName = fp.label
         // 手段：カプセルの手段で上書き。手段なしのカプセルなら未選択に戻す
-        selectedCard = fp.cardID.flatMap { id in cards.first { $0.id == id } }
+        // 口座で候補を絞っている時、その口座に無い手段は未選択にする
+        selectedCard = fp.cardID.flatMap { id in selectableCards.first { $0.id == id } }
         // タグ：カプセルのタグで上書き（参照切れを避け現在コンテキストへ張り替え）
         selectedCategories = fp.tagIDs.compactMap { cachedCategoryByID[$0] }
         // 金額付きカプセルは選択が金額の明示指定なので、手入力済みでも上書きする。
@@ -3285,6 +3296,8 @@ private struct PickerSheet<T: Identifiable>: View where T.ID: Equatable {
     @Binding var selected: T?
     let label: (T) -> String
     let allowNone: Bool
+    /// 候補が0件の時に一覧へ出す案内。nil なら何も出さない
+    var emptyMessage: LocalizedStringKey? = nil
     var addContent: (() -> AnyView)? = nil
 
     @Environment(\.dismiss) private var dismiss
@@ -3293,7 +3306,8 @@ private struct PickerSheet<T: Identifiable>: View where T.ID: Equatable {
 
     /// 「未選択」を含む行数に合わせ、多い場合は最初から最大まで開く
     private var pickerDetents: Set<PresentationDetent> {
-        let rowCount = items.count + (allowNone ? 1 : 0)
+        let showsEmptyMessage = items.isEmpty && emptyMessage != nil
+        let rowCount = items.count + (allowNone ? 1 : 0) + (showsEmptyMessage ? 1 : 0)
         guard rowCount <= 6 else { return [.large] }
         let contentHeight = ceil(90 + CGFloat(max(rowCount, 1)) * 50)
         return [.height(contentHeight), .large]
@@ -3313,6 +3327,11 @@ private struct PickerSheet<T: Identifiable>: View where T.ID: Equatable {
                         }
                         .contentShape(Rectangle())
                     }
+                }
+                if items.isEmpty, let emptyMessage {
+                    Text(emptyMessage)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                 }
                 ForEach(items) { item in
                     Button {
