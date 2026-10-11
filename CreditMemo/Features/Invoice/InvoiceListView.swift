@@ -719,6 +719,8 @@ struct InvoiceListView: View {
     /// 分割の途中回を別月へ重ねないよう、最終回だけを照合移動の対象にする
     private func canStageReconciliationMove(_ part: E6part) -> Bool {
         guard let record = part.e3record else { return false }
+        // ロック中の明細は支払日を変えない仕様なので、照合でも動かさない
+        if part.isChecked { return false }
         return record.payCount <= Int(part.nPartNo)
     }
 
@@ -2016,10 +2018,13 @@ private struct ReconciliationDraftEditView: View {
     @State private var draftUseDate = Date()
     @State private var datePickerCalendarHeight: CGFloat = 390
     @State private var showTagPicker = false
+    /// 照合中の決済手段で使ったラベルの候補（よくある決済と同じ設定で作る）
     @State private var frequentPayments: [FrequentPayment] = []
-    /// 照合中の決済手段で使ったカプセルの id（色分けに使う）
-    @State private var sameCardFrequentIDs: Set<String> = []
-    @State private var pickedFrequentID: String?
+    /// 検索用に、期間・回数の条件を外した照合中の決済手段の全ラベル
+    @State private var allLabelPayments: [FrequentPayment] = []
+    /// 「探して無ければ追加」欄の入力
+    @State private var labelSearchText = ""
+    @AppStorage(AppStorageKey.userLevel) private var userLevel: UserLevel = .beginner
     @State private var frequentCapsuleHeight: CGFloat = 0
     /// カプセル全体の実測高さ。行数が少なければこの高さまで縮める
     @State private var frequentContentHeight: CGFloat = 0
@@ -2085,9 +2090,8 @@ private struct ReconciliationDraftEditView: View {
 
     var body: some View {
         Form {
-            if !frequentPayments.isEmpty {
-                frequentSection
-            }
+            // ラベル欄を兼ねるので常に出す
+            frequentSection
 
             Section {
                 Button {
@@ -2123,17 +2127,7 @@ private struct ReconciliationDraftEditView: View {
                     valueColor: .secondary,
                     showsChevron: false
                 )
-
-                TextField("record.field.usePoint", text: $name)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .submitLabel(.done)
-                    .onChange(of: name) { _, newValue in
-                        // ラベルは最大100文字までに制限する
-                        if 100 < newValue.count {
-                            name = String(newValue.prefix(100))
-                        }
-                    }
+                // ラベルは上の「よくある決済・ラベル」パネルで入れる
             }
 
             Section {
@@ -2206,9 +2200,8 @@ private struct ReconciliationDraftEditView: View {
         .toolbar(showAmountPad ? .hidden : .visible, for: .navigationBar)
         .onAppear {
             if frequentPayments.isEmpty {
-                let built = buildFrequentPayments()
-                frequentPayments = built.sameCard + built.others
-                sameCardFrequentIDs = Set(built.sameCard.map(\.id))
+                frequentPayments = buildFrequentPayments()
+                allLabelPayments = buildAllLabelPayments()
             }
         }
         .sheet(isPresented: $showDatePicker) {
@@ -2269,50 +2262,100 @@ private struct ReconciliationDraftEditView: View {
         }
     }
 
-    /// ラベル一覧。照合中の決済手段のラベルを優先し、金額付きカプセルも出す
+    /// 「よくある決済・ラベル」パネル。新しい決済・決済編集と同じく、ラベルが決まっている時は
+    /// 選んだラベルと取り消しだけの1行、未定の時は「探して無ければ追加」とラベル一覧を出す。
+    /// ラベル一覧は照合中の決済手段で使ったものだけに絞る
     @ViewBuilder private var frequentSection: some View {
         Section {
-            ScrollView(.vertical) {
-                AZFlowLayout(spacing: frequentSpacing,
-                             rowSpacing: frequentRowSpacing,
-                             alignment: frequentAlignment.horizontalAlignment,
-                             packToFill: true,
-                             justified: frequentAlignment.isJustified) {
-                    ForEach(frequentPayments) { fp in
-                        frequentCapsule(fp)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: Alignment(
-                    horizontal: frequentAlignment.horizontalAlignment,
-                    vertical: .center
-                ))
-                .background {
-                    // 折り返し後の全体の高さを測り、表示エリアを行数ぶんに合わせる
-                    GeometryReader { geo in
-                        Color.clear
-                            .onAppear { frequentContentHeight = geo.size.height }
-                            .onChange(of: geo.size.height) { _, h in frequentContentHeight = h }
-                    }
-                }
+            if !name.isEmpty {
+                selectedLabelRow
+                    .transition(.opacity)
+            } else {
+                frequentPanel
+                    .transition(.opacity)
             }
-            .frame(height: frequentAreaHeight)
-            .scrollBounceBehavior(.basedOnSize)
-            .scrollIndicators(.hidden)
-            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+        } header: {
+            // 新しい決済と同じく、見出しは初心者モードのときだけ出す
+            if userLevel == .beginner {
+                Text("record.frequent.section.title")
+            }
+        }
+    }
+
+    /// ラベル未定の時のパネル
+    @ViewBuilder private var frequentPanel: some View {
+        VStack(spacing: 8) {
+            TagFindOrAddSection(
+                name: $labelSearchText,
+                placeholder: "record.field.usePoint",
+                isInsideRow: true,
+                onCommit: { withAnimation(labelPanelAnimation) { commitLabelSearch() } }
+            )
+            if !shownFrequentPayments.isEmpty {
+                ScrollView(.vertical) {
+                    AZFlowLayout(spacing: frequentSpacing,
+                                 rowSpacing: frequentRowSpacing,
+                                 alignment: frequentAlignment.horizontalAlignment,
+                                 packToFill: true,
+                                 justified: frequentAlignment.isJustified) {
+                        ForEach(shownFrequentPayments) { fp in
+                            frequentCapsule(fp)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: Alignment(
+                        horizontal: frequentAlignment.horizontalAlignment,
+                        vertical: .center
+                    ))
+                    .background {
+                        // 折り返し後の全体の高さを測り、表示エリアを行数ぶんに合わせる
+                        GeometryReader { geo in
+                            Color.clear
+                                .onAppear { frequentContentHeight = geo.size.height }
+                                .onChange(of: geo.size.height) { _, h in frequentContentHeight = h }
+                        }
+                    }
+                }
+                .frame(height: frequentAreaHeight)
+                .scrollBounceBehavior(.basedOnSize)
+                .scrollIndicators(.hidden)
+            }
+        }
+        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+    }
+
+    /// ラベルが決まっている時の1行。どちらを押してもラベルを外してパネルへ戻す（タグ・金額は残す）
+    @ViewBuilder private var selectedLabelRow: some View {
+        HStack(spacing: 8) {
+            Button(action: clearLabel) {
+                Text(name)
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 7)
+                    .background(Capsule().fill(Color.accentColor))
+                    .foregroundStyle(Color.white)
+            }
+            .buttonStyle(.plain)
+            Spacer(minLength: 0)
+            Button(action: clearLabel) {
+                Image(systemName: "xmark.circle.fill")
+                    .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text("button.clear"))
         }
     }
 
     @ViewBuilder private func frequentCapsule(_ fp: FrequentPayment) -> some View {
-        let isSelected: Bool = {
-            guard pickedFrequentID == fp.id, name == fp.label else { return false }
-            if let fpAmount = fp.amount { return amount == fpAmount }
-            return true
-        }()
-        let isFirst = fp.id == frequentPayments.first?.id
-        // 照合中の手段のラベルはアクセント色、その他の手段はグレーで見分ける
-        let tint: Color = sameCardFrequentIDs.contains(fp.id) ? Color.accentColor : Color.secondary
+        let isFirst = fp.id == shownFrequentPayments.first?.id
         Button {
-            applyFrequentPayment(fp)
+            // ラベルが決まるとパネルが1行に縮むので、滑らかに見せる
+            withAnimation(labelPanelAnimation) {
+                applyFrequentPayment(fp)
+                labelSearchText = ""
+            }
         } label: {
             HStack(spacing: 5) {
                 // ラベルは幅が足りなければ末尾を…で省略し、金額は全桁残す
@@ -2320,7 +2363,7 @@ private struct ReconciliationDraftEditView: View {
                     .layoutPriority(0)
                 if let fpAmount = fp.amount {
                     Text(fpAmount.currencyString())
-                        .foregroundStyle(isSelected ? Color.white.opacity(0.85) : Color.secondary)
+                        .foregroundStyle(Color.secondary)
                         .font(.subheadline.weight(.semibold).monospacedDigit())
                         .fixedSize(horizontal: true, vertical: false)
                         .layoutPriority(1)
@@ -2333,11 +2376,11 @@ private struct ReconciliationDraftEditView: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 7)
                 .background(
-                    Capsule().fill(isSelected ? tint : Color(.secondarySystemBackground))
+                    Capsule().fill(Color(.secondarySystemBackground))
                 )
-                .foregroundStyle(isSelected ? Color.white : tint)
+                .foregroundStyle(Color.accentColor)
                 .overlay(
-                    Capsule().stroke(isSelected ? Color.clear : tint.opacity(0.35), lineWidth: 1)
+                    Capsule().stroke(Color.accentColor.opacity(0.35), lineWidth: 1)
                 )
                 .background {
                     // 実際のカプセル高さを1つだけ測って行高に使う（フォント設定に追従）
@@ -2353,10 +2396,25 @@ private struct ReconciliationDraftEditView: View {
         .buttonStyle(.plain)
     }
 
-    /// 新しい決済と同じ設定でラベル候補を作る。
-    /// 照合中の決済手段で使ったラベルを先に、それ以外の手段のラベルを後ろに並べる
-    private func buildFrequentPayments() -> (sameCard: [FrequentPayment], others: [FrequentPayment]) {
-        let cardID = draft.card.id
+    /// 検索語に合うカプセル。一覧のカプセルを先に、一覧に無いラベルを後ろに並べる
+    private var shownFrequentPayments: [FrequentPayment] {
+        let keyword = labelSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !keyword.isEmpty else { return frequentPayments }
+        let listed = frequentPayments.filter { $0.label.localizedCaseInsensitiveContains(keyword) }
+        let listedLabels = Set(listed.map(\.label))
+        let others = allLabelPayments.filter {
+            $0.label.localizedCaseInsensitiveContains(keyword) && !listedLabels.contains($0.label)
+        }
+        return listed + others
+    }
+
+    /// 照合中の決済手段の決済
+    private var sameCardRecords: [E3record] {
+        pastRecords.filter { $0.e1card?.id == draft.card.id }
+    }
+
+    /// 新しい決済と同じ設定で、照合中の決済手段のラベル候補を作る
+    private func buildFrequentPayments() -> [FrequentPayment] {
         let config = FrequentPaymentConfig(
             periodMonths: frequentPeriod.months,
             amountMinCount: frequentAmountRule.minCount,
@@ -2365,33 +2423,59 @@ private struct ReconciliationDraftEditView: View {
             minUses: frequentMinUses.count,
             hideBaseWhenAmounts: frequentHideBaseWhenAmounts
         )
-        let sameCardRecords = pastRecords.filter { $0.e1card?.id == cardID }
-        let sameCard = FrequentPaymentBuilder.build(from: sameCardRecords, config: config)
-        let sameCardIDs = Set(sameCard.map(\.id))
-        let others = FrequentPaymentBuilder.build(from: pastRecords, config: config)
-            .filter { !sameCardIDs.contains($0.id) }
-        return (sameCard, others)
+        return FrequentPaymentBuilder.build(from: sameCardRecords, config: config)
     }
 
-    /// カプセルのラベル・タグ（金額付きなら金額も）を入れる。選択中の再タップで解除する。
-    /// 決済手段は照合中のものに固定し、他の手段のカプセルを選んでも変えない
+    /// 検索用。期間・回数の条件を外して、照合中の決済手段で使った全ラベルを作る
+    private func buildAllLabelPayments() -> [FrequentPayment] {
+        let config = FrequentPaymentConfig(
+            periodMonths: 1200,
+            amountMinCount: nil,
+            sortByRecency: frequentSortOrder == .recency,
+            includeRepeat: true,
+            minUses: 1,
+            hideBaseWhenAmounts: false
+        )
+        return FrequentPaymentBuilder.build(from: sameCardRecords, config: config, limit: Int.max)
+    }
+
+    /// 「探して無ければ追加」の確定。一致するラベルがあれば適用し、無ければ入力した文字をラベルにする
+    private func commitLabelSearch() {
+        let keyword = labelSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !keyword.isEmpty else { return }
+        let exact = shownFrequentPayments.first {
+            $0.label.compare(keyword, options: .caseInsensitive) == .orderedSame && $0.amount == nil
+        }
+        labelSearchText = ""
+        if let exact {
+            applyFrequentPayment(exact)
+        } else {
+            // 新しいラベル。タグは触らず、ラベルだけ入れる
+            name = String(keyword.prefix(100))
+        }
+    }
+
+    /// ラベルだけを外す（タグ・金額は残す）
+    private func clearLabel() {
+        withAnimation(labelPanelAnimation) {
+            labelSearchText = ""
+            name = ""
+        }
+    }
+
+    /// パネルの拡大・縮小に使うアニメーション
+    private var labelPanelAnimation: Animation { .easeInOut(duration: 0.25) }
+
+    /// カプセルのラベル・タグ（金額付きなら金額も）を入れる。
+    /// 決済手段は照合中のものに固定する
     private func applyFrequentPayment(_ fp: FrequentPayment) {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        if pickedFrequentID == fp.id && name == fp.label {
-            name = ""
-            selectedTags = []
-            // 金額付きカプセルで入れた金額は差額分の金額へ戻す
-            if fp.amount != nil { amount = draft.amount }
-            pickedFrequentID = nil
-            return
-        }
         name = fp.label
         if let fpAmount = fp.amount {
             amount = fpAmount
         }
         let tagByID = Dictionary(uniqueKeysWithValues: categories.map { ($0.id, $0) })
         selectedTags = fp.tagIDs.compactMap { tagByID[$0] }
-        pickedFrequentID = fp.id
     }
 
     /// 見出しを左、値を右に置く1行セル（新しい決済画面の見た目に合わせる）
@@ -2559,16 +2643,25 @@ private struct ReconciliationPartRow: View {
     var body: some View {
         if let record {
             VStack(alignment: .leading, spacing: 8) {
-                Button(action: onEdit) {
-                    RecordSummaryRow(
-                        record: record,
-                        amountOverride: part.nAmount,
-                        showsStatus: false
-                    )
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
+                HStack(spacing: 6) {
+                    Button(action: onEdit) {
+                        RecordSummaryRow(
+                            record: record,
+                            amountOverride: part.nAmount,
+                            showsStatus: false
+                        )
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    // ロック中であることを通常画面と同じ鍵で示す（照合中は表示だけで切り替えない）
+                    if part.isChecked {
+                        PartLockIcon(isLocked: true)
+                            // 押せないことが分かるよう薄く表示する
+                            .opacity(0.4)
+                            .accessibilityLabel(Text("invoice.reconciliation.locked"))
+                    }
                 }
-                .buttonStyle(.plain)
 
                 HStack(spacing: 6) {
                     reconciliationStatusLabel

@@ -2875,7 +2875,28 @@ private var isValid: Bool {
             minUses: 1,
             hideBaseWhenAmounts: false
         )
-        return FrequentPaymentBuilder.build(from: pastRecords, config: config, limit: Int.max)
+        return FrequentPaymentBuilder.build(from: labelSourceRecords, config: config, limit: Int.max)
+    }
+
+    /// ラベル候補の集計元。引き落とし明細の仮明細などから手段や口座を決めて開いた時は、
+    /// その手段（手段が未定なら口座）の決済だけに絞る
+    private var labelSourceRecords: [E3record] {
+        if let presetCard {
+            return pastRecords.filter { $0.e1card?.id == presetCard.id }
+        }
+        if let presetBank {
+            return pastRecords.filter { $0.e1card?.e8bank?.id == presetBank.id }
+        }
+        return pastRecords
+    }
+
+    /// 初期候補の手段が、上の絞り込みの範囲に入るか
+    private func isInLabelScope(cardID: String?) -> Bool {
+        if let presetCard { return cardID == presetCard.id }
+        if let presetBank {
+            return cards.first { $0.id == cardID }?.e8bank?.id == presetBank.id
+        }
+        return true
     }
 
     /// 検索語に合うカプセル。一覧のカプセル（金額付きを含む）を先に、
@@ -2924,10 +2945,12 @@ private var isValid: Bool {
     /// 「よくある決済」カプセル候補を過去レコードから組み立てる（共通ロジックに委譲）。
     /// 履歴が少なく一覧を出せない間（インストール直後など）は、初期候補で補って表示する
     private func buildFrequentPayments() -> [FrequentPayment] {
-        let built = FrequentPaymentBuilder.build(from: pastRecords, config: frequentConfig)
+        let built = FrequentPaymentBuilder.build(from: labelSourceRecords, config: frequentConfig)
         guard built.count < 3 else { return built }
         let builtLabels = Set(built.map(\.label))
-        return built + presetFrequentPayments.filter { !builtLabels.contains($0.label) }
+        return built + presetFrequentPayments.filter {
+            !builtLabels.contains($0.label) && isInLabelScope(cardID: $0.cardID)
+        }
     }
 
     /// 初期候補。言語ごとの訳文に「ラベル|決済手段名|タグ名;タグ名」をカンマ区切りで持ち、空の言語では出さない。
