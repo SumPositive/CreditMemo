@@ -832,7 +832,8 @@ private var isValid: Bool {
             }
         }
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden({
+        // 独自テンキー表示中は戻るも隠す（ナビゲーションバー自体は残し、背面を動かさない）
+        .navigationBarBackButtonHidden(isKeypadShown || {
             switch mode {
             case .addNew:  return hasChanges
             case .addCopy: return true     // コピー新規は常にキャンセルで閉じる
@@ -896,6 +897,7 @@ private var isValid: Bool {
                                 .symbolRenderingMode(.hierarchical)
                                 .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                         }
+                        .disabled(isKeypadShown)
                     }
                 }
             }
@@ -908,14 +910,13 @@ private var isValid: Bool {
                         return hasChanges
                     }()
                     Button("button.save") { save() }
-                        .disabled(!isValid)
+                        // 独自テンキー表示中は背面の保存を押せないようにする
+                        .disabled(!isValid || isKeypadShown)
                         .fontWeight(emphasizeSave ? .semibold : .regular)
                         .foregroundStyle(emphasizeSave ? .blue : .secondary)
                 }
             }
         }
-        // 独自テンキー表示中は背面のナビゲーション操作も隠す
-        .toolbar(showAmountPad || showPartAmountPad ? .hidden : .visible, for: .navigationBar)
         .onAppear {
             if !hasInitialized {
                 // 初期表示時に候補キャッシュを構築する
@@ -1166,6 +1167,9 @@ private var isValid: Bool {
 
     // MARK: - Cancel
 
+    /// 独自テンキー（金額・分割金額）を表示中か。表示中は背面のナビゲーション操作を止める
+    private var isKeypadShown: Bool { showAmountPad || showPartAmountPad }
+
     /// 変更があれば1回目で破棄確認に切り替え、2回目で閉じるキャンセルボタン
     private var cancelButton: some View {
         Button {
@@ -1178,6 +1182,8 @@ private var isValid: Bool {
                 .padding(.horizontal, isDiscardArmed ? 16 : 0)
         }
         .tint(isDiscardArmed ? .red : .accentColor)
+        // 独自テンキー表示中は背面のキャンセルを押せないようにする
+        .disabled(isKeypadShown)
     }
 
     private func handleCancelTapped() {

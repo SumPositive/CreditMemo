@@ -176,10 +176,11 @@ struct NumericKeypadOverlay: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .bottom) {
-                // 背面全体でタップを受け、編集中フォームの誤操作を防ぐ
+                // 背面全体でタップを受け、編集中フォームの誤操作を防ぐ。
+                // 他のシートと同じく、背面のタップで閉じる（入力中の値は確定しない）
                 Color.black.opacity(0.18)
                     .contentShape(Rectangle())
-                    .onTapGesture {}
+                    .onTapGesture { onCancel() }
 
                 VStack(spacing: sheetSpacing) {
                     header
