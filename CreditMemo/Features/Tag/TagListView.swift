@@ -332,6 +332,10 @@ struct TagSortModeDropdown: View {
 /// タグ一覧と選択シートで共用する検索兼追加欄
 struct TagFindOrAddSection: View {
     @Binding var name: String
+    /// 入力欄の placeholder。新しい決済のラベル検索でも使う
+    var placeholder: LocalizedStringKey = "tag.field.name"
+    /// Form の行の中に置く時は true。行と同じ背景色で埋もれないよう、控えめな塗りと枠を付ける
+    var isInsideRow = false
     let onCommit: () -> Void
 
     @FocusState private var isFocused: Bool
@@ -348,7 +352,7 @@ struct TagFindOrAddSection: View {
                 .padding(.horizontal, 4)
 
             HStack(spacing: 12) {
-                TextField("tag.field.name", text: $name)
+                TextField(placeholder, text: $name)
                     .focused($isFocused)
                     .submitLabel(.done)
                     .onSubmit { commit() }
@@ -363,9 +367,15 @@ struct TagFindOrAddSection: View {
             .padding(.horizontal, 12)
             .frame(minHeight: 44)
             .background(
-                Color(uiColor: .secondarySystemGroupedBackground),
+                isInsideRow ? Color(uiColor: .tertiarySystemFill) : Color(uiColor: .secondarySystemGroupedBackground),
                 in: RoundedRectangle(cornerRadius: 12, style: .continuous)
             )
+            .overlay {
+                if isInsideRow {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(Color(uiColor: .separator), lineWidth: 0.5)
+                }
+            }
         }
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {

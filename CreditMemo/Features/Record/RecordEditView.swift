@@ -476,6 +476,10 @@ struct RecordEditView: View {
     @State private var cachedCategoryByID: [String: E5tag] = [:]
     /// 「よくある決済」カプセルの候補（過去実績から自動生成）。3件以上で帯を表示する
     @State private var cachedFrequentPayments: [FrequentPayment] = []
+    /// ラベル検索用に、期間・回数の条件を外した全ラベルの候補（手段・タグは代表値）
+    @State private var cachedAllLabelPayments: [FrequentPayment] = []
+    /// 「よくある決済」の上の「探して無ければ追加」欄の入力
+    @State private var labelSearchText = ""
     /// この画面で選択中のカプセルの id（未選択は nil）。同じラベルでも金額違いを
     /// 区別するため、ラベルではなく id で管理する（(ETC ¥210)(ETC)(ETC ¥500) など）
     @State private var pickedFrequentID: String? = nil
@@ -958,6 +962,7 @@ private var isValid: Bool {
         .onChange(of: frequentConfig) { _, _ in
             // パネル設定（期間・金額表示条件・並び順）が変わったらカプセルを組み直す
             cachedFrequentPayments = buildFrequentPayments()
+            cachedAllLabelPayments = buildAllLabelPayments()
         }
         .sheet(isPresented: $showDatePicker) {
             NavigationStack {
@@ -1885,6 +1890,14 @@ private var isValid: Bool {
     @ViewBuilder private var frequentSection: some View {
         Section {
             VStack(spacing: 8) {
+                // ラベル欄の代わり。一覧に無いラベルも探せて、無ければそのまま新しいラベルにする
+                TagFindOrAddSection(
+                    name: $labelSearchText,
+                    placeholder: "record.field.usePoint",
+                    isInsideRow: true,
+                    onCommit: commitLabelSearch
+                )
+                .disabled(isCoreFieldsLocked)
                 // カプセルは Layout プロトコル（AZFlowLayout）で折り返す。親から提案される
                 // 幅で自動的に折り返すので、自前の幅測定に依存せず確実に複数行になる。
                 // packToFill=true で、行末の余白に後方の“収まる”カプセルを繰り上げて詰める。
@@ -1896,7 +1909,10 @@ private var isValid: Bool {
                                  alignment: frequentAlignment.horizontalAlignment,
                                  packToFill: true,
                                  justified: frequentAlignment.isJustified) {
-                        ForEach(cachedFrequentPayments) { fp in
+                        if let label = unlistedCurrentLabel {
+                            currentLabelCapsule(label)
+                        }
+                        ForEach(shownFrequentPayments) { fp in
                             frequentCapsule(fp)
                         }
                     }
@@ -1935,11 +1951,7 @@ private var isValid: Bool {
     @ViewBuilder private func frequentCapsule(_ fp: FrequentPayment) -> some View {
         // 選択中判定は id 一致で（同じラベルの金額違いカプセルを取り違えない）。
         // ラベル／金額を手で変えたら強調を外す。
-        let isSelected: Bool = {
-            guard pickedFrequentID == fp.id, zName == fp.label else { return false }
-            if let amount = fp.amount { return nAmount == amount }
-            return true
-        }()
+        let isSelected = isPickedFrequentPayment(fp)
         let isFirst = fp.id == cachedFrequentPayments.first?.id
         // 設定ONのときは、決済手段の色（IDから一意生成）でカプセルを色分けする。
         // 丸ドットは幅を食うので使わず、文字色・枠色・薄い塗りで表現する。
@@ -1953,6 +1965,8 @@ private var isValid: Bool {
             : (cardTint?.opacity(0.7) ?? Color.accentColor.opacity(0.35))
         Button {
             applyFrequentPayment(fp)
+            // 検索結果から選んだら検索を終えて、通常の一覧へ戻す
+            labelSearchText = ""
         } label: {
             HStack(spacing: 5) {
                 // ラベルは幅が足りなければ末尾を…で省略（優先度を下げて縮む側にする）
@@ -1999,6 +2013,28 @@ private var isValid: Bool {
         .disabled(isCoreFieldsLocked)
     }
 
+
+    /// 一覧に無いラベル（新しく入れたラベルなど）を、選択中の姿で見せるカプセル。
+    /// 選択中のカプセルと同じく、再タップでラベルだけを消す（手段・タグは残す）
+    @ViewBuilder private func currentLabelCapsule(_ label: String) -> some View {
+        Button {
+            pendingUsePointSelection = nil
+            pickedFrequentID = nil
+            zName = ""
+        } label: {
+            Text(label)
+            .font(.subheadline.weight(.semibold))
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 7)
+            .background(Capsule().fill(Color.accentColor))
+            .foregroundStyle(Color.white)
+        }
+        .buttonStyle(.plain)
+        .disabled(isCoreFieldsLocked)
+        .accessibilityLabel(Text(label))
+    }
 
     /// 帯の高さを変えるハンドル。上下ドラッグで行数を1〜5に増減する。
     /// グローバル座標系で指の移動量を測り、行数を離散更新する（ハンドル自身が
@@ -2127,53 +2163,56 @@ private var isValid: Bool {
             }
 
             // ラベル（自由入力。候補はキーボード上のツールバーに出す）
-            HStack(spacing: 8) {
-                TextField("record.field.usePoint", text: $zName)
-                    .focused($isUsePointFocused)
-                    .onChange(of: isUsePointFocused) { _, focused in
-                        // 再び入力を始める時は、書き戻し対策の保留値を必ず解除する
-                        if focused { pendingUsePointSelection = nil }
-                    }
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .submitLabel(.done)
-                    .onSubmit {
-                        isUsePointFocused = false
-                    }
-                    .onChange(of: zName) { _, newValue in
-                        // 候補を選んだ直後は、IME が書き戻した未確定文字を無視して
-                        // 選んだ値を優先する（変換中のタップで選択が消えるのを防ぐ）
-                        if let pending = pendingUsePointSelection {
-                            if newValue == pending {
-                                pendingUsePointSelection = nil
-                            } else {
-                                zName = pending
+            // 「よくある決済」を出している時は、その上の「探して無ければ追加」欄で入れるので出さない
+            if !showsFrequentSection {
+                HStack(spacing: 8) {
+                    TextField("record.field.usePoint", text: $zName)
+                        .focused($isUsePointFocused)
+                        .onChange(of: isUsePointFocused) { _, focused in
+                            // 再び入力を始める時は、書き戻し対策の保留値を必ず解除する
+                            if focused { pendingUsePointSelection = nil }
+                        }
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .submitLabel(.done)
+                        .onSubmit {
+                            isUsePointFocused = false
+                        }
+                        .onChange(of: zName) { _, newValue in
+                            // 候補を選んだ直後は、IME が書き戻した未確定文字を無視して
+                            // 選んだ値を優先する（変換中のタップで選択が消えるのを防ぐ）
+                            if let pending = pendingUsePointSelection {
+                                if newValue == pending {
+                                    pendingUsePointSelection = nil
+                                } else {
+                                    zName = pending
+                                }
+                                return
                             }
-                            return
+                            // ラベルは最大100文字までに制限する
+                            if 100 < newValue.count {
+                                zName = String(newValue.prefix(100))
+                            }
+                            // 末尾の改行を除去する
+                            let trimmed = newValue.replacingOccurrences(of: "\n+$", with: "", options: .regularExpression)
+                            if trimmed != newValue { zName = trimmed }
                         }
-                        // ラベルは最大100文字までに制限する
-                        if 100 < newValue.count {
-                            zName = String(newValue.prefix(100))
-                        }
-                        // 末尾の改行を除去する
-                        let trimmed = newValue.replacingOccurrences(of: "\n+$", with: "", options: .regularExpression)
-                        if trimmed != newValue { zName = trimmed }
-                    }
 
-                // 入力中だけ、まとめて消せるクリアボタンを出す
-                if !zName.isEmpty {
-                    Button {
-                        // 候補選択の保留値を先に捨ててから消す（消去が戻されないように）
-                        pendingUsePointSelection = nil
-                        zName = ""
-                        isUsePointFocused = true
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
-                            .foregroundStyle(.secondary)
+                    // 入力中だけ、まとめて消せるクリアボタンを出す
+                    if !zName.isEmpty {
+                        Button {
+                            // 候補選択の保留値を先に捨ててから消す（消去が戻されないように）
+                            pendingUsePointSelection = nil
+                            zName = ""
+                            isUsePointFocused = true
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(Text("button.clear"))
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(Text("button.clear"))
                 }
             }
         }
@@ -2991,6 +3030,78 @@ private var isValid: Bool {
         cachedCategoryByID = Dictionary(uniqueKeysWithValues: categories.map { ($0.id, $0) })
 
         cachedFrequentPayments = buildFrequentPayments()
+        cachedAllLabelPayments = buildAllLabelPayments()
+    }
+
+    /// ラベル検索の候補。一覧に出ない古いラベルや利用回数の少ないラベルも探せるよう、
+    /// 期間・回数の条件を外してラベルごとの基本カプセル（よく使う手段・タグ付き）を作る
+    private func buildAllLabelPayments() -> [FrequentPayment] {
+        let config = FrequentPaymentConfig(
+            periodMonths: 1200,
+            amountMinCount: nil,
+            sortByRecency: frequentConfig.sortByRecency,
+            includeRepeat: true,
+            minUses: 1,
+            hideBaseWhenAmounts: false
+        )
+        return FrequentPaymentBuilder.build(from: pastRecords, config: config, limit: Int.max)
+    }
+
+    /// 検索語に合うカプセル。一覧のカプセル（金額付きを含む）を先に、
+    /// 一覧に無いラベルを後ろに並べる。検索語が空なら通常の一覧。
+    /// 選択中のカプセルは、一覧の途中に埋もれないよう常に先頭へ出す
+    private var shownFrequentPayments: [FrequentPayment] {
+        let keyword = labelSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        var shown: [FrequentPayment]
+        if keyword.isEmpty {
+            shown = cachedFrequentPayments
+        } else {
+            let listed = cachedFrequentPayments.filter { $0.label.localizedCaseInsensitiveContains(keyword) }
+            let listedLabels = Set(listed.map(\.label))
+            let others = cachedAllLabelPayments.filter {
+                $0.label.localizedCaseInsensitiveContains(keyword) && !listedLabels.contains($0.label)
+            }
+            shown = listed + others
+        }
+        if let index = shown.firstIndex(where: isPickedFrequentPayment), 0 < index {
+            shown.insert(shown.remove(at: index), at: 0)
+        }
+        return shown
+    }
+
+    /// 今選ばれているカプセルか。ラベル・金額を手で変えたら選択中ではなくなる
+    private func isPickedFrequentPayment(_ fp: FrequentPayment) -> Bool {
+        guard pickedFrequentID == fp.id, zName == fp.label else { return false }
+        if let amount = fp.amount { return nAmount == amount }
+        return true
+    }
+
+    /// 入力中のラベルが表示中のカプセルに無い時だけ、先頭に選択中として見せる。
+    /// ラベル欄を出さない代わりに、今のラベルが分かるようにする
+    private var unlistedCurrentLabel: String? {
+        let label = zName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !label.isEmpty else { return nil }
+        if shownFrequentPayments.contains(where: { $0.label == label }) { return nil }
+        return label
+    }
+
+    /// 「探して無ければ追加」の確定。一致するラベルがあればそのカプセルを適用し、
+    /// 無ければ入力した文字をそのままラベルにする
+    private func commitLabelSearch() {
+        let keyword = labelSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !keyword.isEmpty else { return }
+        let exact = shownFrequentPayments.first {
+            $0.label.compare(keyword, options: .caseInsensitive) == .orderedSame && $0.amount == nil
+        }
+        labelSearchText = ""
+        if let exact {
+            if pickedFrequentID != exact.id { applyFrequentPayment(exact) }
+        } else {
+            // 新しいラベル。手段・タグは触らず、ラベルだけ入れる
+            pendingUsePointSelection = nil
+            pickedFrequentID = nil
+            zName = String(keyword.prefix(100))
+        }
     }
 
     /// パネル設定（期間・金額表示条件・並び順）を候補生成の設定に変換する。
@@ -3006,8 +3117,35 @@ private var isValid: Bool {
     }
 
     /// 「よくある決済」カプセル候補を過去レコードから組み立てる（共通ロジックに委譲）。
+    /// 履歴が少なく一覧を出せない間（インストール直後など）は、初期候補で補って表示する
     private func buildFrequentPayments() -> [FrequentPayment] {
-        FrequentPaymentBuilder.build(from: pastRecords, config: frequentConfig)
+        let built = FrequentPaymentBuilder.build(from: pastRecords, config: frequentConfig)
+        guard built.count < 3 else { return built }
+        let builtLabels = Set(built.map(\.label))
+        return built + presetFrequentPayments.filter { !builtLabels.contains($0.label) }
+    }
+
+    /// 初期候補。言語ごとの訳文に「ラベル|決済手段名|タグ名;タグ名」をカンマ区切りで持ち、空の言語では出さない。
+    /// 手段・タグは初期データの名前で引き当て、名前を変えたり消したりして見つからなければ未選択にする
+    private var presetFrequentPayments: [FrequentPayment] {
+        String(localized: "record.frequent.presets")
+            .split(separator: ",")
+            .compactMap { entry -> FrequentPayment? in
+                let fields = entry.split(separator: "|", omittingEmptySubsequences: false)
+                    .map { $0.trimmingCharacters(in: .whitespaces) }
+                guard let label = fields.first, !label.isEmpty else { return nil }
+                let cardName = 1 < fields.count ? fields[1] : ""
+                let tagNames = 2 < fields.count
+                    ? fields[2].split(separator: ";").map { $0.trimmingCharacters(in: .whitespaces) }
+                    : []
+                let cardID = cardName.isEmpty ? nil : cards.first { $0.zName == cardName }?.id
+                let tagIDs = tagNames.compactMap { name in categories.first { $0.zName == name }?.id }
+                return FrequentPayment(
+                    id: FrequentPayment.makeID(label: label, amount: nil),
+                    label: label, cardID: cardID, tagIDs: tagIDs, amount: nil,
+                    score: 0, latest: .distantPast
+                )
+            }
     }
 
     /// 見出しと値を、収まる場合は1行、収まらない場合は2行で表示する共通セル
