@@ -4526,41 +4526,6 @@
         }
       }
     },
-    "invoice.draft.addedTapToEdit" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "(Neu) Bearbeiten"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "(Added) Tap to edit"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "（追加）タップして編集"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "(추가됨) 탭하여 편집"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "（已新增）點選編輯"
-          }
-        }
-      }
-    },
     "invoice.draft.noCardSection" : {
       "extractionState" : "manual",
       "localizations" : {
