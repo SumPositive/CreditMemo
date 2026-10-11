@@ -9785,31 +9785,31 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vorschläge aus Ihren meistgenutzten Zahlungen\n\nTippen Sie auf eine Schaltfläche, um Label, Zahlungsmittel und Tags auf einmal einzutragen\n\nErneut tippen hebt die Auswahl auf\n\nGeben Sie oben ein Label ein, um auch frühere Labels zu finden, die nicht in der Liste stehen\n\nWird keines gefunden, übernehmen Sie es mit „Hinzufügen“ als neues Label\n\nZiehen Sie den Griff unten, um die Höhe zu ändern\n\nÜber das Zahnrad unten links ändern Sie Zeitraum, Betragsanzeige und Sortierung\n\nSie können diese Eingabehilfe in den Einstellungen auf „Keine“ oder das bisherige „Aus Zahlungsliste kopieren“ umstellen"
+            "value" : "Vorschläge aus Ihren meistgenutzten Zahlungen\n\nTippen Sie auf eine Schaltfläche, um Label, Zahlungsmittel und Tags auf einmal einzutragen\n\nErneut tippen hebt die Auswahl auf\n\nGeben Sie oben ein Label ein, um auch frühere Labels zu finden, die nicht in der Liste stehen\n\nWird keines gefunden, übernehmen Sie es mit „Hinzufügen“ als neues Label\n\nSie können auch ohne Label speichern; Abbuchungsberechnung und Summen sind davon nicht betroffen\n\nZiehen Sie den Griff unten, um die Höhe zu ändern\n\nÜber das Zahnrad unten links ändern Sie Zeitraum, Betragsanzeige und Sortierung\n\nSie können diese Eingabehilfe in den Einstellungen auf „Keine“ oder das bisherige „Aus Zahlungsliste kopieren“ umstellen"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Suggestions from your most-used payments\n\nTap a button to fill in the label, payment method, and tags at once\n\nTap it again to clear\n\nType a label in the field above to search past labels, including ones not shown in the list\n\nIf none is found, tap Add to use it as a new label\n\nDrag the handle below to change the height\n\nUse the gear at the lower left to change the period, amount display, and sort order\n\nYou can switch this input aid to None or the classic Copy from Payment List in Settings"
+            "value" : "Suggestions from your most-used payments\n\nTap a button to fill in the label, payment method, and tags at once\n\nTap it again to clear\n\nType a label in the field above to search past labels, including ones not shown in the list\n\nIf none is found, tap Add to use it as a new label\n\nYou can save without a label, and it does not affect debit calculations or totals\n\nDrag the handle below to change the height\n\nUse the gear at the lower left to change the period, amount display, and sort order\n\nYou can switch this input aid to None or the classic Copy from Payment List in Settings"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "最近のよく使う決済から候補を表示します\n\nボタンをタップすると、ラベル・決済手段・タグがまとめて入ります\n\nもう一度タップすると解除します\n\n上の欄にラベルを入れると、一覧に無い過去のラベルも探せます\n\n見つからなければ「追加」でそのまま新しいラベルになります\n\n下のハンドルを上下にドラッグすると高さを変えられます\n\n達人モードでは、表示条件と抽出条件を調整できます\n\nこの入力補助は設定で「なし」や従来の「決済一覧からコピー」に切り替えできます"
+            "value" : "最近のよく使う決済から候補を表示します\n\nボタンをタップすると、ラベル・決済手段・タグがまとめて入ります\n\nもう一度タップすると解除します\n\n上の欄にラベルを入れると、一覧に無い過去のラベルも探せます\n\n見つからなければ「追加」でそのまま新しいラベルになります\n\nラベルは未定のままでも保存でき、引き落としの計算や集計に支障はありません\n\n下のハンドルを上下にドラッグすると高さを変えられます\n\n達人モードでは、表示条件と抽出条件を調整できます\n\nこの入力補助は設定で「なし」や従来の「決済一覧からコピー」に切り替えできます"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "최근 자주 쓴 결제에서 후보를 표시합니다\n\n버튼을 누르면 라벨·결제 수단·태그가 한 번에 입력됩니다\n\n다시 누르면 해제됩니다\n\n위 입력란에 라벨을 입력하면 목록에 없는 과거 라벨도 찾을 수 있습니다\n\n찾지 못하면 ‘추가’로 그대로 새 라벨이 됩니다\n\n아래 핸들을 위아래로 드래그하면 높이를 바꿀 수 있습니다\n\n왼쪽 아래 톱니바퀴로 추출 기간·금액 표시·정렬 순서를 바꿀 수 있습니다\n\n이 입력 보조는 설정에서 ‘없음’이나 기존 ‘결제 목록에서 복사’로 전환할 수 있습니다"
+            "value" : "최근 자주 쓴 결제에서 후보를 표시합니다\n\n버튼을 누르면 라벨·결제 수단·태그가 한 번에 입력됩니다\n\n다시 누르면 해제됩니다\n\n위 입력란에 라벨을 입력하면 목록에 없는 과거 라벨도 찾을 수 있습니다\n\n찾지 못하면 ‘추가’로 그대로 새 라벨이 됩니다\n\n라벨을 정하지 않아도 저장할 수 있으며, 출금 계산이나 합계에는 지장이 없습니다\n\n아래 핸들을 위아래로 드래그하면 높이를 바꿀 수 있습니다\n\n왼쪽 아래 톱니바퀴로 추출 기간·금액 표시·정렬 순서를 바꿀 수 있습니다\n\n이 입력 보조는 설정에서 ‘없음’이나 기존 ‘결제 목록에서 복사’로 전환할 수 있습니다"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "顯示常用付款的建議\n\n點一下按鈕即可一次填入標籤、付款方式與標記\n\n再點一下可取消\n\n在上方欄位輸入標籤，也能找到清單中沒有的過去標籤\n\n找不到時，點「新增」即可直接作為新標籤\n\n拖曳下方的把手可調整高度\n\n用左下角的齒輪可變更擷取期間、金額顯示與顯示順序\n\n可在設定中將此輸入輔助切換為「無」或原本的「從付款清單複製」"
+            "value" : "顯示常用付款的建議\n\n點一下按鈕即可一次填入標籤、付款方式與標記\n\n再點一下可取消\n\n在上方欄位輸入標籤，也能找到清單中沒有的過去標籤\n\n找不到時，點「新增」即可直接作為新標籤\n\n未設定標籤也能儲存，不影響扣款計算與合計\n\n拖曳下方的把手可調整高度\n\n用左下角的齒輪可變更擷取期間、金額顯示與顯示順序\n\n可在設定中將此輸入輔助切換為「無」或原本的「從付款清單複製」"
           }
         }
       }
@@ -9891,31 +9891,31 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Häufige Zahlungen"
+            "value" : "Häufige Zahlungen · Label"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Frequent Payments"
+            "value" : "Frequent Payments · Label"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "よくある決済"
+            "value" : "よくある決済・ラベル"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "자주 쓰는 결제"
+            "value" : "자주 쓰는 결제·라벨"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "常用付款"
+            "value" : "常用付款・標籤"
           }
         }
       }

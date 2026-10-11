@@ -768,23 +768,19 @@ private var isValid: Bool {
         return true
     }
 
-    /// 「よくある決済」カプセル帯を出すかどうか。
-    /// 新規追加時のみ、候補が3件以上そろったときだけ表示する（初期＝履歴が無ければ出さない）。
-    private var showsFrequentSection: Bool {
-        // 入力補助として「よくある決済」を選んでいるときだけ出す
-        guard newPaymentAssist == .frequent else { return false }
-        guard isNew else { return false }
-        if case .addCopy = mode { return false }
-        return cachedFrequentPayments.count >= 3
+    /// 「よくある決済」パネルにラベル一覧を出すかどうか。
+    /// パネル自体はラベル欄を兼ねるので新規・コピー・編集のすべてで出し、
+    /// 一覧は入力補助で「よくある決済」を選んでいるときだけ出す（それ以外は検索した時だけ）
+    private var showsFrequentCapsules: Bool {
+        newPaymentAssist == .frequent && !cachedFrequentPayments.isEmpty
     }
 
     var body: some View {
         ScrollViewReader { proxy in
             Form {
                 beginnerSection
-                if showsFrequentSection {
-                    frequentSection
-                }
+                // ラベル欄を兼ねるので常に出す
+                frequentSection
                 requiredSection
                 if showsSimilarSection {
                     similarSection
@@ -1635,7 +1631,7 @@ private var isValid: Bool {
     private func closeAmountPad() {
         showAmountPad = false
         if isNew && nAmount == 0 && autoOpenAmountPad
-            && !showsFrequentSection && !didPickFrequentPayment {
+            && !showsFrequentCapsules && !didPickFrequentPayment {
             DispatchQueue.main.async { dismiss() }
         }
     }
@@ -1895,47 +1891,14 @@ private var isValid: Bool {
     /// 表示行数を1〜5行に変えられる（縦スクロールで隠れたカプセルも見られる）。
     @ViewBuilder private var frequentSection: some View {
         Section {
-            VStack(spacing: 8) {
-                // ラベル欄の代わり。一覧に無いラベルも探せて、無ければそのまま新しいラベルにする
-                TagFindOrAddSection(
-                    name: $labelSearchText,
-                    placeholder: "record.field.usePoint",
-                    isInsideRow: true,
-                    onCommit: commitLabelSearch
-                )
-                .disabled(isCoreFieldsLocked)
-                // カプセルは Layout プロトコル（AZFlowLayout）で折り返す。親から提案される
-                // 幅で自動的に折り返すので、自前の幅測定に依存せず確実に複数行になる。
-                // packToFill=true で、行末の余白に後方の“収まる”カプセルを繰り上げて詰める。
-                // 縦は frequentRows 行ぶんの高さにクリップし、溢れる行は縦スクロールで見せる。
-                ScrollView(.vertical) {
-                    // 寄せは「よくある決済」設定の「ラベル一覧の並べ方」に従う
-                    AZFlowLayout(spacing: frequentSpacing,
-                                 rowSpacing: frequentRowSpacing,
-                                 alignment: frequentAlignment.horizontalAlignment,
-                                 packToFill: true,
-                                 justified: frequentAlignment.isJustified) {
-                        if let label = unlistedCurrentLabel {
-                            currentLabelCapsule(label)
-                        }
-                        ForEach(shownFrequentPayments) { fp in
-                            frequentCapsule(fp)
-                        }
-                    }
-                    // AZFlowLayout は内容幅に縮むことがあるので、帯自体の寄せも合わせる
-                    .frame(maxWidth: .infinity, alignment: Alignment(
-                        horizontal: frequentAlignment.horizontalAlignment,
-                        vertical: .center
-                    ))
-                }
-                .frame(height: frequentAreaHeight(for: frequentRows))
-                // スクロールインジケータは出さない（行数はハンドルで調整する）
-                .scrollIndicators(.hidden)
-                .animation(.easeOut(duration: 0.18), value: frequentRows)
-
-                frequentResizeHandle
+            if !zName.isEmpty {
+                // ラベルが決まっている時は、選んだラベルと取り消しだけの1行にする
+                selectedLabelRow
+                    .transition(.opacity)
+            } else {
+                frequentPanel
+                    .transition(.opacity)
             }
-            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 4, trailing: 16))
         } header: {
             // タイトルは初心者モードのときだけ出す（慣れたら余白を詰める）。
             // 表示時は右端にヘルプアイコンを添え、タップで説明シートを出す。
@@ -1950,6 +1913,53 @@ private var isValid: Bool {
                 }
             }
         }
+    }
+
+    /// ラベル未定の時のパネル。「探して無ければ追加」とラベル一覧
+    @ViewBuilder private var frequentPanel: some View {
+        VStack(spacing: 8) {
+            // ラベル欄の代わり。一覧に無いラベルも探せて、無ければそのまま新しいラベルにする
+            TagFindOrAddSection(
+                name: $labelSearchText,
+                placeholder: "record.field.usePoint",
+                isInsideRow: true,
+                onCommit: { withAnimation(labelPanelAnimation) { commitLabelSearch() } }
+            )
+            .disabled(isCoreFieldsLocked)
+            // 一覧を出さない設定でも、検索した時は結果を出す
+            if showsFrequentCapsules || !labelSearchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                // カプセルは Layout プロトコル（AZFlowLayout）で折り返す。親から提案される
+                // 幅で自動的に折り返すので、自前の幅測定に依存せず確実に複数行になる。
+                // packToFill=true で、行末の余白に後方の“収まる”カプセルを繰り上げて詰める。
+                // 縦は frequentRows 行ぶんの高さにクリップし、溢れる行は縦スクロールで見せる。
+                ScrollView(.vertical) {
+                    // 寄せは「よくある決済」設定の「ラベル一覧の並べ方」に従う
+                    AZFlowLayout(spacing: frequentSpacing,
+                                 rowSpacing: frequentRowSpacing,
+                                 alignment: frequentAlignment.horizontalAlignment,
+                                 packToFill: true,
+                                 justified: frequentAlignment.isJustified) {
+                        ForEach(shownFrequentPayments) { fp in
+                            frequentCapsule(fp)
+                        }
+                    }
+                    // AZFlowLayout は内容幅に縮むことがあるので、帯自体の寄せも合わせる
+                    .frame(maxWidth: .infinity, alignment: Alignment(
+                        horizontal: frequentAlignment.horizontalAlignment,
+                        vertical: .center
+                    ))
+                }
+                .frame(height: frequentAreaHeight(for: frequentRows))
+                // スクロールインジケータは出さない（行数はハンドルで調整する）
+                .scrollIndicators(.hidden)
+                .animation(.easeOut(duration: 0.18), value: frequentRows)
+            }
+
+            if showsFrequentCapsules {
+                frequentResizeHandle
+            }
+        }
+        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 4, trailing: 16))
     }
 
     /// カプセル1つ分。選択中はアクセント塗り。先頭だけ高さを実測して行高に反映する。
@@ -1970,9 +1980,12 @@ private var isValid: Bool {
         let borderColor: Color = isSelected ? Color.clear
             : (cardTint?.opacity(0.7) ?? Color.accentColor.opacity(0.35))
         Button {
-            applyFrequentPayment(fp)
-            // 検索結果から選んだら検索を終えて、通常の一覧へ戻す
-            labelSearchText = ""
+            // ラベルが決まるとパネルが1行に縮むので、滑らかに見せる
+            withAnimation(labelPanelAnimation) {
+                applyFrequentPayment(fp)
+                // 検索結果から選んだら検索を終えて、通常の一覧へ戻す
+                labelSearchText = ""
+            }
         } label: {
             HStack(spacing: 5) {
                 // ラベルは幅が足りなければ末尾を…で省略（優先度を下げて縮む側にする）
@@ -2020,27 +2033,46 @@ private var isValid: Bool {
     }
 
 
-    /// 一覧に無いラベル（新しく入れたラベルなど）を、選択中の姿で見せるカプセル。
-    /// 選択中のカプセルと同じく、再タップでラベルだけを消す（手段・タグは残す）
-    @ViewBuilder private func currentLabelCapsule(_ label: String) -> some View {
-        Button {
+    /// ラベルが決まっている時の1行。選んだラベルと取り消しだけを出し、
+    /// どちらを押してもラベルを外して「よくある決済」パネルへ戻す（手段・タグは残す）
+    @ViewBuilder private var selectedLabelRow: some View {
+        HStack(spacing: 8) {
+            // 選択中のラベル。タップでラベルを外し、一覧から選び直せるようにする
+            Button(action: clearLabel) {
+                Text(zName)
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 7)
+                    .background(Capsule().fill(Color.accentColor))
+                    .foregroundStyle(Color.white)
+            }
+            .buttonStyle(.plain)
+            Spacer(minLength: 0)
+            Button(action: clearLabel) {
+                Image(systemName: "xmark.circle.fill")
+                    .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text("button.clear"))
+        }
+        .disabled(isCoreFieldsLocked)
+    }
+
+    /// ラベルだけを外す（手段・タグは残す）。パネルが広がるので滑らかに見せる
+    private func clearLabel() {
+        withAnimation(labelPanelAnimation) {
             pendingUsePointSelection = nil
             pickedFrequentID = nil
+            labelSearchText = ""
             zName = ""
-        } label: {
-            Text(label)
-            .font(.subheadline.weight(.semibold))
-            .lineLimit(1)
-            .truncationMode(.tail)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 7)
-            .background(Capsule().fill(Color.accentColor))
-            .foregroundStyle(Color.white)
         }
-        .buttonStyle(.plain)
-        .disabled(isCoreFieldsLocked)
-        .accessibilityLabel(Text(label))
     }
+
+    /// 「よくある決済」パネルの拡大・縮小に使うアニメーション
+    private var labelPanelAnimation: Animation { .easeInOut(duration: 0.25) }
 
     /// 帯の高さを変えるハンドル。上下ドラッグで行数を1〜5に増減する。
     /// グローバル座標系で指の移動量を測り、行数を離散更新する（ハンドル自身が
@@ -2168,59 +2200,7 @@ private var isValid: Bool {
                 .disabled(isCoreFieldsLocked)
             }
 
-            // ラベル（自由入力。候補はキーボード上のツールバーに出す）
-            // 「よくある決済」を出している時は、その上の「探して無ければ追加」欄で入れるので出さない
-            if !showsFrequentSection {
-                HStack(spacing: 8) {
-                    TextField("record.field.usePoint", text: $zName)
-                        .focused($isUsePointFocused)
-                        .onChange(of: isUsePointFocused) { _, focused in
-                            // 再び入力を始める時は、書き戻し対策の保留値を必ず解除する
-                            if focused { pendingUsePointSelection = nil }
-                        }
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .submitLabel(.done)
-                        .onSubmit {
-                            isUsePointFocused = false
-                        }
-                        .onChange(of: zName) { _, newValue in
-                            // 候補を選んだ直後は、IME が書き戻した未確定文字を無視して
-                            // 選んだ値を優先する（変換中のタップで選択が消えるのを防ぐ）
-                            if let pending = pendingUsePointSelection {
-                                if newValue == pending {
-                                    pendingUsePointSelection = nil
-                                } else {
-                                    zName = pending
-                                }
-                                return
-                            }
-                            // ラベルは最大100文字までに制限する
-                            if 100 < newValue.count {
-                                zName = String(newValue.prefix(100))
-                            }
-                            // 末尾の改行を除去する
-                            let trimmed = newValue.replacingOccurrences(of: "\n+$", with: "", options: .regularExpression)
-                            if trimmed != newValue { zName = trimmed }
-                        }
-
-                    // 入力中だけ、まとめて消せるクリアボタンを出す
-                    if !zName.isEmpty {
-                        Button {
-                            // 候補選択の保留値を先に捨ててから消す（消去が戻されないように）
-                            pendingUsePointSelection = nil
-                            zName = ""
-                            isUsePointFocused = true
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
-                                .foregroundStyle(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(Text("button.clear"))
-                    }
-                }
-            }
+            // ラベルは上の「よくある決済」パネルで入れる
         }
     }
 
@@ -3080,15 +3060,6 @@ private var isValid: Bool {
         guard pickedFrequentID == fp.id, zName == fp.label else { return false }
         if let amount = fp.amount { return nAmount == amount }
         return true
-    }
-
-    /// 入力中のラベルが表示中のカプセルに無い時だけ、先頭に選択中として見せる。
-    /// ラベル欄を出さない代わりに、今のラベルが分かるようにする
-    private var unlistedCurrentLabel: String? {
-        let label = zName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !label.isEmpty else { return nil }
-        if shownFrequentPayments.contains(where: { $0.label == label }) { return nil }
-        return label
     }
 
     /// 「探して無ければ追加」の確定。一致するラベルがあればそのカプセルを適用し、
