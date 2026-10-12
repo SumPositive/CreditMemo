@@ -18843,6 +18843,76 @@
           }
         }
       }
+    },
+    "record.frequent.useOnce" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Häufige Zahlungen ausprobieren"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try Frequent Payments"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "よくある決済を使ってみる"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "자주 쓰는 결제 사용해 보기"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "試用常用付款"
+          }
+        }
+      }
+    },
+    "record.frequent.useOnce.help" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "よく使う決済をボタンで素早く入力できるパネルです\n\nボタンをタップすると、ラベル・決済手段・タグがまとめて入ります\n\n「よくある決済を使ってみる」を押すと、今回だけパネルを表示します\n\n設定の「新しい決済の補助」を「よくある決済」にすると、常時表示されるようになります"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A panel for entering your most-used payments quickly with a tap\n\nTap a button to fill in the label, payment method, and tags at once\n\nTap “Try Frequent Payments” to show the panel just this time\n\nSet “New Payment Assist” to “Frequent Payments” in Settings to always show it"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ein Bereich, um Ihre meistgenutzten Zahlungen schnell per Tippen einzugeben\n\nTippen Sie auf eine Schaltfläche, um Label, Zahlungsmittel und Tags auf einmal einzutragen\n\nTippen Sie auf „Häufige Zahlungen ausprobieren“, um den Bereich nur dieses Mal anzuzeigen\n\nStellen Sie in den Einstellungen „Eingabehilfe für neue Zahlung“ auf „Häufige Zahlungen“, um ihn immer anzuzeigen"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "자주 쓰는 결제를 버튼으로 빠르게 입력할 수 있는 패널입니다\n\n버튼을 누르면 라벨·결제 수단·태그가 한 번에 입력됩니다\n\n「자주 쓰는 결제 사용해 보기」를 누르면 이번에만 패널을 표시합니다\n\n설정의 「새 결제 입력 보조」를 「자주 쓰는 결제」로 하면 항상 표시됩니다"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可用按鈕快速輸入常用付款的面板\n\n點一下按鈕即可一次填入標籤、付款方式與標記\n\n按下「試用常用付款」，僅在本次顯示面板\n\n在設定中將「新增付款輔助」設為「常用付款」，即可隨時顯示"
+          }
+        }
+      }
     }
   },
   "version" : "1.1"

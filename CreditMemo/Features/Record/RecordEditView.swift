@@ -471,6 +471,7 @@ struct RecordEditView: View {
     @State private var partDueDateCycleShiftByPartNo: [Int16: Int] = [:]
     @State private var keepBankPickerRowVisible = false
     // 過去データ由来の候補をキャッシュして、毎描画の再計算を避ける
+    @State private var cachedUsePointCandidates: [String] = []
     @State private var cachedLatestCard: E1card?
     @State private var cachedCategoryByID: [String: E5tag] = [:]
     /// 「よくある決済」カプセルの候補（過去実績から自動生成）。3件以上で帯を表示する
@@ -508,6 +509,12 @@ struct RecordEditView: View {
     @State private var isSimilarExpanded = true
     /// 手動トグルで確定した開閉状態の保存先。次に新しい決済を開いた時の初期値になる。
     @AppStorage(AppStorageKey.similarSectionExpanded) private var similarSectionExpandedStored = true
+    @FocusState private var isUsePointFocused: Bool
+    /// 入力補助が「なし」「決済一覧からコピー」でも、ボタンで「よくある決済」パネルを出したか。
+    /// この画面を開いている間だけ有効（次に開いた時は設定どおりに戻る）
+    @State private var isFrequentPanelRequested = false
+    /// 候補カプセルで選んだ直後の値。日本語入力の書き戻し対策に使う
+    @State private var pendingUsePointSelection: String?
     @FocusState private var focusNote: Bool
     private let formTopAnchorID = "record-form-top"
     private let noteAnchorID = "record-note-anchor"
@@ -535,6 +542,7 @@ private var isValid: Bool {
         if presetDueDate != nil && selectedCard == nil { return false }
         return true
     }
+    private var usePointCandidates: [String] { cachedUsePointCandidates }
     private var hasChanges: Bool {
         guard let initialDraft else { return false }
         // 明細単位の引き落とし日変更も、保存ボタンの強調対象に含める
@@ -559,6 +567,116 @@ private var isValid: Bool {
         let anyPartPaid = record.e6parts.contains { $0.e2invoice?.isPaid ?? false }
         let hasLockedPart = record.e6parts.contains { $0.isChecked }
         return anyPartPaid || hasLockedPart
+    }
+    /// 候補に出す最大件数。閉じるボタンを置かないぶん横幅を使えるので多めに持つ
+    private static let usePointCandidateLimit = 20
+
+    /// キーボード上に出す候補バーの行数
+    private static let usePointCandidateRows = 2
+    /// 候補カプセルの行間
+    private var usePointCandidateRowSpacing: CGFloat { 6 }
+    /// カプセル1行分の高さ（文字サイズ設定に追従させる）
+    private var usePointCandidateRowHeight: CGFloat { 34 * min(fontScale.uiScale, 1.4) }
+    /// 候補バー全体の高さ。既定行数に収まらない分は中で縦スクロールさせる
+    private var usePointCandidateBarHeight: CGFloat {
+        let rows = CGFloat(Self.usePointCandidateRows)
+        return usePointCandidateRowHeight * rows + usePointCandidateRowSpacing * (rows - 1)
+    }
+
+    /// キーボード直上に出すラベル候補バー。折り返して複数行に候補を並べる。
+    /// キーボードは改行キー（完了）や画面タップで閉じられるので、
+    /// 閉じるボタンは置かず横幅すべてを候補に使う
+    @ViewBuilder private var usePointCandidateBar: some View {
+        // 「よくある決済」帯と同じ折り返しレイアウトで複数行に並べる。
+        // packToFill で行末の余白に後ろの候補を繰り上げ、行を無駄なく使う。
+        // 既定の行数に収まらない分は縦スクロールで見せる
+        ScrollView(.vertical) {
+            AZFlowLayout(
+                spacing: 8,
+                rowSpacing: usePointCandidateRowSpacing,
+                alignment: .leading,
+                packToFill: true
+            ) {
+                ForEach(shownUsePointCandidates, id: \.self) { candidate in
+                    Button {
+                        selectUsePointCandidate(candidate)
+                    } label: {
+                        candidateText(candidate)
+                            .lineLimit(1)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                Capsule().fill(Color(.tertiarySystemFill))
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 2)
+        }
+        .frame(height: usePointCandidateBarHeight)
+        .scrollIndicators(.hidden)
+        .scrollBounceBehavior(.basedOnSize)
+        // バー内を縦スクロールしても閉じない（3行目以降の候補を選べるように）
+        .scrollDismissesKeyboard(.never)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        // 背面のフォームが透けてタップ位置を誤解させないよう、不透明な帯にする
+        .background(.bar)
+        .overlay(alignment: .top) { Divider() }
+    }
+
+    /// 候補カプセルを選んだ時の確定処理。
+    /// 日本語入力の変換中（未確定文字がある状態）でタップされると、
+    /// 代入した直後に IME が未確定文字を書き戻して選択が消えてしまう。
+    /// 先にフォーカスを外して IME を終わらせ、その後で値を入れる
+    private func selectUsePointCandidate(_ candidate: String) {
+        // 選んだ値を覚えておく。IME の未確定文字が遅れて書き戻されても、
+        // onChange 側でこの値へ戻すので選択が消えない
+        pendingUsePointSelection = candidate
+        isUsePointFocused = false
+        DispatchQueue.main.async {
+            zName = candidate
+        }
+    }
+
+    /// 入力語と一致した部分を太字にして、どこが引っかかったか分かるようにする
+    private func candidateText(_ candidate: String) -> Text {
+        let keyword = zName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !keyword.isEmpty,
+              let range = candidate.range(of: keyword, options: .caseInsensitive) else {
+            return Text(candidate).foregroundStyle(.primary)
+        }
+        return Text(candidate[candidate.startIndex..<range.lowerBound]).foregroundStyle(.secondary)
+            + Text(candidate[range]).foregroundStyle(.primary).bold()
+            + Text(candidate[range.upperBound...]).foregroundStyle(.secondary)
+    }
+
+    private var shownUsePointCandidates: [String] {
+        let keyword = zName.trimmingCharacters(in: .whitespacesAndNewlines)
+        // 未入力なら、よく使う順のまま先頭だけ見せる
+        if keyword.isEmpty {
+            return Array(usePointCandidates.prefix(Self.usePointCandidateLimit))
+        }
+        // 入力済みの語と完全に同じ候補だけになったら、選ぶ意味がないので出さない
+        if usePointCandidates.contains(where: { $0.compare(keyword, options: .caseInsensitive) == .orderedSame }),
+           usePointCandidates.filter({ $0.localizedCaseInsensitiveContains(keyword) }).count == 1 {
+            return []
+        }
+        // 前方一致を上位に、部分一致をその後ろに置く。
+        // 各グループ内は元の並び（よく使う順）を保つ
+        var prefixMatches: [String] = []
+        var containsMatches: [String] = []
+        for candidate in usePointCandidates {
+            if candidate.lowercased().hasPrefix(keyword.lowercased()) {
+                prefixMatches.append(candidate)
+            } else if candidate.localizedCaseInsensitiveContains(keyword) {
+                containsMatches.append(candidate)
+            }
+        }
+        // 一致する候補がなければ、無関係な候補を出さずに閉じる
+        return Array((prefixMatches + containsMatches).prefix(Self.usePointCandidateLimit))
     }
     private var similarCandidates: [E3record] {
         // 編集日（dateUpdate）降順でソートする。dateUpdate が nil のものは古いものとして扱う
@@ -653,19 +771,29 @@ private var isValid: Bool {
         return true
     }
 
-    /// 「よくある決済」パネルにラベル一覧を出すかどうか。
-    /// パネル自体はラベル欄を兼ねるので新規・コピー・編集のすべてで出し、
-    /// 一覧は入力補助で「よくある決済」を選んでいるときだけ出す（それ以外は検索した時だけ）
+    /// 「よくある決済」パネルを出すかどうか。パネルはラベル欄を兼ねるので、
+    /// 入力補助で「よくある決済」を選んでいるときは新規・コピー・編集のすべてで出す。
+    /// 「なし」「決済一覧からコピー」のときは出さず、決済手段の下に従来のラベル欄を出す
+    /// （金額の上のボタンを押したときだけ、その回に限りパネルを出す）
+    private var showsFrequentSection: Bool {
+        newPaymentAssist == .frequent || isFrequentPanelRequested
+    }
+
+    /// 「よくある決済」パネルにラベル一覧を出すかどうか
     private var showsFrequentCapsules: Bool {
-        newPaymentAssist == .frequent && !cachedFrequentPayments.isEmpty
+        showsFrequentSection && !cachedFrequentPayments.isEmpty
     }
 
     var body: some View {
         ScrollViewReader { proxy in
             Form {
                 beginnerSection
-                // ラベル欄を兼ねるので常に出す
-                frequentSection
+                // ラベル欄を兼ねる。出さないときは決済手段の下にラベル欄を出す
+                if showsFrequentSection {
+                    frequentSection
+                } else {
+                    frequentRequestSection
+                }
                 requiredSection
                 if showsSimilarSection {
                     similarSection
@@ -693,8 +821,20 @@ private var isValid: Bool {
             .onChange(of: focusNote) { _, isFocused in
                 if isFocused { scrollNoteIntoView(proxy) }
             }
+            .simultaneousGesture(
+                TapGesture().onEnded {
+                    // フォーム外側の軽いタップでラベル入力のフォーカスを外す
+                    isUsePointFocused = false
+                }
+            )
+            // 候補バーはこのジェスチャの外側に置く。内側だとカプセルを押した瞬間に
+            // フォーカスが外れ、バーごと消えてタップが成立しない
             .safeAreaInset(edge: .bottom) {
-                if focusNote {
+                if isUsePointFocused && !shownUsePointCandidates.isEmpty {
+                    // ラベル候補はキーボードの真上に置く。safeAreaInset なら実レイアウトの
+                    // 領域を確保するので、下の行に重なってタップが抜けることがない
+                    usePointCandidateBar
+                } else if focusNote {
                     // キーボード上へメモ入力行を逃がすため、フォーカス中だけ下端余白を追加する
                     Color.clear.frame(height: 180)
                 }
@@ -997,6 +1137,8 @@ private var isValid: Bool {
                 ) { value in
                     nAmount = value.roundedAmount()
                     showAmountPad = false
+                    // 金額確定後はフォーカスを外して類似決済を見やすくする
+                    DispatchQueue.main.async { isUsePointFocused = false }
                 }
             } else if showPartAmountPad {
                 NumericKeypadOverlay(
@@ -1786,6 +1928,36 @@ private var isValid: Bool {
         }
     }
 
+    /// 「よくある決済」パネルを出していない時に、金額の上に置くボタン。
+    /// タップでこの回だけパネルを出す（設定は変えない）。右端のヘルプで、
+    /// 設定を「よくある決済」にすれば常に出せることを案内する
+    @ViewBuilder private var frequentRequestSection: some View {
+        Section {
+            HStack(spacing: 8) {
+                Button {
+                    isUsePointFocused = false
+                    withAnimation(labelPanelAnimation) {
+                        isFrequentPanelRequested = true
+                    }
+                } label: {
+                    Text("record.frequent.useOnce")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color.accentColor)
+                        .frame(maxWidth: .infinity)
+                        .contentShape(Rectangle())   // ヘルプ以外の行いっぱいをタップ領域にする
+                }
+                // Form 全体の TapGesture（ラベル入力のフォーカス外し）に行選択型のボタンが
+                // 負けて反応しないため、他の行と同じく plain にして自前でタップを受ける
+                .buttonStyle(.plain)
+                .disabled(isCoreFieldsLocked)
+                BeginnerHintView(
+                    detailTitleKey: "record.frequent.section.title",
+                    detailMessageKey: "record.frequent.useOnce.help"
+                )
+            }
+        }
+    }
+
     /// ラベル未定の時のパネル。「探して無ければ追加」とラベル一覧
     @ViewBuilder private var frequentPanel: some View {
         VStack(spacing: 8) {
@@ -2064,7 +2236,60 @@ private var isValid: Bool {
                 .disabled(isCoreFieldsLocked)
             }
 
-            // ラベルは上の「よくある決済」パネルで入れる
+            // ラベル（自由入力。候補はキーボード上のツールバーに出す）
+            // 「よくある決済」を出している時は、そのパネルで入れるので出さない
+            if !showsFrequentSection {
+                HStack(spacing: 8) {
+                    TextField("record.field.usePoint", text: $zName)
+                        .focused($isUsePointFocused)
+                        .onChange(of: isUsePointFocused) { _, focused in
+                            // 再び入力を始める時は、書き戻し対策の保留値を必ず解除する
+                            if focused { pendingUsePointSelection = nil }
+                        }
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .submitLabel(.done)
+                        .onSubmit {
+                            isUsePointFocused = false
+                        }
+                        .onChange(of: zName) { _, newValue in
+                            // 候補を選んだ直後は、IME が書き戻した未確定文字を無視して
+                            // 選んだ値を優先する（変換中のタップで選択が消えるのを防ぐ）
+                            if let pending = pendingUsePointSelection {
+                                if newValue == pending {
+                                    pendingUsePointSelection = nil
+                                } else {
+                                    zName = pending
+                                }
+                                return
+                            }
+                            // ラベルは最大100文字までに制限する
+                            if 100 < newValue.count {
+                                zName = String(newValue.prefix(100))
+                            }
+                            // 末尾の改行を除去する
+                            let trimmed = newValue.replacingOccurrences(of: "\n+$", with: "", options: .regularExpression)
+                            if trimmed != newValue { zName = trimmed }
+                        }
+
+                    // 入力中だけ、まとめて消せるクリアボタンを出す
+                    if !zName.isEmpty {
+                        Button {
+                            // 候補選択の保留値を先に捨ててから消す（消去が戻されないように）
+                            pendingUsePointSelection = nil
+                            zName = ""
+                            isUsePointFocused = true
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(Text("button.clear"))
+                    }
+                }
+                .disabled(isCoreFieldsLocked)
+            }
         }
     }
 
@@ -2795,6 +3020,7 @@ private var isValid: Bool {
     }
 
     private func resetForm(keepDateAndCard: Bool) {
+        pendingUsePointSelection = nil
         zName = ""
         zNote = ""
         nAmount = 0
@@ -2855,6 +3081,24 @@ private var isValid: Bool {
 
     // 画面表示で使う派生データをまとめて再計算する
     private func refreshDerivedCaches() {
+        // 過去入力を頻度順で候補化する（空文字は除外）
+        var counts: [String: Int] = [:]
+        for record in pastRecords {
+            let key = record.zName.trimmingCharacters(in: .whitespacesAndNewlines)
+            if key.isEmpty {
+                continue
+            }
+            counts[key, default: 0] += 1
+        }
+        cachedUsePointCandidates = counts.keys.sorted { a, b in
+            let ca = counts[a, default: 0]
+            let cb = counts[b, default: 0]
+            if ca == cb {
+                return a.localizedStandardCompare(b) == .orderedAscending
+            }
+            return cb < ca
+        }
+
         // 直近の利用レコードから決済手段を拾って保持する
         cachedLatestCard = pastRecords.first(where: { $0.e1card != nil })?.e1card
         // 候補適用時にIDから即座に引けるようにカテゴリ辞書を保持する
@@ -3097,6 +3341,7 @@ private var isValid: Bool {
             selectedCategories = record.e5tags.compactMap { cachedCategoryByID[$0.id] }
         }
 
+        isUsePointFocused = false
         // 候補反映後はフォーム先頭へ戻す
         scrollToTopRequest += 1
     }
