@@ -101,24 +101,39 @@ struct AZPickerStyle {
     var shadowY: CGFloat = 0
     /// ドロップダウン候補一覧パネルの角丸
     var popoverCornerRadius: CGFloat = 10
-    /// ドロップダウン候補一覧パネルの影の濃さ
-    var popoverShadowOpacity: Double = 0.10
+    /// ドロップダウン候補一覧パネルの影の濃さ（吹き出し自身の背景に任せるので既定は影なし）
+    var popoverShadowOpacity: Double = 0
     /// ドロップダウン候補一覧パネルの影のぼかし
     var popoverShadowRadius: CGFloat = 5
     /// ドロップダウン候補一覧パネルの影の縦方向位置
     var popoverShadowY: CGFloat = 2
     /// ドロップダウン各候補の枠内配置
-    var dropdownOptionAlignment: Alignment = .leading
+    var dropdownOptionAlignment: Alignment = .center
     /// ドロップダウン候補一覧内で候補枠を並べる横方向基準
-    var dropdownOptionStackAlignment: HorizontalAlignment = .leading
+    var dropdownOptionStackAlignment: HorizontalAlignment = .center
     /// ドロップダウン各候補の複数行テキスト配置
-    var dropdownOptionTextAlignment: TextAlignment = .leading
+    var dropdownOptionTextAlignment: TextAlignment = .center
     /// ドロップダウン候補一覧パネル内側の余白
-    var dropdownPopoverPadding: CGFloat = 10
+    var dropdownPopoverPadding: CGFloat = 6
     /// ドロップダウン各候補枠内の左右余白
-    var dropdownOptionHorizontalPadding: CGFloat = 16
+    var dropdownOptionHorizontalPadding: CGFloat = 10
     /// ドロップダウン各候補枠内の上下余白
-    var dropdownOptionVerticalPadding: CGFloat = 10
+    var dropdownOptionVerticalPadding: CGFloat = 8
+    /// ドロップダウン（選択ボタン・候補）はカプセル形にする（カルメモと同じ見た目）
+    /// 選択ボタンの背景色
+    var dropdownButtonBackground: Color = Color(.systemBackground).opacity(0.96)
+    /// 選択ボタンの通常時の枠線の濃さ
+    var dropdownButtonBorderOpacity: Double = 0.20
+    /// 選択ボタンの影の濃さ・ぼかし・縦位置（ほんのり浮かせる）
+    var dropdownButtonShadowOpacity: Double = 0.06
+    var dropdownButtonShadowRadius: CGFloat = 1.5
+    var dropdownButtonShadowY: CGFloat = 1
+    /// 未選択候補の枠線の濃さ
+    var dropdownOptionBorderOpacity: Double = 0.10
+    /// 選択中候補の枠線の濃さ
+    var dropdownSelectedOptionBorderOpacity: Double = 0.62
+    /// 選択中候補に重ねるアクセント背景の濃さ
+    var dropdownSelectedOptionBackgroundOpacity: Double = 0.16
     /// ドロップダウン候補一覧だけに適用する文字サイズ範囲
     var dropdownPopoverDynamicTypeRange: ClosedRange<DynamicTypeSize> = DynamicTypeSize.xSmall...DynamicTypeSize.accessibility5
     /// ドロップダウン選択中表示と候補一覧の幅不足時処理
@@ -172,7 +187,8 @@ struct AZDropdownPicker<Option: Hashable & Identifiable, Label: View>: View {
                     .presentationCompactAdaptation(.popover)
                     .presentationBackground(style.optionBackground)
                     // popoverの不透明背景を使い、内側パネルの角欠けを避ける
-                    .padding(6)
+                    // 候補が吹き出しの丸い縁に寄らないよう、カルメモと同じ余白を取る
+                    .padding(8)
             }
             .background {
                 GeometryReader { proxy in
@@ -257,17 +273,17 @@ struct AZDropdownPicker<Option: Hashable & Identifiable, Label: View>: View {
                 alignment: .center
             )
             .background(
-                RoundedRectangle(cornerRadius: style.cornerRadius, style: .continuous)
-                    .fill(style.panelBackground)
+                Capsule(style: .continuous)
+                    .fill(style.dropdownButtonBackground)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: style.cornerRadius, style: .continuous)
+                Capsule(style: .continuous)
                     .strokeBorder(
-                        isExpanded ? Color.accentColor.opacity(style.selectedBorderOpacity) : Color.secondary.opacity(style.borderOpacity),
+                        isExpanded ? Color.accentColor.opacity(style.selectedBorderOpacity) : Color.secondary.opacity(style.dropdownButtonBorderOpacity),
                         lineWidth: isExpanded ? 1.2 : 1
                     )
             )
-            .shadow(color: Color.black.opacity(style.shadowOpacity), radius: style.shadowRadius, x: 0, y: style.shadowY)
+            .shadow(color: Color.black.opacity(style.dropdownButtonShadowOpacity), radius: style.dropdownButtonShadowRadius, x: 0, y: style.dropdownButtonShadowY)
         }
         .buttonStyle(.plain)
     }
@@ -281,7 +297,8 @@ struct AZDropdownPicker<Option: Hashable & Identifiable, Label: View>: View {
                 label(selection)
             }
         }
-        .font(.subheadline)
+        // 現在値は太字にして、候補一覧の選択中項目と同じ見た目にする
+        .font(.subheadline.weight(.semibold))
         // ラベル側で色を決めている場合はそれを尊重する
         .foregroundStyle(style.preservesLabelForegroundStyle ? AnyShapeStyle(.foreground) : AnyShapeStyle(style.dropdownSelectedValueColor))
         .azPickerTextFit(style.dropdownTextFitMode, alignment: .center)
@@ -355,13 +372,13 @@ struct AZDropdownPicker<Option: Hashable & Identifiable, Label: View>: View {
             .padding(.vertical, style.dropdownOptionVerticalPadding)
             .frame(minWidth: optionPanelWidth, maxWidth: .infinity, alignment: style.dropdownOptionAlignment)
             .background(
-                RoundedRectangle(cornerRadius: style.cornerRadius, style: .continuous)
-                    .fill(isSelected ? Color.accentColor.opacity(style.selectedBackgroundOpacity) : style.optionBackground)
+                Capsule(style: .continuous)
+                    .fill(isSelected ? Color.accentColor.opacity(style.dropdownSelectedOptionBackgroundOpacity) : style.optionBackground)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: style.cornerRadius, style: .continuous)
+                Capsule(style: .continuous)
                     .strokeBorder(
-                        isSelected ? Color.accentColor.opacity(style.selectedBorderOpacity) : Color.secondary.opacity(style.borderOpacity),
+                        isSelected ? Color.accentColor.opacity(style.dropdownSelectedOptionBorderOpacity) : Color.secondary.opacity(style.dropdownOptionBorderOpacity),
                         lineWidth: isSelected ? 1.2 : 1
                     )
             )
