@@ -706,7 +706,11 @@ struct AZFlowLayout: Layout {
         cache: inout ()
     ) {
         let s = sizes(subviews)
-        let rows = makeRows(sizes: s, availableWidth: bounds.width)
+        // 行分けは sizeThatFits と同じ幅で行う。
+        // sizeThatFits は一番長い行の幅に縮んだ大きさを返すため、bounds.width で行分けし直すと
+        // 提案幅より狭い幅で詰め直すことになり、本来入るはずの後方の要素が次の行へ落ちてしまう
+        let proposedWidth = proposal.width.flatMap { $0.isFinite ? $0 : nil } ?? bounds.width
+        let rows = makeRows(sizes: s, availableWidth: max(bounds.width, proposedWidth))
         var y = bounds.minY
 
         for row in rows {
