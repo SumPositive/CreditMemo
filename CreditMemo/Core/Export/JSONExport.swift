@@ -67,6 +67,7 @@ enum JSONExport {
         var dateUpdate: Date?
         var name, note, amount: String
         var payType, repeatMonths: Int
+        var repeatDone: Bool?  // 繰り返しの次を作成済みか（旧JSONには無い）
         var cardID, categoryID: String?  // categoryID: 旧JSON互換（インポート時のみ使用）
         var tagIDs: [String]
     }
@@ -172,6 +173,7 @@ enum JSONExport {
                 amount: "\(r.nAmount)",
                 payType: Int(r.nPayType),
                 repeatMonths: Int(r.nRepeat),
+                repeatDone: r.isRepeatDone,
                 cardID: r.e1card?.id,
                 categoryID: nil,
                 tagIDs: r.e5tags.map(\.id)

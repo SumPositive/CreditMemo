@@ -51,6 +51,8 @@ final class E3record {
         }
     }
     var nRepeat: Int16     // 繰り返し月数 (0=なし, 1-99)
+    // 繰り返しの次の明細を作成済みか（一度作ったら再作成しない。追加プロパティなので既定値つき）
+    var isRepeatDone: Bool = false
     var nAnnual: Float     // 年利率 (通常は0)
     var sumNoCheck: Int16  // 未チェック分割数（集計値）
 

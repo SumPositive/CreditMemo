@@ -25,6 +25,8 @@ struct AppMain: App {
     @State private var isMigrating = false
     @State private var didStartMigration = false
     @State private var showMigrationFailure = false
+    /// 起動時の移行・修復が終わるまでは、繰り返しの自動作成を始めない
+    @State private var didFinishPostMigrationInit = false
 
     init() {
         // Firebase 設定がある環境だけ診断送信を有効化する
@@ -148,6 +150,11 @@ struct AppMain: App {
                     .allowsHitTesting(true)
                 }
             }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
+                // 起動したまま日付が変わった時に、利用日を過ぎた繰り返しの次を作る
+                guard let container = sharedModelContainer else { return }
+                generateDueRepeatRecords(container: container)
+            }
             .task {
                 guard didStartMigration == false else { return }
                 didStartMigration = true
@@ -171,10 +178,17 @@ struct AppMain: App {
             }
         }
         .onChange(of: scenePhase) { _, newPhase in
-            guard newPhase == .background,
-                  let container = sharedModelContainer else { return }
-            let ctx = container.mainContext
-            if ctx.hasChanges { ctx.saveReporting(operation: "AppMain.backgroundSave") }
+            guard let container = sharedModelContainer else { return }
+            switch newPhase {
+            case .active:
+                // 閉じている間に日付が変わった分は、前面に戻った時に作る
+                generateDueRepeatRecords(container: container)
+            case .background:
+                let ctx = container.mainContext
+                if ctx.hasChanges { ctx.saveReporting(operation: "AppMain.backgroundSave") }
+            default:
+                break
+            }
         }
     }
 
@@ -197,6 +211,35 @@ struct AppMain: App {
         }
         if container.mainContext.hasChanges {
             container.mainContext.saveReporting(operation: "AppMain.postMigrationInit")
+        }
+        do {
+            // 旧方式（済みで作成）の作成済み分を一度だけ印付けしてから、新方式の作成を始める
+            try RecordService.markLegacyPaidRepeatsDoneIfNeeded(context: container.mainContext)
+        } catch {
+            AppTelemetry.reportSwiftDataError(
+                error,
+                operation: "AppMain.markLegacyPaidRepeatsDoneIfNeeded",
+                entity: "E3record"
+            )
+            // 印付けできないまま作ると旧方式の分を作り直すおそれがあるため、次回起動で再試行する
+            return
+        }
+        didFinishPostMigrationInit = true
+        generateDueRepeatRecords(container: container)
+    }
+
+    /// 利用日を過ぎた繰り返し明細から次の明細を作る
+    private func generateDueRepeatRecords(container: ModelContainer) {
+        // snapshot 撮影時はサンプルを変えない。移行中も触らない
+        guard didFinishPostMigrationInit, !SnapshotSeed.isActive else { return }
+        do {
+            try RecordService.generateDueRepeatRecords(context: container.mainContext)
+        } catch {
+            AppTelemetry.reportSwiftDataError(
+                error,
+                operation: "AppMain.generateDueRepeatRecords",
+                entity: "E3record"
+            )
         }
     }
 

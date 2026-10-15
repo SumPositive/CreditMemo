@@ -11039,37 +11039,72 @@
         }
       }
     },
+    "repeat.done" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erledigt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Done"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "済み"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "완료"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已完成"
+          }
+        }
+      }
+    },
     "repeat.footer" : {
       "extractionState" : "manual",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Fügt bei Bezahlung die nächste hinzu."
+            "value" : "Fügt nach dem Nutzungsdatum die nächste hinzu."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Adds the next one when paid."
+            "value" : "Adds the next one after the use date."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "払済みになった時、指定月へコピーします"
+            "value" : "利用日を過ぎると、指定月へコピーします"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "결제 완료 시 다음 건을 추가합니다."
+            "value" : "이용일이 지나면 다음 건을 추가합니다."
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "標為已付時新增下一條。"
+            "value" : "過了使用日後新增下一條。"
           }
         }
       }

@@ -111,6 +111,7 @@ enum JSONImport {
         var amount: String
         var payType: Int
         var repeatMonths: Int
+        var repeatDone: Bool?      // 新キー（旧JSONには無い）
         var cardID: String?
         // 旧JSON互換: 利用店IDは受け取れるが現行アプリでは無視する
         var shopID: String?
@@ -532,6 +533,8 @@ enum JSONImport {
                 in: 0...99,
                 field: "repeatMonths"
             )
+            // 旧JSONは未作成扱い。次の明細が既にあれば作成時の重複確認で作らない
+            record.isRepeatDone = item.repeatDone ?? false
             record.e1card = item.cardID.flatMap { cardByID[$0] }
 
             // tagIDs（新）→ categoryIDs（旧互換）→ categoryID（最旧互換）の順で読む

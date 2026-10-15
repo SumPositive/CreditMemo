@@ -424,6 +424,8 @@ struct RecordEditView: View {
     @State private var nAmount:    Decimal  = 0
     @State private var payCount:   Int      = 1
     @State private var nRepeat:    Int16    = 0
+    /// 繰り返しの次を作成済みか（編集時だけ元明細から引き継ぐ）
+    @State private var isRepeatDone: Bool   = false
     @State private var selectedCard:        E1card?
     @State private var selectedBankForCard: E8bank?
     @State private var selectedCategories:  [E5tag] = []
@@ -718,13 +720,18 @@ private var isValid: Bool {
         RepeatOption(label: "repeat.2months", value: 2),
         RepeatOption(label: "repeat.12months", value: 12)
     ]
+    /// 次を作成済みの時だけボタンに出す「済み」。候補一覧には出さない
+    private let repeatDoneOption = RepeatOption(label: "repeat.done", value: -1)
     private var repeatSelectionBinding: Binding<RepeatOption> {
         Binding(
             get: {
-                repeatOptions.first(where: { $0.value == nRepeat }) ?? repeatOptions[0]
+                if isRepeatDone && 0 < nRepeat { return repeatDoneOption }
+                return repeatOptions.first(where: { $0.value == nRepeat }) ?? repeatOptions[0]
             },
             set: { option in
                 nRepeat = option.value
+                // 選び直したら未作成に戻し、利用日を過ぎていれば改めて次を作る
+                isRepeatDone = false
             }
         )
     }
@@ -735,7 +742,7 @@ private var isValid: Bool {
     @ViewBuilder
     private func repeatOptionLabel(_ option: RepeatOption) -> some View {
         HStack(spacing: 6) {
-            if option.value == 0 {
+            if option.value <= 0 {
                 Text(LocalizedStringKey(option.label))
             } else {
                 Image(systemName: "repeat").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
@@ -2740,6 +2747,7 @@ private var isValid: Bool {
             nAmount            = r.nAmount
             payCount           = r.payCount
             nRepeat            = r.nRepeat
+            isRepeatDone       = r.isRepeatDone
             selectedCard       = r.e1card
             selectedBankForCard = r.e1card?.e8bank
             keepBankPickerRowVisible = selectedCard != nil && selectedBankForCard == nil
@@ -2824,6 +2832,7 @@ private var isValid: Bool {
             selectedCard?.e8bank = selectedBankForCard
             r.dateUse = dateUse; r.zName = usePoint; r.zNote = note
             r.nAmount = nAmount; r.nPayType = Int16(payCount); r.nRepeat = nRepeat
+            r.isRepeatDone = isRepeatDone
             r.e1card = selectedCard
             r.e5tags = selectedCategories
             do {
@@ -3026,6 +3035,7 @@ private var isValid: Bool {
         nAmount = 0
         payCount = 1
         nRepeat = 0
+        isRepeatDone = false
         partDueDateOverridesByPartNo.removeAll()
         partAmountOverridesByPartNo.removeAll()
         partDueDateLockOverridesByPartNo.removeAll()
@@ -3067,13 +3077,13 @@ private var isValid: Bool {
 
     private struct DraftState: Equatable {
         let dateUse: Date; let zName: String; let zNote: String; let nAmount: Decimal
-        let payCount: Int; let nRepeat: Int16
+        let payCount: Int; let nRepeat: Int16; let isRepeatDone: Bool
         let cardID: String?; let bankID: String?; let categoryIDs: [String]
     }
 
     private func currentDraft() -> DraftState {
         DraftState(dateUse: dateUse, zName: zName, zNote: zNote, nAmount: nAmount,
-                   payCount: payCount, nRepeat: nRepeat,
+                   payCount: payCount, nRepeat: nRepeat, isRepeatDone: isRepeatDone,
                    cardID: selectedCard?.id,
                    bankID: selectedBankForCard?.id,
                    categoryIDs: selectedCategories.map(\.id).sorted())

@@ -347,7 +347,7 @@ enum RecordService {
                 to: record,
                 overridesByPartNo: partDueDateLockOverridesByPartNo
             )
-            try commit(context)
+                try commit(context)
         } catch {
             // 画面側が保存前に書き込んだラベル・メモ・タグ・ロック状態も含めて破棄する
             context.rollback()
@@ -713,14 +713,6 @@ enum RecordService {
         }
     }
 
-    // MARK: - Repeat (nRepeat > 0: mark-paid でコピーを翌月以降に作成)
-
-    static func makeRepeatRecord(from source: E3record, context: ModelContext) throws {
-        // 既存呼び出し互換のため公開するが、保存は最後に1回だけ行う
-        _ = insertRepeatRecordIfNeeded(from: source, context: context)
-        try commit(context)
-    }
-
     /// 請求グループ単位で未払/済みを切り替える
     static func setInvoicesPaid(
         _ invoices: [E2invoice],
@@ -728,22 +720,11 @@ enum RecordService {
         context: ModelContext
     ) throws {
         let confirmedTargets = confirmedAmountTargets(in: invoices)
-        let records = uniqueRecords(in: invoices)
         for invoice in invoices {
             if isPaid {
                 lockDueDates(in: invoice)
             }
             moveInvoice(invoice, toPaid: isPaid, context: context)
-        }
-
-        if isPaid {
-            for record in records {
-                _ = insertRepeatRecordIfNeeded(from: record, context: context)
-            }
-        } else {
-            for record in records {
-                deleteRepeatRecordIfNeeded(from: record, context: context)
-            }
         }
 
         for invoice in invoices {
@@ -888,20 +869,10 @@ enum RecordService {
         context: ModelContext
     ) throws {
         let confirmedTargets = confirmedAmountTargets(in: [invoice])
-        let records = uniqueRecords(in: [invoice])
         if isPaid {
             lockDueDates(in: invoice)
         }
         moveInvoice(invoice, toPaid: isPaid, context: context)
-        if isPaid {
-            for record in records {
-                _ = insertRepeatRecordIfNeeded(from: record, context: context)
-            }
-        } else {
-            for record in records {
-                deleteRepeatRecordIfNeeded(from: record, context: context)
-            }
-        }
         if let card = invoice.e1card {
             recalculateCard(card)
         }
@@ -1066,14 +1037,6 @@ enum RecordService {
         if let card {
             recalculateCard(card)
         }
-
-        if let record = part.e3record {
-            if isPaid {
-                _ = insertRepeatRecordIfNeeded(from: record, context: context)
-            } else {
-                deleteRepeatRecordIfNeeded(from: record, context: context)
-            }
-        }
     }
 
     /// 明細1件だけを指定した引き落とし日の請求へ移す
@@ -1170,20 +1133,91 @@ enum RecordService {
         }
     }
 
-    // MARK: - Repeat (nRepeat > 0: mark-paid でコピーを翌月以降に作成)
+    // MARK: - Repeat (nRepeat > 0: 利用日を過ぎたらコピーを指定月後に作成)
 
-    private static func insertRepeatRecordIfNeeded(from source: E3record, context: ModelContext) -> E3record? {
+    /// 繰り返しの自動作成を始める利用日。これより前の明細は放置データの可能性があるため対象外
+    static var repeatStartDate: Date {
+        AppCalendar.gregorian.date(from: DateComponents(year: 2026, month: 4, day: 1)) ?? .distantPast
+    }
+
+    /// 1回の処理で1件の繰り返しから続けて作る上限。残りは次に開いた時に続きを作る
+    private static let repeatMaxPasses = 3
+
+    /// 利用日を過ぎた繰り返し明細から次の明細を作り、同じ保存単位で確定する
+    @discardableResult
+    static func generateDueRepeatRecords(now: Date = Date(), context: ModelContext) throws -> Int {
+        let result = generateDueRepeatRecordsWithoutCommit(now: now, context: context)
+        // 対象が無ければ保存しない（編集中の未保存変更を巻き込まない）
+        if 0 < result.processed {
+            try commit(context)
+        }
+        return result.created
+    }
+
+    /// 利用日を過ぎた（日付が変わった）未作成の繰り返し明細から次の明細を作る。
+    /// 作った明細の利用日も既に過ぎていれば、上限まで続けて作る。保存はしない
+    @discardableResult
+    static func generateDueRepeatRecordsWithoutCommit(
+        now: Date = Date(),
+        context: ModelContext
+    ) -> (processed: Int, created: Int) {
+        // 利用日の当日は作らず、日付が変わって翌日になってから作る
+        let startOfToday = AppCalendar.gregorian.startOfDay(for: now)
+        let startDate = repeatStartDate
+        let descriptor = FetchDescriptor<E3record>(
+            predicate: #Predicate<E3record> {
+                0 < $0.nRepeat && $0.isRepeatDone == false &&
+                startDate <= $0.dateUse && $0.dateUse < startOfToday
+            },
+            sortBy: [SortDescriptor(\E3record.dateUse)]
+        )
+        let sources = context.fetchReporting(descriptor, entity: "E3record")
+        var created = 0
+        // 同じ処理内で作った分は逆参照（card.e3records）に載らないため、重複元からの多重作成をここで防ぐ
+        var createdKeys: Set<String> = []
+        for source in sources {
+            // 未保存の新規分を再 fetch に頼らず、作った明細を順にたどる
+            var current = source
+            for _ in 0..<repeatMaxPasses {
+                guard 0 < current.nRepeat, !current.isRepeatDone,
+                      startDate <= current.dateUse, current.dateUse < startOfToday else { break }
+                let next = insertRepeatRecordIfNeeded(from: current, createdKeys: &createdKeys, context: context)
+                // 既に次がある場合も含め、二度と作らない
+                current.isRepeatDone = true
+                guard let next else { break }
+                created += 1
+                current = next
+            }
+        }
+        return (sources.count, created)
+    }
+
+    private static func insertRepeatRecordIfNeeded(
+        from source: E3record,
+        createdKeys: inout Set<String>,
+        context: ModelContext
+    ) -> E3record? {
         guard 0 < source.nRepeat else { return nil }
-        guard let nextDate = AppCalendar.gregorian.date(
+        let calendar = AppCalendar.gregorian
+        guard let nextDate = calendar.date(
             byAdding: .month, value: Int(source.nRepeat), to: source.dateUse
         ) else { return nil }
 
+        // 同じ処理内で、同じ決済手段・ラベル・月の分を既に作っていれば作らない
+        let month = calendar.dateComponents([.year, .month], from: nextDate)
+        let key = "\(source.e1card?.id ?? "")|\(source.zName)|\(month.year ?? 0)-\(month.month ?? 0)"
+        guard !createdKeys.contains(key) else { return nil }
+
+        // 同じ決済手段・同じラベルの明細が指定月に既にあれば作らない（旧方式で作成済み・手入力済み）
         let existsNext = source.e1card?.e3records.contains(where: {
-            AppCalendar.gregorian.isDate($0.dateUse, equalTo: nextDate, toGranularity: .month)
+            $0.id != source.id &&
+            $0.zName == source.zName &&
+            calendar.isDate($0.dateUse, equalTo: nextDate, toGranularity: .month)
         }) ?? false
         if existsNext {
             return nil
         }
+        createdKeys.insert(key)
 
         let next = E3record(
             dateUse:  nextDate,
@@ -1206,29 +1240,27 @@ enum RecordService {
         return next
     }
 
-    /// 済みから未払へ戻した時、条件一致する自動追加候補を消す
-    private static func deleteRepeatRecordIfNeeded(from source: E3record, context: ModelContext) {
-        guard 0 < source.nRepeat else { return }
-        guard let targetDate = AppCalendar.gregorian.date(
-            byAdding: .month, value: Int(source.nRepeat), to: source.dateUse
-        ) else { return }
-
-        let calendar = AppCalendar.gregorian
-        let targetStart = calendar.startOfDay(for: targetDate)
-        guard let targetEnd = calendar.date(byAdding: .day, value: 1, to: targetStart) else { return }
+    /// 旧方式（済みにした時に作成）からの切り替え時に一度だけ実行する。
+    /// 済みの明細を含む繰り返し明細は旧方式で作成済み（または利用者が次を消した）とみなし、再作成しない
+    static func markLegacyPaidRepeatsDoneIfNeeded(
+        defaults: UserDefaults = .standard,
+        context: ModelContext
+    ) throws {
+        guard !defaults.bool(forKey: AppStorageKey.didMigrateRepeatTiming) else { return }
+        let startDate = repeatStartDate
         let descriptor = FetchDescriptor<E3record>(
             predicate: #Predicate<E3record> {
-                targetStart <= $0.dateUse && $0.dateUse < targetEnd
+                0 < $0.nRepeat && $0.isRepeatDone == false && startDate <= $0.dateUse
             }
         )
-        let candidates = context.fetchReporting(descriptor, entity: "E3record")
-        guard let generated = candidates.first(where: { candidate in
-            candidate.id != source.id &&
-            candidate.nAmount == source.nAmount &&
-            candidate.nRepeat == source.nRepeat &&
-            candidate.e1card?.id == source.e1card?.id
-        }) else { return }
-        deleteWithoutCommit(generated, context: context)
+        for record in context.fetchReporting(descriptor, entity: "E3record")
+        where record.e6parts.contains(where: { $0.e2invoice?.isPaid == true }) {
+            record.isRepeatDone = true
+        }
+        if context.hasChanges {
+            try commit(context)
+        }
+        defaults.set(true, forKey: AppStorageKey.didMigrateRepeatTiming)
     }
 
     // MARK: - Rebuild
@@ -1829,22 +1861,6 @@ enum RecordService {
         cleanupBilling(snapshot: snapshot, context: context)
     }
 
-    /// 請求配下の元レコードを重複なく集める
-    private static func uniqueRecords(in invoices: [E2invoice]) -> [E3record] {
-        var seen: Set<String> = []
-        var records: [E3record] = []
-        for invoice in invoices {
-            for part in invoice.e6parts {
-                guard let record = part.e3record else { continue }
-                if seen.contains(record.id) {
-                    continue
-                }
-                seen.insert(record.id)
-                records.append(record)
-            }
-        }
-        return records
-    }
 
     private static func updateCategoryStats(_ cat: E5tag?, amount: Decimal, date: Date) {
         guard let cat else { return }

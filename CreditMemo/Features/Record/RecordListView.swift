@@ -1196,7 +1196,8 @@ struct RecordSummaryRow: View {
         isUnpaid ? badgeTheme.unpaidText : badgeTheme.paidText
     }
     private var showsRepeatIcon: Bool {
-        0 < record.nRepeat
+        // 次を作成済みの繰り返しはアイコンを出さない
+        0 < record.nRepeat && !record.isRepeatDone
     }
     private var recordLabelText: String {
         // 現行仕様ではラベル未入力時だけダッシュを表示する

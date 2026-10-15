@@ -574,3 +574,147 @@ struct RobustnessTests {
         let paymentCount: Int
     }
 }
+
+/// 繰り返し：利用日を過ぎたら次の明細を作る（2026/04/01 以降の利用日のみ）
+@MainActor
+struct RepeatGenerationTests {
+    /// 請求を作らずに繰り返し明細だけを置く
+    private func insertRepeat(
+        dateUse: Date,
+        name: String = "サブスク",
+        months: Int16 = 1,
+        card: E1card,
+        in context: ModelContext
+    ) throws -> E3record {
+        let record = E3record(dateUse: dateUse, zName: name, nAmount: 980, nRepeat: months)
+        record.e1card = card
+        context.insert(record)
+        try context.save()
+        return record
+    }
+
+    private func records(named name: String, in context: ModelContext) throws -> [E3record] {
+        try context.fetch(FetchDescriptor<E3record>(sortBy: [SortDescriptor(\E3record.dateUse)]))
+            .filter { $0.zName == name }
+    }
+
+    @Test("利用日を過ぎた繰り返しは、日付が変わった時点で支払状態に関係なく次の明細を作る")
+    func createsNextWhenUseDateArrives() throws {
+        let context = try TestStore.makeContext()
+        let card = TestFixtures.makeCard(name: "カード", bank: TestFixtures.makeBank(name: "口座", in: context), in: context)
+        let source = try insertRepeat(dateUse: TestStore.date(2026, 5, 15), card: card, in: context)
+
+        // 利用日前と利用日当日は作らない
+        #expect(try RecordService.generateDueRepeatRecords(now: TestStore.date(2026, 5, 10), context: context) == 0)
+        #expect(try RecordService.generateDueRepeatRecords(now: TestStore.date(2026, 5, 15).addingTimeInterval(60 * 60 * 12), context: context) == 0)
+        #expect(source.isRepeatDone == false)
+
+        // 日付が変わって翌日になったら作る
+        #expect(try RecordService.generateDueRepeatRecords(now: TestStore.date(2026, 5, 16).addingTimeInterval(60 * 60 * 12), context: context) == 1)
+        let all = try records(named: "サブスク", in: context)
+        #expect(all.count == 2)
+        #expect(source.isRepeatDone)
+        let next = try #require(all.last)
+        #expect(AppCalendar.gregorian.isDate(next.dateUse, equalTo: TestStore.date(2026, 6, 15), toGranularity: .month))
+        #expect(next.nRepeat == 1)
+        #expect(next.isRepeatDone == false)
+        #expect(!next.e6parts.isEmpty)
+        #expect(context.hasChanges == false)
+    }
+
+    @Test("2026/04/01 より前の利用日は対象外")
+    func ignoresRecordsBeforeStartDate() throws {
+        let context = try TestStore.makeContext()
+        let card = TestFixtures.makeCard(name: "カード", in: context)
+        let old = try insertRepeat(dateUse: TestStore.date(2026, 3, 15), card: card, in: context)
+
+        #expect(try RecordService.generateDueRepeatRecords(now: TestStore.date(2026, 10, 15), context: context) == 0)
+        #expect(old.isRepeatDone == false)
+        #expect(try records(named: "サブスク", in: context).count == 1)
+    }
+
+    @Test("長く開かなかった場合は1回に3件まで作り、次に開いた時に続きを作る")
+    func catchesUpAfterLongAbsence() throws {
+        let context = try TestStore.makeContext()
+        let card = TestFixtures.makeCard(name: "カード", in: context)
+        _ = try insertRepeat(dateUse: TestStore.date(2026, 4, 15), card: card, in: context)
+
+        // 1回目は 5,6,7 月分まで
+        #expect(try RecordService.generateDueRepeatRecords(now: TestStore.date(2026, 8, 20), context: context) == 3)
+        #expect(try records(named: "サブスク", in: context).count == 4)
+        // 2回目で 8 月分と、先の予定の 9/15 分を作って止まる
+        #expect(try RecordService.generateDueRepeatRecords(now: TestStore.date(2026, 8, 20), context: context) == 2)
+        #expect(try RecordService.generateDueRepeatRecords(now: TestStore.date(2026, 8, 20), context: context) == 0)
+        let all = try records(named: "サブスク", in: context)
+        #expect(all.count == 6)
+        #expect(all.dropLast().allSatisfy(\.isRepeatDone))
+        #expect(all.last?.isRepeatDone == false)
+    }
+
+    @Test("一度作った後に次の明細を消しても、再作成しない")
+    func doesNotRecreateDeletedNext() throws {
+        let context = try TestStore.makeContext()
+        let card = TestFixtures.makeCard(name: "カード", in: context)
+        _ = try insertRepeat(dateUse: TestStore.date(2026, 5, 15), card: card, in: context)
+        try RecordService.generateDueRepeatRecords(now: TestStore.date(2026, 5, 20), context: context)
+        let next = try #require(try records(named: "サブスク", in: context).last)
+        context.delete(next)
+        try context.save()
+
+        #expect(try RecordService.generateDueRepeatRecords(now: TestStore.date(2026, 5, 21), context: context) == 0)
+        #expect(try records(named: "サブスク", in: context).count == 1)
+    }
+
+    @Test("指定月に同じラベルの明細が既にあれば作らず、作成済みにする")
+    func skipsWhenSameLabelExistsInTargetMonth() throws {
+        let context = try TestStore.makeContext()
+        let card = TestFixtures.makeCard(name: "カード", in: context)
+        let source = try insertRepeat(dateUse: TestStore.date(2026, 5, 15), card: card, in: context)
+        // 旧方式で作られた、または手入力された翌月分
+        let existing = E3record(dateUse: TestStore.date(2026, 6, 10), zName: "サブスク", nAmount: 1_200, nRepeat: 0)
+        existing.e1card = card
+        context.insert(existing)
+        // 同じカードの別ラベルは妨げにならない
+        _ = try insertRepeat(dateUse: TestStore.date(2026, 6, 1), name: "別", months: 0, card: card, in: context)
+
+        #expect(try RecordService.generateDueRepeatRecords(now: TestStore.date(2026, 5, 20), context: context) == 0)
+        #expect(source.isRepeatDone)
+        #expect(try records(named: "サブスク", in: context).count == 2)
+    }
+
+    @Test("同じ月に重複した繰り返し元が複数あっても、次は1件だけ作る")
+    func duplicatedSourcesCreateSingleNext() throws {
+        let context = try TestStore.makeContext()
+        let card = TestFixtures.makeCard(name: "カード", in: context)
+        for _ in 0..<3 {
+            _ = try insertRepeat(dateUse: TestStore.date(2026, 9, 18), card: card, in: context)
+        }
+
+        #expect(try RecordService.generateDueRepeatRecords(now: TestStore.date(2026, 10, 15), context: context) == 1)
+        #expect(try records(named: "サブスク", in: context).count == 4)
+        #expect(try records(named: "サブスク", in: context).prefix(3).allSatisfy(\.isRepeatDone))
+    }
+
+    @Test("旧方式からの移行：済みの明細を含む繰り返しは作成済みとみなす")
+    func legacyPaidRepeatsAreMarkedDone() throws {
+        let suite = "RepeatGenerationTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let context = try TestStore.makeContext()
+        let card = TestFixtures.makeCard(name: "カード", bank: TestFixtures.makeBank(name: "口座", in: context), in: context)
+        let paid = try TestFixtures.saveRecord(amount: 980, label: "済み", dateUse: TestStore.date(2026, 5, 15), card: card, in: context)
+        let unpaid = try TestFixtures.saveRecord(amount: 980, label: "未払", dateUse: TestStore.date(2026, 5, 15), card: card, in: context)
+        try RecordService.setPartPaid(try #require(paid.e6parts.first), isPaid: true, context: context)
+        paid.nRepeat = 1
+        unpaid.nRepeat = 1
+        try context.save()
+
+        try RecordService.markLegacyPaidRepeatsDoneIfNeeded(defaults: defaults, context: context)
+        #expect(paid.isRepeatDone)
+        #expect(unpaid.isRepeatDone == false)
+
+        #expect(try RecordService.generateDueRepeatRecords(now: TestStore.date(2026, 5, 20), context: context) == 1)
+        #expect(try records(named: "済み", in: context).count == 1)
+        #expect(try records(named: "未払", in: context).count == 2)
+    }
+}
