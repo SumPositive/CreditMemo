@@ -13,6 +13,7 @@ struct RecordListView: View {
         case incomplete
         case card(String)
         case bank(String)
+        case label
         case tag
     }
 
@@ -100,6 +101,7 @@ struct RecordListView: View {
         fileprivate var filterKind: FilterKind = .all
         fileprivate var period: RecordPeriod = .oneYear
         fileprivate var selectedTags: [E5tag] = []
+        fileprivate var selectedLabels: [String] = []
         // 初期表示は利用日の新しい順にする
         fileprivate var sortTarget: SortTarget = .date
         fileprivate var sortDirection: SortDirection = .descending
@@ -112,6 +114,7 @@ struct RecordListView: View {
         case incomplete
         case card
         case bank
+        case label
         case tag
 
         var id: Self { self }
@@ -122,6 +125,7 @@ struct RecordListView: View {
             case .incomplete: "record.filter.incomplete"
             case .card:       "payment.filter.card"
             case .bank:       "payment.filter.bank"
+            case .label:      "record.filter.label"
             case .tag:        "record.field.tag"
             }
         }
@@ -132,6 +136,7 @@ struct RecordListView: View {
             case .incomplete: "exclamationmark.circle"
             case .card:       "creditcard"
             case .bank:       "building.columns"
+            case .label:      "textformat"
             case .tag:        "tag"
             }
         }
@@ -150,6 +155,8 @@ struct RecordListView: View {
     @State private var filterKind: FilterKind = SavedConditions.shared.filterKind
     @State private var period: RecordPeriod = SavedConditions.shared.period
     @State private var selectedTags: [E5tag] = SavedConditions.shared.selectedTags
+    /// 絞り込むラベル（複数選択はいずれかに一致）
+    @State private var selectedLabels: [String] = SavedConditions.shared.selectedLabels
     /// 複数タグの一致条件。既定はOR（いずれかのタグを持つ明細）
     @AppStorage(AppStorageKey.tagMatchMode) private var tagMatchModeRaw: Int = TagMatchMode.defaultMode.rawValue
     @State private var sortTarget: SortTarget = SavedConditions.shared.sortTarget
@@ -180,6 +187,7 @@ struct RecordListView: View {
     @State private var showCardPicker = false
     @State private var showBankPicker = false
     @State private var showTagPicker = false
+    @State private var showLabelPicker = false
     /// 絞り込み済みの全件ソートキャッシュ。
     /// ページング時に毎回再ソートしないよう、recordPage == 0 のときだけ再構築する。
     @State private var sortedCache: [E3record] = []
@@ -187,7 +195,7 @@ struct RecordListView: View {
     @State private var monthTotalsByRecordID: [String: Decimal] = [:]
 
     private let pageSize = 100
-    private let filterOptions: [FilterOption] = [.all, .incomplete, .card, .bank, .tag]
+    private let filterOptions: [FilterOption] = [.all, .incomplete, .card, .bank, .label, .tag]
     private let sortOptions: [SortTarget] = [.edit, .date, .amount]
 
     init(initialTag: E5tag? = nil) {
@@ -224,7 +232,7 @@ struct RecordListView: View {
         selectedTags.map(\.id).sorted()
     }
     private var isFilterActive: Bool {
-        filterKind != .all || !selectedTags.isEmpty
+        filterKind != .all || !selectedTags.isEmpty || !selectedLabels.isEmpty
     }
     private var filterSummaryText: String {
         switch filterKind {
@@ -236,6 +244,12 @@ struct RecordListView: View {
             return cards.first { $0.id == id }?.zName ?? NSLocalizedString("payment.filter.card", comment: "")
         case .bank(let id):
             return banks.first { $0.id == id }?.zName ?? NSLocalizedString("payment.filter.bank", comment: "")
+        case .label:
+            if selectedLabels.isEmpty {
+                return NSLocalizedString("record.filter.label", comment: "")
+            }
+            // 1明細にラベルは1つなので、いずれかに一致（OR）の記号で列記する
+            return selectedLabels.joined(separator: TagMatchMode.or.separator)
         case .tag:
             if selectedTags.isEmpty {
                 return NSLocalizedString("record.field.tag", comment: "")
@@ -255,6 +269,7 @@ struct RecordListView: View {
                 case .incomplete: .incomplete
                 case .card:       .card
                 case .bank:       .bank
+                case .label:      .label
                 case .tag:        .tag
                 }
             },
@@ -265,11 +280,14 @@ struct RecordListView: View {
                     clearFilter()
                 case .incomplete:
                     selectedTags = []
+                    selectedLabels = []
                     filterKind = .incomplete
                 case .card:
                     presentCardFilter()
                 case .bank:
                     presentBankFilter()
+                case .label:
+                    presentLabelFilter()
                 case .tag:
                     presentTagFilter()
                 }
@@ -522,6 +540,10 @@ struct RecordListView: View {
             SavedConditions.shared.selectedTags = selectedTags
             reloadForConditionChange()
         }
+        .onChange(of: selectedLabels) { _, newValue in
+            SavedConditions.shared.selectedLabels = newValue
+            reloadForConditionChange()
+        }
         .onChange(of: tagMatchModeRaw) { _, _ in
             // 選択タグが同じでも、OR／ANDの切り替えで対象は変わる
             guard filterKind == .tag else { return }
@@ -542,6 +564,7 @@ struct RecordListView: View {
                 name: { $0.zName },
                 onSelect: { card in
                     selectedTags = []
+                    selectedLabels = []
                     filterKind = .card(card.id)
                 }
             )
@@ -558,6 +581,7 @@ struct RecordListView: View {
                 name: { $0.zName },
                 onSelect: { bank in
                     selectedTags = []
+                    selectedLabels = []
                     filterKind = .bank(bank.id)
                 }
             )
@@ -573,12 +597,24 @@ struct RecordListView: View {
                 selectedTags: $selectedTags,
                 matchModeRaw: $tagMatchModeRaw
             ) {
+                selectedLabels = []
                 filterKind = selectedTags.isEmpty ? .all : .tag
             }
             // シートにもアプリ内文字サイズ設定を明示適用する
             .appFontScale(fontScale)
             .presentationDragIndicator(.visible)
             // タグフィルターシートの背面を透かさない
+            .presentationBackground(Color(uiColor: .systemBackground))
+        }
+        .sheet(isPresented: $showLabelPicker) {
+            RecordLabelFilterSheet(selectedLabels: $selectedLabels, periodStartDate: period.startDate) {
+                selectedTags = []
+                filterKind = selectedLabels.isEmpty ? .all : .label
+            }
+            // シートにもアプリ内文字サイズ設定を明示適用する
+            .appFontScale(fontScale)
+            .presentationDragIndicator(.visible)
+            // ラベルフィルターシートの背面を透かさない
             .presentationBackground(Color(uiColor: .systemBackground))
         }
         }
@@ -629,8 +665,8 @@ struct RecordListView: View {
             Image(systemName: option.iconName).dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                 .imageScale(.medium)
             if option == filterSelectionBinding.wrappedValue {
-                if option == .tag {
-                    // 列記したタグ名は縮小せず、収まらない時だけ折り返す
+                if option == .tag || option == .label {
+                    // 列記したタグ名・ラベルは縮小せず、収まらない時だけ折り返す
                     Text(filterSummaryText)
                         .lineLimit(nil)
                         .multilineTextAlignment(.center)
@@ -681,6 +717,14 @@ struct RecordListView: View {
         }
     }
 
+    private func presentLabelFilter() {
+        // ポップオーバーを閉じた次のタイミングでシートを開き、表示競合を避ける。
+        showFilterPopover = false
+        DispatchQueue.main.async {
+            showLabelPicker = true
+        }
+    }
+
     private func presentTagFilter() {
         // ポップオーバーを閉じた次のタイミングでシートを開き、表示競合を避ける。
         showFilterPopover = false
@@ -692,6 +736,7 @@ struct RecordListView: View {
     private func clearFilter() {
         // クリアボタンでは絞り込みだけを解除し、並び順は維持する。
         selectedTags = []
+        selectedLabels = []
         filterKind = .all
     }
 
@@ -880,6 +925,9 @@ struct RecordListView: View {
             return record.e1card?.id == id
         case .bank(let id):
             return record.e1card?.e8bank?.id == id
+        case .label:
+            let label = record.zName.trimmingCharacters(in: .whitespacesAndNewlines)
+            return selectedLabels.contains(label)
         case .tag:
             return tagMatchMode.matches(
                 recordTagIDs: Set(record.e5tags.map(\.id)),
@@ -1059,6 +1107,127 @@ private struct RecordTagFilterSheet: View {
             draftSelection.removeAll { $0.id == tag.id }
         } else {
             draftSelection.append(tag)
+        }
+    }
+}
+
+/// 履歴フィルター用のラベル複数選択シート。
+/// 1明細にラベルは1つなので一致条件は持たず、選んだいずれかに一致する明細を出す
+private struct RecordLabelFilterSheet: View {
+    @Binding var selectedLabels: [String]
+    /// 一覧に出すラベルの対象期間の開始日（nil は全期間）。検索は期間に関係なく全明細から探す
+    let periodStartDate: Date?
+    let onDone: () -> Void
+
+    @Environment(\.modelContext) private var context
+    @Environment(\.dismiss) private var dismiss
+    /// キャンセルで元へ戻せるよう、選択操作はシート内の作業用コピーに対して行う
+    @State private var draftSelection: [String] = []
+    /// ラベル候補と使用回数
+    private struct Candidate: Identifiable {
+        let label: String
+        let count: Int
+        var id: String { label }
+    }
+
+    /// 表示時に1回だけ作る、対象期間内のラベル一覧（使用回数の多い順）
+    @State private var candidates: [Candidate] = []
+    /// 検索用に、期間に関係なく全明細から作るラベル一覧
+    @State private var allCandidates: [Candidate] = []
+    @State private var searchText = ""
+
+    private var visibleCandidates: [Candidate] {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return candidates }
+        return allCandidates.filter { $0.label.localizedStandardContains(query) }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List(visibleCandidates) { item in
+                Button {
+                    toggle(item.label)
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: draftSelection.contains(item.label) ? "checkmark.circle.fill" : "circle")
+                            .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                            .foregroundStyle(draftSelection.contains(item.label) ? Color.accentColor : Color.secondary)
+                        Text(item.label)
+                            .foregroundStyle(Color(.label))
+                        Spacer(minLength: 8)
+                        Text("\(item.count)")
+                            .font(.footnote.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+            .searchable(
+                text: $searchText,
+                placement: .navigationBarDrawer(displayMode: .always),
+                prompt: Text("record.filter.label.search")
+            )
+            .scalableNavigationTitle("record.filter.label")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("button.cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    // 決定を押したときだけ絞り込み条件へ反映する
+                    Button("button.decide") {
+                        selectedLabels = draftSelection
+                        onDone()
+                        dismiss()
+                    }
+                }
+            }
+        }
+        .presentationDetents([.large])
+        .onAppear {
+            draftSelection = selectedLabels
+            rebuildCandidates()
+        }
+    }
+
+    /// ラベルを使用回数の多い順に並べ、選択済みは先頭へ寄せる。
+    /// 一覧は対象期間内の明細だけで数え、検索用は全明細で数える
+    private func rebuildCandidates() {
+        var periodCounts: [String: Int] = [:]
+        var allCounts: [String: Int] = [:]
+        for record in context.fetchReporting(FetchDescriptor<E3record>(), entity: "E3record") {
+            let label = record.zName.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !label.isEmpty else { continue }
+            allCounts[label, default: 0] += 1
+            if periodStartDate.map({ $0 <= record.dateUse }) ?? true {
+                periodCounts[label, default: 0] += 1
+            }
+        }
+        // 期間外でも選択済みのラベルは、外せるよう一覧に残す（件数は期間内の0件）
+        for label in selectedLabels where periodCounts[label] == nil {
+            periodCounts[label] = 0
+        }
+        candidates = sortedCandidates(periodCounts)
+        allCandidates = sortedCandidates(allCounts)
+    }
+
+    private func sortedCandidates(_ counts: [String: Int]) -> [Candidate] {
+        let selected = Set(selectedLabels)
+        return counts
+            .map { Candidate(label: $0.key, count: $0.value) }
+            .sorted { lhs, rhs in
+                let lhsSelected = selected.contains(lhs.label)
+                if lhsSelected != selected.contains(rhs.label) { return lhsSelected }
+                if lhs.count != rhs.count { return rhs.count < lhs.count }
+                return lhs.label.localizedStandardCompare(rhs.label) == .orderedAscending
+            }
+    }
+
+    private func toggle(_ label: String) {
+        if let index = draftSelection.firstIndex(of: label) {
+            draftSelection.remove(at: index)
+        } else {
+            draftSelection.append(label)
         }
     }
 }
