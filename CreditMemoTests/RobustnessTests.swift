@@ -718,3 +718,33 @@ struct RepeatGenerationTests {
         #expect(try records(named: "未払", in: context).count == 2)
     }
 }
+
+/// 決済一覧からの確定ロック切り替え
+@MainActor
+struct RecordLockTests {
+    @Test("未払分だけをロック／解除し、済みの分割には触れない")
+    func togglesOnlyUnpaidParts() throws {
+        let context = try TestStore.makeContext()
+        let card = TestFixtures.makeCard(name: "カード", bank: TestFixtures.makeBank(name: "口座", in: context), in: context)
+        let record = E3record(dateUse: TestStore.date(2026, 4, 5), zName: "2回払い", nAmount: 2_000, nPayType: 2)
+        record.e1card = card
+        context.insert(record)
+        try RecordService.save(record, context: context)
+        let parts = record.e6parts.sorted { $0.nPartNo < $1.nPartNo }
+        #expect(parts.count == 2)
+        try RecordService.setPartPaid(parts[0], isPaid: true, context: context)
+        parts[0].isChecked = false
+        try context.save()
+
+        try RecordService.setUnpaidPartsChecked(of: record, isChecked: true, context: context)
+        #expect(parts[0].isChecked == false)
+        #expect(parts[1].isChecked)
+        #expect(parts[1].isDueDateLocked)
+        #expect(card.sumNoCheck == 1)
+        #expect(context.hasChanges == false)
+
+        try RecordService.setUnpaidPartsChecked(of: record, isChecked: false, context: context)
+        #expect(parts[1].isChecked == false)
+        #expect(card.sumNoCheck == 2)
+    }
+}

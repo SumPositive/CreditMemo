@@ -1857,7 +1857,8 @@ private struct InvoiceStatusIcon: View {
     }
 }
 
-private struct PartLockIcon: View {
+/// 確定ロックの錠アイコン。決済一覧でも同じ見た目で使う
+struct PartLockIcon: View {
     let isLocked: Bool
 
     /// 施錠アイコン名。端末に存在する時だけ理想の checkmark 付きを使い、

@@ -883,6 +883,28 @@ enum RecordService {
         }
     }
 
+    /// 決済1件の未払分（分割の未払分すべて）の確定ロックを切り替える。済みの分割には触れない
+    static func setUnpaidPartsChecked(
+        of record: E3record,
+        isChecked: Bool,
+        context: ModelContext
+    ) throws {
+        let unpaidParts = record.e6parts.filter { ($0.e2invoice?.isPaid ?? false) == false }
+        guard !unpaidParts.isEmpty else { return }
+        for part in unpaidParts {
+            part.isChecked = isChecked
+            if isChecked {
+                // 引き落とし一覧と同じく、ロックした明細は引き落とし日も自動更新しない
+                part.isDueDateLocked = true
+            }
+        }
+        if let card = record.e1card {
+            recalculateCard(card)
+            recalculatePayments(for: card)
+        }
+        try commit(context)
+    }
+
     /// 明細1件だけを反対状態の請求へ移す
     static func setPartPaid(
         _ part: E6part,

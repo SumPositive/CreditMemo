@@ -136,7 +136,7 @@ struct RecordListView: View {
             case .incomplete: "exclamationmark.circle"
             case .card:       "creditcard"
             case .bank:       "building.columns"
-            case .label:      "textformat"
+            case .label:      "leaf"
             case .tag:        "tag"
             }
         }
@@ -622,12 +622,34 @@ struct RecordListView: View {
 
     /// 決済セル単体。頭出しの対象になるので、必ず1行だけを返す
     private func recordRow(for record: E3record) -> some View {
-        Button {
-            sheetTarget = .edit(record)
-        } label: {
-            RecordSummaryRow(record: record)
+        let unpaidParts = record.e6parts.filter { ($0.e2invoice?.isPaid ?? false) == false }
+        // 未払分がすべてロック済みならロック中として示す
+        let isLocked = !unpaidParts.isEmpty && unpaidParts.allSatisfy(\.isChecked)
+        return HStack(spacing: 6) {
+            Button {
+                sheetTarget = .edit(record)
+            } label: {
+                RecordSummaryRow(record: record)
+            }
+            .buttonStyle(.plain)
+            .opacity(isLocked ? 0.45 : 1)
+            // UIテストから言語に依存せず明細セルを操作できるようにする
+            .accessibilityIdentifier("record.row.\(record.id)")
+
+            if unpaidParts.isEmpty {
+                // 済み（またはロック対象が無い）明細は、金額の位置を揃えるため幅だけ確保する
+                Color.clear.frame(width: 30, height: 30)
+            } else {
+                // 未払の時だけ、引き落とし一覧と同じ確定ロックを表示・切り替えできる
+                Button {
+                    toggleLock(of: record, isLocked: isLocked)
+                } label: {
+                    PartLockIcon(isLocked: isLocked)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("record.lock.\(record.id)")
+            }
         }
-        .buttonStyle(.plain)
         // コピーを保存した直後の明細だけ、細い青枠で今追加されたことを示す
         .overlay {
             if highlightedRecordID == record.id {
@@ -638,8 +660,6 @@ struct RecordListView: View {
                     .allowsHitTesting(false)
             }
         }
-        // UIテストから言語に依存せず明細セルを操作できるようにする
-        .accessibilityIdentifier("record.row.\(record.id)")
         // 右スワイプで、その場に明細の複製を追加する
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             Button {
@@ -650,6 +670,17 @@ struct RecordListView: View {
             .tint(.blue)
             .accessibilityLabel(Text("button.copy"))
             .accessibilityIdentifier("record.copy.\(record.id)")
+        }
+    }
+
+    /// 未払分の確定ロックを反転する
+    private func toggleLock(of record: E3record, isLocked: Bool) {
+        do {
+            try RecordService.setUnpaidPartsChecked(of: record, isChecked: !isLocked, context: context)
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        } catch {
+            context.rollback()
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
         }
     }
 
