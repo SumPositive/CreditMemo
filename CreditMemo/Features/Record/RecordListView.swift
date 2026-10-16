@@ -188,6 +188,9 @@ struct RecordListView: View {
     @State private var showBankPicker = false
     @State private var showTagPicker = false
     @State private var showLabelPicker = false
+    /// スワイプの削除で確認中の明細
+    @State private var pendingDeleteRecord: E3record?
+    @State private var showDeleteAlert = false
     /// 絞り込み済みの全件ソートキャッシュ。
     /// ページング時に毎回再ソートしないよう、recordPage == 0 のときだけ再構築する。
     @State private var sortedCache: [E3record] = []
@@ -606,6 +609,14 @@ struct RecordListView: View {
             // タグフィルターシートの背面を透かさない
             .presentationBackground(Color(uiColor: .systemBackground))
         }
+        // 特大フォント・長文でも全文が見える独自ダイアログを使用（編集画面の削除と同じ）
+        .deleteConfirmation(
+            isPresented: $showDeleteAlert,
+            title: "alert.deleteConfirm.title",
+            message: "alert.deleteConfirm.message"
+        ) {
+            deletePendingRecord()
+        }
         .sheet(isPresented: $showLabelPicker) {
             RecordLabelFilterSheet(selectedLabels: $selectedLabels, periodStartDate: period.startDate) {
                 selectedTags = []
@@ -662,6 +673,18 @@ struct RecordListView: View {
         }
         // 右スワイプで、その場に明細の複製を追加する
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            // 先に書いたものほど右端に並ぶ。削除はコピーの右に置く
+            if canSwipeDelete(record) {
+                Button {
+                    pendingDeleteRecord = record
+                    showDeleteAlert = true
+                } label: {
+                    Label("button.delete", systemImage: "trash.fill")
+                }
+                .tint(.red)
+                .accessibilityLabel(Text("button.delete"))
+                .accessibilityIdentifier("record.delete.\(record.id)")
+            }
             Button {
                 addDraftCopy(from: record)
             } label: {
@@ -671,6 +694,31 @@ struct RecordListView: View {
             .accessibilityLabel(Text("button.copy"))
             .accessibilityIdentifier("record.copy.\(record.id)")
         }
+    }
+
+    /// スワイプで削除できるのは、全分割が未払で、どれもロックしていない明細だけ。
+    /// 済みやロック済みを含む明細は、編集画面から確認しながら消してもらう
+    private func canSwipeDelete(_ record: E3record) -> Bool {
+        record.e6parts.allSatisfy { ($0.e2invoice?.isPaid ?? false) == false && !$0.isChecked }
+    }
+
+    /// 確認後に明細を削除し、読み込み済みの一覧からも取り除く
+    private func deletePendingRecord() {
+        guard let record = pendingDeleteRecord else { return }
+        pendingDeleteRecord = nil
+        let recordID = record.id
+        do {
+            try RecordService.delete(record, context: context)
+        } catch {
+            appLog(.error, "決済一覧からの削除に失敗しました id=\(recordID) error=\(error)")
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
+            return
+        }
+        // 頭出し位置を保つため全件を読み直さず、該当行だけ外す
+        records.removeAll { $0.id == recordID }
+        sortedCache.removeAll { $0.id == recordID }
+        draftCopies.removeAll { $0.source.id == recordID }
+        monthTotalsByRecordID = makeMonthTotalsByRecordID()
     }
 
     /// 未払分の確定ロックを反転する
