@@ -1496,12 +1496,13 @@ struct RecordSummaryRow: View {
 
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     if showsStatus {
-                        // 状態アイコンは控えめに表示する
-                        Image(systemName: isUnpaid ? "arrow.down.circle.fill" : "arrow.up.circle.fill").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                        // 状態表示だけでタップできないことを、少し薄くして示す（決済編集の見出しと同じ濃さ）
+                        Image(systemName: PaymentStatusSymbol.name(isPaid: !isUnpaid)).dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(isUnpaid ? badgeTheme.topColor : badgeTheme.bottomColor)
-                            .opacity(0.5)
+                            .opacity(0.6)
                             .fixedSize(horizontal: true, vertical: false)
+                            .accessibilityLabel(isUnpaid ? Text("payment.status.unpaidShort") : Text("payment.status.paidShort"))
                     }
                     if showsRepeatIcon {
                         // 繰り返し予定の印（showsStatus に関わらず表示する）

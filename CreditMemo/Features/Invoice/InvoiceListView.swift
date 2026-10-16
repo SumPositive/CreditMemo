@@ -253,6 +253,9 @@ struct InvoiceListView: View {
     @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
     @AppStorage(AppStorageKey.copySwipeHintDone) private var copySwipeHintDone = false
     @State private var editRecord: E3record?
+    /// スワイプの削除で確認中の明細
+    @State private var pendingDeleteRecord: E3record?
+    @State private var showDeleteAlert = false
     /// この画面内だけで保持する、保存前の金額0仮明細
     @State private var draftPayments: [InvoiceDraftPayment] = []
     /// タップされた仮明細から開く新規決済シート
@@ -340,7 +343,7 @@ struct InvoiceListView: View {
 
     private func invoiceHelpIcon(isPaid: Bool) -> some View {
         // ヘルプ内の状態アイコンは追加アイコンと同じサイズに揃える
-        Image(systemName: isPaid ? "arrow.up.circle.fill" : "arrow.down.circle.fill").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+        Image(systemName: PaymentStatusSymbol.name(isPaid: isPaid)).dynamicTypeSize(...DynamicTypeSize.xxxLarge)
             .foregroundStyle(isPaid ? badgeTheme.bottomColor : badgeTheme.topColor)
             .font(.caption.weight(.semibold))
             .frame(width: 16, alignment: .center)
@@ -411,6 +414,30 @@ struct InvoiceListView: View {
     /// 保存済みに置き換わったコピー仮明細を画面から消す
     private func removeDraftCopy(_ draft: InvoiceDraftCopy) {
         draftCopies.removeAll { $0.id == draft.id }
+    }
+
+    /// スワイプで削除できるのは、全分割が未払で、どれもロックしていない明細だけ（決済一覧と同じ条件）。
+    /// 照合モード中は仮移動と食い違うため出さない
+    private func canSwipeDelete(_ record: E3record) -> Bool {
+        guard !isReconciliationMode else { return false }
+        return record.e6parts.allSatisfy { ($0.e2invoice?.isPaid ?? false) == false && !$0.isChecked }
+    }
+
+    /// 確認後に明細を削除し、画面を読み直す
+    private func deletePendingRecord() {
+        guard let record = pendingDeleteRecord else { return }
+        pendingDeleteRecord = nil
+        let recordID = record.id
+        do {
+            try RecordService.delete(record, context: context)
+        } catch {
+            AppTelemetry.reportSwiftDataError(error, operation: "InvoiceListView.swipeDelete", entity: "E3record")
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
+            return
+        }
+        draftCopies.removeAll { $0.source.id == recordID }
+        // 反映のため画面を再構築する
+        reloadKey = UUID()
     }
 
     /// 指定明細を元としたコピー仮明細だけを返す（コピー元の直下に並べる用）
@@ -1432,6 +1459,17 @@ struct InvoiceListView: View {
                                 }
                                 // 右スワイプは編集画面を開かず、その場で明細を複製する
                                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                    // 先に書いたものほど右端に並ぶ。削除はコピーの右に置く
+                                    if let record = part.e3record, canSwipeDelete(record) {
+                                        Button {
+                                            pendingDeleteRecord = record
+                                            showDeleteAlert = true
+                                        } label: {
+                                            Label("button.delete", systemImage: "trash.fill")
+                                        }
+                                        .tint(.red)
+                                        .accessibilityLabel(Text("button.delete"))
+                                    }
                                     if part.e3record != nil {
                                         Button {
                                             duplicatePart(part)
@@ -1580,6 +1618,14 @@ struct InvoiceListView: View {
         }
         // 請求合計入力中は背面のナビゲーション操作を隠す
         .toolbar(showConfirmedAmountPad ? .hidden : .visible, for: .navigationBar)
+        // 特大フォント・長文でも全文が見える独自ダイアログを使用（編集画面の削除と同じ）
+        .deleteConfirmation(
+            isPresented: $showDeleteAlert,
+            title: "alert.deleteConfirm.title",
+            message: "alert.deleteConfirm.message"
+        ) {
+            deletePendingRecord()
+        }
         .sheet(item: $editRecord) { record in
             NavigationStack {
                 RecordEditView(
@@ -1849,11 +1895,12 @@ private struct InvoiceStatusIcon: View {
     @Environment(\.badgeTheme) private var badgeTheme
 
     var body: some View {
-        // 引き落とし状況と同じ矢印アイコンを使う
-        Image(systemName: isPaid ? "arrow.up.circle.fill" : "arrow.down.circle.fill").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+        // 引き落とし状況と同じ状態アイコンを使う
+        Image(systemName: PaymentStatusSymbol.name(isPaid: isPaid)).dynamicTypeSize(...DynamicTypeSize.xxxLarge)
             .font(.title2.weight(.bold))
             .foregroundStyle(isPaid ? badgeTheme.bottomColor : badgeTheme.topColor)
             .frame(minWidth: 34, minHeight: 34)
+            .accessibilityLabel(isPaid ? Text("payment.status.paidShort") : Text("payment.status.unpaidShort"))
     }
 }
 
@@ -1927,12 +1974,14 @@ private struct PartRow: View {
         HStack(spacing: 10) {
             Button(action: onTogglePaid) {
                 // 先頭に未払/済み切替ボタンを置く
-                Image(systemName: isPaid ? "arrow.up.circle.fill" : "arrow.down.circle.fill").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                Image(systemName: PaymentStatusSymbol.name(isPaid: isPaid)).dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                     .font(.title2.weight(.bold))
                     .foregroundStyle(isPaid ? badgeTheme.bottomColor : badgeTheme.topColor)
                     .frame(minWidth: 34, minHeight: 34)
             }
             .buttonStyle(.plain)
+            // 読み上げは記号名ではなく、押した時の操作を伝える
+            .accessibilityLabel(isPaid ? Text("payment.markUnpaid") : Text("payment.markPaid"))
             .disabled(!canToggleToPaid)
             .opacity(canToggleToPaid ? 1 : 0.35)
 

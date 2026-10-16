@@ -570,6 +570,18 @@ private var isValid: Bool {
         let hasLockedPart = record.e6parts.contains { $0.isChecked }
         return anyPartPaid || hasLockedPart
     }
+    /// 見出しの済み表示：分割がすべて済み（決済一覧の済みアイコンと同じ条件）
+    private var partStatusIsPaid: Bool {
+        guard case .edit(let record) = mode, !record.e6parts.isEmpty else { return false }
+        return record.e6parts.allSatisfy { $0.e2invoice?.isPaid ?? false }
+    }
+    /// 見出しのロック表示：未払分があれば未払分すべて、全部済みなら全分割がロック済み
+    private var partStatusIsLocked: Bool {
+        guard case .edit(let record) = mode, !record.e6parts.isEmpty else { return false }
+        let unpaidParts = record.e6parts.filter { ($0.e2invoice?.isPaid ?? false) == false }
+        let targets = unpaidParts.isEmpty ? record.e6parts : unpaidParts
+        return targets.allSatisfy(\.isChecked)
+    }
     /// 候補に出す最大件数。閉じるボタンを置かないぶん横幅を使えるので多めに持つ
     private static let usePointCandidateLimit = 20
 
@@ -2390,12 +2402,30 @@ private var isValid: Bool {
                     paymentPartRow(partNo: partNo, allowsDateEdit: canManuallyEditPartNo(partNo))
                 }
             } header: {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                HStack(alignment: .center, spacing: 6) {
                     Text("record.dueDate.section")
                     // 明細ごとの固定ヘルプは見出しの末尾に置く。
                     // 達人モードでも控えめな (?) として残す
                     BeginnerHintView {
                         dueDateHelpContent
+                    }
+                    Spacer(minLength: 8)
+                    // 済み・ロック中の時だけ、決済一覧と同じアイコンで右寄せに示す
+                    if partStatusIsPaid {
+                        HStack(spacing: 4) {
+                            Image(systemName: PaymentStatusSymbol.name(isPaid: true)).dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                                .font(.title3.weight(.semibold))
+                                .foregroundStyle(badgeTheme.bottomColor)
+                                .accessibilityHidden(true)
+                            Text("payment.status.paidShort")
+                                .foregroundStyle(badgeTheme.paidText)
+                        }
+                        // 状態表示だけでタップできないことを、少し薄くして示す
+                        .opacity(0.6)
+                    }
+                    if partStatusIsLocked {
+                        PartLockIcon(isLocked: true)
+                            .opacity(0.6)
                     }
                 }
             }

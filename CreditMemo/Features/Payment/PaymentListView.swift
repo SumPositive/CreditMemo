@@ -1428,11 +1428,12 @@ private struct PaymentStatusPill: View {
     @Environment(\.badgeTheme) private var badgeTheme
 
     var body: some View {
-        // セル内の先頭は大きい矢印アイコンのみで状態を示す
-        Image(systemName: isPaid ? "arrow.up.circle.fill" : "arrow.down.circle.fill").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+        // セル内の先頭は大きい状態アイコン（空の丸／チェック）のみで状態を示す
+        Image(systemName: PaymentStatusSymbol.name(isPaid: isPaid)).dynamicTypeSize(...DynamicTypeSize.xxxLarge)
             .font(.title2.weight(.bold))
             .foregroundStyle(isPaid ? badgeTheme.bottomColor : badgeTheme.topColor)
             .frame(minWidth: 34, minHeight: 34)
+            .accessibilityLabel(isPaid ? Text("payment.status.paidShort") : Text("payment.status.unpaidShort"))
     }
 }
 

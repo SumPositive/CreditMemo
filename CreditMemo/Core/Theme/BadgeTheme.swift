@@ -210,3 +210,12 @@ enum BadgeMiddleHeight {
     static let `default`: Double = 16
 }
 
+
+/// 未払／済みの状態アイコン。空の丸＝未払、チェック付きの丸＝済み。
+/// リマインダーと同じ「丸をタップしてチェックを付けると完了」の形にし、
+/// 状態の表示と切り替えボタンのどちらで使っても同じ意味に読めるようにする
+enum PaymentStatusSymbol {
+    static func name(isPaid: Bool) -> String {
+        isPaid ? "checkmark.circle.fill" : "circle"
+    }
+}
