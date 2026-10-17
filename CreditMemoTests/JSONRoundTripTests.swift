@@ -62,6 +62,41 @@ struct JSONRoundTripTests {
         #expect(report.hasIssue == false)
     }
 
+    @Test("同じ決済手段・日付で未払と済みに分かれた明細と、ロック済みの未払を、そのまま復元する")
+    func mixedPaidPartsOfSameDayAreRestored() async throws {
+        let sourceContext = try TestStore.makeContext()
+        let bank = TestFixtures.makeBank(name: "口座", in: sourceContext)
+        let card = TestFixtures.makeCard(name: "カード", bank: bank, in: sourceContext)
+        let paidRecord = try TestFixtures.saveRecord(
+            amount: 1_000, label: "済み分", dateUse: TestStore.date(2026, 4, 5), card: card, in: sourceContext
+        )
+        let unpaidRecord = try TestFixtures.saveRecord(
+            amount: 500, label: "未払分", dateUse: TestStore.date(2026, 4, 6), card: card, in: sourceContext
+        )
+        let paidPart = try #require(paidRecord.e6parts.first)
+        let unpaidPart = try #require(unpaidRecord.e6parts.first)
+        #expect(paidPart.e2invoice?.date == unpaidPart.e2invoice?.date)
+        try RecordService.setPartPaid(paidPart, isPaid: true, context: sourceContext)
+        // 照合済みにしても済みにはしないので、ロック済みのまま未払の明細がある
+        try RecordService.setUnpaidPartsChecked(of: unpaidRecord, isChecked: true, context: sourceContext)
+
+        let data = try await JSONExport.exportData(context: sourceContext, style: .compact)
+        let url = try writeTempJSON(data)
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let targetContext = try TestStore.makeContext()
+        _ = try await JSONImport.importData(from: url, context: targetContext)
+
+        let records = try targetContext.fetch(FetchDescriptor<E3record>())
+        let restoredPaid = try #require(records.first { $0.zName == "済み分" }?.e6parts.first)
+        let restoredUnpaid = try #require(records.first { $0.zName == "未払分" }?.e6parts.first)
+        #expect(restoredPaid.e2invoice?.isPaid == true)
+        #expect(restoredUnpaid.e2invoice?.isPaid == false)
+        #expect(restoredUnpaid.isChecked)
+        let report = RecordService.checkBillingIntegrity(context: targetContext)
+        #expect(report.hasIssue == false)
+    }
+
     @Test("同じ JSON を 2 度取り込んでも重複しない（id 単位 upsert）")
     func reimportingSameJSONIsIdempotent() async throws {
         let sourceContext = try TestStore.makeContext()

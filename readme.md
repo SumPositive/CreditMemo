@@ -66,6 +66,9 @@
   - タグ編集の「決済一覧」ボタンは達人モードでも文字付き
 - **設定：ラベルとタグの余白**（`CapsuleSize`、`AppStorageKey.capsuleSize`）
   - ふつう（従来）／狭め／最小。文字サイズは変えず、カプセルの上下左右の余白と間隔だけ変える。タグ（`TagCapsuleBand`）・ラベル（`LabelSignShape`）とタグ選択シートの高さ計算がこの値を読む
+- **JSON：明細単位の未払/済みを保存・復元**（`JSONExport.PartData.isPaid` / `JSONImport.applyPartPaidStates`）
+  - 請求・支払の状態復元は「決済手段（口座）×日付」単位で揃えるため、同じ日の一部だけ済みの請求が、最後に処理した状態へ揃っていた。明細ごとの `isPaid` を書き出し、請求・支払の状態復元の後に明細単位で戻す
+  - 旧データ補正（全明細確認済みの未払請求を済みにする `markFullyCheckedInvoicesAsPaid`）は、明細単位の状態を持たない旧JSONだけに行う。2.9.0 は照合済みにしても済みにしないため、全明細ロック済みで未払の請求は正しい状態
 - **未払/済みアイコンを変更**（`PaymentStatusSymbol`）
   - 未払 `diamond`、済み `checkmark.diamond.fill`
 - **アプリアイコンの背景をカルメモと共通に**

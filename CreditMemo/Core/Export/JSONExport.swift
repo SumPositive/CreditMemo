@@ -90,6 +90,7 @@ enum JSONExport {
         var noCheck: Int
         var dueDate: Date?
         var dueDateLocked: Bool
+        var isPaid: Bool?  // 明細単位の未払/済み。同じ日の請求が未払と済みに分かれていても復元する（旧JSONには無い）
     }
 
     struct PaymentData: Codable {
@@ -189,7 +190,8 @@ enum JSONExport {
                 interest: "\(part.nInterest)",
                 noCheck: Int(part.nNoCheck),
                 dueDate: part.e2invoice?.date,
-                dueDateLocked: part.isDueDateLocked
+                dueDateLocked: part.isDueDateLocked,
+                isPaid: part.e2invoice?.isPaid
             )
         }
         let invoiceData  = invoices.map   { i in InvoiceData(id: i.id, date: i.date, isPaid: i.isPaid, cardID: i.e1card?.id, paymentID: i.e7payment?.id, reconciledAmount: i.reconciledAmount.map { "\($0)" }) }

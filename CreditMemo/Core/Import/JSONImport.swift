@@ -138,6 +138,7 @@ enum JSONImport {
         var noCheck: Int?
         var dueDate: Date?
         var dueDateLocked: Bool?
+        var isPaid: Bool?  // 明細単位の未払/済み（旧JSONには無い）
     }
 
     struct PaymentData: Decodable {
@@ -318,13 +319,21 @@ enum JSONImport {
             ) { completed, total in
                 report(.applyingPaymentStates, completed: completed, total: total)
             }
+            // 請求・支払は「決済手段（口座）×日付」単位で状態を揃えるため、同じ日の一部だけ済みは失われる。
+            // 明細単位の状態を持つ JSON なら、最後に明細ごとの未払/済みへ戻す
+            let partPaidStates = (payload.parts ?? []).filter { $0.isPaid != nil }
+            try applyPartPaidStates(partPaidStates, context: context)
             report(.cleaningBilling)
             await Task.yield()
             try Task.checkCancellation()
             // 旧端末で part 確認だけして未払のまま残った請求を「済み」に補正する。
             // JSON の状態復元後・孤児掃除前に行い、確認済み＝引き落とし済みへ揃える。
-            try await markFullyCheckedInvoicesAsPaid(context: context) { completed, total in
-                report(.cleaningBilling, completed: completed, total: total)
+            // 明細単位の状態を持つ JSON（2.9.0 以降）は補正しない。
+            // 照合済みにしても済みにしないので、全明細ロック済みで未払の請求は正しい状態のため
+            if partPaidStates.isEmpty {
+                try await markFullyCheckedInvoicesAsPaid(context: context) { completed, total in
+                    report(.cleaningBilling, completed: completed, total: total)
+                }
             }
             RecordService.cleanupOrphanBilling(context: context)
 
@@ -632,6 +641,40 @@ enum JSONImport {
                 onProgress?(completed, items.count)
                 await Task.yield()
             }
+        }
+        return updatedCount
+    }
+
+    /// 明細ごとの未払/済みを戻す。請求単位の状態復元の後に呼び、
+    /// 同じ決済手段・日付で未払と済みに分かれていた請求を元どおりに分ける
+    @discardableResult
+    private static func applyPartPaidStates(
+        _ items: [PartData],
+        context: ModelContext
+    ) throws -> Int {
+        guard !items.isEmpty else { return 0 }
+        let parts = context.fetchReporting(FetchDescriptor<E6part>(), entity: "E6part")
+        var partByRecordAndNo: [String: E6part] = [:]
+        for part in parts {
+            guard let recordID = part.e3record?.id else { continue }
+            let key = "\(recordID)#\(part.nPartNo)"
+            if partByRecordAndNo[key] == nil {
+                partByRecordAndNo[key] = part
+            }
+        }
+        var updatedCount = 0
+        for item in items {
+            try Task.checkCancellation()
+            guard let isPaid = item.isPaid,
+                  let recordID = item.recordID else { continue }
+            let partNo = try validatedPartNo(item.partNo)
+            guard let part = partByRecordAndNo["\(recordID)#\(partNo)"],
+                  part.e2invoice?.isPaid != isPaid else { continue }
+            let wasDueDateLocked = part.isDueDateLocked
+            RecordService.setPartPaidWithoutCommit(part, isPaid: isPaid, context: context)
+            // 済みへ移すと引き落とし日ロックが付くので、エクスポート時の状態へ戻す
+            part.isDueDateLocked = item.dueDateLocked ?? wasDueDateLocked
+            updatedCount += 1
         }
         return updatedCount
     }
