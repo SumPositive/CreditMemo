@@ -198,16 +198,17 @@ struct InvoiceListView: View {
         return !includesUnselectedCard
     }
 
-    /// 表示中の全明細が確定済みなら照合済みとして扱う
+    /// 表示中の全明細が確定済みなら照合済みとして扱う。
+    /// 差額を残したまま途中保存したもの（照合中）は、明細が元々すべてロック済みでも照合済みにしない
     private var isReconciliationCompleted: Bool {
+        guard !isReconciliationInProgress else { return false }
         let parts = invoices.flatMap { filteredParts(in: $0) }
         return !parts.isEmpty && parts.allSatisfy(\.isChecked)
     }
 
-    /// 保存済みの請求合計があり照合未完了なら照合中として扱う
+    /// 請求合計を途中保存していれば照合中として扱う（照合確定・済みにした時に保存値が消える）
     private var isReconciliationInProgress: Bool {
-        guard !isReconciliationCompleted,
-              let scope = invoiceFilter?.scope,
+        guard let scope = invoiceFilter?.scope,
               case .card(let cardID) = scope else { return false }
         return reconciliationProgressStore.amount(
             forCardID: cardID,
