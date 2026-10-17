@@ -648,6 +648,41 @@ struct RobustnessTests {
         ))
     }
 
+    @Test("タグの統合で決済の付け替え・重複除去・重みの合算をして、元のタグを消す")
+    func mergeTagMovesRecordsAndDeletesSource() throws {
+        let context = try TestStore.makeContext()
+        let source = TestFixtures.makeTag(name: "テスト２", in: context)
+        let target = TestFixtures.makeTag(name: "テスト2", in: context)
+        let other = TestFixtures.makeTag(name: "外食", in: context)
+        source.sortCount = 3
+        source.sortAmount = 1_000
+        target.sortCount = 2
+        target.sortAmount = 500
+        let onlySource = try TestFixtures.saveRecord(
+            amount: 100, dateUse: TestStore.date(2026, 4, 5), card: nil,
+            tags: [other, source], in: context
+        )
+        let both = try TestFixtures.saveRecord(
+            amount: 200, dateUse: TestStore.date(2026, 4, 6), card: nil,
+            tags: [source, target], in: context
+        )
+        let countBefore = target.sortCount
+        let amountBefore = target.sortAmount
+        let sourceCount = source.sortCount
+        let sourceAmount = source.sortAmount
+
+        TagEditView.merge(source, into: target, context: context)
+        try context.save()
+
+        // 元の位置で付け替え、既に付いていれば重複させない
+        #expect(onlySource.e5tags.map(\.id) == [other.id, target.id])
+        #expect(both.e5tags.map(\.id) == [target.id])
+        #expect(target.sortCount == countBefore + sourceCount)
+        #expect(target.sortAmount == amountBefore + sourceAmount)
+        let remaining = try context.fetch(FetchDescriptor<E5tag>()).map(\.id)
+        #expect(Set(remaining) == [target.id, other.id])
+    }
+
     /// 同じストアを見る別 context。
     /// rollback 後の「DB に何が残っているか」を、登録済みインスタンス越しでなく確認するために使う
     private func freshContext(of context: ModelContext) -> ModelContext {

@@ -17,7 +17,6 @@ struct TagEditView: View {
     @Environment(AppEditingState.self) private var editingState
     @Query private var allTags: [E5tag]
 
-    @AppStorage(AppStorageKey.userLevel) private var userLevel: UserLevel = .beginner
     @State private var zName = ""
     @State private var zNote = ""
     @FocusState private var focusName: Bool
@@ -29,18 +28,22 @@ struct TagEditView: View {
     @State private var historyTag: E5tag?
     /// 削除確認ダイアログの表示制御
     @State private var showDeleteAlert = false
+    /// 同名タグへの統合確認ダイアログの表示制御
+    @State private var showMergeAlert = false
     private let noteAnchorID = "tag-note-anchor"
 
     private var isNew:   Bool { tag == nil }
     private var trimmedName: String {
         zName.trimmingCharacters(in: .whitespacesAndNewlines)
     }
-    private var hasDuplicateName: Bool {
+    private var hasDuplicateName: Bool { duplicateTag != nil }
+    /// 入力中の名前と同じ（大文字小文字・全角半角を無視）別のタグ
+    private var duplicateTag: E5tag? {
         let normalizedInput = trimmedName.folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: .current)
         if normalizedInput.isEmpty {
-            return false
+            return nil
         }
-        return allTags.contains { item in
+        return allTags.first { item in
             if item.id == tag?.id {
                 return false
             }
@@ -83,7 +86,8 @@ struct TagEditView: View {
                         Spacer(minLength: 0)
                         EditShortcutCapsuleButton(
                             title: "tag.action.recordList",
-                            showsTitle: userLevel == .beginner,
+                            // 達人モードでもアイコンだけにせず「決済一覧」の文字を出す
+                            showsTitle: true,
                             showsChevron: true,
                             action: { historyTag = tag }
                         ) {
@@ -109,6 +113,17 @@ struct TagEditView: View {
                     Text("tag.field.name.duplicate")
                         .font(.caption)
                         .foregroundStyle(.red)
+                    // 既存タグの編集で同名になった時は、そのタグへまとめられるようにする
+                    if !isNew {
+                        Button {
+                            showMergeAlert = true
+                        } label: {
+                            Text("tag.merge.action")
+                                .frame(maxWidth: .infinity)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.borderless)
+                    }
                 }
             }
             Section {
@@ -199,6 +214,52 @@ struct TagEditView: View {
         ) {
             deleteCurrentTag()
         }
+        .deleteConfirmation(
+            isPresented: $showMergeAlert,
+            title: "tag.merge.confirm.title",
+            message: "tag.merge.confirm.message",
+            confirmLabel: "tag.merge.confirm.button"
+        ) {
+            mergeIntoDuplicateTag()
+        }
+    }
+
+    /// 統合確認後に呼ぶ。このタグを同名の既存タグへまとめて閉じる
+    private func mergeIntoDuplicateTag() {
+        guard let tag, let target = duplicateTag else { return }
+        isSaving = true
+        Self.merge(tag, into: target, context: context)
+        context.saveReporting(operation: "TagEditView.mergeTag")
+        dismiss()
+    }
+
+    /// タグ source を target へ統合する（保存は呼び出し側）。
+    /// source が付いた決済は同じ位置で target に付け替え（既に target があれば重複させない）、
+    /// 並び順の重み（件数・金額・最終利用日）を合算してから source を削除する
+    static func merge(_ source: E5tag, into target: E5tag, context: ModelContext) {
+        guard source.id != target.id else { return }
+        let sourceID = source.id
+        // 逆参照（source.e3records）は同期が遅れることがあるので、決済を明示 fetch して付け替える
+        let records = context.fetchReporting(FetchDescriptor<E3record>(), entity: "E3record")
+        for record in records where record.e5tags.contains(where: { $0.id == sourceID }) {
+            var tags: [E5tag] = []
+            for item in record.e5tags {
+                let replaced = item.id == sourceID ? target : item
+                if !tags.contains(where: { $0.id == replaced.id }) {
+                    tags.append(replaced)
+                }
+            }
+            record.e5tags = tags
+        }
+        target.sortAmount += source.sortAmount
+        target.sortCount += source.sortCount
+        if let sourceDate = source.sortDate, (target.sortDate ?? .distantPast) < sourceDate {
+            target.sortDate = sourceDate
+        }
+        if target.zNote.isEmpty, !source.zNote.isEmpty {
+            target.zNote = source.zNote
+        }
+        context.delete(source)
     }
 
     /// 削除確認後に呼ぶ。
