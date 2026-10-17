@@ -1896,10 +1896,10 @@ private var isValid: Bool {
     }
 
     // 「よくある決済」帯のレイアウト定数
-    private let frequentRowSpacing: CGFloat = 8      // カプセル行間
+    private let frequentRowSpacing: CGFloat = TagCapsuleBand.capsuleSpacing      // カプセル行間
     private let frequentMaxRows = 10                 // 最大行数（ハンドルで広げられる上限）
     /// カプセル1行分の高さ（実測できていればそれを、まだなら目安値を使う）
-    private var frequentRowHeight: CGFloat { frequentCapsuleHeight > 0 ? frequentCapsuleHeight : 38 }
+    private var frequentRowHeight: CGFloat { frequentCapsuleHeight > 0 ? frequentCapsuleHeight : 30 }
     /// 1行ぶん進むのに必要なドラッグ量（行高＋行間）
     private var frequentRowStride: CGFloat { frequentRowHeight + frequentRowSpacing }
 
@@ -1910,7 +1910,7 @@ private var isValid: Bool {
     }
 
     // カプセル間の横スペース（AZFlowLayout に渡す）
-    private let frequentSpacing: CGFloat = 8
+    private let frequentSpacing: CGFloat = TagCapsuleBand.capsuleSpacing
 
     /// 「よくある決済」カプセル帯。金額欄の上に折り返しで並べ、金額は表示しない。
     /// タップでラベル・手段・タグを上書きプリセット。下のハンドルを上下ドラッグで
@@ -2059,7 +2059,7 @@ private var isValid: Bool {
                 // 均等割りのときだけ、提案された幅までカプセルを広げる
                 .frame(maxWidth: frequentAlignment.isJustified ? .infinity : nil)
                 .padding(.horizontal, LabelSignShape.horizontalPadding)
-                .padding(.vertical, 7)
+                .padding(.vertical, TagCapsuleBand.capsuleVerticalPadding)
                 .background(
                     LabelSignShape().fill(fillColor)
                 )
@@ -2094,7 +2094,7 @@ private var isValid: Bool {
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .padding(.horizontal, LabelSignShape.horizontalPadding)
-                    .padding(.vertical, 7)
+                    .padding(.vertical, TagCapsuleBand.capsuleVerticalPadding)
                     // タグのカプセルと見分けられるよう、ラベルは看板形にする
                     .background(LabelSignShape().fill(Color.accentColor))
                     .foregroundStyle(Color.white)
@@ -3845,12 +3845,12 @@ extension View {
 /// 同じ画面に並ぶタグ（カプセル）と見分けられるようにする。
 /// 尖りはカプセルの丸みと同じく余白の内側に収まるので、幅・並びはカプセルと変わらない
 struct LabelSignShape: Shape {
-    /// 両端の尖りの深さ（カプセル用の既定値）
-    static let pointDepth: CGFloat = 8
+    /// 両端の尖りの深さ（カプセル用の既定値。設定「ラベルとタグの余白」に従う）
+    static var pointDepth: CGFloat { CapsuleSize.current.labelPointDepth }
     /// アイコンなど小さく描く時は浅くする
     var pointDepth: CGFloat = Self.pointDepth
-    /// カプセルと同じ横余白
-    static let horizontalPadding: CGFloat = 14
+    /// 尖りぶん文字が端に寄らないよう、タグのカプセルより少し広い横余白
+    static var horizontalPadding: CGFloat { CapsuleSize.current.labelHorizontalPadding }
 
     func path(in rect: CGRect) -> Path {
         let point = min(pointDepth, rect.width / 4)

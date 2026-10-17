@@ -19,6 +19,7 @@ struct SettingsView: View {
     @AppStorage(AppStorageKey.userLevel)         private var userLevel: UserLevel = .beginner
     @AppStorage(AppStorageKey.appearanceMode)    private var appearanceMode: AppearanceMode = .automatic
     @AppStorage(AppStorageKey.fontScale)         private var fontScale: FontScale = .system
+    @AppStorage(AppStorageKey.capsuleSize)       private var capsuleSize: CapsuleSize = .normal
     @AppStorage(AppStorageKey.afterSaveAction)   private var afterSaveAction: AfterSaveAction = .goBack
     @AppStorage(AppStorageKey.launchAction)      private var launchActionRaw = LaunchAction.none.rawValue
     @AppStorage(AppStorageKey.autoOpenAmountPad) private var autoOpenAmountPad = true
@@ -210,6 +211,25 @@ struct SettingsView: View {
                             .frame(maxWidth: .infinity, alignment: .trailing)
                             .multilineTextAlignment(.trailing)
                     }
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    AZAdaptiveControlRow {
+                        settingTitle("settings.capsuleSize", help: "settings.help.capsuleSize")
+                            .fixedSize(horizontal: false, vertical: true)
+                    } control: {
+                        // 文字サイズは変えず、ラベルとタグのカプセルの余白と間隔だけを変える
+                        AZDropdownPicker(
+                            options: CapsuleSize.allCases,
+                            selection: $capsuleSize,
+                            isExpanded: dropdownBinding(.capsuleSize),
+                            minWidth: 130,
+                            popoverDynamicTypeSize: dropdownDynamicTypeSize
+                        ) { size in
+                            Text(LocalizedStringKey(size.localizedKey))
+                        }
+                    }
+                    .zIndex(expandedDropdown == .capsuleSize ? 60 : 0)
                 }
 
                 Toggle(showCurrencySymbolLabel, isOn: $showCurrencySymbol)
@@ -758,6 +778,7 @@ private enum SettingsDropdownKind {
     case userLevel
     case appearance
     case fontScale
+    case capsuleSize
     case exportFormat
 }
 

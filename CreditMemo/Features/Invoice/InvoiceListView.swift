@@ -2121,8 +2121,8 @@ private struct ReconciliationDraftEditView: View {
     private let initialName: String
     private let initialTagIDs: [String]
 
-    private let frequentSpacing: CGFloat = 8
-    private let frequentRowSpacing: CGFloat = 8
+    private let frequentSpacing: CGFloat = TagCapsuleBand.capsuleSpacing
+    private let frequentRowSpacing: CGFloat = TagCapsuleBand.capsuleSpacing
     private let frequentMaxRows = 5
 
     init(
@@ -2158,7 +2158,7 @@ private struct ReconciliationDraftEditView: View {
 
     /// カプセル表示エリアの高さ。ラベルの行数に合わせて縮め、5行を超える分はスクロールで見せる
     private var frequentAreaHeight: CGFloat {
-        let rowHeight = frequentCapsuleHeight > 0 ? frequentCapsuleHeight : 38
+        let rowHeight = frequentCapsuleHeight > 0 ? frequentCapsuleHeight : 30
         let rows = CGFloat(frequentMaxRows)
         let maxHeight = rowHeight * rows + frequentRowSpacing * (rows - 1)
         guard frequentContentHeight > 0 else { return rowHeight }
@@ -2425,7 +2425,7 @@ private struct ReconciliationDraftEditView: View {
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .padding(.horizontal, LabelSignShape.horizontalPadding)
-                    .padding(.vertical, 7)
+                    .padding(.vertical, TagCapsuleBand.capsuleVerticalPadding)
                     // タグのカプセルと見分けられるよう、ラベルは看板形にする
                     .background(LabelSignShape().fill(Color.accentColor))
                     .foregroundStyle(Color.white)
@@ -2468,7 +2468,7 @@ private struct ReconciliationDraftEditView: View {
                 .truncationMode(.tail)
                 .frame(maxWidth: frequentAlignment.isJustified ? .infinity : nil)
                 .padding(.horizontal, LabelSignShape.horizontalPadding)
-                .padding(.vertical, 7)
+                .padding(.vertical, TagCapsuleBand.capsuleVerticalPadding)
                 .background(
                     LabelSignShape().fill(Color(.secondarySystemBackground))
                 )

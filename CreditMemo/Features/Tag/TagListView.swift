@@ -193,13 +193,14 @@ extension Sequence where Element == E5tag {
 /// タグ一覧（マスタ）と複数選択シートで同じ見栄え・同じ幅にするため、
 /// 寸法と配色はこの型にまとめる
 struct TagCapsuleBand: View {
-    /// カプセルの寸法。見栄えを揃えるため両画面でこの値を使う
-    static let capsuleSpacing: CGFloat = 8
-    static let capsuleHorizontalPadding: CGFloat = 14
-    static let capsuleVerticalPadding: CGFloat = 7
+    /// カプセルの寸法。見栄えを揃えるため両画面でこの値を使う。
+    /// 設定「ラベルとタグの余白」に従う（ラベルのカプセルも同じ間隔・上下余白）
+    nonisolated static var capsuleSpacing: CGFloat { CapsuleSize.current.spacing }
+    nonisolated static var capsuleHorizontalPadding: CGFloat { CapsuleSize.current.horizontalPadding }
+    nonisolated static var capsuleVerticalPadding: CGFloat { CapsuleSize.current.verticalPadding }
     /// 帯の左右・上下余白
     static let areaHorizontalPadding: CGFloat = 16
-    static let areaVerticalPadding: CGFloat = 12
+    nonisolated static var areaVerticalPadding: CGFloat { CapsuleSize.current.areaVerticalPadding }
 
     /// 1行ぶんのカプセル高さ（文字サイズ設定に追従する）
     static var capsuleHeight: CGFloat {

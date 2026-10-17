@@ -12894,6 +12894,146 @@
         }
       }
     },
+    "settings.capsuleSize" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abstände von Labels & Tags"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Label & Tag Spacing"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ラベルとタグの余白"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "라벨과 태그 여백"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "名稱與標籤的間距"
+          }
+        }
+      }
+    },
+    "settings.capsuleSize.compact" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kompakt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compact"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "狭め"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "작게"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "較小"
+          }
+        }
+      }
+    },
+    "settings.capsuleSize.minimum" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Minimal"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Smallest"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最小"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "최소"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最小"
+          }
+        }
+      }
+    },
+    "settings.capsuleSize.normal" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Normal"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Normal"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ふつう"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "보통"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一般"
+          }
+        }
+      }
+    },
     "settings.cheer.ad" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -14570,6 +14710,41 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "新付款金額為 0 時，數字鍵盤會自動開啟。\n\n金額仍為 0 時關閉鍵盤，也會關閉新付款介面。"
+          }
+        }
+      }
+    },
+    "settings.help.capsuleSize" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ändert Innenabstand und Abstände der Label- und Tag-Kapseln\n\nDie Schriftgröße bleibt gleich\n\nMit Kompakt oder Minimal siehst du mehr Labels und Tags auf einmal\n\nWenn sie sich schwer antippen lassen, wechsle zurück zu Normal"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Changes the padding and spacing of label and tag capsules\n\nThe text size stays the same\n\nCompact or Smallest shows more labels and tags at once\n\nIf they feel hard to tap, switch back to Normal"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ラベルとタグのカプセルの余白と間隔を変えます\n\n文字サイズは変わりません\n\n狭めや最小にすると、一度に多くのラベルやタグを表示できます\n\n押しにくく感じたら、ふつうに戻してください"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "라벨과 태그 캡슐의 여백과 간격을 바꿉니다\n\n글자 크기는 바뀌지 않습니다\n\n작게나 최소로 하면 한 번에 더 많은 라벨과 태그를 볼 수 있습니다\n\n누르기 어렵다면 보통으로 되돌려 주세요"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "變更名稱與標籤膠囊的留白與間距\n\n文字大小不會改變\n\n選擇較小或最小，可一次顯示更多名稱與標籤\n\n若覺得不好點按，請改回一般"
           }
         }
       }

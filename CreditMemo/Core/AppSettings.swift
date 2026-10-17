@@ -6,6 +6,8 @@ enum AppStorageKey {
     static let userLevel         = "setting.userLevel"
     static let appearanceMode    = "setting.appearanceMode"
     static let fontScale         = "setting.fontScale"
+    /// ラベルとタグの余白（ふつう／狭め／最小）
+    static let capsuleSize       = "setting.display.capsuleSize"
     static let tagSortMode       = "setting.tagSortMode"
     static let afterSaveAction   = "setting.afterSaveAction"
     /// テンキーの丸め方法。既定は四捨五入
@@ -200,6 +202,82 @@ enum UserLevel: String, CaseIterable, Identifiable {
 }
 
 /// 外観モード
+/// ラベルとタグのカプセルの大きさ。文字サイズは変えず、余白と間隔だけを詰める
+enum CapsuleSize: String, CaseIterable, Identifiable {
+    case normal  = "normal"   // ふつう：従来のサイズ
+    case compact = "compact"  // 狭め：上下の余白を詰める
+    case minimum = "minimum"  // 最小：さらに余白と間隔を詰める
+
+    var id: String { rawValue }
+
+    var localizedKey: String {
+        switch self {
+        case .normal:  "settings.capsuleSize.normal"
+        case .compact: "settings.capsuleSize.compact"
+        case .minimum: "settings.capsuleSize.minimum"
+        }
+    }
+
+    /// 設定画面の値。各画面はカプセルを描くたびにここから寸法を読む
+    static var current: CapsuleSize {
+        UserDefaults.standard.string(forKey: AppStorageKey.capsuleSize)
+            .flatMap(CapsuleSize.init(rawValue:)) ?? .normal
+    }
+
+    /// カプセル同士の間隔（縦横共通）
+    var spacing: CGFloat {
+        switch self {
+        case .normal:  8
+        case .compact: 6
+        case .minimum: 4
+        }
+    }
+
+    /// タグのカプセルの左右余白
+    var horizontalPadding: CGFloat {
+        switch self {
+        case .normal:  14
+        case .compact: 10
+        case .minimum: 8
+        }
+    }
+
+    /// カプセルの上下余白（ラベルも共通）
+    var verticalPadding: CGFloat {
+        switch self {
+        case .normal:  7
+        case .compact: 3
+        case .minimum: 1
+        }
+    }
+
+    /// タグの帯の上下余白
+    var areaVerticalPadding: CGFloat {
+        switch self {
+        case .normal:  12
+        case .compact: 8
+        case .minimum: 6
+        }
+    }
+
+    /// ラベル（看板形）の左右余白。尖りぶん文字が端に寄らないよう、タグより少し広い
+    var labelHorizontalPadding: CGFloat {
+        switch self {
+        case .normal:  14
+        case .compact: 12
+        case .minimum: 10
+        }
+    }
+
+    /// ラベル（看板形）の両端の尖りの深さ。低いカプセルでは浅くして形を保つ
+    var labelPointDepth: CGFloat {
+        switch self {
+        case .normal, .compact: 8
+        case .minimum:          6
+        }
+    }
+}
+
 enum AppearanceMode: String, CaseIterable, Identifiable {
     case automatic = "automatic"
     case light     = "light"
