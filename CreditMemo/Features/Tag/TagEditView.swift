@@ -248,7 +248,7 @@ struct TagEditView: View {
     }
 
     /// タグ source を target へ統合する（保存は呼び出し側）。
-    /// source が付いた決済は同じ位置で target に付け替え（既に target があれば重複させない）、
+    /// source が付いた決済は target に付け替え（既に target があれば重複させない）、
     /// 並び順の重み（件数・金額・最終利用日）を合算してから source を削除する。
     /// 決済の取得に失敗した時は何も変えずに投げる（空の一覧として続けると、付け替えずに source を消してしまう）
     static func merge(_ source: E5tag, into target: E5tag, context: ModelContext) throws {

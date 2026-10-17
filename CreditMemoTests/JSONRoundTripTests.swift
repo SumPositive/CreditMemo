@@ -97,6 +97,84 @@ struct JSONRoundTripTests {
         #expect(report.hasIssue == false)
     }
 
+    @Test("照合済み（未払と済みが混在）・照合済みで未払・作成済みの繰り返しを組み合わせても、そのまま復元する")
+    func reconciledAndRepeatStatesRoundTrip() async throws {
+        let sourceContext = try TestStore.makeContext()
+        let bank = TestFixtures.makeBank(name: "口座", in: sourceContext)
+        let card = TestFixtures.makeCard(name: "カード", bank: bank, in: sourceContext)
+        // 1つ目の引き落とし：一部だけ済みにしてから、未払と済みを合わせて照合する
+        let paidRecord = try TestFixtures.saveRecord(
+            amount: 1_000, label: "済み分", dateUse: TestStore.date(2026, 4, 5), card: card, in: sourceContext
+        )
+        let unpaidRecord = try TestFixtures.saveRecord(
+            amount: 500, label: "未払分", dateUse: TestStore.date(2026, 4, 6), card: card, in: sourceContext
+        )
+        let paidPart = try #require(paidRecord.e6parts.first)
+        let unpaidPart = try #require(unpaidRecord.e6parts.first)
+        let firstDue = try #require(paidPart.e2invoice?.date)
+        #expect(unpaidPart.e2invoice?.date == firstDue)
+        try RecordService.setPartPaid(paidPart, isPaid: true, context: sourceContext)
+        try RecordService.applyReconciliation(
+            moves: [],
+            currentParts: [paidPart, unpaidPart],
+            newRecordDrafts: [],
+            reconciledAmount: 1_500,
+            cardID: card.id,
+            dueDate: firstDue,
+            context: sourceContext
+        )
+        // 2つ目の引き落とし：照合済みにしたが未払のまま（照合では済みにしない）
+        let laterRecord = try TestFixtures.saveRecord(
+            amount: 700, label: "翌月分", dateUse: TestStore.date(2026, 5, 5), card: card, in: sourceContext
+        )
+        let laterPart = try #require(laterRecord.e6parts.first)
+        let secondDue = try #require(laterPart.e2invoice?.date)
+        #expect(secondDue != firstDue)
+        try RecordService.applyReconciliation(
+            moves: [],
+            currentParts: [laterPart],
+            newRecordDrafts: [],
+            reconciledAmount: 700,
+            cardID: card.id,
+            dueDate: secondDue,
+            context: sourceContext
+        )
+        // 次を作成済みの繰り返し
+        laterRecord.nRepeat = 1
+        laterRecord.isRepeatDone = true
+        // ISO 8601 で秒未満が落ちても完全一致で比べられるよう、更新日時を固定時刻へ揃える
+        for record in [paidRecord, unpaidRecord, laterRecord] {
+            record.dateUpdate = TestStore.date(2026, 5, 10)
+        }
+        RecordService.cleanupOrphanBilling(context: sourceContext)
+        try sourceContext.save()
+        #expect(RecordService.isReconciled(
+            RecordService.reconciliationInvoices(cardID: card.id, date: firstDue, context: sourceContext)
+        ))
+        #expect(laterPart.e2invoice?.isPaid == false)
+        let expected = try domainSnapshot(sourceContext)
+
+        let data = try await JSONExport.exportData(context: sourceContext, style: .compact)
+        let url = try writeTempJSON(data)
+        defer { try? FileManager.default.removeItem(at: url) }
+        let targetContext = try TestStore.makeContext()
+        _ = try await JSONImport.importData(from: url, context: targetContext)
+
+        let actual = try domainSnapshot(targetContext)
+        #expect(actual.records == expected.records)
+        #expect(actual.parts == expected.parts)
+        #expect(actual.invoices == expected.invoices)
+        #expect(actual.payments == expected.payments)
+        // 照合済みの判定も読み込み前と同じになる（未払と済みに分かれた請求の両方に請求合計が戻る）
+        #expect(RecordService.isReconciled(
+            RecordService.reconciliationInvoices(cardID: card.id, date: firstDue, context: targetContext)
+        ))
+        #expect(RecordService.isReconciled(
+            RecordService.reconciliationInvoices(cardID: card.id, date: secondDue, context: targetContext)
+        ))
+        #expect(RecordService.checkBillingIntegrity(context: targetContext).hasIssue == false)
+    }
+
     @Test("同じ JSON を 2 度取り込んでも重複しない（id 単位 upsert）")
     func reimportingSameJSONIsIdempotent() async throws {
         let sourceContext = try TestStore.makeContext()
@@ -256,6 +334,8 @@ struct JSONRoundTripTests {
         }
         // 支払済み処理後に設定し、繰り返し履歴の自動生成を避ける
         record.nRepeat = 3
+        // 次を作成済みの繰り返しも、作成済みのまま戻ること（戻らないと読み込み後に再作成される）
+        record.isRepeatDone = true
         record.dateUpdate = TestStore.date(2024, 3, 1)
         try sourceContext.save()
         let expected = try domainSnapshot(sourceContext)
@@ -890,13 +970,13 @@ struct JSONRoundTripTests {
             tags: tags.map { "\($0.id)|\($0.zName)|\($0.zNote)" }.sorted(),
             records: records.map {
                 let tagIDs = $0.e5tags.map(\.id).sorted().joined(separator: ",")
-                return "\($0.id)|\($0.dateUse.timeIntervalSince1970)|\($0.dateUpdate?.timeIntervalSince1970 ?? 0)|\($0.zName)|\($0.zNote)|\($0.nAmount)|\($0.nPayType)|\($0.nRepeat)|\($0.e1card?.id ?? "")|\(tagIDs)"
+                return "\($0.id)|\($0.dateUse.timeIntervalSince1970)|\($0.dateUpdate?.timeIntervalSince1970 ?? 0)|\($0.zName)|\($0.zNote)|\($0.nAmount)|\($0.nPayType)|\($0.nRepeat)|\($0.isRepeatDone)|\($0.e1card?.id ?? "")|\(tagIDs)"
             }.sorted(),
             parts: parts.map {
-                "\($0.e3record?.id ?? "")|\($0.nPartNo)|\($0.nAmount)|\($0.nInterest)|\($0.nNoCheck)|\($0.e2invoice?.date.timeIntervalSince1970 ?? 0)|\($0.isDueDateLocked)"
+                "\($0.e3record?.id ?? "")|\($0.nPartNo)|\($0.nAmount)|\($0.nInterest)|\($0.nNoCheck)|\($0.e2invoice?.date.timeIntervalSince1970 ?? 0)|\($0.e2invoice?.isPaid ?? false)|\($0.isDueDateLocked)"
             }.sorted(),
             invoices: invoices.map {
-                "\($0.e1card?.id ?? "")|\($0.date.timeIntervalSince1970)|\($0.isPaid)|\($0.sumAmount)|\($0.sumNoCheck)"
+                "\($0.e1card?.id ?? "")|\($0.date.timeIntervalSince1970)|\($0.isPaid)|\($0.sumAmount)|\($0.sumNoCheck)|\($0.reconciledAmount.map { "\($0)" } ?? "-")"
             }.sorted(),
             payments: payments.map {
                 "\($0.e8bank?.id ?? "")|\($0.date.timeIntervalSince1970)|\($0.isPaid)|\($0.sumAmount)|\($0.sumNoCheck)"

@@ -674,8 +674,8 @@ struct RobustnessTests {
         try TagEditView.merge(source, into: target, context: context)
         try context.save()
 
-        // 元の位置で付け替え、既に付いていれば重複させない
-        #expect(onlySource.e5tags.map(\.id) == [other.id, target.id])
+        // 付け替え、既に付いていれば重複させない（SwiftData の対多関係は並び順を保たないので集合で比べる）
+        #expect(Set(onlySource.e5tags.map(\.id)) == [other.id, target.id])
         #expect(both.e5tags.map(\.id) == [target.id])
         #expect(target.sortCount == countBefore + sourceCount)
         #expect(target.sortAmount == amountBefore + sourceAmount)
@@ -782,7 +782,7 @@ struct RepeatGenerationTests {
         #expect(try RecordService.generateDueRepeatRecords(now: TestStore.date(2026, 8, 20), context: context) == 0)
         let all = try records(named: "サブスク", in: context)
         #expect(all.count == 6)
-        #expect(all.dropLast().allSatisfy(\.isRepeatDone))
+        #expect(all.dropLast().allSatisfy { $0.isRepeatDone })
         #expect(all.last?.isRepeatDone == false)
     }
 
@@ -892,11 +892,20 @@ struct RecordLockTests {
         #expect(parts[0].isChecked == false)
         #expect(parts[1].isChecked)
         #expect(parts[1].isDueDateLocked)
-        #expect(card.sumNoCheck == 1)
+        // card.sumNoCheck は逆参照（card.e2paids/e2unpaids）から集計するため、インメモリストアでは同期されない
+        // （DataIntegrityTests と同じ既知の制約）。請求を fetch して未確認の明細数で確かめる
+        #expect(try uncheckedPartCount(cardID: card.id, in: context) == 1)
         #expect(context.hasChanges == false)
 
         try RecordService.setUnpaidPartsChecked(of: record, isChecked: false, context: context)
         #expect(parts[1].isChecked == false)
-        #expect(card.sumNoCheck == 2)
+        #expect(try uncheckedPartCount(cardID: card.id, in: context) == 2)
+    }
+
+    /// 決済手段の請求を fetch して、未確認（未ロック）の明細数を数える
+    private func uncheckedPartCount(cardID: String, in context: ModelContext) throws -> Int {
+        try context.fetch(FetchDescriptor<E2invoice>())
+            .filter { $0.e1card?.id == cardID }
+            .reduce(0) { $0 + Int($1.sumNoCheck) }
     }
 }

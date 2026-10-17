@@ -1686,12 +1686,15 @@ enum RecordService {
             }) {
                 return ex
             }
-            let inv = E2invoice(date: day)
-            setInvoiceCard(inv, card: card, isPaid: fallbackInvoicePaid ?? fallbackPaymentPaid ?? false)
-            // 明細を済みへ移すなどで同じ日の請求が分かれても、照合済みの請求合計を引き継ぐ
-            inv.reconciledAmount = reconciledAmount(
+            // 明細を済みへ移すなどで同じ日の請求が分かれても、照合済みの請求合計を引き継ぐ。
+            // fetch は新しい請求を作る前に済ませる（未登録の請求に決済手段を結んだ後で fetch すると、
+            // 決済手段側の請求一覧が崩れて集計がずれる）
+            let siblingReconciledAmount = reconciledAmount(
                 in: reconciliationInvoices(cardID: card.id, date: day, context: context)
             )
+            let inv = E2invoice(date: day)
+            setInvoiceCard(inv, card: card, isPaid: fallbackInvoicePaid ?? fallbackPaymentPaid ?? false)
+            inv.reconciledAmount = siblingReconciledAmount
             context.insert(inv)
             return inv
         }
