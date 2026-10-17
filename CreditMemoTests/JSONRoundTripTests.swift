@@ -493,6 +493,46 @@ struct JSONRoundTripTests {
         #expect(context.autosaveEnabled == autosaveBefore)
     }
 
+    // 照合済みの請求合計が数値でなければ、照合状態だけ捨てず取り込み全体を失敗させる
+    @Test func invalidReconciledAmountRollsBackEntireImport() async throws {
+        let context = try TestStore.makeContext()
+        let before = try databaseSnapshot(context)
+
+        let json = """
+        {
+          "banks": [
+            {"id":"bank-new","name":"新規口座","note":"","row":0}
+          ],
+          "cards": [
+            {
+              "id":"card-new","name":"新規カード","note":"","row":0,
+              "closingDay":20,"payDay":27,"payMonth":1,
+              "bonus1":0,"bonus2":0,"bankID":"bank-new"
+            }
+          ],
+          "records": [
+            {
+              "id":"record-valid","dateUse":"2026-04-01T00:00:00Z",
+              "name":"正常","note":"","amount":"1000","payType":1,
+              "repeatMonths":0,"cardID":"card-new","tagIDs":[]
+            }
+          ],
+          "invoices": [
+            {
+              "id":"invoice-1","date":"2026-05-27T00:00:00Z","isPaid":false,
+              "cardID":"card-new","reconciledAmount":"invalid"
+            }
+          ]
+        }
+        """
+        let url = try writeTempJSON(Data(json.utf8))
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        await expectImportFailure(from: url, context: context)
+
+        #expect(try databaseSnapshot(context) == before)
+    }
+
     // 初期プリセットを削除した後に失敗しても、削除を含む変更を巻き戻す
     @Test func failedFullRestoreKeepsInitialSeedData() async throws {
         let context = try TestStore.makeContext()
