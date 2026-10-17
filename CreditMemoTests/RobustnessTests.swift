@@ -800,13 +800,13 @@ struct RepeatGenerationTests {
         #expect(try records(named: "サブスク", in: context).count == 1)
     }
 
-    @Test("指定月に同じラベルの明細が既にあれば作らず、作成済みにする")
+    @Test("指定月に同じラベル・金額・タグの明細が既にあれば作らず、作成済みにする")
     func skipsWhenSameLabelExistsInTargetMonth() throws {
         let context = try TestStore.makeContext()
         let card = TestFixtures.makeCard(name: "カード", in: context)
         let source = try insertRepeat(dateUse: TestStore.date(2026, 5, 15), card: card, in: context)
-        // 旧方式で作られた、または手入力された翌月分
-        let existing = E3record(dateUse: TestStore.date(2026, 6, 10), zName: "サブスク", nAmount: 1_200, nRepeat: 0)
+        // 旧方式で作られた、または手入力された翌月分（繰り返し元と同じ金額・タグ）
+        let existing = E3record(dateUse: TestStore.date(2026, 6, 10), zName: "サブスク", nAmount: 980, nRepeat: 0)
         existing.e1card = card
         context.insert(existing)
         // 同じカードの別ラベルは妨げにならない
@@ -815,6 +815,23 @@ struct RepeatGenerationTests {
         #expect(try RecordService.generateDueRepeatRecords(now: TestStore.date(2026, 5, 20), context: context) == 0)
         #expect(source.isRepeatDone)
         #expect(try records(named: "サブスク", in: context).count == 2)
+    }
+
+    @Test("同じ決済手段・ラベルでも金額やタグが違う繰り返しは、それぞれ次を作る")
+    func independentRepeatsWithSameLabelBothCreateNext() throws {
+        let context = try TestStore.makeContext()
+        let card = TestFixtures.makeCard(name: "カード", in: context)
+        let tag = TestFixtures.makeTag(name: "家族", in: context)
+        let first = try insertRepeat(dateUse: TestStore.date(2026, 9, 18), card: card, in: context)
+        let second = try insertRepeat(dateUse: TestStore.date(2026, 9, 20), card: card, in: context)
+        second.nAmount = 1_480
+        let third = try insertRepeat(dateUse: TestStore.date(2026, 9, 22), card: card, in: context)
+        third.e5tags = [tag]
+        try context.save()
+
+        #expect(try RecordService.generateDueRepeatRecords(now: TestStore.date(2026, 10, 15), context: context) == 3)
+        #expect(try records(named: "サブスク", in: context).count == 6)
+        #expect(first.isRepeatDone && second.isRepeatDone && third.isRepeatDone)
     }
 
     @Test("同じ月に重複した繰り返し元が複数あっても、次は1件だけ作る")

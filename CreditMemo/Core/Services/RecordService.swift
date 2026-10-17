@@ -1275,17 +1275,33 @@ enum RecordService {
             byAdding: .month, value: Int(source.nRepeat), to: source.dateUse
         ) else { return nil }
 
-        // 同じ処理内で、同じ決済手段・ラベル・月の分を既に作っていれば作らない
+        // 同じ決済手段・ラベルでも金額やタグが違えば別の定期決済とみなす。
+        // （ラベルだけで判定すると、独立した2件の定期決済の片方が作られず、作成済み扱いで欠けてしまう）
+        let sourceTagIDs = Set(source.e5tags.map(\.id))
+        // 同じ処理内で、同じ決済手段・ラベル・金額・タグ・月の分を既に作っていれば作らない
         let month = calendar.dateComponents([.year, .month], from: nextDate)
-        let key = "\(source.e1card?.id ?? "")|\(source.zName)|\(month.year ?? 0)-\(month.month ?? 0)"
+        let tagKey = sourceTagIDs.sorted().joined(separator: ",")
+        let key = "\(source.e1card?.id ?? "")|\(source.zName)|\(source.nAmount)|\(tagKey)|\(month.year ?? 0)-\(month.month ?? 0)"
         guard !createdKeys.contains(key) else { return nil }
 
-        // 同じ決済手段・同じラベルの明細が指定月に既にあれば作らない（旧方式で作成済み・手入力済み）
-        let existsNext = source.e1card?.e3records.contains(where: {
-            $0.id != source.id &&
+        // 同じ決済手段・ラベル・金額・タグの明細が指定月に既にあれば作らない（旧方式で作成済み・手入力済み）。
+        // 決済手段側の逆参照（card.e3records）は SwiftData の同期が遅れて取りこぼすことがあるので、
+        // 指定月の決済を利用日で明示 fetch してから決済手段で絞る
+        guard let monthStart = calendar.dateInterval(of: .month, for: nextDate)?.start,
+              let monthEnd = calendar.date(byAdding: .month, value: 1, to: monthStart) else { return nil }
+        let sourceID = source.id
+        let monthDescriptor = FetchDescriptor<E3record>(
+            predicate: #Predicate<E3record> {
+                monthStart <= $0.dateUse && $0.dateUse < monthEnd && $0.id != sourceID
+            }
+        )
+        let sourceCardID = source.e1card?.id
+        let existsNext = context.fetchReporting(monthDescriptor, entity: "E3record").contains {
+            $0.e1card?.id == sourceCardID &&
             $0.zName == source.zName &&
-            calendar.isDate($0.dateUse, equalTo: nextDate, toGranularity: .month)
-        }) ?? false
+            $0.nAmount == source.nAmount &&
+            Set($0.e5tags.map(\.id)) == sourceTagIDs
+        }
         if existsNext {
             return nil
         }
