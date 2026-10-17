@@ -34,20 +34,52 @@
 
 ![Platform](https://img.shields.io/badge/platform-iOS%2018%2B-blue)
 ![Swift](https://img.shields.io/badge/Swift-6-orange)
-![Version](https://img.shields.io/badge/version-2.7.1-brightgreen)
+![Version](https://img.shields.io/badge/version-2.8.0-brightgreen)
 [![App Store](https://img.shields.io/badge/App%20Store-Download-blue)](https://apps.apple.com/us/app/id432458298)
 
-## バージョン 2.8.0（準備中）の主な変更
+## バージョン 2.9.0（準備中）の主な変更
+
+- **繰り返しを「利用日を過ぎたら次を作成」に変更**（`RecordService.generateDueRepeatRecords`）
+  - 済みにするまで次回の予定が見えなかったため。起動・復帰時に、利用日を過ぎた（日付が変わった）未作成の繰り返しから次の明細を作り、`E3record.isRepeatDone` で二度作らない。1件から続けて作るのは最大3回（`repeatMaxPasses`）
+  - 対象は利用日 2026/4/1 以降（`repeatStartDate`。過去の放置データで大量に作らないため）。旧方式（済みにした時に作成）からの切替時は、済みを含む繰り返しを作成済みとみなす（`markLegacyPaidRepeatsDoneIfNeeded`、1回だけ）
+  - 同じ繰り返しかは「決済手段・ラベル・金額・タグ・月」で判定（重複した繰り返し元・旧方式で作成済み・手入力済みの翌月分を作らないため）。ラベルだけだと独立した2件の定期決済の片方が欠けた。翌月分の有無は決済手段の逆参照ではなく、指定月の決済を利用日で fetch して確認する
+- **明細コピーを改善**（`RecordListView` / `InvoiceListView`）
+  - 引き落とし明細でもスワイプでコピー仮明細を作れる。コピーを保存すると並び直しで見失わないよう、保存した明細を中央へ頭出しして細い青枠で示す（次の読み直しで外す）
+- **よくある決済パネルを共通化**（`RecordEditView`）
+  - 決済編集・照合モードの「足りない明細を追加する」でも使えるようにした。ラベルの「探して無ければ追加」、初期インストール時のラベルプリセット、呼び出し元（決済手段・口座）に合わせたラベルの絞り込み
+  - 金額パネルの上に「よくある決済を使ってみる」ボタン。金額テンキーシートは外部タップで閉じる
+  - ラベルは両端を外向きに尖らせた看板形（`LabelSignShape`）でタグのカプセルと区別。同じ形を決済一覧の絞り込みの「ラベル」アイコン（`LabelSignIcon`）にも使う
+  - 決済編集のタグ行は、選択中のタグを選択色の小さなカプセル（`SelectedTagChips`）で並べる
+- **決済一覧**（`RecordListView`）
+  - ラベルでも絞り込める（タグと同じシート方式）
+  - 未払の明細はロックの表示と切り替えができる（`RecordService.setUnpaidPartsChecked`）。未払かつ非ロックなら、スワイプメニューのコピーの右に削除
+- **照合モードの整理**（`InvoiceListView`）
+  - 照合は「決済手段×引き落とし日」単位。引き落とし状況で未払の行と済みの行に分かれていても、今回分・明細合計・照合済み/照合中の判定は両方の明細を合わせて扱う（`RecordService.reconciliationInvoices`。逆参照 `card.e2invoices` は同期が遅れるので日付で fetch）。済みの明細は仮移動の対象外で「済み」表示、確定時に未払へ戻さない
+  - 照合の確定は明細のロックだけで、引き落とし済みにはしない（済みは引き落とし状況などの別操作）。請求合計が未入力でも今回分が全部ロック済みなら「照合済みにする」を出し、明細合計を請求合計として確定する
+  - 「照合済み」は、差額0で確定した時の請求合計（`E2invoice.reconciledAmount`）があり、未払/済みを合わせた明細合計と一致し、全明細がロック済みの時だけ表示する（`RecordService.isReconciled`）。以前は全明細ロック済みだけで照合済みになり、ロックしただけ・途中保存しただけでも照合済みと出ていた。照合中（途中保存）は照合済みより優先
+  - `reconciledAmount` は同じ決済手段・同じ引き落とし日の請求（未払/済み）すべてに同じ値を持たせる。請求の新規作成（済みへの分割）・統合では兄弟から引き継ぎ、明細が無くなり請求が消えれば一緒に消える。途中保存で取り消す。JSON エクスポート/インポートで引き継ぐ（旧JSONは nil）
+  - 照合済みの請求合計だけ SwiftData に持つ。照合中の値は従来どおり UserDefaults（`ReconciliationProgressStore`）、入力中の値はメモリ（`ConfirmedDebitAmountSessionStore`）
+  - 「このまま保存する」を「照合中にする」に改名し、差額の案内文に「照合中にしてあとで続けられる」を追加。明細にロック状態を表示
+- **タグ**（`TagEditView` / `RecordEditView`）
+  - 編集で同名タグがあるとき「既にあるタグに統合する」。決済の付け替え（同じ位置・重複除去）、並び順の重みの合算、元タグの削除。決済の取得に失敗したら統合を中止し、保存失敗は `rollback()`
+  - 決済編集のタグシートは、選択を変えたら外側タップ・下スワイプで閉じない（背面の「保存」付近をタップして選択を捨てる誤操作対策）。背景を背面より一段明るく（`TagSelectionList.raisedBackground`）
+  - タグ編集の「決済一覧」ボタンは達人モードでも文字付き
+- **設定：ラベルとタグの余白**（`CapsuleSize`、`AppStorageKey.capsuleSize`）
+  - ふつう（従来）／狭め／最小。文字サイズは変えず、カプセルの上下左右の余白と間隔だけ変える。タグ（`TagCapsuleBand`）・ラベル（`LabelSignShape`）とタグ選択シートの高さ計算がこの値を読む
+- **未払/済みアイコンを変更**（`PaymentStatusSymbol`）
+  - 未払 `diamond`、済み `checkmark.diamond.fill`
+- **アプリアイコンの背景をカルメモと共通に**
+  - 2.4.1 で削除していた SVG 元データを `Scripts/AppIcons/` に復元し、背景をカルメモと同じ小豆色の斜めグラデーションに変更。`python3 Scripts/build_app_icons.py` で12種の appiconset を書き出す
+- **プルダウン（`AZDropdownPicker`）のデザインを変更**、タグの詰め込み幅を修正
+
+## バージョン 2.8.0 の主な変更
 
 - **引き落とし明細に照合モードを新設**（`InvoiceListView`）
   - 決済手段1つに絞った引き落とし明細で利用できる。請求合計を入力すると「明細合計 − 請求合計」の差額と移動候補を表示
   - 「次回へ」「今回へ」で明細の引き落とし日を仮移動し、確定時にまとめて保存（`RecordService.applyReconciliation`）。差額0で「照合済みにする」と今回分の明細を確認済み（ロック）にする
   - 差額が不足のときは「足りない明細を追加する」で差額分の仮明細を追加（`ReconciliationNewRecordDraft`）。編集シートは新しい決済と同じ並びで、決済手段で絞ったラベル一覧（照合中の手段を優先、他の手段は後ろにグレー表示・金額付きカプセルあり）、利用日カレンダー、タグ、メモを入力できる。手段は照合中のものに固定
-  - 差額が残ったまま「照合中にする」（旧「このまま保存する」）で途中保存でき、引き落とし状況に「照合中」と表示（`RecordService.saveReconciliationProgress`）
-  - 照合は「決済手段×引き落とし日」単位。引き落とし状況で未払の行と済みの行に分かれていても、照合モードの今回分・明細合計・照合済み/照合中の判定は両方の明細を合わせて扱う（`RecordService.reconciliationInvoices`）。済みの明細は仮移動の対象外で、確定時に未払へ戻さない。照合の確定は明細のロックだけで、引き落とし済みにはしない（済みは引き落とし状況などの別操作）。請求合計が未入力でも今回分が全部ロック済みなら「照合済みにする」を出し、明細合計を請求合計として確定する
-  - 「照合済み」は、差額0で確定した時の請求合計（`E2invoice.reconciledAmount`）があり、未払/済みを合わせた明細合計と一致し、全明細がロック済みの時だけ表示する（`RecordService.isReconciled`）。明細をロックしただけ・途中保存しただけでは照合済みにしない
-  - `reconciledAmount` は同じ決済手段・同じ引き落とし日の請求（未払/済み）すべてに同じ値を持たせる。請求の新規作成（済みへの分割）・統合では兄弟から引き継ぎ、明細が無くなり請求が消えれば一緒に消える。JSON エクスポート/インポートで引き継ぐ（旧JSONは nil）
-  - 照合済みの請求合計だけ SwiftData（`E2invoice.reconciledAmount`）に持つ。照合中の値は UserDefaults（`ReconciliationProgressStore`、決済手段ID×引き落とし日）、入力中の値はメモリ（`ConfirmedDebitAmountSessionStore`）。照合中の値は、請求（未払・済みを問わない）が無くなったものを引き落とし状況の表示時に掃除し（`RecordService.pruneReconciliationProgress`）、JSON インポート後は全消去する。済みにしたときと照合確定時にも消す
+  - 差額が残ったまま「このまま保存する」で途中保存でき、引き落とし状況に「照合中」と表示（`RecordService.saveReconciliationProgress`）
+  - 請求合計は SwiftData に持たない。照合中の値は UserDefaults（`ReconciliationProgressStore`、決済手段ID×引き落とし日）、照合済み・入力中の値はメモリ（`ConfirmedDebitAmountSessionStore`）。照合中の値は、請求（未払・済みを問わない）が無くなったものを引き落とし状況の表示時に掃除し（`RecordService.pruneReconciliationProgress`）、JSON インポート後は全消去する。済みにしたときと照合確定時にも消す
   - 照合の確定・途中保存に失敗したときは `context.rollback()` で変更前へ戻す。差額候補の探索が明細数に対して指数的に増えないよう抑えた。照合から追加した明細もタグ利用統計へ反映する
 - **端末の暦設定（和暦）と週の始まりに対応**（`AppCalendar`）
   - 保存・集計・日付表示・カレンダーを西暦の `AppCalendar.gregorian` に統一（`Calendar.current` を使わない。DESIGN.md 参照）。週の始まりの曜日だけ端末設定を反映

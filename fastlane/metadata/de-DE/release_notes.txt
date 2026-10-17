@@ -1,8 +1,13 @@
-Neu in 2.8.0
-- Neuer Abgleichmodus für die Abbuchungsprüfung. Gleiche die Abrechnung deines Kartenanbieters mit deinen Einträgen in Deferin ab und behalte dabei die Differenz im Blick
-- In der Tag-Liste kannst du einen gesuchten Tag sofort hinzufügen, wenn es ihn noch nicht gibt
-- Die Tag-Liste wurde überarbeitet und sieht jetzt wie echte Tags aus – übersichtlicher als zuvor
-- Beim Abbrechen während der Eingabe erscheint jetzt eine Bestätigung, damit keine Eingaben versehentlich verloren gehen
-- Die Hilfetexte wurden leichter lesbar gestaltet
-- Systemeinstellungen: Fehler behoben, durch den Datumsangaben beim japanischen Kalender nicht korrekt angezeigt wurden
-- Systemeinstellungen: Der Kalender berücksichtigt jetzt die Einstellung „Erster Wochentag“
+Neu in 2.9.0
+- Wiederholungen sind einfacher: Sobald das Nutzungsdatum vorbei ist, erscheint der nächste Eintrag
+- Einträge lassen sich einfacher kopieren
+- Häufige Zahlungen und Bezeichnungen sind übersichtlicher und auf allen Bildschirmen nutzbar, auf denen du eine Bezeichnung eingibst
+- Zahlungsliste: Du kannst jetzt auch nach Bezeichnung filtern
+- Zahlungsliste: Bei offenen Einträgen kannst du die Sperre jetzt sehen und umschalten
+- Abgleichmodus: Der Sperrstatus jedes Postens wird jetzt angezeigt
+- Abgleichmodus: Offene und bezahlte Posten mit demselben Abbuchungstermin lassen sich jetzt gemeinsam abgleichen
+- Abgleichmodus: „Als abgeglichen markieren“ markiert Posten nicht mehr als bezahlt
+- Tags: Gibt es bereits einen Tag mit gleichem Namen, kannst du beide im Bearbeitungsbildschirm zusammenführen
+- Einstellungen: „Abstände von Labels & Tags“ hinzugefügt. Mit engeren Abständen siehst du mehr auf einmal
+- Neue Symbole für offen und bezahlt
+- Fehler behoben, durch den trotz Differenz „Abgeglichen“ angezeigt wurde. „Abgeglichen“ erscheint jetzt nur, wenn du im Abgleichmodus mit einer Differenz von 0 bestätigst

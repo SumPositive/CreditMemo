@@ -1,8 +1,13 @@
-What's New in 2.8.0
-- Added Reconcile mode for checking debits. Match your card company's statement against your Deferin records while watching the difference
-- In the tag list, you can now add a tag right away if the one you're looking for doesn't exist
-- Redesigned the tag list to look more like tags and be easier to scan
-- Canceling while entering data now asks for confirmation, so you won't lose your input by accident
-- Made the help text easier to read
-- System settings: Fixed dates not displaying correctly when the Japanese calendar is selected
-- System settings: The calendar now follows your "First Day of Week" setting
+What's New in 2.9.0
+- Repeat is easier to use. Once the use date has passed, the next record appears
+- Copying records is easier
+- Frequent payments and labels are easier to see and use, and are now available on every screen where you enter a label
+- Payment list: You can now filter by label
+- Payment list: For unpaid records, you can now see and toggle the lock
+- Reconcile mode: The lock state of each item is now shown
+- Reconcile mode: Unpaid and paid items with the same debit date can now be reconciled together
+- Reconcile mode: Marking as reconciled no longer marks items as paid
+- Tags: When a tag with the same name already exists, you can merge them from the edit screen
+- Settings: Added "Label & Tag Spacing". Tighter spacing shows more at once
+- New icons for unpaid and paid
+- Fixed items being marked as reconciled while a difference remained. "Matched" now appears only after you confirm with a difference of zero in Reconcile mode
