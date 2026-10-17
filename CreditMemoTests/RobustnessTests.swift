@@ -671,7 +671,7 @@ struct RobustnessTests {
         let sourceCount = source.sortCount
         let sourceAmount = source.sortAmount
 
-        TagEditView.merge(source, into: target, context: context)
+        try TagEditView.merge(source, into: target, context: context)
         try context.save()
 
         // 元の位置で付け替え、既に付いていれば重複させない

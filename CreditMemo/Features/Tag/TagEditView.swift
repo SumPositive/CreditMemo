@@ -228,19 +228,34 @@ struct TagEditView: View {
     private func mergeIntoDuplicateTag() {
         guard let tag, let target = duplicateTag else { return }
         isSaving = true
-        Self.merge(tag, into: target, context: context)
-        context.saveReporting(operation: "TagEditView.mergeTag")
+        do {
+            try Self.merge(tag, into: target, context: context)
+        } catch {
+            // 決済の取得に失敗したら付け替えも削除もしていないので、画面に留まってやり直せるようにする
+            AppTelemetry.reportSwiftDataError(error, operation: "TagEditView.mergeTag", entity: "E3record")
+            isSaving = false
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
+            return
+        }
+        guard context.saveReporting(operation: "TagEditView.mergeTag") else {
+            // 保存に失敗した付け替え・削除を残すと後続の自動保存で確定するので、変更前へ戻す
+            context.rollback()
+            isSaving = false
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
+            return
+        }
         dismiss()
     }
 
     /// タグ source を target へ統合する（保存は呼び出し側）。
     /// source が付いた決済は同じ位置で target に付け替え（既に target があれば重複させない）、
-    /// 並び順の重み（件数・金額・最終利用日）を合算してから source を削除する
-    static func merge(_ source: E5tag, into target: E5tag, context: ModelContext) {
+    /// 並び順の重み（件数・金額・最終利用日）を合算してから source を削除する。
+    /// 決済の取得に失敗した時は何も変えずに投げる（空の一覧として続けると、付け替えずに source を消してしまう）
+    static func merge(_ source: E5tag, into target: E5tag, context: ModelContext) throws {
         guard source.id != target.id else { return }
         let sourceID = source.id
         // 逆参照（source.e3records）は同期が遅れることがあるので、決済を明示 fetch して付け替える
-        let records = context.fetchReporting(FetchDescriptor<E3record>(), entity: "E3record")
+        let records = try context.fetch(FetchDescriptor<E3record>())
         for record in records where record.e5tags.contains(where: { $0.id == sourceID }) {
             var tags: [E5tag] = []
             for item in record.e5tags {
