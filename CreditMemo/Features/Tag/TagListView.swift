@@ -443,6 +443,19 @@ struct TagSelectionList: View {
     @Binding private var isSortExpanded: Bool
     /// 複数タグの一致条件（OR／AND）。単一選択のシートでは nil にして行ごと隠す
     private var matchModeRaw: Binding<Int>?
+    /// 編集シートの上に重ねて開く時は true。背面より少し明るい背景にしてシートの境をはっきりさせる
+    private let isRaised: Bool
+
+    /// 重ねたシート用の背景。背面（グループ背景）より一段明るくする
+    static let raisedBackground = Color(uiColor: UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? UIColor(red: 0x2C / 255, green: 0x2C / 255, blue: 0x2E / 255, alpha: 1)
+            : .white
+    })
+
+    private var listBackground: Color {
+        isRaised ? Self.raisedBackground : Color(uiColor: .systemGroupedBackground)
+    }
 
     init(
         tags: [E5tag],
@@ -455,6 +468,7 @@ struct TagSelectionList: View {
         onSelectAll: @escaping () -> Void = {},
         findOrAddName: Binding<String>? = nil,
         onFindOrAdd: (() -> Void)? = nil,
+        isRaised: Bool = false,
         onSelectTag: @escaping (E5tag) -> Void
     ) {
         self.tags = tags
@@ -465,6 +479,7 @@ struct TagSelectionList: View {
         self.onSelectAll = onSelectAll
         self.findOrAddName = findOrAddName
         self.onFindOrAdd = onFindOrAdd
+        self.isRaised = isRaised
         self.onSelectTag = onSelectTag
         _sortModeRaw = sortModeRaw
         _isSortExpanded = isSortExpanded
@@ -480,12 +495,13 @@ struct TagSelectionList: View {
         .scrollIndicators(.hidden)
         // 検索後にタグを見比べるためスクロールしたらキーボードを閉じる
         .scrollDismissesKeyboard(.immediately)
-        .background(Color(uiColor: .systemGroupedBackground))
+        .background(listBackground)
         .safeAreaInset(edge: .top, spacing: 0) {
-            // 検索兼追加欄・一致条件・ソート領域は一覧外側と同じ薄いグレーで固定する
+            // 検索兼追加欄・一致条件・ソート領域は一覧外側と同じ背景で固定する
             VStack(spacing: 8) {
                 if let findOrAddName, let onFindOrAdd {
-                    TagFindOrAddSection(name: findOrAddName, onCommit: onFindOrAdd)
+                    // 明るい背景では入力欄が背景に溶けるので、控えめな塗りと枠を付ける
+                    TagFindOrAddSection(name: findOrAddName, isInsideRow: isRaised, onCommit: onFindOrAdd)
                 }
                 if let matchModeRaw {
                     TagMatchModePicker(matchModeRaw: matchModeRaw)
@@ -497,7 +513,7 @@ struct TagSelectionList: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
-            .background(Color(uiColor: .systemGroupedBackground))
+            .background(listBackground)
         }
     }
 

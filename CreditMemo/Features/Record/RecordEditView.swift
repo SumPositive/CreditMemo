@@ -3636,6 +3636,8 @@ struct CategoryMultiPickerSheet: View {
 
     private var sortMode: SortMode { SortMode(rawValue: sortModeRaw) ?? .defaultForTags }
     private var selectedIDs: Set<String> { Set(draftSelection.map(\.id)) }
+    /// 決定前の選択変更があるか（呼び出し元の選択と比べる）
+    private var hasDraftChanges: Bool { selectedIDs != Set(selectedCategories.map(\.id)) }
 
     /// 少ない行は内容に合わせ、多い行は最初から最大まで開く
     private var tagPickerDetents: Set<PresentationDetent> {
@@ -3655,6 +3657,7 @@ struct CategoryMultiPickerSheet: View {
                 isSortExpanded: $showSortDropdown,
                 findOrAddName: $newTagName,
                 onFindOrAdd: findOrAddTag,
+                isRaised: true,
                 onSelectTag: toggleItem
             )
             // 決済一覧のタグシートと同じ一覧背景とタイトル表示を使う
@@ -3673,7 +3676,12 @@ struct CategoryMultiPickerSheet: View {
             }
         }
         .presentationDetents(tagPickerDetents)
-        .presentationBackground(Color(uiColor: .systemBackground))
+        // 背面の編集シートより少し明るくして、どこからがタグシートか分かるようにする
+        .presentationBackground(TagSelectionList.raisedBackground)
+        // シートの境がわかりにくく、背面の「保存」付近をタップして選択を捨てて閉じる誤操作があったため、
+        // 選択を変えた後は外側タップ・下スワイプで閉じず、決定かキャンセルを押させる
+        .interactiveDismissDisabled(hasDraftChanges)
+        .presentationDragIndicator(.visible)
         .onAppear {
             draftSelection = selectedCategories
             // 表示時だけ、すでに選ばれているタグを先頭へ寄せる。
