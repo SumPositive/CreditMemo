@@ -5022,31 +5022,31 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Die Postensumme ist zu hoch. Verschiebe Posten zur nächsten Abrechnung oder korrigiere Beträge, um die Differenz auszugleichen."
+            "value" : "Die Postensumme ist zu hoch. Verschiebe Posten zur nächsten Abrechnung oder korrigiere Beträge, um die Differenz auszugleichen. Du kannst den Abgleich auch mit Differenz als „Abgleich läuft“ markieren und später fortsetzen."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The item total is over. Move items to the next bill or correct their amounts to reconcile it."
+            "value" : "The item total is over. Move items to the next bill or correct their amounts to reconcile it. You can also mark it as reconciling with the difference left and continue later."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "明細がオーバーしています。次回へ移動する、金額を修正する、などで調整してください"
+            "value" : "明細がオーバーしています。次回へ移動する、金額を修正する、などで調整してください。差額を残したまま照合中にして、あとで続けることもできます"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "내역 합계가 초과되었습니다. 다음 회차로 이동하거나 금액을 수정하여 조정해 주세요."
+            "value" : "내역 합계가 초과되었습니다. 다음 회차로 이동하거나 금액을 수정하여 조정해 주세요. 차액이 남은 채로 대조 중으로 표시하고 나중에 계속할 수도 있습니다."
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "明細金額超出。請將明細移至下次，或修改金額來調整。"
+            "value" : "明細金額超出。請將明細移至下次，或修改金額來調整。也可以保留差額標記為核對中，稍後再繼續。"
           }
         }
       }
@@ -5057,31 +5057,31 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "In der Postensumme fehlt ein Betrag. Verschiebe Posten aus einer späteren Abrechnung in diese Abrechnung, korrigiere Beträge oder füge einen Posten hinzu."
+            "value" : "In der Postensumme fehlt ein Betrag. Verschiebe Posten aus einer späteren Abrechnung in diese Abrechnung, korrigiere Beträge oder füge einen Posten hinzu. Du kannst den Abgleich auch mit Differenz als „Abgleich läuft“ markieren und später fortsetzen."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The item total is short. Move an item from a future bill to the current bill, correct an amount, or add a missing item."
+            "value" : "The item total is short. Move an item from a future bill to the current bill, correct an amount, or add a missing item. You can also mark it as reconciling with the difference left and continue later."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "明細が不足しています。次回以降の明細を今回へ移動する、金額を修正する、明細を追加する、などで調整してください"
+            "value" : "明細が不足しています。次回以降の明細を今回へ移動する、金額を修正する、明細を追加する、などで調整してください。差額を残したまま照合中にして、あとで続けることもできます"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "내역 합계가 부족합니다. 다음 회차 이후의 내역을 이번 회차로 이동하거나, 금액을 수정하거나, 내역을 추가하여 조정해 주세요."
+            "value" : "내역 합계가 부족합니다. 다음 회차 이후의 내역을 이번 회차로 이동하거나, 금액을 수정하거나, 내역을 추가하여 조정해 주세요. 차액이 남은 채로 대조 중으로 표시하고 나중에 계속할 수도 있습니다."
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "明細金額不足。請將下次以後的明細移至本次、修改金額或新增明細來調整。"
+            "value" : "明細金額不足。請將下次以後的明細移至本次、修改金額或新增明細來調整。也可以保留差額標記為核對中，稍後再繼續。"
           }
         }
       }
@@ -5617,31 +5617,31 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "So speichern"
+            "value" : "Als „Abgleich läuft“ markieren"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Save as Is"
+            "value" : "Mark as Reconciling"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "このまま保存する"
+            "value" : "照合中にする"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "이대로 저장"
+            "value" : "대조 중으로 표시"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "依目前狀態儲存"
+            "value" : "標記為核對中"
           }
         }
       }

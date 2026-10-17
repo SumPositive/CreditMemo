@@ -198,12 +198,18 @@ struct InvoiceListView: View {
         return !includesUnselectedCard
     }
 
-    /// 表示中の全明細が確定済みなら照合済みとして扱う。
-    /// 差額を残したまま途中保存したもの（照合中）は、明細が元々すべてロック済みでも照合済みにしない
+    /// 照合モードで差額0にして確定していれば照合済みとして扱う。
+    /// 未払/済みに分かれていても、同じ手段・同じ引き落とし日の明細を合わせて判定する
     private var isReconciliationCompleted: Bool {
         guard !isReconciliationInProgress else { return false }
-        let parts = invoices.flatMap { filteredParts(in: $0) }
-        return !parts.isEmpty && parts.allSatisfy(\.isChecked)
+        return RecordService.isReconciled(reconciliationDayInvoices)
+    }
+
+    /// 照合の単位（決済手段×引き落とし日）の請求。開いた行の未払/済みに関係なく両方を含める
+    private var reconciliationDayInvoices: [E2invoice] {
+        guard let scope = invoiceFilter?.scope,
+              case .card(let cardID) = scope else { return [] }
+        return RecordService.reconciliationInvoices(cardID: cardID, date: displayDate, context: context)
     }
 
     /// 請求合計を途中保存していれば照合中として扱う（照合確定・済みにした時に保存値が消える）
@@ -238,7 +244,16 @@ struct InvoiceListView: View {
            ) {
             return progressAmount
         }
-        return confirmedAmountStore.amount(for: scope, date: displayDate)
+        if let sessionAmount = confirmedAmountStore.amount(for: scope, date: displayDate) {
+            return sessionAmount
+        }
+        // 再起動後も、照合済みにした時の請求合計を表示する
+        return reconciledAmount
+    }
+
+    /// 照合済みにした時の請求合計（請求に保存）。照合対象の決済手段の請求から読む
+    private var reconciledAmount: Decimal? {
+        RecordService.reconciledAmount(in: reconciliationDayInvoices)
     }
 
     /// 差額候補が正数になるよう「明細合計 − 請求合計」で表示する
@@ -524,7 +539,7 @@ struct InvoiceListView: View {
 
     // MARK: Reconciliation
 
-    /// 今回支払と同じ決済手段に属する、今回と次回以降の明細
+    /// 今回支払と同じ決済手段に属する、今回（未払・済みの両方）と次回以降（未払）の明細
     private var reconciliationParts: [E6part] {
         let dayStart = AppCalendar.gregorian.startOfDay(for: displayDate)
         let nextDay = AppCalendar.gregorian.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
@@ -534,7 +549,8 @@ struct InvoiceListView: View {
         let futureInvoices = applyFilter(
             context.fetchReporting(descriptor, entity: "E2invoice").filter { !$0.isPaid }
         )
-        let allParts = invoices.flatMap { filteredParts(in: $0) }
+        // 今回分はカード会社の請求と同じく、未払/済みに分かれていても合わせて照合する
+        let allParts = reconciliationDayInvoices.flatMap { filteredParts(in: $0) }
             + futureInvoices.flatMap { filteredParts(in: $0) }
         var seen = Set<String>()
         let uniqueParts = allParts.filter { seen.insert($0.id).inserted }
@@ -643,12 +659,6 @@ struct InvoiceListView: View {
         }
     }
 
-    /// 引き落とし日以降の未払明細は、照合確定と同時に済みにする
-    private var shouldMarkPaidOnReconciliation: Bool {
-        let today = AppCalendar.gregorian.startOfDay(for: Date())
-        return !displayIsPaid && AppCalendar.gregorian.startOfDay(for: displayDate) <= today
-    }
-
     /// 請求合計と仮移動後の明細合計が一致した時だけ照合を確定できる
     private var canConfirmReconciliation: Bool {
         reconciliationConfirmedAmount != nil && confirmedAmountDifference == .zero
@@ -747,8 +757,8 @@ struct InvoiceListView: View {
     /// 分割の途中回を別月へ重ねないよう、最終回だけを照合移動の対象にする
     private func canStageReconciliationMove(_ part: E6part) -> Bool {
         guard let record = part.e3record else { return false }
-        // ロック中の明細は支払日を変えない仕様なので、照合でも動かさない
-        if part.isChecked { return false }
+        // ロック中・済みの明細は支払日を変えない仕様なので、照合でも動かさない
+        if part.isChecked || part.e2invoice?.isPaid == true { return false }
         return record.payCount <= Int(part.nPartNo)
     }
 
@@ -883,28 +893,51 @@ struct InvoiceListView: View {
     /// 仮移動と照合状態をまとめて保存する
     private func confirmReconciliation() {
         guard canConfirmReconciliation,
-              let amount = reconciliationConfirmedAmount,
-              let scope = confirmedAmountScope else { return }
+              let amount = reconciliationConfirmedAmount else { return }
+        confirmReconciliation(amount: amount)
+    }
+
+    /// 請求合計が未入力でも今回分がすべてロック済みなら、明細合計を請求合計として照合済みにする
+    private var canConfirmLockedWithoutAmount: Bool {
+        guard reconciliationConfirmedAmount == nil,
+              reconciliationDueDates.isEmpty,
+              reconciliationNewRecordDrafts.isEmpty else { return false }
+        let parts = reconciliationCurrentParts
+        return !parts.isEmpty && parts.allSatisfy(\.isChecked)
+    }
+
+    /// 明細合計を請求合計に入れて（差額0）、そのまま照合済みにする
+    private func confirmLockedWithoutAmount() {
+        guard canConfirmLockedWithoutAmount else { return }
+        let amount = reconciliationCurrentAmount
+        reconciliationConfirmedAmount = amount
+        confirmReconciliation(amount: amount)
+    }
+
+    /// 指定した請求合計で、仮移動と照合状態をまとめて保存する
+    private func confirmReconciliation(amount: Decimal) {
+        guard let scope = confirmedAmountScope,
+              case .card(let cardID) = scope else { return }
         let moves = reconciliationParts.compactMap { part -> ReconciliationDueDateMove? in
             guard let date = reconciliationDueDates[part.id] else { return nil }
             return ReconciliationDueDateMove(part: part, date: date)
         }
-        let finalIsPaid = displayIsPaid || shouldMarkPaidOnReconciliation
 
         do {
             try RecordService.applyReconciliation(
                 moves: moves,
                 currentParts: reconciliationCurrentParts,
                 newRecordDrafts: reconciliationNewRecordDrafts,
-                finalIsPaid: finalIsPaid,
+                // 照合済みの判定に使う請求合計を請求へ記録する
+                reconciledAmount: amount.roundedAmount(),
+                cardID: cardID,
+                dueDate: displayDate,
                 context: context
             )
             // 保存成功後に照合額を残し、支払状態とは独立して参照できるようにする
             confirmedAmountStore.setAmount(amount.roundedAmount(), for: scope, date: displayDate)
-            if case .card(let cardID) = scope {
-                // 照合完了後は照合中の保存値を削除する
-                reconciliationProgressStore.removeAmount(forCardID: cardID, date: displayDate)
-            }
+            // 照合完了後は照合中の保存値を削除する
+            reconciliationProgressStore.removeAmount(forCardID: cardID, date: displayDate)
         } catch {
             // 照合確定の保存失敗を診断送信する
             AppTelemetry.reportSwiftDataError(error, operation: "InvoiceListView.confirmReconciliation", entity: "E6part")
@@ -920,7 +953,8 @@ struct InvoiceListView: View {
         guard let difference = confirmedAmountDifference,
               difference != .zero,
               let amount = reconciliationConfirmedAmount,
-              let scope = confirmedAmountScope else { return }
+              let scope = confirmedAmountScope,
+              case .card(let cardID) = scope else { return }
         let moves = reconciliationParts.compactMap { part -> ReconciliationDueDateMove? in
             guard let date = reconciliationDueDates[part.id] else { return nil }
             return ReconciliationDueDateMove(part: part, date: date)
@@ -930,16 +964,16 @@ struct InvoiceListView: View {
             try RecordService.saveReconciliationProgress(
                 moves: moves,
                 newRecordDrafts: reconciliationNewRecordDrafts,
+                cardID: cardID,
+                dueDate: displayDate,
                 context: context
             )
-            if case .card(let cardID) = scope {
-                // 請求合計を残して、引き落とし状況で照合中と判定できるようにする
-                reconciliationProgressStore.setAmount(
-                    amount.roundedAmount(),
-                    forCardID: cardID,
-                    date: displayDate
-                )
-            }
+            // 請求合計を残して、引き落とし状況で照合中と判定できるようにする
+            reconciliationProgressStore.setAmount(
+                amount.roundedAmount(),
+                forCardID: cardID,
+                date: displayDate
+            )
         } catch {
             // 照合途中の保存失敗を診断送信する
             AppTelemetry.reportSwiftDataError(
@@ -1347,13 +1381,9 @@ struct InvoiceListView: View {
     @ViewBuilder
     private var reconciliationConfirmationRows: some View {
         if canConfirmReconciliation {
-            if shouldMarkPaidOnReconciliation {
-                Label("invoice.reconciliation.readyAfterDebit", systemImage: "checkmark.circle.fill")
-                    .foregroundStyle(.secondary)
-            } else {
-                Label("invoice.reconciliation.readyBeforeDebit", systemImage: "lock.fill")
-                    .foregroundStyle(.secondary)
-            }
+            // 照合は明細の確定（ロック）だけで、引き落とし済みにはしない（済みは別操作）
+            Label("invoice.reconciliation.readyBeforeDebit", systemImage: "lock.fill")
+                .foregroundStyle(.secondary)
         } else {
             Label(reconciliationDifferenceGuidanceKey, systemImage: "info.circle")
                 .foregroundStyle(.secondary)
@@ -1368,18 +1398,21 @@ struct InvoiceListView: View {
             }
         }
 
+        // 請求合計が未入力でも全明細がロック済みなら、明細合計で照合済みにできる
+        if canConfirmLockedWithoutAmount {
+            Button(action: confirmLockedWithoutAmount) {
+                Text("invoice.reconciliation.confirm")
+                    .fontWeight(.semibold)
+                    .frame(maxWidth: .infinity)
+            }
+        }
+
         // 差額が0になり照合可能な時だけ確定操作を表示する
         if canConfirmReconciliation {
             Button(action: confirmReconciliation) {
-                if shouldMarkPaidOnReconciliation {
-                    Text("invoice.reconciliation.confirmAndPaid")
-                        .fontWeight(.semibold)
-                        .frame(maxWidth: .infinity)
-                } else {
-                    Text("invoice.reconciliation.confirm")
-                        .fontWeight(.semibold)
-                        .frame(maxWidth: .infinity)
-                }
+                Text("invoice.reconciliation.confirm")
+                    .fontWeight(.semibold)
+                    .frame(maxWidth: .infinity)
             }
         }
     }
@@ -2698,8 +2731,10 @@ private struct ReconciliationPartRow: View {
     let canMove: Bool
     let onEdit: () -> Void
     let onToggleDueDate: () -> Void
+    @Environment(\.badgeTheme) private var badgeTheme
 
     private var record: E3record? { part.e3record }
+    private var isPaid: Bool { part.e2invoice?.isPaid == true }
 
     var body: some View {
         if let record {
@@ -2738,7 +2773,17 @@ private struct ReconciliationPartRow: View {
                             )
                     }
                     Spacer(minLength: 6)
-                    if canMove {
+                    if isPaid {
+                        // 今回分には済みの明細も混ざるので、移動ボタンの代わりに済みであることを示す
+                        HStack(spacing: 4) {
+                            Image(systemName: PaymentStatusSymbol.name(isPaid: true))
+                                .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                                .foregroundStyle(badgeTheme.bottomColor)
+                            Text("payment.status.paidShort")
+                                .foregroundStyle(badgeTheme.paidText)
+                        }
+                        .font(.caption.weight(.semibold))
+                    } else if canMove {
                         Button(action: onToggleDueDate) {
                             HStack(spacing: 4) {
                                 if isCurrent {

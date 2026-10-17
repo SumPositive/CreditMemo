@@ -440,7 +440,9 @@ struct RobustnessTests {
                 moves: [ReconciliationDueDateMove(part: part, date: TestStore.date(2026, 6, 27))],
                 currentParts: [part],
                 newRecordDrafts: [draft],
-                finalIsPaid: false,
+                reconciledAmount: 1_500,
+                cardID: card.id,
+                dueDate: originalDueDate,
                 context: context
             )
         }
@@ -489,6 +491,8 @@ struct RobustnessTests {
             try RecordService.saveReconciliationProgress(
                 moves: [ReconciliationDueDateMove(part: part, date: TestStore.date(2026, 6, 27))],
                 newRecordDrafts: [draft],
+                cardID: card.id,
+                dueDate: originalDueDate,
                 context: context
             )
         }
@@ -535,7 +539,9 @@ struct RobustnessTests {
             moves: [],
             currentParts: [part],
             newRecordDrafts: [draft],
-            finalIsPaid: false,
+            reconciledAmount: 1_500,
+            cardID: card.id,
+            dueDate: dueDate,
             context: context
         )
 
@@ -546,6 +552,100 @@ struct RobustnessTests {
         )
         #expect(added.dateUpdate != nil)
         #expect(added.e5tags.map(\.id) == [tag.id])
+    }
+
+    @Test("照合済みの請求合計は請求に残り、明細を済みへ移しても引き継ぎ、途中保存で取り消される")
+    func reconciledAmountIsStoredOnInvoices() throws {
+        let context = try TestStore.makeContext()
+        let bank = TestFixtures.makeBank(name: "口座", in: context)
+        let card = TestFixtures.makeCard(name: "カード", bank: bank, in: context)
+        let first = try TestFixtures.saveRecord(
+            amount: 1_000,
+            dateUse: TestStore.date(2026, 4, 5),
+            card: card,
+            in: context
+        )
+        let second = try TestFixtures.saveRecord(
+            amount: 500,
+            dateUse: TestStore.date(2026, 4, 6),
+            card: card,
+            in: context
+        )
+        let firstPart = try #require(first.e6parts.first)
+        let secondPart = try #require(second.e6parts.first)
+        let dueDate = try #require(firstPart.e2invoice?.date)
+        #expect(secondPart.e2invoice?.date == dueDate)
+
+        try RecordService.applyReconciliation(
+            moves: [],
+            currentParts: [firstPart, secondPart],
+            newRecordDrafts: [],
+            reconciledAmount: 1_500,
+            cardID: card.id,
+            dueDate: dueDate,
+            context: context
+        )
+        #expect(firstPart.e2invoice?.reconciledAmount == 1_500)
+
+        // 1件だけ済みへ移すと請求が未払/済みに分かれるが、どちらにも請求合計が残る
+        try RecordService.setPartPaid(firstPart, isPaid: true, context: context)
+        let dayInvoices = try context.fetch(FetchDescriptor<E2invoice>())
+            .filter { $0.e1card?.id == card.id && $0.date == dueDate }
+        #expect(dayInvoices.count == 2)
+        #expect(dayInvoices.allSatisfy { $0.reconciledAmount == 1_500 })
+
+        // 差額を残して途中保存すると照合済みは取り消される
+        try RecordService.saveReconciliationProgress(
+            moves: [],
+            newRecordDrafts: [],
+            cardID: card.id,
+            dueDate: dueDate,
+            context: context
+        )
+        #expect(RecordService.reconciledAmount(in: dayInvoices) == nil)
+    }
+
+    @Test("未払と済みに分かれた同じ日の明細は合わせて照合し、済みの明細を未払へ戻さない")
+    func reconciliationCoversPaidAndUnpaidOfSameDay() throws {
+        let context = try TestStore.makeContext()
+        let bank = TestFixtures.makeBank(name: "口座", in: context)
+        let card = TestFixtures.makeCard(name: "カード", bank: bank, in: context)
+        let paidRecord = try TestFixtures.saveRecord(
+            amount: 1_000,
+            dateUse: TestStore.date(2026, 4, 5),
+            card: card,
+            in: context
+        )
+        let unpaidRecord = try TestFixtures.saveRecord(
+            amount: 500,
+            dateUse: TestStore.date(2026, 4, 6),
+            card: card,
+            in: context
+        )
+        let paidPart = try #require(paidRecord.e6parts.first)
+        let unpaidPart = try #require(unpaidRecord.e6parts.first)
+        let dueDate = try #require(paidPart.e2invoice?.date)
+        try RecordService.setPartPaid(paidPart, isPaid: true, context: context)
+
+        let dayInvoices = RecordService.reconciliationInvoices(cardID: card.id, date: dueDate, context: context)
+        #expect(dayInvoices.count == 2)
+
+        // カード会社の請求額（未払+済み）で差額0になり、未払のまま確定する
+        try RecordService.applyReconciliation(
+            moves: [],
+            currentParts: [paidPart, unpaidPart],
+            newRecordDrafts: [],
+            reconciledAmount: 1_500,
+            cardID: card.id,
+            dueDate: dueDate,
+            context: context
+        )
+
+        #expect(paidPart.e2invoice?.isPaid == true)
+        #expect(unpaidPart.e2invoice?.isPaid == false)
+        #expect(RecordService.isReconciled(
+            RecordService.reconciliationInvoices(cardID: card.id, date: dueDate, context: context)
+        ))
     }
 
     /// 同じストアを見る別 context。

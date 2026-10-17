@@ -961,13 +961,18 @@ struct PaymentDisplayItem: Identifiable {
         invoices.contains { $0.e1card == nil }
     }
 
-    /// 配下の全明細が確認済みなら、支払状態とは別に照合済みとして表示する。
-    /// 差額を残したまま途中保存したもの（照合中）は、明細が元々すべてロック済みでも照合済みにしない
+    /// 照合モードで差額0にして確定していれば、支払状態とは別に照合済みとして表示する。
+    /// 未払の行と済みの行に分かれていても、同じ手段・同じ引き落とし日の明細を合わせて判定し、
+    /// どちらの行でも同じ表示にする
     var isReconciled: Bool {
         guard !isReconciling,
-              let scope = invoiceFilter?.scope, case .card = scope else { return false }
-        let parts = invoices.flatMap(\.e6parts)
-        return !parts.isEmpty && parts.allSatisfy(\.isChecked)
+              let scope = invoiceFilter?.scope,
+              case .card(let cardID) = scope,
+              let context = invoices.first?.modelContext
+        else { return false }
+        return RecordService.isReconciled(
+            RecordService.reconciliationInvoices(cardID: cardID, date: date, context: context)
+        )
     }
 
     /// 請求合計を途中保存していれば照合中として表示する（照合確定・済みにした時に保存値が消える）

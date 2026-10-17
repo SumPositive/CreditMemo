@@ -92,6 +92,9 @@ enum RecordService {
 
             let invoice = E2invoice(date: day)
             RecordService.setInvoiceCard(invoice, card: card, isPaid: isPaid)
+            // 反対状態の同じ日の請求があれば、照合済みの請求合計を引き継ぐ
+            let siblingKey = RecordService.invoiceKey(cardID: card?.id, date: day, isPaid: !isPaid)
+            invoice.reconciledAmount = invoiceByKey[siblingKey]?.reconciledAmount
             context.insert(invoice)
             invoiceByKey[key] = invoice
             return invoice
@@ -764,13 +767,15 @@ enum RecordService {
         return record.e6parts.first
     }
 
-    /// 照合モードの仮移動、確認ロック、未払/済みを1回の保存で確定する。
+    /// 照合モードの仮移動と確認ロックを1回の保存で確定する。未払/済みは変えない（済みは別操作）。
     /// 失敗時は context.rollback() で変更前状態へ戻してから例外を投げ直す
     static func applyReconciliation(
         moves: [ReconciliationDueDateMove],
         currentParts: [E6part],
         newRecordDrafts: [ReconciliationNewRecordDraft],
-        finalIsPaid: Bool,
+        reconciledAmount: Decimal,
+        cardID: String,
+        dueDate: Date,
         context: ModelContext
     ) throws {
         do {
@@ -806,7 +811,6 @@ enum RecordService {
                 if currentPartIDs.contains(part.id) {
                     part.isChecked = true
                     part.isDueDateLocked = true
-                    setPartPaidWithoutCommit(part, isPaid: finalIsPaid, context: context)
                 } else {
                     part.isChecked = false
                     if part.e2invoice?.isPaid == true {
@@ -817,6 +821,8 @@ enum RecordService {
 
             // 逆参照と派生集計をまとめて整えてから保存する
             cleanupOrphanBilling(context: context)
+            // 整理後に残った請求へ、照合済みの判定に使う請求合計を記録する
+            setReconciledAmountWithoutCommit(reconciledAmount, cardID: cardID, date: dueDate, context: context)
             try commit(context)
         } catch {
             // 保存に失敗した仮明細の追加・仮移動・照合状態を ModelContext に残すと、
@@ -831,6 +837,8 @@ enum RecordService {
     static func saveReconciliationProgress(
         moves: [ReconciliationDueDateMove],
         newRecordDrafts: [ReconciliationNewRecordDraft],
+        cardID: String,
+        dueDate: Date,
         context: ModelContext
     ) throws {
         do {
@@ -853,6 +861,8 @@ enum RecordService {
 
             // 逆参照と派生集計を整えてから保存する
             cleanupOrphanBilling(context: context)
+            // 差額が残ったので、以前の照合済みは取り消す
+            setReconciledAmountWithoutCommit(nil, cardID: cardID, date: dueDate, context: context)
             try commit(context)
         } catch {
             // 保存に失敗した仮明細の追加・仮移動・照合状態を ModelContext に残すと、
@@ -861,6 +871,46 @@ enum RecordService {
             throw error
         }
     }
+
+    /// 決済手段・引き落とし日が同じ請求（未払/済み）すべてに照合済みの請求合計を設定する。nil で取り消す
+    static func setReconciledAmountWithoutCommit(
+        _ amount: Decimal?,
+        cardID: String,
+        date: Date,
+        context: ModelContext
+    ) {
+        for invoice in reconciliationInvoices(cardID: cardID, date: date, context: context) {
+            invoice.reconciledAmount = amount
+        }
+    }
+
+    /// 決済手段・引き落とし日の照合済みの請求合計。照合済みにしていなければ nil
+    nonisolated static func reconciledAmount(in invoices: [E2invoice]) -> Decimal? {
+        invoices.lazy.compactMap(\.reconciledAmount).first
+    }
+
+    /// 照合の単位（決済手段×引き落とし日）の請求を、未払/済みを問わずすべて返す。
+    /// カード会社の請求はアプリ内の未払/済みと関係なく1つなので、照合はこの単位で扱う
+    /// 決済手段側の逆参照（card.e2invoices）は SwiftData の同期が遅れて取りこぼすことがあるので、日付で明示 fetch する
+    nonisolated static func reconciliationInvoices(cardID: String, date: Date, context: ModelContext) -> [E2invoice] {
+        let dayStart = AppCalendar.gregorian.startOfDay(for: date)
+        guard let nextDay = AppCalendar.gregorian.date(byAdding: .day, value: 1, to: dayStart) else { return [] }
+        let descriptor = FetchDescriptor<E2invoice>(
+            predicate: #Predicate<E2invoice> { dayStart <= $0.date && $0.date < nextDay }
+        )
+        let fetched = (try? context.fetch(descriptor)) ?? []
+        return fetched.filter { $0.e1card?.id == cardID }
+    }
+
+    /// 照合済みか。差額0で確定した請求合計があり、未払/済みを合わせた明細合計と一致し、
+    /// 全明細がロック済みの時だけ true（ロックしただけ・途中保存しただけでは照合済みにしない）
+    nonisolated static func isReconciled(_ dayInvoices: [E2invoice]) -> Bool {
+        guard let completedAmount = reconciledAmount(in: dayInvoices) else { return false }
+        let parts = dayInvoices.flatMap(\.e6parts)
+        let total = parts.reduce(Decimal.zero) { $0 + $1.nAmount }.roundedAmount()
+        return !parts.isEmpty && total == completedAmount && parts.allSatisfy(\.isChecked)
+    }
+
 
     /// 請求1件単位で未払/済みを切り替える
     static func setInvoicePaid(
@@ -1622,6 +1672,10 @@ enum RecordService {
             }
             let inv = E2invoice(date: day)
             setInvoiceCard(inv, card: card, isPaid: fallbackInvoicePaid ?? fallbackPaymentPaid ?? false)
+            // 明細を済みへ移すなどで同じ日の請求が分かれても、照合済みの請求合計を引き継ぐ
+            inv.reconciledAmount = reconciledAmount(
+                in: reconciliationInvoices(cardID: card.id, date: day, context: context)
+            )
             context.insert(inv)
             return inv
         }
@@ -1676,6 +1730,10 @@ enum RecordService {
                 // 同一請求へ part を集約する
                 for part in invoice.e6parts {
                     part.e2invoice = canonical
+                }
+                // 照合済みの請求合計は統合先に無ければ引き継ぐ
+                if canonical.reconciledAmount == nil {
+                    canonical.reconciledAmount = invoice.reconciledAmount
                 }
                 // 親 payment が無ければ引き継ぐ
                 if canonical.e7payment == nil, let p = invoice.e7payment {

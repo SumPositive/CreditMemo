@@ -126,6 +126,7 @@ enum JSONImport {
         var isPaid: Bool
         var cardID: String?
         var paymentID: String?
+        var reconciledAmount: String?  // 照合済みにした時の請求合計（旧JSONには無い）
     }
 
     struct PartData: Decodable {
@@ -651,6 +652,12 @@ enum JSONImport {
             // 請求状態の復元中もキャンセルを受け付ける
             try Task.checkCancellation()
             let key = invoiceKey(cardID: item.cardID, date: item.date)
+            // 照合済みの請求合計は、同じ手段・同じ日の請求（未払/済み）すべてへ戻す
+            if let raw = item.reconciledAmount, let amount = try? decimalValue(raw) {
+                for invoice in invoiceGroups[key] ?? [] {
+                    invoice.reconciledAmount = amount
+                }
+            }
             let targetInvoices = (invoiceGroups[key] ?? []).filter { $0.isPaid != item.isPaid }
             for invoice in targetInvoices {
                 moveInvoice(invoice, toPaid: item.isPaid, context: context)

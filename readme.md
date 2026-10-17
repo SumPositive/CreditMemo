@@ -43,8 +43,11 @@
   - 決済手段1つに絞った引き落とし明細で利用できる。請求合計を入力すると「明細合計 − 請求合計」の差額と移動候補を表示
   - 「次回へ」「今回へ」で明細の引き落とし日を仮移動し、確定時にまとめて保存（`RecordService.applyReconciliation`）。差額0で「照合済みにする」と今回分の明細を確認済み（ロック）にする
   - 差額が不足のときは「足りない明細を追加する」で差額分の仮明細を追加（`ReconciliationNewRecordDraft`）。編集シートは新しい決済と同じ並びで、決済手段で絞ったラベル一覧（照合中の手段を優先、他の手段は後ろにグレー表示・金額付きカプセルあり）、利用日カレンダー、タグ、メモを入力できる。手段は照合中のものに固定
-  - 差額が残ったまま「このまま保存する」で途中保存でき、引き落とし状況に「照合中」と表示（`RecordService.saveReconciliationProgress`）
-  - 請求合計は SwiftData に持たない。照合中の値は UserDefaults（`ReconciliationProgressStore`、決済手段ID×引き落とし日）、照合済み・入力中の値はメモリ（`ConfirmedDebitAmountSessionStore`）。照合中の値は、請求（未払・済みを問わない）が無くなったものを引き落とし状況の表示時に掃除し（`RecordService.pruneReconciliationProgress`）、JSON インポート後は全消去する。済みにしたときと照合確定時にも消す
+  - 差額が残ったまま「照合中にする」（旧「このまま保存する」）で途中保存でき、引き落とし状況に「照合中」と表示（`RecordService.saveReconciliationProgress`）
+  - 照合は「決済手段×引き落とし日」単位。引き落とし状況で未払の行と済みの行に分かれていても、照合モードの今回分・明細合計・照合済み/照合中の判定は両方の明細を合わせて扱う（`RecordService.reconciliationInvoices`）。済みの明細は仮移動の対象外で、確定時に未払へ戻さない。照合の確定は明細のロックだけで、引き落とし済みにはしない（済みは引き落とし状況などの別操作）。請求合計が未入力でも今回分が全部ロック済みなら「照合済みにする」を出し、明細合計を請求合計として確定する
+  - 「照合済み」は、差額0で確定した時の請求合計（`E2invoice.reconciledAmount`）があり、未払/済みを合わせた明細合計と一致し、全明細がロック済みの時だけ表示する（`RecordService.isReconciled`）。明細をロックしただけ・途中保存しただけでは照合済みにしない
+  - `reconciledAmount` は同じ決済手段・同じ引き落とし日の請求（未払/済み）すべてに同じ値を持たせる。請求の新規作成（済みへの分割）・統合では兄弟から引き継ぎ、明細が無くなり請求が消えれば一緒に消える。JSON エクスポート/インポートで引き継ぐ（旧JSONは nil）
+  - 照合済みの請求合計だけ SwiftData（`E2invoice.reconciledAmount`）に持つ。照合中の値は UserDefaults（`ReconciliationProgressStore`、決済手段ID×引き落とし日）、入力中の値はメモリ（`ConfirmedDebitAmountSessionStore`）。照合中の値は、請求（未払・済みを問わない）が無くなったものを引き落とし状況の表示時に掃除し（`RecordService.pruneReconciliationProgress`）、JSON インポート後は全消去する。済みにしたときと照合確定時にも消す
   - 照合の確定・途中保存に失敗したときは `context.rollback()` で変更前へ戻す。差額候補の探索が明細数に対して指数的に増えないよう抑えた。照合から追加した明細もタグ利用統計へ反映する
 - **端末の暦設定（和暦）と週の始まりに対応**（`AppCalendar`）
   - 保存・集計・日付表示・カレンダーを西暦の `AppCalendar.gregorian` に統一（`Calendar.current` を使わない。DESIGN.md 参照）。週の始まりの曜日だけ端末設定を反映

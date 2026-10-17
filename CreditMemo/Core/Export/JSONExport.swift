@@ -78,6 +78,7 @@ enum JSONExport {
         var isPaid: Bool
         var cardID: String?
         var paymentID: String?
+        var reconciledAmount: String?  // 照合済みにした時の請求合計（旧JSONには無い）
     }
 
     struct PartData: Codable {
@@ -191,7 +192,7 @@ enum JSONExport {
                 dueDateLocked: part.isDueDateLocked
             )
         }
-        let invoiceData  = invoices.map   { i in InvoiceData(id: i.id, date: i.date, isPaid: i.isPaid, cardID: i.e1card?.id, paymentID: i.e7payment?.id) }
+        let invoiceData  = invoices.map   { i in InvoiceData(id: i.id, date: i.date, isPaid: i.isPaid, cardID: i.e1card?.id, paymentID: i.e7payment?.id, reconciledAmount: i.reconciledAmount.map { "\($0)" }) }
         let paymentData  = payments.map   {
             PaymentData(
                 id: $0.id,
