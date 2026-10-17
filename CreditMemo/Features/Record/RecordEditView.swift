@@ -764,12 +764,6 @@ private var isValid: Bool {
         }
     }
 
-    private var categoryValueText: String {
-        if selectedCategories.isEmpty {
-            return NSLocalizedString("label.noSelection", comment: "")
-        }
-        return selectedCategories.map(\.zName).joined(separator: " / ")
-    }
     private var editableParts: [E6part] {
         guard case .edit(let record) = mode else { return [] }
         // 旧アプリ同様、分割パーツ番号順に安定表示する
@@ -2064,14 +2058,14 @@ private var isValid: Bool {
                 // 正確に行うため、通常は fixedSize や maxWidth を指定する必要はない。
                 // 均等割りのときだけ、提案された幅までカプセルを広げる
                 .frame(maxWidth: frequentAlignment.isJustified ? .infinity : nil)
-                .padding(.horizontal, 14)
+                .padding(.horizontal, LabelSignShape.horizontalPadding)
                 .padding(.vertical, 7)
                 .background(
-                    Capsule().fill(fillColor)
+                    LabelSignShape().fill(fillColor)
                 )
                 .foregroundStyle(labelColor)
                 .overlay(
-                    Capsule().stroke(borderColor, lineWidth: 1)
+                    LabelSignShape().stroke(borderColor, lineWidth: 1)
                 )
                 .background {
                     // 実際のカプセル高さを1つだけ測って行高に使う（フォント設定に追従）
@@ -2099,9 +2093,10 @@ private var isValid: Bool {
                     .font(.subheadline.weight(.semibold))
                     .lineLimit(1)
                     .truncationMode(.tail)
-                    .padding(.horizontal, 14)
+                    .padding(.horizontal, LabelSignShape.horizontalPadding)
                     .padding(.vertical, 7)
-                    .background(Capsule().fill(Color.accentColor))
+                    // タグのカプセルと見分けられるよう、ラベルは看板形にする
+                    .background(LabelSignShape().fill(Color.accentColor))
                     .foregroundStyle(Color.white)
             }
             .buttonStyle(.plain)
@@ -2317,50 +2312,26 @@ private var isValid: Bool {
             // 分類タグ（複数選択）
             VStack(alignment: .leading, spacing: 6) {
                 Button { showCategoryPicker = true } label: {
-                    ViewThatFits(in: .horizontal) {
-                        // 1行版: タイトルと値が収まる場合
-                        HStack(spacing: 8) {
-                            Text("record.field.tag")
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                                .truncationMode(.tail)
-                                .fixedSize(horizontal: true, vertical: false)
-                            Spacer(minLength: 8)
-                            Text(categoryValueText)
-                                // 未選択も含めてタグ値はアクセントカラーで見せる
+                    HStack(spacing: 8) {
+                        Text("record.field.tag")
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .fixedSize(horizontal: true, vertical: false)
+                        Spacer(minLength: 8)
+                        if selectedCategories.isEmpty {
+                            // 未選択も含めてタグ値はアクセントカラーで見せる
+                            Text("label.noSelection")
                                 .foregroundColor(.accentColor)
                                 .lineLimit(1)
-                                .truncationMode(.tail)
-                                .fixedSize(horizontal: true, vertical: false)
-                            Image(systemName: "chevron.right").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
-                                .font(.caption)
-                                .foregroundStyle(.tertiary)
-                                .fixedSize(horizontal: true, vertical: false)
+                        } else {
+                            // 選んだタグは区切り文字ではなく小さなカプセルで並べ、収まらなければ折り返す
+                            SelectedTagChips(names: selectedCategories.map(\.zName))
                         }
-
-                        // 2行版: 値は全文を右寄せで表示する
-                        VStack(alignment: .leading, spacing: 2) {
-                            HStack(spacing: 0) {
-                                Text("record.field.tag")
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                                    .truncationMode(.tail)
-                                Spacer(minLength: 8)
-                            }
-                            HStack(alignment: .top, spacing: 6) {
-                                Spacer(minLength: 8)
-                                Text(categoryValueText)
-                                    // 未選択も含めてタグ値はアクセントカラーで見せる
-                                    .foregroundColor(.accentColor)
-                                    .multilineTextAlignment(.trailing)
-                                    .lineLimit(nil)
-                                    .fixedSize(horizontal: false, vertical: true)
-                                Image(systemName: "chevron.right").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
-                                    .font(.caption)
-                                    .foregroundStyle(.tertiary)
-                                    .padding(.top, 2)
-                            }
-                        }
+                        Image(systemName: "chevron.right").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                            .fixedSize(horizontal: true, vertical: false)
                     }
                     .contentShape(Rectangle())
                 }
@@ -3865,5 +3836,48 @@ extension View {
     /// 有効な間、画面のどこかがタップされたら知らせる（中のボタンの操作は妨げない）
     func onWindowTap(isActive: Bool, perform action: @escaping () -> Void) -> some View {
         background { WindowTapObserver(isActive: isActive, onTap: action) }
+    }
+}
+
+// MARK: - Label Sign Shape
+
+/// 「よくある決済・ラベル」用の看板形。両端を外向きのV字に尖らせ、
+/// 同じ画面に並ぶタグ（カプセル）と見分けられるようにする。
+/// 尖りはカプセルの丸みと同じく余白の内側に収まるので、幅・並びはカプセルと変わらない
+struct LabelSignShape: Shape {
+    /// 両端の尖りの深さ（カプセル用の既定値）
+    static let pointDepth: CGFloat = 8
+    /// アイコンなど小さく描く時は浅くする
+    var pointDepth: CGFloat = Self.pointDepth
+    /// カプセルと同じ横余白
+    static let horizontalPadding: CGFloat = 14
+
+    func path(in rect: CGRect) -> Path {
+        let point = min(pointDepth, rect.width / 4)
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX + point, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX - point, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.midY))
+        path.addLine(to: CGPoint(x: rect.maxX - point, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX + point, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.midY))
+        path.closeSubpath()
+        return path
+    }
+}
+
+/// ラベルを表すアイコン。ラベルの看板形を線で描き、SF Symbols と同じ大きさ・文字サイズ追従にする
+struct LabelSignIcon: View {
+    var body: some View {
+        // 横長の SF Symbol を透明で置いて大きさを決め、その枠に看板形を描く
+        Image(systemName: "rectangle")
+            .hidden()
+            .overlay {
+                GeometryReader { geo in
+                    LabelSignShape(pointDepth: geo.size.height * 0.4)
+                        .stroke(style: StrokeStyle(lineWidth: max(1.2, geo.size.height * 0.09), lineJoin: .round))
+                }
+            }
+            .accessibilityHidden(true)
     }
 }

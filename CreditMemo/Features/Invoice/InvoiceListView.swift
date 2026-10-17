@@ -2132,13 +2132,6 @@ private struct ReconciliationDraftEditView: View {
         return min(frequentContentHeight, maxHeight)
     }
 
-    private var tagValueText: String {
-        if selectedTags.isEmpty {
-            return NSLocalizedString("label.noSelection", comment: "")
-        }
-        return selectedTags.map(\.zName).joined(separator: " / ")
-    }
-
     var body: some View {
         Form {
             // ラベル欄を兼ねるので常に出す
@@ -2185,11 +2178,27 @@ private struct ReconciliationDraftEditView: View {
                 Button {
                     showTagPicker = true
                 } label: {
-                    valueRow(
-                        titleKey: "record.field.tag",
-                        value: AttributedString(tagValueText),
-                        valueColor: .accentColor
-                    )
+                    if selectedTags.isEmpty {
+                        valueRow(
+                            titleKey: "record.field.tag",
+                            value: AttributedString(NSLocalizedString("label.noSelection", comment: "")),
+                            valueColor: .accentColor
+                        )
+                    } else {
+                        // 新しい決済と同じく、選んだタグは小さなカプセルで並べる
+                        HStack(spacing: 8) {
+                            Text("record.field.tag")
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                                .fixedSize(horizontal: true, vertical: false)
+                            Spacer(minLength: 8)
+                            SelectedTagChips(names: selectedTags.map(\.zName))
+                            Image(systemName: "chevron.right").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                        }
+                        .contentShape(Rectangle())
+                    }
                 }
                 .buttonStyle(.plain)
 
@@ -2382,9 +2391,10 @@ private struct ReconciliationDraftEditView: View {
                     .font(.subheadline.weight(.semibold))
                     .lineLimit(1)
                     .truncationMode(.tail)
-                    .padding(.horizontal, 14)
+                    .padding(.horizontal, LabelSignShape.horizontalPadding)
                     .padding(.vertical, 7)
-                    .background(Capsule().fill(Color.accentColor))
+                    // タグのカプセルと見分けられるよう、ラベルは看板形にする
+                    .background(LabelSignShape().fill(Color.accentColor))
                     .foregroundStyle(Color.white)
             }
             .buttonStyle(.plain)
@@ -2424,14 +2434,14 @@ private struct ReconciliationDraftEditView: View {
                 .lineLimit(1)
                 .truncationMode(.tail)
                 .frame(maxWidth: frequentAlignment.isJustified ? .infinity : nil)
-                .padding(.horizontal, 14)
+                .padding(.horizontal, LabelSignShape.horizontalPadding)
                 .padding(.vertical, 7)
                 .background(
-                    Capsule().fill(Color(.secondarySystemBackground))
+                    LabelSignShape().fill(Color(.secondarySystemBackground))
                 )
                 .foregroundStyle(Color.accentColor)
                 .overlay(
-                    Capsule().stroke(Color.accentColor.opacity(0.35), lineWidth: 1)
+                    LabelSignShape().stroke(Color.accentColor.opacity(0.35), lineWidth: 1)
                 )
                 .background {
                     // 実際のカプセル高さを1つだけ測って行高に使う（フォント設定に追従）

@@ -136,7 +136,7 @@ struct RecordListView: View {
             case .incomplete: "exclamationmark.circle"
             case .card:       "creditcard"
             case .bank:       "building.columns"
-            case .label:      "leaf"
+            case .label:      "leaf"   // 表示は filterLabel で LabelSignIcon に差し替える
             case .tag:        "tag"
             }
         }
@@ -741,8 +741,16 @@ struct RecordListView: View {
 
     private func filterLabel(_ option: FilterOption) -> some View {
         HStack(spacing: 8) {
-            Image(systemName: option.iconName).dynamicTypeSize(...DynamicTypeSize.xxxLarge)
-                .imageScale(.medium)
+            Group {
+                if option == .label {
+                    // ラベルは SF Symbols に合う形が無いので、ラベルカプセルと同じ看板形を描く
+                    LabelSignIcon()
+                } else {
+                    Image(systemName: option.iconName)
+                }
+            }
+            .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+            .imageScale(.medium)
             if option == filterSelectionBinding.wrappedValue {
                 if option == .tag || option == .label {
                     // 列記したタグ名・ラベルは縮小せず、収まらない時だけ折り返す

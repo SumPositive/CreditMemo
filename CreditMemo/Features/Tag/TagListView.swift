@@ -594,3 +594,24 @@ struct TagSelectionList: View {
         return [.height(ceil(capsuleArea + chrome))]
     }
 }
+
+/// 編集画面の「タグ」行で、選択中のタグを表示専用の小さなカプセルで並べる。
+/// ここでは選ばせないので、文字サイズは行の値と同じまま余白を最小にする。収まらなければ右寄せで折り返す
+struct SelectedTagChips: View {
+    let names: [String]
+
+    var body: some View {
+        AZFlowLayout(spacing: 4, rowSpacing: 4) {
+            ForEach(Array(names.enumerated()), id: \.offset) { _, name in
+                // 選ばれているタグなので、選択シートの選択中カプセルと同じアクセント塗り・白文字にする
+                Text(name)
+                    .foregroundStyle(Color.white)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 1)
+                    .background(Capsule().fill(Color.accentColor))
+            }
+        }
+    }
+}
