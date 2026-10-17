@@ -175,6 +175,43 @@ struct JSONRoundTripTests {
         #expect(RecordService.checkBillingIntegrity(context: targetContext).hasIssue == false)
     }
 
+    @Test("明細ごとの支払状態に、対応する明細が無い項目があっても読み飛ばし、他の明細の状態は戻す")
+    func partPaidStateWithoutMatchingPartIsSkipped() async throws {
+        let sourceContext = try TestStore.makeContext()
+        let bank = TestFixtures.makeBank(name: "口座", in: sourceContext)
+        let card = TestFixtures.makeCard(name: "カード", bank: bank, in: sourceContext)
+        let paidRecord = try TestFixtures.saveRecord(
+            amount: 1_000, label: "済み分", dateUse: TestStore.date(2026, 4, 5), card: card, in: sourceContext
+        )
+        _ = try TestFixtures.saveRecord(
+            amount: 500, label: "未払分", dateUse: TestStore.date(2026, 4, 6), card: card, in: sourceContext
+        )
+        try RecordService.setPartPaid(try #require(paidRecord.e6parts.first), isPaid: true, context: sourceContext)
+
+        // 書き出した JSON に、存在しない決済・存在しない回の明細状態を混ぜる
+        let exported = try await JSONExport.exportData(context: sourceContext, style: .compact)
+        var root = try #require(try JSONSerialization.jsonObject(with: exported) as? [String: Any])
+        var parts = try #require(root["parts"] as? [[String: Any]])
+        parts.append(["id": "part-missing-record", "recordID": "record-missing", "partNo": 1,
+                      "amount": "300", "interest": "0", "noCheck": 1, "dueDateLocked": true, "isPaid": true])
+        parts.append(["id": "part-missing-no", "recordID": paidRecord.id, "partNo": 2,
+                      "amount": "300", "interest": "0", "noCheck": 1, "dueDateLocked": true, "isPaid": false])
+        root["parts"] = parts
+        let url = try writeTempJSON(try JSONSerialization.data(withJSONObject: root))
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let targetContext = try TestStore.makeContext()
+        _ = try await JSONImport.importData(from: url, context: targetContext)
+
+        let records = try targetContext.fetch(FetchDescriptor<E3record>())
+        #expect(records.count == 2)
+        let restoredPaid = try #require(records.first { $0.zName == "済み分" }?.e6parts.first)
+        let restoredUnpaid = try #require(records.first { $0.zName == "未払分" }?.e6parts.first)
+        #expect(restoredPaid.e2invoice?.isPaid == true)
+        #expect(restoredUnpaid.e2invoice?.isPaid == false)
+        #expect(RecordService.checkBillingIntegrity(context: targetContext).hasIssue == false)
+    }
+
     @Test("同じ JSON を 2 度取り込んでも重複しない（id 単位 upsert）")
     func reimportingSameJSONIsIdempotent() async throws {
         let sourceContext = try TestStore.makeContext()

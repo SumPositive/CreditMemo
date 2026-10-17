@@ -253,10 +253,10 @@ enum JSONImport {
             // 新規ストアの初期プリセットは完全バックアップの内容へ置き換える
             try removeInitialSeedDataForFullRestoreIfNeeded(payload, context: context)
 
-            let banks = context.fetchReporting(FetchDescriptor<E8bank>(), entity: "E8bank")
-            let cards = context.fetchReporting(FetchDescriptor<E1card>(), entity: "E1card")
-            let categories = context.fetchReporting(FetchDescriptor<E5tag>(), entity: "E5tag")
-            let records = context.fetchReporting(FetchDescriptor<E3record>(), entity: "E3record")
+            let banks = try fetchAll(FetchDescriptor<E8bank>(), entity: "E8bank", context: context)
+            let cards = try fetchAll(FetchDescriptor<E1card>(), entity: "E1card", context: context)
+            let categories = try fetchAll(FetchDescriptor<E5tag>(), entity: "E5tag", context: context)
+            let records = try fetchAll(FetchDescriptor<E3record>(), entity: "E3record", context: context)
 
             var bankByID = Dictionary(uniqueKeysWithValues: banks.map { ($0.id, $0) })
             var cardByID = Dictionary(uniqueKeysWithValues: cards.map { ($0.id, $0) })
@@ -566,7 +566,7 @@ enum JSONImport {
         onProgress: ((Int, Int) -> Void)? = nil
     ) async throws -> Int {
         guard !items.isEmpty else { return 0 }
-        let parts = context.fetchReporting(FetchDescriptor<E6part>(), entity: "E6part")
+        let parts = try fetchAll(FetchDescriptor<E6part>(), entity: "E6part", context: context)
         var partByRecordAndNo: [String: E6part] = [:]
         var duplicatePartCount = 0
         for part in parts {
@@ -653,7 +653,7 @@ enum JSONImport {
         context: ModelContext
     ) throws -> Int {
         guard !items.isEmpty else { return 0 }
-        let parts = context.fetchReporting(FetchDescriptor<E6part>(), entity: "E6part")
+        let parts = try fetchAll(FetchDescriptor<E6part>(), entity: "E6part", context: context)
         var partByRecordAndNo: [String: E6part] = [:]
         for part in parts {
             guard let recordID = part.e3record?.id else { continue }
@@ -663,18 +663,37 @@ enum JSONImport {
             }
         }
         var updatedCount = 0
+        var missingPartCount = 0
         for item in items {
             try Task.checkCancellation()
             guard let isPaid = item.isPaid,
                   let recordID = item.recordID else { continue }
             let partNo = try validatedPartNo(item.partNo)
-            guard let part = partByRecordAndNo["\(recordID)#\(partNo)"],
-                  part.e2invoice?.isPaid != isPaid else { continue }
+            guard let part = partByRecordAndNo["\(recordID)#\(partNo)"] else {
+                // 明細の状態（applyPartStates）と同じく、対応する明細が無い項目は読み飛ばす
+                // （決済が含まれない部分 JSON や、分割回数の正規化で無くなった回）。件数だけ診断送信する
+                missingPartCount += 1
+                continue
+            }
+            guard part.e2invoice?.isPaid != isPaid else { continue }
             let wasDueDateLocked = part.isDueDateLocked
             RecordService.setPartPaidWithoutCommit(part, isPaid: isPaid, context: context)
             // 済みへ移すと引き落とし日ロックが付くので、エクスポート時の状態へ戻す
             part.isDueDateLocked = item.dueDateLocked ?? wasDueDateLocked
             updatedCount += 1
+        }
+        if 0 < missingPartCount {
+            let error = NSError(
+                domain: "CreditMemo.JSONImport",
+                code: 2,
+                userInfo: [NSLocalizedDescriptionKey: "Part paid states without matching parts were skipped"]
+            )
+            AppTelemetry.reportRecoverableError(
+                error,
+                operation: "applyPartPaidStates",
+                category: "json_import",
+                detail: "missing_count=\(missingPartCount)"
+            )
         }
         return updatedCount
     }
@@ -685,7 +704,7 @@ enum JSONImport {
         onProgress: ((Int, Int) -> Void)? = nil
     ) async throws -> Int {
         guard !items.isEmpty else { return 0 }
-        let invoices = context.fetchReporting(FetchDescriptor<E2invoice>(), entity: "E2invoice")
+        let invoices = try fetchAll(FetchDescriptor<E2invoice>(), entity: "E2invoice", context: context)
         let invoiceGroups = Dictionary(grouping: invoices) {
             invoiceKey(cardID: $0.e1card?.id, date: $0.date)
         }
@@ -723,7 +742,7 @@ enum JSONImport {
         onProgress: ((Int, Int) -> Void)? = nil
     ) async throws -> Int {
         guard !items.isEmpty else { return 0 }
-        let payments = context.fetchReporting(FetchDescriptor<E7payment>(), entity: "E7payment")
+        let payments = try fetchAll(FetchDescriptor<E7payment>(), entity: "E7payment", context: context)
         let paymentGroups = Dictionary(grouping: payments) {
             paymentKey(bankID: $0.e8bank?.id, date: $0.date)
         }
@@ -759,7 +778,7 @@ enum JSONImport {
         context: ModelContext,
         onProgress: ((Int, Int) -> Void)? = nil
     ) async throws -> Int {
-        let invoices = context.fetchReporting(FetchDescriptor<E2invoice>(), entity: "E2invoice")
+        let invoices = try fetchAll(FetchDescriptor<E2invoice>(), entity: "E2invoice", context: context)
         // 全 part 確認済み・未払・決済手段ありの請求だけを対象にする
         let targets = invoices.filter { invoice in
             guard invoice.e1card != nil else { return false }   // 決済手段未選択は状態を持てない
@@ -833,6 +852,22 @@ enum JSONImport {
             }
         }
         return validAmounts
+    }
+
+    /// 取り込み中の取得。失敗を空の一覧として続けると、既存データとの突き合わせや状態の復元が
+    /// 黙って欠けたまま成功してしまうので、診断送信してから投げ、呼び出し元で取り込み全体を巻き戻す
+    private static func fetchAll<T: PersistentModel>(
+        _ descriptor: FetchDescriptor<T>,
+        entity: String,
+        context: ModelContext,
+        operation: String = #function
+    ) throws -> [T] {
+        do {
+            return try context.fetch(descriptor)
+        } catch {
+            AppTelemetry.reportSwiftDataError(error, operation: "JSONImport.\(operation)", entity: entity)
+            throw error
+        }
     }
 
     private static func decimalValue(_ rawValue: String) throws -> Decimal {
