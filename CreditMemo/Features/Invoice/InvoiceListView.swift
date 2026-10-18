@@ -223,7 +223,7 @@ struct InvoiceListView: View {
         return RecordService.reconciliationInvoices(cardID: cardID, date: displayDate, context: context)
     }
 
-    /// 請求合計を途中保存していれば照合中として扱う（照合確定・済みにした時に保存値が消える）
+    /// 請求合計を途中保存していれば照合中として扱う（照合確定した時に保存値が消える。引き落とし済みにしても残す）
     private var isReconciliationInProgress: Bool {
         guard let scope = invoiceFilter?.scope,
               case .card(let cardID) = scope else { return false }

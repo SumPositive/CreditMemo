@@ -975,7 +975,7 @@ struct PaymentDisplayItem: Identifiable {
         )
     }
 
-    /// 請求合計を途中保存していれば照合中として表示する（照合確定・済みにした時に保存値が消える）
+    /// 請求合計を途中保存していれば照合中として表示する（照合確定した時に保存値が消える。引き落とし済みにしても残す）
     var isReconciling: Bool {
         guard let scope = invoiceFilter?.scope,
               case .card(let cardID) = scope else { return false }

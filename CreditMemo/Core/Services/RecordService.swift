@@ -985,7 +985,6 @@ enum RecordService {
     /// 明細の移動・削除や決済手段の削除で請求が無くなると保存値だけが残り、
     /// 後で同じ手段・同じ引き落とし日の請求ができたときに古い請求合計で「照合中」になるのを防ぐ。
     /// 照合は済みの請求でも途中保存できるため、未払/済みを問わず請求があれば残す
-    /// （済みにした時の終了処理は clearConfirmedAmountsIfPaid が担う）
     static func pruneReconciliationProgress(context: ModelContext) {
         let progressStore = ReconciliationProgressStore.shared
         for entry in progressStore.entries {
@@ -1010,7 +1009,6 @@ enum RecordService {
         context: ModelContext
     ) {
         let store = ConfirmedDebitAmountSessionStore.shared
-        let progressStore = ReconciliationProgressStore.shared
         for target in targets {
             let dayStart = target.date
             guard let nextDay = AppCalendar.gregorian.date(byAdding: .day, value: 1, to: dayStart) else { continue }
@@ -1023,8 +1021,7 @@ enum RecordService {
                 let hasUnpaidCard = dayInvoices.contains { !$0.isPaid && $0.e1card?.id == cardID }
                 if !hasUnpaidCard {
                     store.removeAmount(for: .card(cardID), date: dayStart)
-                    // 引き落とし済みにした範囲の照合途中表示も終了する
-                    progressStore.removeAmount(forCardID: cardID, date: dayStart)
+                    // 照合中の請求合計は引き落とし済みにしても残し、後から照合を続けられるようにする
                 }
             }
 

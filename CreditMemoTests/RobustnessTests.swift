@@ -945,4 +945,19 @@ struct LegacyReconciledMigrationTests {
         #expect(mixedDay.allSatisfy { $0.reconciledAmount == nil })
         #expect(defaults.bool(forKey: AppStorageKey.didMigrateReconciledAmount))
     }
+
+    @Test("照合中の請求を引き落とし済みにしても、照合中の請求合計は残る")
+    func reconcilingProgressSurvivesMarkingPaid() throws {
+        let context = try TestStore.makeContext()
+        let card = TestFixtures.makeCard(name: "照合中", bank: TestFixtures.makeBank(name: "口座", in: context), in: context)
+        let record = try TestFixtures.saveRecord(amount: 200, label: "A", dateUse: TestStore.date(2026, 5, 15), card: card, in: context)
+        let invoice = try #require(record.e6parts.first?.e2invoice)
+        let progressStore = ReconciliationProgressStore.shared
+        progressStore.setAmount(300, forCardID: card.id, date: invoice.date)
+        defer { progressStore.removeAmount(forCardID: card.id, date: invoice.date) }
+
+        try RecordService.setInvoicesPaid([invoice], isPaid: true, context: context)
+
+        #expect(progressStore.amount(forCardID: card.id, date: invoice.date) == 300)
+    }
 }
