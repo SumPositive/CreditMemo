@@ -205,6 +205,17 @@ struct InvoiceListView: View {
         return RecordService.isReconciled(reconciliationDayInvoices)
     }
 
+    /// 照合済みの請求を開いて、請求合計・仮移動・仮明細のどれも変えていない状態か。
+    /// 請求合計を変えると差額や確定操作が現れ、途中保存すれば照合中に変わる
+    private var isReconciliationUnchanged: Bool {
+        guard isReconciliationCompleted,
+              let reconciledAmount,
+              reconciliationConfirmedAmount == reconciledAmount,
+              reconciliationDueDates.isEmpty,
+              reconciliationNewRecordDrafts.isEmpty else { return false }
+        return confirmedAmountDifference == .zero
+    }
+
     /// 照合の単位（決済手段×引き落とし日）の請求。開いた行の未払/済みに関係なく両方を含める
     private var reconciliationDayInvoices: [E2invoice] {
         guard let scope = invoiceFilter?.scope,
@@ -1380,7 +1391,13 @@ struct InvoiceListView: View {
     /// 差額の直下で確定条件と確定後の状態を案内する
     @ViewBuilder
     private var reconciliationConfirmationRows: some View {
-        if canConfirmReconciliation {
+        if isReconciliationUnchanged {
+            // 照合済みのまま何も変えていなければ、確定操作は出さず照合済みだけを示す
+            Label("invoice.reconciliation.completed", systemImage: "checkmark.circle.fill")
+                .foregroundStyle(.green)
+                // 確定ボタンと同じく行の中央に置く
+                .frame(maxWidth: .infinity)
+        } else if canConfirmReconciliation {
             // 照合は明細の確定（ロック）だけで、引き落とし済みにはしない（済みは別操作）
             Label("invoice.reconciliation.readyBeforeDebit", systemImage: "lock.fill")
                 .foregroundStyle(.secondary)
@@ -1408,7 +1425,7 @@ struct InvoiceListView: View {
         }
 
         // 差額が0になり照合可能な時だけ確定操作を表示する
-        if canConfirmReconciliation {
+        if canConfirmReconciliation && !isReconciliationUnchanged {
             Button(action: confirmReconciliation) {
                 Text("invoice.reconciliation.confirm")
                     .fontWeight(.semibold)
