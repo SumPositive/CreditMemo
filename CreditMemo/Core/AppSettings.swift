@@ -43,6 +43,8 @@ enum AppStorageKey {
     static let frequentIncludeRepeat = "setting.frequentIncludeRepeat"
     /// 繰り返しの作成タイミングを「利用日を過ぎた時」へ切り替える一度きりの移行済みフラグ
     static let didMigrateRepeatTiming = "migration.didMigrateRepeatTiming"
+    /// 旧版で照合済みだった請求へ請求合計を記録する一度きりの移行済みフラグ
+    static let didMigrateReconciledAmount = "migration.didMigrateReconciledAmount"
     /// 「よくある決済」候補にする最小利用回数（1/2/3）。既定1
     static let frequentMinUses = "setting.frequentMinUses"
     /// 金額付きカプセルがあるとき、金額なしの基本カプセルを隠すか。既定 false

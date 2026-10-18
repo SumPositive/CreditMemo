@@ -2059,6 +2059,9 @@ $app-store-review-summary
 [RecordService.swift (line 1278)](/Users/sumpositive/GitLocal/CreditMemo/CreditMemo/Core/Services/RecordService.swift:1278) は、同じ決済手段・ラベル・月を同一の繰り返しと判定します。独立した2件の定期決済がこの条件に当たると、次回分は1件しか作られず、作られなかった元明細も作成済みになります
 金額とタグを加えれば十分と思う、金額とタグを変えても既に済みになるので悪影響はないと思う
 
+アップデート時に既に　照合済み　になっている支払日は、請求金額をセットしてアップデート後も　照合済み　にしたい
+
+
 ------------------------------------------------
 Deferin 2.9.0 新機能と更新内容
 - 明細コピー機能を使いやすくしました
@@ -2080,8 +2083,8 @@ Deferin 2.9.0 準備中、README.mdの開発メモ、公開アプリパネル、
 cd /Users/sumpositive/GitLocal/CreditMemo
 fastlane upload_metadata 
 ---
-fastlane screenshots            # スクショ 生成確認
-fastlane upload_screenshots     # スクショ Upload
+fastlane screenshots
+fastlane upload_screenshots
 -----
 / Deferin 2.9.0 公開中、公開アプリパネル、取扱説明を更新して
 ------------------------------------------------

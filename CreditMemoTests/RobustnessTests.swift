@@ -909,3 +909,40 @@ struct RecordLockTests {
             .reduce(0) { $0 + Int($1.sumNoCheck) }
     }
 }
+
+/// 請求合計を記録する前の版からのアップデート
+@MainActor
+struct LegacyReconciledMigrationTests {
+    @Test("旧版で全明細ロック済みだった請求は、請求合計を記録して照合済みのままにする")
+    func legacyLockedInvoicesStayReconciled() throws {
+        let suite = "LegacyReconciledMigrationTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let context = try TestStore.makeContext()
+        let bank = TestFixtures.makeBank(name: "口座", in: context)
+        let lockedCard = TestFixtures.makeCard(name: "ロック済み", bank: bank, in: context)
+        let mixedCard = TestFixtures.makeCard(name: "未ロックあり", bank: bank, in: context)
+        let locked1 = try TestFixtures.saveRecord(amount: 1_000, label: "A", dateUse: TestStore.date(2026, 5, 15), card: lockedCard, in: context)
+        let locked2 = try TestFixtures.saveRecord(amount: 500, label: "B", dateUse: TestStore.date(2026, 5, 15), card: lockedCard, in: context)
+        let mixed1 = try TestFixtures.saveRecord(amount: 700, label: "C", dateUse: TestStore.date(2026, 5, 15), card: mixedCard, in: context)
+        _ = try TestFixtures.saveRecord(amount: 300, label: "D", dateUse: TestStore.date(2026, 5, 15), card: mixedCard, in: context)
+        // 旧版の照合確定と同じく、片方は済みにしてロックする
+        for record in [locked1, locked2, mixed1] {
+            for part in record.e6parts { part.isChecked = true }
+        }
+        try RecordService.setPartPaid(try #require(locked1.e6parts.first), isPaid: true, context: context)
+        try context.save()
+
+        try RecordService.markLegacyReconciledInvoicesIfNeeded(defaults: defaults, context: context)
+
+        let lockedInvoice = try #require(locked1.e6parts.first?.e2invoice)
+        let lockedDay = RecordService.reconciliationInvoices(cardID: lockedCard.id, date: lockedInvoice.date, context: context)
+        #expect(lockedDay.allSatisfy { $0.reconciledAmount == 1_500 })
+        #expect(RecordService.isReconciled(lockedDay))
+
+        let mixedInvoice = try #require(mixed1.e6parts.first?.e2invoice)
+        let mixedDay = RecordService.reconciliationInvoices(cardID: mixedCard.id, date: mixedInvoice.date, context: context)
+        #expect(mixedDay.allSatisfy { $0.reconciledAmount == nil })
+        #expect(defaults.bool(forKey: AppStorageKey.didMigrateReconciledAmount))
+    }
+}
