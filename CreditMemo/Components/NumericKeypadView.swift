@@ -59,13 +59,20 @@ enum NumericCalculatorRounding: String, CaseIterable, Hashable, Identifiable {
 
 // MARK: - テンキーオーバーレイ
 
-/// システムシートを使わず画面下部へ固定する00キー付きテンキー
+/// システムシートを使わず画面下部へ固定する00キー付きテンキー。
+/// 金額はテンキー内に表示せず、操作のたびに呼び出し元の入力欄へ直接反映する（完了は不要で、閉じるだけ）
 struct NumericKeypadOverlay: View {
     let title: LocalizedStringKey
+    /// 開いた時点の金額。未入力の間はこの値のまま
     let placeholder: Decimal
     let maxValue: Decimal
-    let onCancel: () -> Void
-    let onCommit: (Decimal) -> Void
+    /// 入力・計算・符号・丸めの変更ごとに、丸め後の金額を渡す
+    let onChange: (Decimal) -> Void
+    let onClose: () -> Void
+    /// テンキー部分の高さ（下端の安全領域を除く）。呼び出し元が入力欄をテンキーの上へ出すのに使う
+    var onPanelHeightChange: ((CGFloat) -> Void)? = nil
+    /// 未入力（開いた時の金額のまま）かを知らせる。呼び出し元は未入力の間、入力欄をプレースホルダー色にして上書きされることを示す
+    var onPristineChange: ((Bool) -> Void)? = nil
 
     @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
     @State private var digits: String = ""
@@ -77,19 +84,19 @@ struct NumericKeypadOverlay: View {
     @AppStorage(AppStorageKey.calculatorRounding) private var rounding: NumericCalculatorRounding = .halfUp
     @State private var showRoundingPicker = false
     @State private var calculationErrorKey: LocalizedStringKey?
+    /// 開いた時点の金額。入力欄へ反映した値で placeholder が変わっても、未入力時の基準を動かさない
+    @State private var initialValue: Decimal?
 
     private var isEmpty: Bool { digits.isEmpty }
-    /// 数字・演算子・符号のどれかを操作したか
-    private var hasStartedInput: Bool {
-        !digits.isEmpty || accumulator != nil || pendingOperator != nil
-            || calculationResult != nil || isNegative != (placeholder < 0)
+    private var baseValue: Decimal { initialValue ?? placeholder }
+    /// 開いた時の金額のまま、何も操作していないか
+    private var isPristine: Bool {
+        digits.isEmpty && accumulator == nil && pendingOperator == nil && calculationResult == nil
+            && isNegative == (baseValue < 0)
     }
     private var isCompact: Bool { UIScreen.main.bounds.height <= 700 }
     private var uiScale: CGFloat { fontScale.uiScale }
-    // 金額表示の拡大は上限を設け、ナビゲーション領域との重なりを防ぐ
-    private var displayScale: CGFloat { min(uiScale, 1.2) }
     private var sheetSpacing: CGFloat { (isCompact ? 10 : 14) * fontScale.uiScale }
-    private var displayFontSize: CGFloat { (isCompact ? 44 : 52) * displayScale }
     /// 丸め選択と計算式の塊を、シート標準の行間からどれだけ詰めるか。
     /// 行間を食い潰さないよう、標準の間隔の半分までに留める
     private var roundingRowTightening: CGFloat { sheetSpacing / 2 }
@@ -109,11 +116,15 @@ struct NumericKeypadOverlay: View {
     }
 
     private var activeValue: Decimal {
-        if pendingOperator != nil, let calculationResult { return calculationResult }
+        if pendingOperator != nil {
+            // 演算子の後は計算結果を、右辺が未入力・計算不能なら左辺を入力欄へ出す
+            if let calculationResult { return calculationResult }
+            if let accumulator { return accumulator }
+        }
         if let enteredValue { return enteredValue }
         if let calculationResult { return calculationResult }
         if let accumulator { return accumulator }
-        let magnitude = placeholder < 0 ? -placeholder : placeholder
+        let magnitude = baseValue < 0 ? -baseValue : baseValue
         return isNegative ? -magnitude : magnitude
     }
 
@@ -124,25 +135,6 @@ struct NumericKeypadOverlay: View {
     private var needsRounding: Bool {
         guard calculationResult != nil else { return false }
         return NumericCalculatorRounding.down.round(activeValue, scale: fractionDigits) != activeValue
-    }
-
-    /// 入力中の金額表示は、通貨記号の位置も含めてロケールへ合わせる
-    private var displayAmountText: String {
-        if calculationResult == nil && !digits.isEmpty
-            && (pendingOperator == .multiply || pendingOperator == .divide) {
-            return scalarDisplayText
-        }
-        // 上段は選択中の方法で丸めた最終金額を表示する
-        return currencyText(
-            needsRounding ? committedValue : activeValue,
-            fractionDigits: fractionDigits
-        )
-    }
-
-    private var displayColor: Color {
-        let isPristine = digits.isEmpty && accumulator == nil && calculationResult == nil
-        guard !isPristine else { return Color(.tertiaryLabel) }
-        return activeValue < 0 ? .red : Color(.label)
     }
 
     private var scalarDisplayText: String {
@@ -179,84 +171,83 @@ struct NumericKeypadOverlay: View {
     }
 
     var body: some View {
-        GeometryReader { geometry in
-            ZStack(alignment: .bottom) {
-                // 背面全体でタップを受け、編集中フォームの誤操作を防ぐ。
-                // 入力前は他のシートと同じく背面のタップで閉じる。
-                // 入力を始めた後はタグシートと同じく閉じず、完了か下矢印で閉じさせる（入力を捨てる誤操作を防ぐ）
-                Color.black.opacity(0.18)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        guard !hasStartedInput else { return }
-                        onCancel()
+        ZStack(alignment: .bottom) {
+            // 背面全体でタップを受け、編集中フォームの誤操作を防ぐ。
+            // 入力は都度反映済みなので、背面のタップで閉じても入力は失われない。
+            // 入力欄が見えるよう背面は暗くしない
+            Color.clear
+                .contentShape(Rectangle())
+                .ignoresSafeArea()
+                .onTapGesture { onClose() }
+
+            VStack(spacing: sheetSpacing) {
+                header
+
+                if let expressionText {
+                    VStack(spacing: 0) {
+                        // 丸め選択は計算式の直前へ表示する。
+                        // 計算式に添えるだけなので、上下は大きく詰める
+                        roundingControlRow
+                        calculationLine(expressionText)
                     }
-
-                VStack(spacing: sheetSpacing) {
-                    header
-
-                    amountDisplayRow
-
-                    if let expressionText {
-                        VStack(spacing: 0) {
-                            // 丸め選択は金額幅を狭めず、計算式との間へ表示する。
-                            // 金額・計算式に挟まれた添え物なので、上下は大きく詰める
-                            roundingControlRow
-                            calculationLine(expressionText)
-                        }
-                        // 金額との間、テンキーとの間もシート標準より詰める
-                        .padding(.top, -roundingRowTightening)
-                        .padding(.bottom, -roundingRowTightening)
-                    }
-
-                    if let calculationErrorKey {
-                        Text(calculationErrorKey)
-                            .font(.caption)
-                            .foregroundStyle(.red)
-                    }
-
-                    HStack(alignment: .top, spacing: (isCompact ? 8 : 10) * uiScale) {
-                        NumericKeypad(compact: isCompact, scale: uiScale) { key in
-                            handleKey(key)
-                        }
-                        CalculatorOperatorKeypad(
-                            compact: isCompact,
-                            scale: uiScale,
-                            selectedOperator: pendingOperator,
-                            onSelect: selectOperator
-                        )
-                    }
-                    .padding(.horizontal, (isCompact ? 16 : 20) * uiScale)
-
-                    Button {
-                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                        commitCalculation()
-                    } label: {
-                        Text("button.done")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14 * uiScale)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .padding(.horizontal, 32 * uiScale)
-                    .padding(.bottom, (isCompact ? 2 : 6) * uiScale)
+                    // 見出しとの間、テンキーとの間もシート標準より詰める
+                    .padding(.top, -roundingRowTightening)
+                    .padding(.bottom, -roundingRowTightening)
                 }
-                .padding(.top, 8)
-                .padding(.bottom, geometry.safeAreaInsets.bottom)
-                .background(Color(uiColor: .systemGroupedBackground))
-                .clipShape(
-                    UnevenRoundedRectangle(
-                        topLeadingRadius: 24,
-                        topTrailingRadius: 24,
-                        style: .continuous
+
+                if let calculationErrorKey {
+                    Text(calculationErrorKey)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+
+                HStack(alignment: .top, spacing: (isCompact ? 8 : 10) * uiScale) {
+                    NumericKeypad(compact: isCompact, scale: uiScale) { key in
+                        handleKey(key)
+                    }
+                    CalculatorOperatorKeypad(
+                        compact: isCompact,
+                        scale: uiScale,
+                        selectedOperator: pendingOperator,
+                        onSelect: selectOperator
                     )
-                )
-                .shadow(color: .black.opacity(0.16), radius: 12, y: -2)
+                }
+                .padding(.horizontal, (isCompact ? 16 : 20) * uiScale)
+                // 下端の安全領域に加えて余白を取り、最下段のキーが画面の角やホームバーで欠けないようにする
+                .padding(.bottom, (isCompact ? 12 : 16) * uiScale)
             }
+            .padding(.top, 8)
+            // 入力欄をテンキーの上へ出せるよう、呼び出し元へ高さを知らせる
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height in
+                onPanelHeightChange?(height)
+            }
+            .frame(maxWidth: .infinity)
+            // キーは安全領域の内側に置き、背景だけを画面下端まで伸ばす
+            .background(
+                UnevenRoundedRectangle(
+                    topLeadingRadius: 24,
+                    topTrailingRadius: 24,
+                    style: .continuous
+                )
+                .fill(Color(uiColor: .systemGroupedBackground))
+                .shadow(color: .black.opacity(0.16), radius: 12, y: -2)
+                .ignoresSafeArea(edges: .bottom)
+            )
         }
-        .ignoresSafeArea()
+        // ソフトウェアキーボードの領域では持ち上げない
+        .ignoresSafeArea(.keyboard)
         .onAppear {
+            initialValue = placeholder
             // placeholder が負の場合はマイナスモードで開く
             isNegative = placeholder < 0
+            onPristineChange?(true)
+        }
+        .onChange(of: isPristine) { _, pristine in
+            onPristineChange?(pristine)
+        }
+        // 入力欄へ常に計算後・丸め後の金額を反映する
+        .onChange(of: committedValue) { _, value in
+            onChange(value)
         }
         .modifier(ConditionalSheetDynamicTypeModifier(fontScale: fontScale))
         // 親がシート表示でも、テンキー操作中は親シートの上下パンを止める
@@ -269,17 +260,22 @@ struct NumericKeypadOverlay: View {
     }
 
     private var header: some View {
-        HStack {
-            Button(action: onCancel) {
+        HStack(spacing: 4) {
+            Button(action: onClose) {
                 Image(systemName: "chevron.down").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                     .font(.title3)
                     .symbolRenderingMode(.hierarchical)
                     .frame(width: 44, height: 44)
             }
             Spacer()
-            Text(title)
-                .font(.headline)
-            Spacer()
+            // 全取消：入力・計算を消して、開いた時の金額に戻す
+            Button(action: clearAll) {
+                Image(systemName: "arrow.counterclockwise").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                    .font(.body.weight(.semibold))
+                    .frame(width: 44, height: 44)
+            }
+            // 未入力の時は戻す値が無いので押せなくする
+            .disabled(isPristine)
             Button {
                 toggleSign()
             } label: {
@@ -289,24 +285,23 @@ struct NumericKeypadOverlay: View {
                     .frame(width: 44, height: 44)
             }
         }
+        // 右側にACと符号の2つが並んでも、見出しは中央に置く
+        .overlay {
+            Text(title)
+                .font(.headline)
+                .allowsHitTesting(false)
+        }
         .padding(.horizontal, 12)
     }
 
-    /// 丸め後の最終金額を横幅いっぱいに表示する
-    private var amountDisplayRow: some View {
-        Text(displayAmountText)
-            .font(.system(size: displayFontSize, weight: .bold, design: .rounded).monospacedDigit())
-            .foregroundStyle(displayColor)
-            .lineLimit(1)
-            .minimumScaleFactor(0.38)
-            .allowsTightening(true)
-            .frame(maxWidth: .infinity)
-            .padding(.horizontal, 16)
-            // 連続入力と丸め変更はアニメーションなしで即時反映する
-            .transaction { transaction in
-                transaction.animation = nil
-                transaction.disablesAnimations = true
-            }
+    /// 入力・計算・符号をすべて消し、開いた時の金額（未入力の状態）に戻す
+    private func clearAll() {
+        calculationErrorKey = nil
+        digits = ""
+        accumulator = nil
+        pendingOperator = nil
+        calculationResult = nil
+        isNegative = baseValue < 0
     }
 
     /// 選択中の丸め方法を計算式の直前へ小さく表示する
@@ -468,16 +463,6 @@ struct NumericKeypadOverlay: View {
             return
         }
         calculationResult = calculate(left, pendingOperator, right)
-    }
-
-    private func commitCalculation() {
-        if let left = accumulator,
-           let pendingOperator,
-           let right = enteredValue {
-            guard let result = calculate(left, pendingOperator, right) else { return }
-            calculationResult = result
-        }
-        onCommit(committedValue)
     }
 
     /// 計算規則は NumericCalculatorEngine に持たせ、ここでは結果を画面状態へ反映する

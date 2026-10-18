@@ -447,6 +447,10 @@ struct RecordEditView: View {
     @State private var editingPartNoForDueDate: Int16?
     @State private var draftPartDueDate   = Date()
     @State private var showPartAmountPad  = false
+    /// 独自テンキーの高さ。入力欄をテンキーの上へスクロールして見せるのに使う
+    @State private var keypadPanelHeight: CGFloat = 0
+    /// テンキーを開いたまま未入力か。未入力の間は入力欄をプレースホルダー色にして、入力で上書きされることを示す
+    @State private var isKeypadPristine = false
     @State private var editingPartNoForAmount: Int16?
     /// カレンダーコンテンツの実測高（月ナビで更新される）
     @State private var datePickerCalendarHeight: CGFloat = 390
@@ -520,6 +524,9 @@ struct RecordEditView: View {
     @FocusState private var focusNote: Bool
     private let formTopAnchorID = "record-form-top"
     private let noteAnchorID = "record-note-anchor"
+
+    /// 分割金額の入力欄へスクロールするための識別子
+    private func partRowAnchorID(_ partNo: Int16) -> String { "record-part-\(partNo)" }
 
     /// 選択できる決済手段。口座の指定があればその口座の手段だけにする
     private var selectableCards: [E1card] {
@@ -834,6 +841,13 @@ private var isValid: Bool {
             .onChange(of: focusNote) { _, isFocused in
                 if isFocused { scrollNoteIntoView(proxy) }
             }
+            // テンキーを開いた時・高さが決まった時に、入力先の欄をテンキーの真上へ出す
+            .onChange(of: isKeypadShown) { _, isShown in
+                if isShown { scrollKeypadTargetIntoView(proxy) }
+            }
+            .onChange(of: keypadPanelHeight) { _, _ in
+                scrollKeypadTargetIntoView(proxy)
+            }
             .simultaneousGesture(
                 TapGesture().onEnded {
                     // フォーム外側の軽いタップでラベル入力のフォーカスを外す
@@ -843,7 +857,10 @@ private var isValid: Bool {
             // 候補バーはこのジェスチャの外側に置く。内側だとカプセルを押した瞬間に
             // フォーカスが外れ、バーごと消えてタップが成立しない
             .safeAreaInset(edge: .bottom) {
-                if isUsePointFocused && !shownUsePointCandidates.isEmpty {
+                if isKeypadShown {
+                    // テンキーへ直接入力した金額が見えるよう、テンキーの分だけ下端を空ける
+                    Color.clear.frame(height: keypadPanelHeight)
+                } else if isUsePointFocused && !shownUsePointCandidates.isEmpty {
                     // ラベル候補はキーボードの真上に置く。safeAreaInset なら実レイアウトの
                     // 領域を確保するので、下の行に重なってタップが抜けることがない
                     usePointCandidateBar
@@ -975,6 +992,8 @@ private var isValid: Bool {
             recomputeEditablePartsDueDates()
         }
         .onChange(of: nAmount) { _, _ in
+            // テンキー入力中は途中の小さな金額で手動配分を崩さないよう、閉じた時にまとめて補正する
+            guard !showAmountPad else { return }
             // 金額変更時は手動配分が 1...総額-1 に収まるよう補正する
             normalizePartAmountOverridesIfNeeded()
         }
@@ -1142,27 +1161,27 @@ private var isValid: Bool {
         }
         .overlay {
             if showAmountPad {
+                // 入力のたびに金額欄へ直接反映する
                 NumericKeypadOverlay(
                     title: "record.field.amount",
                     placeholder: nAmount,
                     maxValue: APP_MAX_AMOUNT,
-                    onCancel: closeAmountPad
-                ) { value in
-                    nAmount = value.roundedAmount()
-                    showAmountPad = false
-                    // 金額確定後はフォーカスを外して類似決済を見やすくする
-                    DispatchQueue.main.async { isUsePointFocused = false }
-                }
+                    onChange: { nAmount = $0.roundedAmount() },
+                    onClose: closeAmountPad,
+                    onPanelHeightChange: { keypadPanelHeight = $0 },
+                    onPristineChange: { isKeypadPristine = $0 }
+                )
             } else if showPartAmountPad {
+                // 入力のたびに分割金額へ直接反映する
                 NumericKeypadOverlay(
                     title: "record.partAmount.title",
                     placeholder: editingPartNoForAmount.map { displayedPartAmount(partNo: $0) } ?? .zero,
                     maxValue: editablePartAmountUpperBound,
-                    onCancel: closePartAmountPad
-                ) { value in
-                    applyPartAmount(value)
-                    closePartAmountPad()
-                }
+                    onChange: applyPartAmount,
+                    onClose: closePartAmountPad,
+                    onPanelHeightChange: { keypadPanelHeight = $0 },
+                    onPristineChange: { isKeypadPristine = $0 }
+                )
             }
         }
         .overlay(alignment: .top) {
@@ -1276,6 +1295,8 @@ private var isValid: Bool {
                 }
                 ForEach(paymentPartNumbers, id: \.self) { partNo in
                     paymentPartRow(partNo: partNo, allowsDateEdit: true)
+                        // 分割金額のテンキー表示時に、この行をテンキーの上へ出す
+                        .id(partRowAnchorID(partNo))
                 }
             } header: {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
@@ -1418,8 +1439,12 @@ private var isValid: Bool {
         } label: {
             Text(displayedPartAmount(partNo: partNo).currencyString())
                 .font(.body.weight(.regular).monospacedDigit())
-                // 金額は操作可否に関係なく通常文字色で見せる
-                .foregroundStyle(.primary)
+                // 金額は操作可否に関係なく通常文字色で見せる。
+                // テンキーで未入力の間だけ、入力で上書きされることをプレースホルダー色で示す
+                .foregroundStyle(
+                    showPartAmountPad && editingPartNoForAmount == partNo && isKeypadPristine
+                        ? Color(.tertiaryLabel) : Color.primary
+                )
                 .lineLimit(1)
                 .minimumScaleFactor(0.65)
         }
@@ -1656,6 +1681,10 @@ private var isValid: Bool {
     /// 通常金額テンキーを閉じ、自動表示時だけ必要なら編集画面も閉じる
     private func closeAmountPad() {
         showAmountPad = false
+        // 入力中に止めていた手動配分の補正をまとめて行う
+        normalizePartAmountOverridesIfNeeded()
+        // 金額入力後はフォーカスを外して類似決済を見やすくする
+        DispatchQueue.main.async { isUsePointFocused = false }
         if isNew && nAmount == 0 && autoOpenAmountPad
             && !showsFrequentCapsules && !didPickFrequentPayment {
             DispatchQueue.main.async { dismiss() }
@@ -2197,7 +2226,10 @@ private var isValid: Bool {
                 twoLineValueRow(
                     titleKey: "record.field.amount",
                     valueText: nAmount == 0 ? "—" : nAmount.currencyString(),
-                    valueColor: nAmount == 0 ? Color(.tertiaryLabel) : (nAmount < 0 ? .red : COLOR_AMOUNT_POSITIVE),
+                    // テンキーで未入力の間は、入力で上書きされることをプレースホルダー色で示す
+                    valueColor: nAmount == 0 || (showAmountPad && isKeypadPristine)
+                        ? Color(.tertiaryLabel)
+                        : (nAmount < 0 ? .red : COLOR_AMOUNT_POSITIVE),
                     valueFont: .title2.bold().monospacedDigit(),
                     showsChevron: false
                 )
@@ -2371,6 +2403,8 @@ private var isValid: Bool {
                 }
                 ForEach(paymentPartNumbers, id: \.self) { partNo in
                     paymentPartRow(partNo: partNo, allowsDateEdit: canManuallyEditPartNo(partNo))
+                        // 分割金額のテンキー表示時に、この行をテンキーの上へ出す
+                        .id(partRowAnchorID(partNo))
                 }
             } header: {
                 HStack(alignment: .center, spacing: 6) {
@@ -3059,6 +3093,25 @@ private var isValid: Bool {
     private func showBanner() {
         savedBanner = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) { savedBanner = false }
+    }
+
+    /// テンキーで入力中の欄（金額・分割金額）を、テンキーの真上へスクロールする
+    private func scrollKeypadTargetIntoView(_ proxy: ScrollViewProxy) {
+        let targetID: String
+        if showAmountPad {
+            targetID = formTopAnchorID
+        } else if showPartAmountPad, let partNo = editingPartNoForAmount {
+            targetID = partRowAnchorID(partNo)
+        } else {
+            return
+        }
+        guard 0 < keypadPanelHeight else { return }
+        // 下端の余白が反映されてからスクロールする
+        DispatchQueue.main.async {
+            withAnimation(.easeInOut(duration: 0.22)) {
+                proxy.scrollTo(targetID, anchor: .bottom)
+            }
+        }
     }
 
     private func scrollNoteIntoView(_ proxy: ScrollViewProxy) {

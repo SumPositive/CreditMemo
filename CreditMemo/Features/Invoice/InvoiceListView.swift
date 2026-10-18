@@ -307,6 +307,8 @@ struct InvoiceListView: View {
     @State private var showConfirmedAmountPad = false
     /// テンキーを開いた時点の請求合計
     @State private var confirmedAmountDraft: Decimal = .zero
+    /// 請求合計のテンキーを開いたまま未入力か。未入力の間は入力欄をプレースホルダー色にする
+    @State private var isConfirmedAmountPadPristine = false
     /// 画面を移動してもタスク終了までは入力値を共有する
     @State private var confirmedAmountStore = ConfirmedDebitAmountSessionStore.shared
     /// 保存した照合途中の請求合計を再起動後も共有する
@@ -1183,8 +1185,10 @@ struct InvoiceListView: View {
             }
             if isReconciliationMode {
                 Button {
-                    // 未入力時は明細合計を初期値にして一致確認を素早く行えるようにする
+                    // 未入力時は明細合計を初期値にして一致確認を素早く行えるようにする。
+                    // テンキーは入力欄へ直接入れる方式なので、初期値もこの時点で入力欄へ入れる
                     confirmedAmountDraft = reconciliationConfirmedAmount ?? reconciliationCurrentAmount
+                    saveConfirmedAmount(confirmedAmountDraft)
                     showConfirmedAmountPad = true
                 } label: {
                     HStack(spacing: 8) {
@@ -1192,6 +1196,11 @@ struct InvoiceListView: View {
                         Spacer(minLength: 8)
                         Text(reconciliationConfirmedAmount?.currencyString() ?? "—")
                             .font(.body.monospacedDigit())
+                            // テンキーで未入力の間は、入力で上書きされることをプレースホルダー色で示す
+                            .foregroundStyle(
+                                showConfirmedAmountPad && isConfirmedAmountPadPristine
+                                    ? Color(.tertiaryLabel) : Color.accentColor
+                            )
                         summaryAccessoryChevron(isVisible: true, color: Color.accentColor)
                     }
                     .foregroundStyle(Color.accentColor)
@@ -1253,7 +1262,7 @@ struct InvoiceListView: View {
             .accessibilityHidden(!isVisible)
     }
 
-    /// 請求合計を照合中の仮入力として保持する
+    /// 請求合計を照合中の仮入力として保持する。テンキーの入力ごとに呼ばれる
     private func saveConfirmedAmount(_ amount: Decimal) {
         guard isReconciliationMode, confirmedAmountScope != nil else {
             showConfirmedAmountPad = false
@@ -1261,7 +1270,6 @@ struct InvoiceListView: View {
         }
         // 照合を確定するまでは保存済みの値を変更しない
         reconciliationConfirmedAmount = amount.roundedAmount()
-        showConfirmedAmountPad = false
     }
 
     @ViewBuilder
@@ -1781,12 +1789,14 @@ struct InvoiceListView: View {
         }
         .overlay {
             if showConfirmedAmountPad {
+                // 入力のたびに請求合計欄へ直接反映する
                 NumericKeypadOverlay(
                     title: "invoice.confirmedAmount",
                     placeholder: confirmedAmountDraft,
                     maxValue: APP_MAX_AMOUNT,
-                    onCancel: { showConfirmedAmountPad = false },
-                    onCommit: saveConfirmedAmount
+                    onChange: saveConfirmedAmount,
+                    onClose: { showConfirmedAmountPad = false },
+                    onPristineChange: { isConfirmedAmountPadPristine = $0 }
                 )
             }
         }
@@ -2129,6 +2139,11 @@ private struct ReconciliationDraftEditView: View {
     @State private var frequentCapsuleHeight: CGFloat = 0
     /// カプセル全体の実測高さ。行数が少なければこの高さまで縮める
     @State private var frequentContentHeight: CGFloat = 0
+    /// 金額テンキーの高さ。金額欄をテンキーの上へスクロールして見せるのに使う
+    @State private var keypadPanelHeight: CGFloat = 0
+    private let amountRowAnchorID = "draft-amount-row"
+    /// 金額テンキーを開いたまま未入力か。未入力の間は金額欄をプレースホルダー色にする
+    @State private var isKeypadPristine = false
     @FocusState private var focusNote: Bool
     /// 変更破棄の2回目のタップを待っているか
     @State private var isDiscardArmed = false
@@ -2183,90 +2198,110 @@ private struct ReconciliationDraftEditView: View {
     }
 
     var body: some View {
-        Form {
-            // ラベル欄を兼ねるので常に出す
-            frequentSection
+        ScrollViewReader { proxy in
+            Form {
+                // ラベル欄を兼ねるので常に出す
+                frequentSection
 
-            Section {
-                Button {
-                    showAmountPad = true
-                } label: {
+                Section {
+                    Button {
+                        showAmountPad = true
+                    } label: {
+                        valueRow(
+                            titleKey: "record.field.amount",
+                            value: AttributedString(amount.currencyString()),
+                            // テンキーで未入力の間は、入力で上書きされることをプレースホルダー色で示す
+                            valueColor: showAmountPad && isKeypadPristine ? Color(.tertiaryLabel) : COLOR_AMOUNT_POSITIVE,
+                            valueFont: .title2.bold().monospacedDigit(),
+                            showsChevron: false
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    // 金額テンキー表示時に、この行をテンキーの上へ出す
+                    .id(amountRowAnchorID)
+
+                    // 利用日はセル全体のタップでカレンダーを開く（新しい決済と同じ）
+                    Button {
+                        draftUseDate = useDate
+                        showDatePicker = true
+                    } label: {
+                        valueRow(
+                            titleKey: "record.field.date",
+                            value: AppDateFormat.singleLineAttributed(useDate),
+                            valueColor: .accentColor
+                        )
+                    }
+                    .buttonStyle(.plain)
+
+                    // 差額分は照合中の決済手段に固定する
                     valueRow(
-                        titleKey: "record.field.amount",
-                        value: AttributedString(amount.currencyString()),
-                        valueColor: COLOR_AMOUNT_POSITIVE,
-                        valueFont: .title2.bold().monospacedDigit(),
+                        titleKey: "record.field.card",
+                        value: AttributedString(draft.card.zName),
+                        valueColor: .secondary,
+                        showsChevron: false
+                    )
+                    // ラベルは上の「よくある決済・ラベル」パネルで入れる
+                }
+
+                Section {
+                    Button {
+                        showTagPicker = true
+                    } label: {
+                        if selectedTags.isEmpty {
+                            valueRow(
+                                titleKey: "record.field.tag",
+                                value: AttributedString(NSLocalizedString("label.noSelection", comment: "")),
+                                valueColor: .accentColor
+                            )
+                        } else {
+                            // 新しい決済と同じく、選んだタグは小さなカプセルで並べる
+                            HStack(spacing: 8) {
+                                Text("record.field.tag")
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                                    .fixedSize(horizontal: true, vertical: false)
+                                Spacer(minLength: 8)
+                                SelectedTagChips(names: selectedTags.map(\.zName))
+                                Image(systemName: "chevron.right").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                                    .font(.caption)
+                                    .foregroundStyle(.tertiary)
+                            }
+                            .contentShape(Rectangle())
+                        }
+                    }
+                    .buttonStyle(.plain)
+
+                    MemoEditor(placeholder: "record.field.note", text: $note, isFocused: $focusNote)
+                }
+
+                Section {
+                    valueRow(
+                        titleKey: "invoice.reconciliation.payment",
+                        value: AttributedString(AppDateFormat.singleLineText(draft.dueDate)),
+                        valueColor: .secondary,
                         showsChevron: false
                     )
                 }
-                .buttonStyle(.plain)
-
-                // 利用日はセル全体のタップでカレンダーを開く（新しい決済と同じ）
-                Button {
-                    draftUseDate = useDate
-                    showDatePicker = true
-                } label: {
-                    valueRow(
-                        titleKey: "record.field.date",
-                        value: AppDateFormat.singleLineAttributed(useDate),
-                        valueColor: .accentColor
-                    )
-                }
-                .buttonStyle(.plain)
-
-                // 差額分は照合中の決済手段に固定する
-                valueRow(
-                    titleKey: "record.field.card",
-                    value: AttributedString(draft.card.zName),
-                    valueColor: .secondary,
-                    showsChevron: false
-                )
-                // ラベルは上の「よくある決済・ラベル」パネルで入れる
             }
-
-            Section {
-                Button {
-                    showTagPicker = true
-                } label: {
-                    if selectedTags.isEmpty {
-                        valueRow(
-                            titleKey: "record.field.tag",
-                            value: AttributedString(NSLocalizedString("label.noSelection", comment: "")),
-                            valueColor: .accentColor
-                        )
-                    } else {
-                        // 新しい決済と同じく、選んだタグは小さなカプセルで並べる
-                        HStack(spacing: 8) {
-                            Text("record.field.tag")
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                                .fixedSize(horizontal: true, vertical: false)
-                            Spacer(minLength: 8)
-                            SelectedTagChips(names: selectedTags.map(\.zName))
-                            Image(systemName: "chevron.right").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
-                                .font(.caption)
-                                .foregroundStyle(.tertiary)
-                        }
-                        .contentShape(Rectangle())
+            .listSectionSpacing(.custom(16))
+            .contentMargins(.top, 16, for: .scrollContent)
+            .scrollDismissesKeyboard(.immediately)
+            // 金額テンキーへ直接入力した金額が見えるよう、テンキーの分だけ下端を空ける
+            .safeAreaInset(edge: .bottom) {
+                if showAmountPad {
+                    Color.clear.frame(height: keypadPanelHeight)
+                }
+            }
+            // テンキーの高さが決まったら、金額欄をテンキーの真上へ出す
+            .onChange(of: keypadPanelHeight) { _, height in
+                guard showAmountPad, 0 < height else { return }
+                DispatchQueue.main.async {
+                    withAnimation(.easeInOut(duration: 0.22)) {
+                        proxy.scrollTo(amountRowAnchorID, anchor: .bottom)
                     }
                 }
-                .buttonStyle(.plain)
-
-                MemoEditor(placeholder: "record.field.note", text: $note, isFocused: $focusNote)
-            }
-
-            Section {
-                valueRow(
-                    titleKey: "invoice.reconciliation.payment",
-                    value: AttributedString(AppDateFormat.singleLineText(draft.dueDate)),
-                    valueColor: .secondary,
-                    showsChevron: false
-                )
             }
         }
-        .listSectionSpacing(.custom(16))
-        .contentMargins(.top, 16, for: .scrollContent)
-        .scrollDismissesKeyboard(.immediately)
         // 確認中は長い破棄ボタンのためにタイトルを隠す
         .navigationTitle(isDiscardArmed ? Text(verbatim: "") : Text("record.edit.title.edit"))
         .navigationBarTitleDisplayMode(.inline)
@@ -2357,16 +2392,18 @@ private struct ReconciliationDraftEditView: View {
         }
         .overlay {
             if showAmountPad {
+                // 入力のたびに金額欄へ直接反映する
                 NumericKeypadOverlay(
                     title: "record.field.amount",
                     placeholder: amount,
                     maxValue: APP_MAX_AMOUNT,
-                    onCancel: { showAmountPad = false },
-                    onCommit: { value in
+                    onChange: { value in
                         // 仮明細は請求へ加算するため正の金額だけを保持する
                         amount = Swift.max(value, .zero).roundedAmount()
-                        showAmountPad = false
-                    }
+                    },
+                    onClose: { showAmountPad = false },
+                    onPanelHeightChange: { keypadPanelHeight = $0 },
+                    onPristineChange: { isKeypadPristine = $0 }
                 )
             }
         }
