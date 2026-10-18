@@ -79,6 +79,11 @@ struct NumericKeypadOverlay: View {
     @State private var calculationErrorKey: LocalizedStringKey?
 
     private var isEmpty: Bool { digits.isEmpty }
+    /// 数字・演算子・符号のどれかを操作したか
+    private var hasStartedInput: Bool {
+        !digits.isEmpty || accumulator != nil || pendingOperator != nil
+            || calculationResult != nil || isNegative != (placeholder < 0)
+    }
     private var isCompact: Bool { UIScreen.main.bounds.height <= 700 }
     private var uiScale: CGFloat { fontScale.uiScale }
     // 金額表示の拡大は上限を設け、ナビゲーション領域との重なりを防ぐ
@@ -177,10 +182,14 @@ struct NumericKeypadOverlay: View {
         GeometryReader { geometry in
             ZStack(alignment: .bottom) {
                 // 背面全体でタップを受け、編集中フォームの誤操作を防ぐ。
-                // 他のシートと同じく、背面のタップで閉じる（入力中の値は確定しない）
+                // 入力前は他のシートと同じく背面のタップで閉じる。
+                // 入力を始めた後はタグシートと同じく閉じず、完了か下矢印で閉じさせる（入力を捨てる誤操作を防ぐ）
                 Color.black.opacity(0.18)
                     .contentShape(Rectangle())
-                    .onTapGesture { onCancel() }
+                    .onTapGesture {
+                        guard !hasStartedInput else { return }
+                        onCancel()
+                    }
 
                 VStack(spacing: sheetSpacing) {
                     header
