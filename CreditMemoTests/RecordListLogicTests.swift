@@ -311,3 +311,37 @@ struct RecordListLogicTests {
         #expect(records[index ?? -1].id == "today")
     }
 }
+
+/// 決済一覧の全文あいまい検索（メモ・ラベル・タグ・金額）
+struct RecordFullTextSearchTests {
+    private func matches(_ query: String, _ texts: [String], amount: Decimal = 0) -> Bool {
+        RecordFullTextSearch.matches(texts: texts, amount: amount, query: query)
+    }
+
+    @Test("ひらがな・カタカナ・全角半角・大文字小文字を区別しない")
+    func normalizesKanaWidthAndCase() {
+        #expect(matches("ちゃーじ", ["Rpayチャージ"]))
+        #expect(matches("ｲｵﾝ", ["イオンカード"]))
+        #expect(matches("IDECO", ["iDeCo"]))
+    }
+
+    @Test("4文字以上は1文字違いを許し、短い語は完全な部分一致だけ")
+    func allowsTyposOnlyForLongerTerms() {
+        #expect(matches("ヨドバスカメラ", ["ヨドバシカメラ"]))
+        #expect(matches("チャーズ", ["チャージ"]))
+        #expect(!matches("食財", ["食材"]))
+    }
+
+    @Test("金額は数字の部分一致と±10%以内で当たる")
+    func matchesAmounts() {
+        #expect(matches("888", ["x"], amount: 1888))
+        #expect(matches("1,000", ["x"], amount: 1050))
+        #expect(!matches("1000", ["x"], amount: 1200))
+    }
+
+    @Test("空白区切りはすべての語に当たる時だけ一致")
+    func requiresAllTerms() {
+        #expect(matches("ideco 投資", ["iDeCo", "投資"]))
+        #expect(!matches("ideco 食材", ["iDeCo", "投資"]))
+    }
+}
