@@ -8,6 +8,8 @@ import SwiftData
 
 struct CardEditView: View {
     var card: E1card?
+    /// シートで開いた時は、変更がなければ下矢印で閉じられるようにする（push時は戻るボタンがある）
+    var isSheet = false
 
     @Environment(\.modelContext)    private var context
     @Environment(\.dismiss)         private var dismiss
@@ -355,6 +357,10 @@ struct CardEditView: View {
             ToolbarItem(placement: .navigationBarLeading) {
                 if isNew || hasChanges {
                     Button("button.cancel") { dismiss() }
+                        .disabled(isRebuildingBilling)
+                } else if isSheet {
+                    // 変更がなければ下矢印で閉じる
+                    SheetCloseButton { dismiss() }
                         .disabled(isRebuildingBilling)
                 }
             }

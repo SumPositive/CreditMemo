@@ -15,6 +15,10 @@ struct RecordListView: View {
         case bank(String)
         case label
         case tag
+        /// 金額の範囲（nil は上限・下限なし）
+        case amount(min: Decimal?, max: Decimal?)
+        /// 全文あいまい検索の文字（メモ・ラベル・タグ・金額が対象）
+        case fullText(String)
     }
 
     /// 履歴の対象期間
@@ -116,6 +120,8 @@ struct RecordListView: View {
         case bank
         case label
         case tag
+        case amount
+        case fullText
 
         var id: Self { self }
 
@@ -127,6 +133,21 @@ struct RecordListView: View {
             case .bank:       "payment.filter.bank"
             case .label:      "record.filter.label"
             case .tag:        "record.field.tag"
+            case .amount:     "record.field.amount"
+            case .fullText:   "record.filter.fullText"
+            }
+        }
+
+        /// 金額の通貨に対応する SF Symbols の通貨記号。対応が無ければ nil
+        static var currencySymbolIconName: String? {
+            switch Decimal.effectiveCurrencyLocale.currency?.identifier {
+            case "JPY", "CNY": "yensign"
+            case "USD", "TWD", "HKD", "CAD", "AUD", "NZD", "SGD": "dollarsign"
+            case "EUR": "eurosign"
+            case "KRW": "wonsign"
+            case "GBP": "sterlingsign"
+            case "CHF": "francsign"
+            default: nil
             }
         }
 
@@ -138,6 +159,8 @@ struct RecordListView: View {
             case .bank:       "building.columns"
             case .label:      "leaf"   // 表示は filterLabel で LabelSignIcon に差し替える
             case .tag:        "tag"
+            case .amount:     Self.currencySymbolIconName ?? "banknote"
+            case .fullText:   "magnifyingglass"
             }
         }
     }
@@ -165,6 +188,8 @@ struct RecordListView: View {
     @State private var recordPage = 0
     @State private var hasMoreRecords = true
     @State private var isLoadingRecords = false
+    /// 全文検索の絞り込み中。件数が多いと時間がかかるので、一覧の上に進捗を出す
+    @State private var isFullTextSearching = false
     /// 並び替え後に基準となるセルへ移動するための要求
     @State private var recordScrollRequest = 0
     @State private var recordScrollTargetID: String?
@@ -188,6 +213,8 @@ struct RecordListView: View {
     @State private var showBankPicker = false
     @State private var showTagPicker = false
     @State private var showLabelPicker = false
+    @State private var showAmountFilter = false
+    @State private var showFullTextFilter = false
     /// スワイプの削除で確認中の明細
     @State private var pendingDeleteRecord: E3record?
     @State private var showDeleteAlert = false
@@ -198,7 +225,7 @@ struct RecordListView: View {
     @State private var monthTotalsByRecordID: [String: Decimal] = [:]
 
     private let pageSize = 100
-    private let filterOptions: [FilterOption] = [.all, .incomplete, .card, .bank, .label, .tag]
+    private let filterOptions: [FilterOption] = [.all, .incomplete, .card, .bank, .label, .tag, .amount, .fullText]
     private let sortOptions: [SortTarget] = [.edit, .date, .amount]
 
     init(initialTag: E5tag? = nil) {
@@ -259,7 +286,39 @@ struct RecordListView: View {
             }
             // 件数ではなく、選択したタグ名を一致条件の記号で列記する
             return selectedTags.map(\.zName).joined(separator: tagMatchMode.separator)
+        case .amount(let min, let max):
+            return amountRangeText(min: min, max: max)
+        case .fullText(let text):
+            return "“\(text)”"
         }
+    }
+    /// 金額範囲の表示。同額は1つだけ、片側だけなら〜で開いた側を示す。
+    /// 左のアイコンが通貨記号なので、金額側の通貨記号は重ねない
+    private func amountRangeText(min: Decimal?, max: Decimal?) -> String {
+        let omitsSymbol = FilterOption.currencySymbolIconName != nil
+        func text(_ value: Decimal) -> String { value.currencyString(omitsSymbol: omitsSymbol) }
+        switch (min, max) {
+        case let (min?, max?) where min == max:
+            return text(min)
+        case let (min?, max?):
+            return "\(text(min)) 〜 \(text(max))"
+        case let (min?, nil):
+            return "\(text(min)) 〜"
+        case let (nil, max?):
+            return "〜 \(text(max))"
+        case (nil, nil):
+            return NSLocalizedString("record.field.amount", comment: "")
+        }
+    }
+    /// 金額シートを開く時の初期値（金額で絞り込み中ならその範囲）
+    private var currentAmountRange: (min: Decimal?, max: Decimal?) {
+        if case .amount(let min, let max) = filterKind { return (min, max) }
+        return (nil, nil)
+    }
+    /// 全文検索シートを開く時の初期値（全文検索で絞り込み中ならその文字）
+    private var currentFullText: String {
+        if case .fullText(let text) = filterKind { return text }
+        return ""
     }
     private var tagMatchMode: TagMatchMode {
         TagMatchMode(rawValue: tagMatchModeRaw) ?? .defaultMode
@@ -274,6 +333,8 @@ struct RecordListView: View {
                 case .bank:       .bank
                 case .label:      .label
                 case .tag:        .tag
+                case .amount:     .amount
+                case .fullText:   .fullText
                 }
             },
             set: { option in
@@ -293,6 +354,10 @@ struct RecordListView: View {
                     presentLabelFilter()
                 case .tag:
                     presentTagFilter()
+                case .amount:
+                    presentAmountFilter()
+                case .fullText:
+                    presentFullTextFilter()
                 }
             }
         )
@@ -446,6 +511,13 @@ struct RecordListView: View {
                 .onAppear {
                     loadMoreRecordsIfNeeded()
                 }
+            }
+        }
+        .overlay {
+            if isFullTextSearching {
+                ProgressView("record.filter.searching")
+                    .padding(20)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
         }
         // 内容が低い月合計セルを、List既定の最小行高まで広げない
@@ -626,6 +698,32 @@ struct RecordListView: View {
             .appFontScale(fontScale)
             .presentationDragIndicator(.visible)
             // ラベルフィルターシートの背面を透かさない
+            .presentationBackground(Color(uiColor: .systemBackground))
+        }
+        .sheet(isPresented: $showAmountFilter) {
+            RecordAmountFilterSheet(initialRange: currentAmountRange) { min, max in
+                selectedTags = []
+                selectedLabels = []
+                // 上限・下限とも空なら絞り込みを解除する
+                filterKind = (min == nil && max == nil) ? .all : .amount(min: min, max: max)
+            }
+            // シートにもアプリ内文字サイズ設定を明示適用する
+            .appFontScale(fontScale)
+            .presentationDragIndicator(.visible)
+            // 金額フィルターシートの背面を透かさない
+            .presentationBackground(Color(uiColor: .systemBackground))
+        }
+        .sheet(isPresented: $showFullTextFilter) {
+            RecordFullTextFilterSheet(initialText: currentFullText) { text in
+                selectedTags = []
+                selectedLabels = []
+                // 空なら絞り込みを解除する
+                filterKind = text.isEmpty ? .all : .fullText(text)
+            }
+            // シートにもアプリ内文字サイズ設定を明示適用する
+            .appFontScale(fontScale)
+            .presentationDragIndicator(.visible)
+            // メモフィルターシートの背面を透かさない
             .presentationBackground(Color(uiColor: .systemBackground))
         }
         }
@@ -820,6 +918,22 @@ struct RecordListView: View {
         }
     }
 
+    private func presentAmountFilter() {
+        // ポップオーバーを閉じた次のタイミングでシートを開き、表示競合を避ける
+        showFilterPopover = false
+        DispatchQueue.main.async {
+            showAmountFilter = true
+        }
+    }
+
+    private func presentFullTextFilter() {
+        // ポップオーバーを閉じた次のタイミングでシートを開き、表示競合を避ける
+        showFilterPopover = false
+        DispatchQueue.main.async {
+            showFullTextFilter = true
+        }
+    }
+
     private func clearFilter() {
         // クリアボタンでは絞り込みだけを解除し、並び順は維持する。
         selectedTags = []
@@ -835,10 +949,18 @@ struct RecordListView: View {
     private func reloadForConditionChange() {
         guard !isConditionReloadScheduled else { return }
         isConditionReloadScheduled = true
+        // 全文検索は全明細を近似照合するので、先に進捗を出してから絞り込む
+        if case .fullText = filterKind {
+            isFullTextSearching = true
+        }
         DispatchQueue.main.async {
-            isConditionReloadScheduled = false
-            resetAndLoadRecords()
-            prepareCurrentSortScroll()
+            // 進捗表示を一度描画させてから重い絞り込みに入る
+            DispatchQueue.main.async {
+                isConditionReloadScheduled = false
+                resetAndLoadRecords()
+                prepareCurrentSortScroll()
+                isFullTextSearching = false
+            }
         }
     }
 
@@ -1020,6 +1142,17 @@ struct RecordListView: View {
                 recordTagIDs: Set(record.e5tags.map(\.id)),
                 selectedTagIDs: Set(selectedTagIDs)
             )
+        case .amount(let min, let max):
+            // 下限・上限とも、その金額を含める
+            if let min, record.nAmount < min { return false }
+            if let max, max < record.nAmount { return false }
+            return true
+        case .fullText(let text):
+            return RecordFullTextSearch.matches(
+                texts: [record.zNote, record.zName] + record.e5tags.map(\.zName),
+                amount: record.nAmount,
+                query: text
+            )
         }
     }
 
@@ -1082,12 +1215,8 @@ private struct RecordSingleFilterPickerSheet<Item: Identifiable>: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    /// 候補数に合わせ、多い場合は最初から最大まで開く
-    private var pickerDetents: Set<PresentationDetent> {
-        guard items.count <= 6 else { return [.large] }
-        let contentHeight = ceil(90 + CGFloat(max(items.count, 1)) * 50)
-        return [.height(contentHeight), .large]
-    }
+    /// 選択シートは共通で、中くらいの高さで開き、引き上げると最大まで広げられる
+    private let pickerDetents: Set<PresentationDetent> = [.medium, .large]
 
     var body: some View {
         NavigationStack {
@@ -1103,7 +1232,8 @@ private struct RecordSingleFilterPickerSheet<Item: Identifiable>: View {
             .scalableNavigationTitle(titleKey)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("button.cancel") { dismiss() }
+                    // 選択を変えずに閉じる。シート共通の下矢印
+                    SheetCloseButton { dismiss() }
                 }
             }
         }
@@ -1130,6 +1260,10 @@ private struct RecordTagFilterSheet: View {
         SortMode(rawValue: sortModeRaw) ?? .defaultForTags
     }
 
+    /// 開いた時から選択か一致条件を変えたか
+    private var hasDraftChanges: Bool {
+        selectedIDs != Set(selectedTags.map(\.id)) || draftMatchModeRaw != matchModeRaw
+    }
     private var selectedIDs: Set<String> {
         Set(draftSelection.map(\.id))
     }
@@ -1143,9 +1277,8 @@ private struct RecordTagFilterSheet: View {
     }
 
     /// 少ない行は内容に合わせ、多い行は最初から最大まで開く
-    private var tagPickerDetents: Set<PresentationDetent> {
-        TagSelectionList.detents(tagNames: tags.map(\.zName), showsMatchMode: true)
-    }
+    /// 選択シートは共通で、中くらいの高さで開き、引き上げると最大まで広げられる
+    private let tagPickerDetents: Set<PresentationDetent> = [.medium, .large]
 
     var body: some View {
         NavigationStack {
@@ -1160,20 +1293,29 @@ private struct RecordTagFilterSheet: View {
             .scalableNavigationTitle("record.field.tag")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("button.cancel") { dismiss() }
+                    // 選択を変えていればキャンセル、変えていなければシート共通の下矢印で閉じる
+                    if hasDraftChanges {
+                        Button("button.cancel") { dismiss() }
+                    } else {
+                        SheetCloseButton { dismiss() }
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    // 決定を押したときだけ絞り込み条件へ反映する
-                    Button("button.decide") {
+                    // 検索を押したときだけ絞り込み条件へ反映する
+                    Button("record.filter.search") {
                         selectedTags = draftSelection
                         matchModeRaw = draftMatchModeRaw
                         onDone()
                         dismiss()
                     }
+                    // 選択を変えた時だけアクセント色にする
+                    .prominentButton(hasDraftChanges)
                 }
             }
         }
         .presentationDetents(tagPickerDetents)
+        // 選択を変えた後は下スワイプで閉じず、決定かキャンセルを押させる（決済編集のタグ選択と同じ）
+        .interactiveDismissDisabled(hasDraftChanges)
         .onAppear {
             draftSelection = selectedTags
             draftMatchModeRaw = matchModeRaw
@@ -1210,6 +1352,8 @@ private struct RecordLabelFilterSheet: View {
     @Environment(\.dismiss) private var dismiss
     /// キャンセルで元へ戻せるよう、選択操作はシート内の作業用コピーに対して行う
     @State private var draftSelection: [String] = []
+    /// 開いた時から選択を変えたか
+    private var hasDraftChanges: Bool { Set(draftSelection) != Set(selectedLabels) }
     /// ラベル候補と使用回数
     private struct Candidate: Identifiable {
         let label: String
@@ -1258,19 +1402,29 @@ private struct RecordLabelFilterSheet: View {
             .scalableNavigationTitle("record.filter.label")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("button.cancel") { dismiss() }
+                    // 選択を変えていればキャンセル、変えていなければシート共通の下矢印で閉じる
+                    if hasDraftChanges {
+                        Button("button.cancel") { dismiss() }
+                    } else {
+                        SheetCloseButton { dismiss() }
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    // 決定を押したときだけ絞り込み条件へ反映する
-                    Button("button.decide") {
+                    // 検索を押したときだけ絞り込み条件へ反映する
+                    Button("record.filter.search") {
                         selectedLabels = draftSelection
                         onDone()
                         dismiss()
                     }
+                    // 選択を変えた時だけアクセント色にする
+                    .prominentButton(hasDraftChanges)
                 }
             }
         }
-        .presentationDetents([.large])
+        // 選択シート共通：中くらいで開き、引き上げると最大
+        .presentationDetents([.medium, .large])
+        // 選択を変えた後は下スワイプで閉じず、決定かキャンセルを押させる（決済編集のタグ選択と同じ）
+        .interactiveDismissDisabled(hasDraftChanges)
         .onAppear {
             draftSelection = selectedLabels
             rebuildCandidates()
@@ -1316,6 +1470,357 @@ private struct RecordLabelFilterSheet: View {
         } else {
             draftSelection.append(label)
         }
+    }
+}
+
+/// 履歴フィルター用の金額シート。
+/// 通常は1つの金額に一致する明細を出し、「範囲指定」をONにすると上限・下限で絞り込む（片方だけでもよい）。
+/// 選んだ行へシート下部のテンキーで入力する（計算機能は持たない）
+private struct RecordAmountFilterSheet: View {
+    let initialRange: (min: Decimal?, max: Decimal?)
+    let onDone: (Decimal?, Decimal?) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    /// 入力中の数字（通貨の最小単位の桁）。空は制限なし
+    @State private var minDigits = ""
+    @State private var maxDigits = ""
+    /// テンキーの入力先
+    @State private var target: Field = .max
+    /// 範囲で絞り込むか。OFFは上限の行だけを「金額」として使い、その金額ちょうどに一致させる
+    @State private var isRange = false
+    /// 行ごとの符号。テンキーには負の入力が無いので、「-/+」で入力先の行を反転する（返金など負の明細用）
+    @State private var isMinNegative = false
+    @State private var isMaxNegative = false
+    /// 入力行とテンキーの実測の高さ。シートをこの高さぶんだけで開く
+    @State private var contentHeight: CGFloat = 0
+    /// 範囲指定の行の実測の幅。-/+ をテンキーの1列ぶんの幅にする
+    @State private var rangeRowWidth: CGFloat = 0
+    /// 開いた時の入力状態。これと違えば入力を変えたとみなす
+    @State private var initialSnapshot: Snapshot?
+
+    /// 変更判定用の入力状態
+    private struct Snapshot: Equatable {
+        var isRange: Bool
+        var min: Decimal?
+        var max: Decimal?
+    }
+
+    private var currentSnapshot: Snapshot {
+        Snapshot(
+            isRange: isRange,
+            min: amount(minDigits, negative: isMinNegative),
+            max: amount(maxDigits, negative: isMaxNegative)
+        )
+    }
+
+    /// 開いた時から入力を変えたか
+    private var hasDraftChanges: Bool {
+        guard let initialSnapshot else { return false }
+        return currentSnapshot != initialSnapshot
+    }
+
+    private enum Field { case min, max }
+
+    private var locale: Locale { Decimal.effectiveCurrencyLocale }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 12) {
+                VStack(spacing: 0) {
+                    // 上限を先に置く。範囲OFFでは「金額」として1行だけ使う
+                    amountRow(isRange ? "record.filter.amount.max" : "record.field.amount", digits: $maxDigits, field: .max)
+                    if isRange {
+                        Divider().padding(.leading, 16)
+                        amountRow("record.filter.amount.min", digits: $minDigits, field: .min)
+                    }
+                }
+                .background(Color(.secondarySystemGroupedBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+                // 範囲指定はセルに入れず余白に置く。スイッチは文字のすぐ横、-/+ はテンキーの右列にそろえる
+                HStack(spacing: 8) {
+                    HStack(spacing: 12) {
+                        Text("record.filter.amount.range")
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                            .accessibilityHidden(true)
+                        Toggle("record.filter.amount.range", isOn: $isRange)
+                            .labelsHidden()
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.leading, 4)
+                    // 入力先の行の符号を反転する。テンキーのキーと同じ見た目にする
+                    Button(action: toggleSign) {
+                        Image(systemName: "minus.forwardslash.plus")
+                            .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                            .font(.title3.weight(.medium))
+                            .foregroundStyle(isTargetNegative ? Color.red : Color.primary)
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                            .background(Color(.secondarySystemGroupedBackground))
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    // テンキー（3列・間隔8）の1列ぶんの幅
+                    .frame(width: rangeRowWidth > 0 ? (rangeRowWidth - 16) / 3 : 100)
+                    .accessibilityLabel(Text(verbatim: "-/+"))
+                }
+                .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width in
+                    rangeRowWidth = width
+                }
+
+                // 計算は不要なので、数字・00・削除だけのテンキーを使う。
+                // 入力行のすぐ下に置き、間に余白を作らない
+                NumericKeypad(compact: true) { key in
+                    handleKey(key)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 12)
+            // 中身の高さを測り、シートを最小の高さで開く
+            .fixedSize(horizontal: false, vertical: true)
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height in
+                contentHeight = height
+            }
+            .frame(maxHeight: .infinity, alignment: .top)
+            .background(Color(.systemGroupedBackground))
+            .scalableNavigationTitle("record.field.amount")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    // 入力を変えていればキャンセル、変えていなければシート共通の下矢印で閉じる
+                    if hasDraftChanges {
+                        Button("button.cancel") { dismiss() }
+                    } else {
+                        SheetCloseButton { dismiss() }
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    // 検索を押したときだけ絞り込み条件へ反映する。アクセント色で目立たせる
+                    Button("record.filter.search") {
+                        // 範囲OFFは上限と下限を同じ金額にして、一致する明細だけを出す
+                        guard isRange else {
+                            let value = amount(maxDigits, negative: isMaxNegative)
+                            onDone(value, value)
+                            dismiss()
+                            return
+                        }
+                        var min = amount(minDigits, negative: isMinNegative)
+                        var max = amount(maxDigits, negative: isMaxNegative)
+                        // 下限と上限が逆なら入れ替える
+                        if let lower = min, let upper = max, upper < lower {
+                            (min, max) = (upper, lower)
+                        }
+                        onDone(min, max)
+                        dismiss()
+                    }
+                    // 入力を変えた時だけアクセント色にする
+                    .prominentButton(hasDraftChanges)
+                }
+            }
+        }
+        // ナビゲーションバー(50) + 実測の中身 + ドラッグインジケータ・ホームバー(44)。範囲の切替で高さが変わる
+        .presentationDetents(contentHeight > 0 ? [.height(ceil(50 + contentHeight + 44))] : [.large])
+        // 入力を変えた後は下スワイプで閉じず、検索かキャンセルを押させる（タグ・ラベルと同じ）
+        .interactiveDismissDisabled(hasDraftChanges)
+        .onAppear {
+            switch (initialRange.min, initialRange.max) {
+            case let (min?, max?) where min == max:
+                // 一致の絞り込み中は範囲OFFで開く
+                setMax(max)
+            case (nil, nil):
+                // 絞り込んでいない時は空で開く（メモ検索と同じ）
+                break
+            case let (min, max):
+                isRange = true
+                setMin(min)
+                setMax(max)
+            }
+            // 上限だけ入っている範囲指定は、続けて下限を入れられるようにする
+            target = (isRange && maxDigits.isEmpty == false && minDigits.isEmpty) ? .min : .max
+            initialSnapshot = currentSnapshot
+        }
+        .onChange(of: isRange) { _, newValue in
+            // OFFでは下限の行が無くなるので、入力先を上限（金額）へ戻す
+            if !newValue {
+                minDigits = ""
+                isMinNegative = false
+                target = .max
+            }
+        }
+    }
+
+    private var isTargetNegative: Bool { target == .min ? isMinNegative : isMaxNegative }
+
+    private func toggleSign() {
+        if target == .min {
+            isMinNegative.toggle()
+        } else {
+            isMaxNegative.toggle()
+        }
+    }
+
+    private func setMin(_ value: Decimal?) {
+        minDigits = digits(value)
+        isMinNegative = (value ?? 0) < 0
+    }
+
+    private func setMax(_ value: Decimal?) {
+        maxDigits = digits(value)
+        isMaxNegative = (value ?? 0) < 0
+    }
+
+    /// 1行ぶん。タップで入力先にし、入力先は枠で示す
+    private func amountRow(_ titleKey: LocalizedStringKey, digits: Binding<String>, field: Field) -> some View {
+        let isTarget = target == field
+        return HStack(spacing: 12) {
+            Text(titleKey)
+            Spacer(minLength: 8)
+            if let value = amount(digits.wrappedValue, negative: field == .min ? isMinNegative : isMaxNegative) {
+                Text(value.currencyString())
+                    .foregroundStyle(value < 0 ? Color.red : Color.primary)
+                    .font(.title3.weight(.medium).monospacedDigit())
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                // 入力済みの行だけ、空に戻せるようにする
+                Button {
+                    digits.wrappedValue = ""
+                    target = field
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 16)
+        .frame(minHeight: 52)
+        .contentShape(Rectangle())
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color.accentColor, lineWidth: isTarget ? 2 : 0)
+        )
+        .onTapGesture { target = field }
+    }
+
+    private func handleKey(_ key: NumericKeypadKey) {
+        let current = target == .min ? minDigits : maxDigits
+        let next: String
+        switch key {
+        case .digit(let d): next = appended(current, String(d))
+        case .doubleZero:   next = appended(current, "00")
+        case .delete:       next = String(current.dropLast())
+        }
+        if target == .min {
+            minDigits = next
+        } else {
+            maxDigits = next
+        }
+    }
+
+    /// 先頭の0は重ねず、上限金額を超える入力は受け付けない
+    private func appended(_ current: String, _ suffix: String) -> String {
+        let next = (current.isEmpty || current == "0") ? (suffix.hasPrefix("0") ? "0" : suffix) : current + suffix
+        guard let value = amount(next), value <= APP_MAX_AMOUNT else { return current }
+        return next
+    }
+
+    /// 最小単位の桁を金額にする。空は nil（制限なし）。negative なら負の金額にする
+    private func amount(_ digits: String, negative: Bool = false) -> Decimal? {
+        guard !digits.isEmpty, let number = Decimal(string: digits) else { return nil }
+        let value = Decimal.fromMinorUnits(number, locale: locale)
+        return negative ? -value : value
+    }
+
+    /// 金額を最小単位の桁にする。符号は行ごとの isMinNegative / isMaxNegative で持つので絶対値にする
+    private func digits(_ value: Decimal?) -> String {
+        guard let value else { return "" }
+        let magnitude = value < 0 ? -value : value
+        return (magnitude.minorUnits(locale: locale) as NSDecimalNumber).stringValue
+    }
+}
+
+/// 履歴フィルター用の全文検索シート。メモ・ラベル・タグ・金額から、部分一致や近い明細を出す
+private struct RecordFullTextFilterSheet: View {
+    let initialText: String
+    let onDone: (String) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var text: String
+
+    init(initialText: String, onDone: @escaping (String) -> Void) {
+        self.initialText = initialText
+        self.onDone = onDone
+        // 最初から開いた時の文字を入れておき、表示直後に「変更あり」と誤判定しないようにする
+        _text = State(initialValue: initialText)
+    }
+    @FocusState private var isFocused: Bool
+    /// 開いた時から入力を変えたか（前後の空白は無視する）
+    private var hasDraftChanges: Bool {
+        text.trimmingCharacters(in: .whitespacesAndNewlines) != initialText
+    }
+    /// 入力欄の実測の高さ。シートをこの高さぶんだけで開く
+    @State private var contentHeight: CGFloat = 0
+
+    var body: some View {
+        NavigationStack {
+            // 入力欄1行だけのシートにし、キーボードのすぐ上に載せる
+            TextField("record.filter.fullText.placeholder", text: $text)
+                .focused($isFocused)
+                .submitLabel(.search)
+                .onSubmit(decide)
+                .padding(.horizontal, 16)
+                .frame(minHeight: 52)
+                .background(Color(.secondarySystemGroupedBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
+                .fixedSize(horizontal: false, vertical: true)
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height in
+                    contentHeight = height
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .background(Color(.systemGroupedBackground))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    // 入力を変えていればキャンセル、変えていなければシート共通の下矢印で閉じる
+                    if hasDraftChanges {
+                        Button("button.cancel") { dismiss() }
+                    } else {
+                        SheetCloseButton { dismiss() }
+                    }
+                }
+                ToolbarItem(placement: .principal) {
+                    // タイトルの右に (?) を置き、探し方をヘルプシートで説明する
+                    HStack(spacing: 6) {
+                        Text("record.filter.fullText")
+                            .font(.title3.bold())
+                            .minimumScaleFactor(0.55)
+                            .lineLimit(1)
+                        BeginnerHintView(detailMessageKey: "record.filter.fullText.help")
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    // 検索を押したときだけ絞り込み条件へ反映する。アクセント色で目立たせる
+                    Button("record.filter.search", action: decide)
+                        // 入力を変えた時だけアクセント色にする
+                        .prominentButton(hasDraftChanges)
+                }
+            }
+        }
+        // ナビゲーションバー(50) + 実測の入力欄 + ドラッグインジケータ・ホームバー(44)。
+        // .large を候補に入れないので、キーボードを出しても最大へ伸びずキーボードの上に載る（タグ追加シートと同じ）
+        .presentationDetents(contentHeight > 0 ? [.height(ceil(50 + contentHeight + 44))] : [.medium])
+        // 入力を変えた後は下スワイプで閉じず、検索かキャンセルを押させる（タグ・ラベルと同じ）
+        .interactiveDismissDisabled(hasDraftChanges)
+        .onAppear {
+            isFocused = true
+        }
+    }
+
+    private func decide() {
+        onDone(text.trimmingCharacters(in: .whitespacesAndNewlines))
+        dismiss()
     }
 }
 
@@ -1701,5 +2206,88 @@ private struct TagFlowLayout: Layout {
         let indexes: [Int]
         let width: CGFloat
         let height: CGFloat
+    }
+}
+
+/// 決済一覧の全文あいまい検索。
+/// メモ・ラベル・タグを部分一致と近似一致（一部の文字違いを許す）で、金額を数字の部分一致と近い額で探す
+enum RecordFullTextSearch {
+    /// 空白区切りの語がすべて、いずれかの項目に当たれば一致（AND）
+    static func matches(texts: [String], amount: Decimal, query: String) -> Bool {
+        let terms = terms(of: query)
+        guard !terms.isEmpty else { return true }
+        let fields = texts.map(normalize).filter { !$0.isEmpty }.map(Array.init)
+        return terms.allSatisfy { term in
+            let pattern = Array(term)
+            let errors = allowedErrors(for: pattern.count)
+            return fields.contains { approximateContains(pattern, in: $0, maxErrors: errors) }
+                || amountMatches(term, amount: amount)
+        }
+    }
+
+    /// 検索語に分ける。全角空白も区切りにする
+    static func terms(of query: String) -> [String] {
+        query.split(whereSeparator: \.isWhitespace)
+            .map { normalize(String($0)) }
+            .filter { !$0.isEmpty }
+    }
+
+    /// 比べる前にそろえる。大文字小文字・全角半角・濁点の有無・ひらがなカタカナを区別しない
+    static func normalize(_ text: String) -> String {
+        let folded = text.folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: nil)
+        var scalars = String.UnicodeScalarView()
+        for scalar in folded.unicodeScalars where !scalar.properties.isWhitespace {
+            // ひらがな（ぁ〜ゖ）はカタカナへ寄せる
+            if (0x3041...0x3096).contains(scalar.value), let kana = Unicode.Scalar(scalar.value + 0x60) {
+                scalars.append(kana)
+            } else {
+                scalars.append(scalar)
+            }
+        }
+        return String(scalars)
+    }
+
+    /// 語の長さに応じて許す文字違いの数。短い語は誤ヒットが増えるので完全な部分一致だけにする
+    static func allowedErrors(for length: Int) -> Int {
+        if length < 4 { return 0 }
+        if length < 8 { return 1 }
+        return 2
+    }
+
+    /// pattern が text のどこかに、置換・挿入・削除 maxErrors 回以内で含まれるか（近似部分一致）
+    static func approximateContains(_ pattern: [Character], in text: [Character], maxErrors: Int) -> Bool {
+        let m = pattern.count
+        guard 0 < m else { return true }
+        guard m <= text.count + maxErrors else { return false }
+        // 文字違いなしなら通常の部分一致で足りる
+        if maxErrors == 0 {
+            return String(text).contains(String(pattern))
+        }
+        // 列ごとの編集距離。行頭は0にして、text のどこから始まってもよいようにする
+        var previous = Array(0...m)
+        var current = [Int](repeating: 0, count: m + 1)
+        for character in text {
+            current[0] = 0
+            for i in 1...m {
+                let cost = pattern[i - 1] == character ? 0 : 1
+                current[i] = min(previous[i - 1] + cost, previous[i] + 1, current[i - 1] + 1)
+            }
+            if current[m] <= maxErrors { return true }
+            swap(&previous, &current)
+        }
+        return false
+    }
+
+    /// 数字の語なら金額と比べる。数字の部分一致（888 → 1,888）か、±10% 以内の近い額で一致
+    static func amountMatches(_ term: String, amount: Decimal) -> Bool {
+        let allowed = Set("0123456789.,-¥$€₩£")
+        guard term.allSatisfy({ allowed.contains($0) }), term.contains(where: \.isNumber) else { return false }
+        let digits = term.filter { $0.isNumber || $0 == "." }
+        guard let value = Decimal(string: digits, locale: Locale(identifier: "en_US_POSIX")) else { return false }
+        let magnitude = amount < 0 ? -amount : amount
+        if (magnitude as NSDecimalNumber).stringValue.contains(digits) { return true }
+        guard 0 < value else { return false }
+        let tolerance = value / 10
+        return value - tolerance <= magnitude && magnitude <= value + tolerance
     }
 }

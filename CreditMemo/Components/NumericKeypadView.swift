@@ -97,9 +97,6 @@ struct NumericKeypadOverlay: View {
     private var isCompact: Bool { UIScreen.main.bounds.height <= 700 }
     private var uiScale: CGFloat { fontScale.uiScale }
     private var sheetSpacing: CGFloat { (isCompact ? 10 : 14) * fontScale.uiScale }
-    /// 丸め選択と計算式の塊を、シート標準の行間からどれだけ詰めるか。
-    /// 行間を食い潰さないよう、標準の間隔の半分までに留める
-    private var roundingRowTightening: CGFloat { sheetSpacing / 2 }
     private var locale: Locale { Decimal.effectiveCurrencyLocale }
     private var fractionDigits: Int { Decimal.currencyFractionDigits(locale: locale) }
 
@@ -183,23 +180,9 @@ struct NumericKeypadOverlay: View {
             VStack(spacing: sheetSpacing) {
                 header
 
-                if let expressionText {
-                    VStack(spacing: 0) {
-                        // 丸め選択は計算式の直前へ表示する。
-                        // 計算式に添えるだけなので、上下は大きく詰める
-                        roundingControlRow
-                        calculationLine(expressionText)
-                    }
-                    // 見出しとの間、テンキーとの間もシート標準より詰める
-                    .padding(.top, -roundingRowTightening)
-                    .padding(.bottom, -roundingRowTightening)
-                }
-
-                if let calculationErrorKey {
-                    Text(calculationErrorKey)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                }
+                // 計算式（またはエラー）と丸め選択を1行にまとめる。
+                // 計算の有無でテンキーの位置が動かないよう、この行は常に確保する
+                calculationRow
 
                 HStack(alignment: .top, spacing: (isCompact ? 8 : 10) * uiScale) {
                     NumericKeypad(compact: isCompact, scale: uiScale) { key in
@@ -234,6 +217,8 @@ struct NumericKeypadOverlay: View {
                 .ignoresSafeArea(edges: .bottom)
             )
         }
+        // テンキーを常に画面の下端へ置く
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
         // ソフトウェアキーボードの領域では持ち上げない
         .ignoresSafeArea(.keyboard)
         .onAppear {
@@ -304,11 +289,33 @@ struct NumericKeypadOverlay: View {
         isNegative = baseValue < 0
     }
 
-    /// 選択中の丸め方法を計算式の直前へ小さく表示する
-    private var roundingControlRow: some View {
-        HStack(spacing: 4) {
-            Spacer(minLength: 0)
+    /// 計算式（またはエラー）を左に、丸め選択を右に置く1行
+    private var calculationRow: some View {
+        HStack(spacing: 8) {
+            Group {
+                if let calculationErrorKey {
+                    Text(calculationErrorKey)
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                } else if let expressionText {
+                    calculationLine(expressionText)
+                } else {
+                    // 計算していない時も同じ高さを確保する
+                    Text(verbatim: " ")
+                        .font(.title3.weight(.medium))
+                }
+            }
+            .lineLimit(1)
+            .frame(maxWidth: .infinity, alignment: .leading)
 
+            roundingControls
+        }
+        .padding(.horizontal, 16)
+    }
+
+    /// 丸めが必要な時だけ見せる丸め方法の選択。見えない時も幅と高さは確保する
+    private var roundingControls: some View {
+        HStack(spacing: 4) {
             // 偶数丸めなど、方法ごとの違いをここから確かめられるようにする
             BeginnerHintView(
                 detailTitleKey: "calculator.rounding.help.title",
@@ -341,15 +348,14 @@ struct NumericKeypadOverlay: View {
             .opacity(needsRounding ? 1 : 0)
             .allowsHitTesting(needsRounding)
         }
-        // 長い丸め名称でも行からはみ出さないよう、行全体で上限を持たせる
-        .frame(maxWidth: .infinity, alignment: .trailing)
-        .padding(.horizontal, 16)
+        // 計算式を優先して表示し、丸め選択は内容幅に収める
+        .fixedSize(horizontal: true, vertical: false)
     }
 
     private var roundingPickerStyle: AZPickerStyle {
         var style = AZPickerStyle.form
         style.cornerRadius = 16
-        // 金額と計算式の間に小さく添えるだけなので、枠内の上下は詰める
+        // 計算式の横に小さく添えるだけなので、枠内の上下は詰める
         style.collapsedVerticalPadding = 2
         style.dropdownTextFitMode = .scale(minimumScaleFactor: 0.55)
         style.dropdownOptionAlignment = .center
@@ -374,8 +380,6 @@ struct NumericKeypadOverlay: View {
             // 最大額同士の式でも省略せず一行へ収める
             .minimumScaleFactor(0.42)
             .allowsTightening(true)
-            .frame(maxWidth: .infinity, alignment: .center)
-            .padding(.horizontal, 16)
     }
 
     private func handleKey(_ key: NumericKeypadKey) {

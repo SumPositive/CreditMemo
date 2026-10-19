@@ -9707,6 +9707,286 @@
         }
       }
     },
+    "record.filter.amount.max" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Max."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Max"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上限"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "최대"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上限"
+          }
+        }
+      }
+    },
+    "record.filter.amount.min" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Min."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Min"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下限"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "최소"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下限"
+          }
+        }
+      }
+    },
+    "record.filter.amount.range" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bereich angeben"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Specify range"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "範囲指定"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "범위 지정"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "指定範圍"
+          }
+        }
+      }
+    },
+    "record.filter.search" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suchen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "検索"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "검색"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜尋"
+          }
+        }
+      }
+    },
+    "record.filter.searching" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suche läuft…"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Searching…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "検索中…"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "검색 중…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜尋中…"
+          }
+        }
+      }
+    },
+    "record.filter.fullText" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Volltext"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Full-text"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全文検索"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "전체 검색"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全文搜尋"
+          }
+        }
+      }
+    },
+    "record.filter.fullText.help" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Findet Zahlungen, deren Notizen, Labels, Tags oder Beträge den eingegebenen Text enthalten\n\nGroß- und Kleinschreibung, Voll- und Halbbreite, Akzente sowie Hiragana und Katakana werden gleich behandelt\n\nWörter ab 4 Zeichen werden auch mit 1–2 abweichenden oder fehlenden Zeichen gefunden\n\nZahlen finden Beträge, die diese Ziffern enthalten, und Beträge innerhalb von 10 % der Zahl\n\nMit Leerzeichen getrennte Wörter finden nur Zahlungen, die auf alle zutreffen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Finds payments whose notes, labels, tags, or amounts contain what you enter\n\nUppercase and lowercase, full-width and half-width, accents, and hiragana and katakana are treated the same\n\nWords of 4 or more characters also match with 1–2 characters different or missing\n\nNumbers match amounts containing those digits, and amounts within 10% of the number\n\nSeparate words with spaces to find payments that match all of them"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "メモ・ラベル・タグ・金額から、入力した文字を含む決済を探します\n\nひらがなとカタカナ、全角と半角、大文字と小文字、濁点の有無は区別しません\n\n4文字以上の語は、1〜2文字の違いや抜けがあっても近いものとして見つけます\n\n数字を入れると、その数字を含む金額と、前後10%以内の金額も見つけます\n\n空白で区切ると、すべての語に当てはまる決済だけを探します"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "메모·라벨·태그·금액에서 입력한 글자를 포함하는 결제를 찾습니다\n\n히라가나와 가타카나, 전각과 반각, 대문자와 소문자, 탁점 유무는 구별하지 않습니다\n\n4글자 이상의 단어는 1~2글자가 다르거나 빠져 있어도 가까운 것으로 찾습니다\n\n숫자를 입력하면 그 숫자를 포함하는 금액과 앞뒤 10% 이내의 금액도 찾습니다\n\n공백으로 구분하면 모든 단어에 해당하는 결제만 찾습니다"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "從備註、名稱、標籤、金額中，找出包含輸入文字的付款\n\n不區分平假名與片假名、全形與半形、大小寫及濁音符號\n\n4 個字以上的詞，即使有 1～2 個字不同或缺漏，也會視為相近而找出\n\n輸入數字時，會找出包含該數字的金額，以及前後 10% 以內的金額\n\n以空白分隔時，只找出符合所有詞的付款"
+          }
+        }
+      }
+    },
+    "record.filter.fullText.placeholder" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notizen, Labels, Tags, Beträge durchsuchen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search notes, labels, tags, amounts"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "メモ・ラベル・タグ・金額から探す"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "메모·라벨·태그·금액에서 찾기"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "從備註、名稱、標籤、金額搜尋"
+          }
+        }
+      }
+    },
     "record.filter.incomplete" : {
       "extractionState" : "manual",
       "localizations" : {

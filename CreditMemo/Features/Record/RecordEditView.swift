@@ -451,6 +451,8 @@ struct RecordEditView: View {
     @State private var keypadPanelHeight: CGFloat = 0
     /// テンキーを開いたまま未入力か。未入力の間は入力欄をプレースホルダー色にして、入力で上書きされることを示す
     @State private var isKeypadPristine = false
+    /// 金額テンキーが最後に入力欄へ入れた金額
+    @State private var keypadAppliedAmount: Decimal?
     @State private var editingPartNoForAmount: Int16?
     /// カレンダーコンテンツの実測高（月ナビで更新される）
     @State private var datePickerCalendarHeight: CGFloat = 390
@@ -842,8 +844,12 @@ private var isValid: Bool {
                 if isFocused { scrollNoteIntoView(proxy) }
             }
             // テンキーを開いた時・高さが決まった時に、入力先の欄をテンキーの真上へ出す
-            .onChange(of: isKeypadShown) { _, isShown in
-                if isShown { scrollKeypadTargetIntoView(proxy) }
+            // 金額と分割金額の切り替え、別の回への切り替えでもスクロールし直す
+            .onChange(of: keypadTargetID) { _, targetID in
+                guard targetID != nil else { return }
+                // 前回テンキーで入れた金額を、外からの金額変更の判定に持ち越さない
+                keypadAppliedAmount = nil
+                scrollKeypadTargetIntoView(proxy)
             }
             .onChange(of: keypadPanelHeight) { _, _ in
                 scrollKeypadTargetIntoView(proxy)
@@ -879,6 +885,10 @@ private var isValid: Bool {
             case .edit:    return true
             }
         }())
+        // テンキーを開いたままラベル・メモ欄などを触ったら、キーボードと重ならないようテンキーを閉じる
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+            hideKeypads()
+        }
         .onChange(of: hasChanges) { _, newValue in
             if newValue { editingState.isEditingInProgress = true }
         }
@@ -991,9 +1001,13 @@ private var isValid: Bool {
             // 編集時、未ロックの明細は利用日変更に応じて引き落とし日を再計算
             recomputeEditablePartsDueDates()
         }
-        .onChange(of: nAmount) { _, _ in
-            // テンキー入力中は途中の小さな金額で手動配分を崩さないよう、閉じた時にまとめて補正する
-            guard !showAmountPad else { return }
+        .onChange(of: nAmount) { _, newAmount in
+            if showAmountPad {
+                // ラベル選択などテンキー以外で金額が変わったら、テンキーの入力途中と食い違うので閉じる
+                if newAmount != keypadAppliedAmount { hideKeypads() }
+                // テンキー入力中は途中の小さな金額で手動配分を崩さないよう、閉じた時にまとめて補正する
+                return
+            }
             // 金額変更時は手動配分が 1...総額-1 に収まるよう補正する
             normalizePartAmountOverridesIfNeeded()
         }
@@ -1166,7 +1180,12 @@ private var isValid: Bool {
                     title: "record.field.amount",
                     placeholder: nAmount,
                     maxValue: APP_MAX_AMOUNT,
-                    onChange: { nAmount = $0.roundedAmount() },
+                    onChange: { value in
+                        // テンキーが入れた値を覚え、ラベル選択など外からの金額変更と見分ける
+                        let amount = value.roundedAmount()
+                        keypadAppliedAmount = amount
+                        nAmount = amount
+                    },
                     onClose: closeAmountPad,
                     onPanelHeightChange: { keypadPanelHeight = $0 },
                     onPristineChange: { isKeypadPristine = $0 }
@@ -1182,6 +1201,8 @@ private var isValid: Bool {
                     onPanelHeightChange: { keypadPanelHeight = $0 },
                     onPristineChange: { isKeypadPristine = $0 }
                 )
+                // 別の回を開き直した時は、前の回の入力を引き継がない
+                .id(editingPartNoForAmount)
             }
         }
         .overlay(alignment: .top) {
@@ -1210,6 +1231,13 @@ private var isValid: Bool {
 
     /// 独自テンキー（金額・分割金額）を表示中か。表示中は背面のナビゲーション操作を止める
     private var isKeypadShown: Bool { showAmountPad || showPartAmountPad }
+
+    /// テンキーで入力中の欄の識別子。テンキーを閉じていれば nil
+    private var keypadTargetID: String? {
+        if showAmountPad { return formTopAnchorID }
+        if showPartAmountPad, let partNo = editingPartNoForAmount { return partRowAnchorID(partNo) }
+        return nil
+    }
 
     /// 変更があれば1回目で破棄確認に切り替え、2回目で閉じるキャンセルボタン
     private var cancelButton: some View {
@@ -1674,6 +1702,8 @@ private var isValid: Bool {
     /// 金額タップ時に分割金額入力を開く
     private func openPartAmountPad(partNo: Int16) {
         guard canEditPartAmount(partNo: partNo) else { return }
+        // 金額を入力中なら閉じてから分割金額のテンキーに切り替える
+        if showAmountPad { hideKeypads() }
         editingPartNoForAmount = partNo
         showPartAmountPad = true
     }
@@ -1688,6 +1718,18 @@ private var isValid: Bool {
         if isNew && nAmount == 0 && autoOpenAmountPad
             && !showsFrequentCapsules && !didPickFrequentPayment {
             DispatchQueue.main.async { dismiss() }
+        }
+    }
+
+    /// 画面を閉じる判定をせず、テンキーだけを閉じる（背面の操作やキーボード表示に合わせて閉じる時用）
+    private func hideKeypads() {
+        if showAmountPad {
+            showAmountPad = false
+            // 入力中に止めていた手動配分の補正をまとめて行う
+            normalizePartAmountOverridesIfNeeded()
+        }
+        if showPartAmountPad {
+            closePartAmountPad()
         }
     }
 
@@ -2222,7 +2264,11 @@ private var isValid: Bool {
     @ViewBuilder private var requiredSection: some View {
         Section {
             // 金額
-            Button { showAmountPad = true } label: {
+            Button {
+                // 分割金額を入力中なら閉じてから金額のテンキーに切り替える
+                closePartAmountPad()
+                showAmountPad = true
+            } label: {
                 twoLineValueRow(
                     titleKey: "record.field.amount",
                     valueText: nAmount == 0 ? "—" : nAmount.currencyString(),
@@ -3097,15 +3143,7 @@ private var isValid: Bool {
 
     /// テンキーで入力中の欄（金額・分割金額）を、テンキーの真上へスクロールする
     private func scrollKeypadTargetIntoView(_ proxy: ScrollViewProxy) {
-        let targetID: String
-        if showAmountPad {
-            targetID = formTopAnchorID
-        } else if showPartAmountPad, let partNo = editingPartNoForAmount {
-            targetID = partRowAnchorID(partNo)
-        } else {
-            return
-        }
-        guard 0 < keypadPanelHeight else { return }
+        guard let targetID = keypadTargetID, 0 < keypadPanelHeight else { return }
         // 下端の余白が反映されてからスクロールする
         DispatchQueue.main.async {
             withAnimation(.easeInOut(duration: 0.22)) {
@@ -3563,14 +3601,8 @@ private struct PickerSheet<T: Identifiable>: View where T.ID: Equatable {
     @State private var showAdd = false
     @State private var itemIDsBeforeAdd: [T.ID] = []
 
-    /// 「未選択」を含む行数に合わせ、多い場合は最初から最大まで開く
-    private var pickerDetents: Set<PresentationDetent> {
-        let showsEmptyMessage = items.isEmpty && emptyMessage != nil
-        let rowCount = items.count + (allowNone ? 1 : 0) + (showsEmptyMessage ? 1 : 0)
-        guard rowCount <= 6 else { return [.large] }
-        let contentHeight = ceil(90 + CGFloat(max(rowCount, 1)) * 50)
-        return [.height(contentHeight), .large]
-    }
+    /// 選択シートは共通で、中くらいの高さで開き、引き上げると最大まで広げられる
+    private let pickerDetents: Set<PresentationDetent> = [.medium, .large]
 
     var body: some View {
         NavigationStack {
@@ -3611,7 +3643,8 @@ private struct PickerSheet<T: Identifiable>: View where T.ID: Equatable {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("button.cancel") { dismiss() }
+                    // 選択を変えずに閉じる。シート共通の下矢印
+                    SheetCloseButton { dismiss() }
                 }
                 if addContent != nil {
                     ToolbarItem(placement: .navigationBarTrailing) {
@@ -3664,9 +3697,8 @@ struct CategoryMultiPickerSheet: View {
     private var hasDraftChanges: Bool { selectedIDs != Set(selectedCategories.map(\.id)) }
 
     /// 少ない行は内容に合わせ、多い行は最初から最大まで開く
-    private var tagPickerDetents: Set<PresentationDetent> {
-        TagSelectionList.detents(tagNames: items.map(\.zName), showsFindOrAdd: true)
-    }
+    /// 選択シートは共通で、中くらいの高さで開き、引き上げると最大まで広げられる
+    private let tagPickerDetents: Set<PresentationDetent> = [.medium, .large]
 
     private var items: [E5tag] {
         allCategories.sortedByTagMode(sortMode)
@@ -3688,7 +3720,12 @@ struct CategoryMultiPickerSheet: View {
             .scalableNavigationTitle(title)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("button.cancel") { dismiss() }
+                    // 選択を変えていればキャンセル、変えていなければシート共通の下矢印で閉じる
+                    if hasDraftChanges {
+                        Button("button.cancel") { dismiss() }
+                    } else {
+                        SheetCloseButton { dismiss() }
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     // 決定を押したときだけ選択結果を呼び出し元へ反映する
@@ -3696,6 +3733,8 @@ struct CategoryMultiPickerSheet: View {
                         selectedCategories = draftSelection
                         dismiss()
                     }
+                    // 選択を変えた時だけアクセント色にする
+                    .prominentButton(hasDraftChanges)
                 }
             }
         }

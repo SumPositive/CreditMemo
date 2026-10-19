@@ -1209,13 +1209,8 @@ private struct PaymentFilterPickerSheet<T: Identifiable>: View where T.ID: Equat
 
     @Environment(\.dismiss) private var dismiss
 
-    /// 「すべて」を含む行数に合わせ、多い場合は最初から最大まで開く
-    private var pickerDetents: Set<PresentationDetent> {
-        let rowCount = items.count + 1
-        guard rowCount <= 6 else { return [.large] }
-        let contentHeight = ceil(90 + CGFloat(max(rowCount, 1)) * 50)
-        return [.height(contentHeight), .large]
-    }
+    /// 選択シートは共通で、中くらいの高さで開き、引き上げると最大まで広げられる
+    private let pickerDetents: Set<PresentationDetent> = [.medium, .large]
 
     var body: some View {
         NavigationStack {
@@ -1239,7 +1234,8 @@ private struct PaymentFilterPickerSheet<T: Identifiable>: View where T.ID: Equat
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("button.cancel") { dismiss() }
+                    // 選択を変えずに閉じる。シート共通の下矢印
+                    SheetCloseButton { dismiss() }
                 }
             }
         }
@@ -1281,10 +1277,8 @@ private struct PaymentTagFilterPickerSheet: View {
     private var displayTags: [E5tag] {
         tags.orderedForTagSelection(mode: sortMode, selectedIDs: selectedIDs)
     }
-    /// ソート行と「すべて」を含む高さに合わせてシートを開く
-    private var pickerDetents: Set<PresentationDetent> {
-        TagSelectionList.detents(tagNames: tags.map(\.zName), showsAllOption: true)
-    }
+    /// 選択シートは共通で、中くらいの高さで開き、引き上げると最大まで広げられる
+    private let pickerDetents: Set<PresentationDetent> = [.medium, .large]
 
     var body: some View {
         NavigationStack {
@@ -1308,7 +1302,8 @@ private struct PaymentTagFilterPickerSheet: View {
             .scalableNavigationTitle(title)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("button.cancel") { dismiss() }
+                    // 選択を変えずに閉じる。シート共通の下矢印
+                    SheetCloseButton { dismiss() }
                 }
             }
         }

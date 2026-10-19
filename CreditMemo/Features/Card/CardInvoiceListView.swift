@@ -54,7 +54,7 @@ struct CardInvoiceListView: View {
         // 編集シート：閉じたときも再ロードして最新状態を反映する
         .sheet(isPresented: $showEdit, onDismiss: loadData) {
             NavigationStack {
-                CardEditView(card: card)
+                CardEditView(card: card, isSheet: true)
             }
             .modifier(CardInvoiceDynamicTypeModifier(fontScale: fontScale))
             // 決済手段編集シートの背面を透かさない

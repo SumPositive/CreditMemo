@@ -66,3 +66,30 @@ struct EditShortcutCapsuleButton<Icon: View>: View {
         .accessibilityLabel(Text(title))
     }
 }
+
+/// シート共通の閉じるボタン（下矢印）。変更がなく何も失わずに閉じられる時に使う
+struct SheetCloseButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "chevron.down")
+                .imageScale(.large)
+                .symbolRenderingMode(.hierarchical)
+                .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+        }
+        .accessibilityLabel(Text("button.close"))
+    }
+}
+
+extension View {
+    /// 確定ボタンを、押す意味がある時（変更あり）だけアクセント色で塗る
+    @ViewBuilder
+    func prominentButton(_ isProminent: Bool) -> some View {
+        if isProminent {
+            buttonStyle(.borderedProminent)
+        } else {
+            self
+        }
+    }
+}

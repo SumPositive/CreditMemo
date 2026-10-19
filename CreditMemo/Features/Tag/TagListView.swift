@@ -202,44 +202,6 @@ struct TagCapsuleBand: View {
     static let areaHorizontalPadding: CGFloat = 16
     nonisolated static var areaVerticalPadding: CGFloat { CapsuleSize.current.areaVerticalPadding }
 
-    /// 1行ぶんのカプセル高さ（文字サイズ設定に追従する）
-    static var capsuleHeight: CGFloat {
-        ceil(UIFont.preferredFont(forTextStyle: .subheadline).lineHeight)
-            + capsuleVerticalPadding * 2
-    }
-
-    /// タグ1つ分のカプセル幅。実際の描画フォントで測るので実寸に一致する
-    static func capsuleWidth(for name: String) -> CGFloat {
-        let base = UIFont.preferredFont(forTextStyle: .subheadline)
-        let font = UIFont.systemFont(ofSize: base.pointSize, weight: .semibold)
-        let textWidth = (name as NSString).size(withAttributes: [.font: font]).width
-        return ceil(textWidth) + capsuleHorizontalPadding * 2
-    }
-
-    /// AZFlowLayout(packToFill:) と同じ規則でカプセルを行へ詰め、必要な行数を返す
-    static func packedRowCount(names: [String], availableWidth: CGFloat) -> Int {
-        let widths = names.map { capsuleWidth(for: $0) }
-        guard !widths.isEmpty, availableWidth > 0 else { return 1 }
-
-        var placed = [Bool](repeating: false, count: widths.count)
-        var rows = 0
-        while let start = placed.firstIndex(of: false) {
-            placed[start] = true
-            var used = widths[start]
-            rows += 1
-            while true {
-                let free = availableWidth - used - capsuleSpacing
-                if free <= 0 { break }
-                // packToFill と同じく、収まる“最初の”後方要素を繰り上げる
-                guard let idx = ((start + 1)..<widths.count)
-                    .first(where: { !placed[$0] && widths[$0] <= free }) else { break }
-                placed[idx] = true
-                used += capsuleSpacing + widths[idx]
-            }
-        }
-        return rows
-    }
-
     /// 表示するカプセル。選択状態は塗りで示す
     struct Item: Identifiable {
         let id: String
@@ -551,48 +513,6 @@ struct TagSelectionList: View {
             .normalizedTagLookupName
         guard !input.isEmpty else { return tags }
         return tags.filter { $0.zName.normalizedTagLookupName.contains(input) }
-    }
-
-    // MARK: - シート高さ
-
-    /// 上部固定領域（ソート行、一致条件行）とツールバーぶんの高さ
-    private static let sortRowHeight: CGFloat = 58
-    private static let matchModeRowHeight: CGFloat = 50
-    private static let findOrAddRowHeight: CGFloat = 78
-    private static let navigationBarHeight: CGFloat = 56
-    /// これを超える行数になったら最初から全開にする。
-    /// タグ式は1行に複数入るので、行数の上限はやや広く取る
-    private static let maxCompactRows = 8
-
-    /// タグ名から実際の詰まり方を見積もって、シート高さを返す。
-    /// 最終行が隠れるより1行多いほうが良いので、見積もりには1行ぶんの余裕を足す
-    static func detents(
-        tagNames: [String],
-        showsAllOption: Bool = false,
-        showsMatchMode: Bool = false,
-        showsFindOrAdd: Bool = false,
-        availableWidth: CGFloat = UIScreen.main.bounds.width
-    ) -> Set<PresentationDetent> {
-        var names = tagNames
-        if showsAllOption {
-            names.insert(NSLocalizedString("label.all", comment: ""), at: 0)
-        }
-        let contentWidth = availableWidth - TagCapsuleBand.areaHorizontalPadding * 2
-        // 端数の丸めや字幅の差で1行ずれても最終行が切れないよう、1行ぶん多めに取る
-        let rowCount = TagCapsuleBand.packedRowCount(
-            names: names,
-            availableWidth: contentWidth
-        ) + 1
-        guard rowCount <= maxCompactRows else { return [.large] }
-
-        let capsuleArea = TagCapsuleBand.capsuleHeight * CGFloat(rowCount)
-            + TagCapsuleBand.capsuleSpacing * CGFloat(rowCount - 1)
-            + TagCapsuleBand.areaVerticalPadding * 2
-
-        let chrome = navigationBarHeight + sortRowHeight
-            + (showsMatchMode ? matchModeRowHeight : 0)
-            + (showsFindOrAdd ? findOrAddRowHeight : 0)
-        return [.height(ceil(capsuleArea + chrome))]
     }
 }
 

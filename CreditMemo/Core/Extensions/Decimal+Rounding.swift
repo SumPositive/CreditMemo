@@ -40,9 +40,10 @@ extension Decimal {
     var isZero: Bool { self == .zero }
 
     /// 通貨表示（通貨記号と小数桁数はロケールに従う）
-    /// 設定「通貨記号を表示する」が OFF の場合は記号を省略する
-    func currencyString(locale: Locale = effectiveCurrencyLocale) -> String {
-        let showSymbol = UserDefaults.standard.object(forKey: "setting.showCurrencySymbol") as? Bool ?? true
+    /// 設定「通貨記号を表示する」が OFF の場合、または omitsSymbol（隣に通貨記号のアイコンがある時など）は記号を省略する
+    func currencyString(locale: Locale = effectiveCurrencyLocale, omitsSymbol: Bool = false) -> String {
+        let showSymbol = !omitsSymbol
+            && (UserDefaults.standard.object(forKey: "setting.showCurrencySymbol") as? Bool ?? true)
         let formatter = NumberFormatter()
         formatter.numberStyle = .currency
         formatter.locale = locale
