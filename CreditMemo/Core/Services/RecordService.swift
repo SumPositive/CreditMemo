@@ -1338,7 +1338,9 @@ enum RecordService {
                 0 < $0.nRepeat && $0.isRepeatDone == false && startDate <= $0.dateUse
             }
         )
-        for record in context.fetchReporting(descriptor, entity: "E3record")
+        // 取得失敗を空として扱うと移行済みになり、旧方式で作成済みの次回分を重複作成してしまう。
+        // 失敗は呼び出し元へ投げ、フラグを立てずに次回起動で再試行する
+        for record in try context.fetch(descriptor)
         where record.e6parts.contains(where: { $0.e2invoice?.isPaid == true }) {
             record.isRepeatDone = true
         }
