@@ -1063,22 +1063,45 @@ private struct PaymentGroupRadioPicker: View {
             optionWidthWeight: { $0 == .card ? 1.2 : 1 }
         ) { mode in
             Label {
-                HStack(alignment: .firstTextBaseline, spacing: 1) {
-                    Text(mode.localizedKey)
-                    if mode == .card {
-                        // 照合モードを利用できる集計軸であることを小さく補足する
-                        Text("payment.group.card.reconciliationSuffix")
-                            .font(.caption)
+                if mode == .card {
+                    // 照合モードを利用できる集計軸であることを小さく補足する。
+                    // 1行に収まらなければ補足を下段へ回し、文字を欠けさせない
+                    ViewThatFits(in: .horizontal) {
+                        cardTitleInline.fixedSize()
+                        cardTitleStacked.fixedSize()
+                        cardTitleStacked
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.5)
                     }
+                } else {
+                    Text(mode.localizedKey)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.50)
                 }
-                .lineLimit(1)
-                .minimumScaleFactor(0.50)
             } icon: {
                 Image(systemName: mode.iconName).dynamicTypeSize(...DynamicTypeSize.xxxLarge)
             }
         }
         .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
         .frame(maxWidth: .infinity)
+    }
+
+    /// 「手段（照合）」を1行で並べる
+    private var cardTitleInline: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 1) {
+            Text(PaymentGroupMode.card.localizedKey)
+            Text("payment.group.card.reconciliationSuffix")
+                .font(.caption)
+        }
+    }
+
+    /// 幅が足りない時は「（照合）」を下段に小さく置く
+    private var cardTitleStacked: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(PaymentGroupMode.card.localizedKey)
+            Text("payment.group.card.reconciliationSuffix")
+                .font(.caption2)
+        }
     }
 }
 

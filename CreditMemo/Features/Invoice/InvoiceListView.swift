@@ -1660,7 +1660,8 @@ struct InvoiceListView: View {
         .sheet(isPresented: $showReconciliationHelp) {
             ReconciliationHelpSheet()
                 .appFontScale(fontScale)
-                .presentationDetents([.medium])
+                // 長い言語でも読めるよう、最大まで引き上げて本文をスクロールできるようにする
+                .presentationDetents([.medium, .large])
                 // 共通ヘルプシートと同じドラッグハンドルを表示する
                 .presentationDragIndicator(.visible)
                 .presentationBackground(Color(uiColor: .systemBackground))
@@ -2080,14 +2081,7 @@ private struct ReconciliationHelpSheet: View {
         // 共通ヘルプシートと揃え、ナビゲーションバーを置かず本文だけを表示する
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                HStack {
-                    Spacer()
-                    Image(systemName: "questionmark.circle")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(Color.accentColor)
-                    Spacer()
-                }
-
+                // 見出しの (?) アイコンは置かず、本文から始める（共通ヘルプシートと同じ）
                 Text("invoice.reconciliation.help.message")
                     .font(.body)
                     .foregroundStyle(Color.primary)

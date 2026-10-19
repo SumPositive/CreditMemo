@@ -342,11 +342,12 @@ private struct FrequentPaymentSettingsSheet: View {
                     Text("record.frequent.settings.footer")
                 }
             }
-            .navigationTitle("record.frequent.settings.title")
-            .navigationBarTitleDisplayMode(.inline)
+            // 長い言語でも欠けないよう、縮めて収めるタイトルにする
+            .scalableNavigationTitle("record.frequent.settings.title")
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("common.close") { dismiss() }
+                ToolbarItem(placement: .cancellationAction) {
+                    // 設定はその場で反映されるので、シート共通の下矢印で閉じる
+                    SheetCloseButton { dismiss() }
                 }
             }
         }

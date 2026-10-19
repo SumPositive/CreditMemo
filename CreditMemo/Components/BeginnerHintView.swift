@@ -105,16 +105,7 @@ struct BeginnerHintView: View {
     private var detailSheet: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                HStack {
-                    Spacer()
-                    // 本文との間隔を制御するため、アイコンはシート本文側に置く
-                    Image(systemName: "questionmark.circle")
-                        // シート見出しのアイコンもヘルプボタンと揃えて見やすくする
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(Color.accentColor)
-                    Spacer()
-                }
-
+                // 見出しの (?) アイコンは置かず、本文から始める
                 VStack(alignment: .leading, spacing: 12) {
                     if let detailTitleKey {
                         Text(detailTitleKey)
