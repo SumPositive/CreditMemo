@@ -4,6 +4,8 @@ What's New in 2.9.0
 - Frequent payments and labels are easier to see and use, and are now available on every screen where you enter a label
 - Payment list: You can now filter by label
 - Payment list: For unpaid records, you can now see and toggle the lock
+- Payment list: You can now filter (search) by amount
+- Payment list: Full-text search (fuzzy search) is now available
 - Reconcile mode: The lock state of each item is now shown
 - Reconcile mode: Unpaid and paid items with the same debit date can now be reconciled together
 - Reconcile mode: Marking as reconciled no longer marks items as paid

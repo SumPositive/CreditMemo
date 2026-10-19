@@ -4,6 +4,8 @@ Neu in 2.9.0
 - Häufige Zahlungen und Bezeichnungen sind übersichtlicher und auf allen Bildschirmen nutzbar, auf denen du eine Bezeichnung eingibst
 - Zahlungsliste: Du kannst jetzt auch nach Bezeichnung filtern
 - Zahlungsliste: Bei offenen Einträgen kannst du die Sperre jetzt sehen und umschalten
+- Zahlungsliste: Du kannst jetzt nach Betrag filtern (suchen)
+- Zahlungsliste: Volltextsuche (unscharfe Suche) ist jetzt verfügbar
 - Abgleichmodus: Der Sperrstatus jedes Postens wird jetzt angezeigt
 - Abgleichmodus: Offene und bezahlte Posten mit demselben Abbuchungstermin lassen sich jetzt gemeinsam abgleichen
 - Abgleichmodus: „Als abgeglichen markieren“ markiert Posten nicht mehr als bezahlt
