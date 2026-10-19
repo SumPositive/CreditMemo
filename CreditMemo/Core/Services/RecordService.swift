@@ -1348,41 +1348,6 @@ enum RecordService {
         defaults.set(true, forKey: AppStorageKey.didMigrateRepeatTiming)
     }
 
-    /// 請求合計を記録する前の版で照合済み（全明細ロック済み・照合途中でない）だった請求へ、
-    /// 明細合計を請求合計として一度だけ記録し、アップデート後も照合済みのまま表示する
-    static func markLegacyReconciledInvoicesIfNeeded(
-        defaults: UserDefaults = .standard,
-        progressStore: ReconciliationProgressStore = .shared,
-        context: ModelContext
-    ) throws {
-        guard !defaults.bool(forKey: AppStorageKey.didMigrateReconciledAmount) else { return }
-        // 取得失敗を空として扱うと移行済みになってしまうため、失敗は呼び出し元へ投げて次回起動で再試行する
-        let invoices = try context.fetch(FetchDescriptor<E2invoice>())
-        // 照合の単位（決済手段×引き落とし日）でまとめる
-        var groups: [String: [E2invoice]] = [:]
-        for invoice in invoices {
-            guard let cardID = invoice.e1card?.id else { continue }
-            let day = AppCalendar.gregorian.startOfDay(for: invoice.date)
-            groups["\(cardID)|\(day.timeIntervalSinceReferenceDate)", default: []].append(invoice)
-        }
-        for dayInvoices in groups.values {
-            guard let first = dayInvoices.first, let cardID = first.e1card?.id else { continue }
-            // 既に請求合計がある、または照合途中なら触らない
-            guard RecordService.reconciledAmount(in: dayInvoices) == nil,
-                  progressStore.amount(forCardID: cardID, date: first.date) == nil else { continue }
-            let parts = dayInvoices.flatMap(\.e6parts)
-            guard !parts.isEmpty, parts.allSatisfy(\.isChecked) else { continue }
-            let total = parts.reduce(Decimal.zero) { $0 + $1.nAmount }.roundedAmount()
-            for invoice in dayInvoices {
-                invoice.reconciledAmount = total
-            }
-        }
-        if context.hasChanges {
-            try commit(context)
-        }
-        defaults.set(true, forKey: AppStorageKey.didMigrateReconciledAmount)
-    }
-
     // MARK: - Rebuild
 
     static func rebuildBilling(

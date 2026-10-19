@@ -213,17 +213,6 @@ struct AppMain: App {
             container.mainContext.saveReporting(operation: "AppMain.postMigrationInit")
         }
         do {
-            // 請求合計を記録する前の版で照合済みだった請求を、アップデート後も照合済みにする
-            try RecordService.markLegacyReconciledInvoicesIfNeeded(context: container.mainContext)
-        } catch {
-            // フラグを立てていないので次回起動で再試行される
-            AppTelemetry.reportSwiftDataError(
-                error,
-                operation: "AppMain.markLegacyReconciledInvoicesIfNeeded",
-                entity: "E2invoice"
-            )
-        }
-        do {
             // 旧方式（済みで作成）の作成済み分を一度だけ印付けしてから、新方式の作成を始める
             try RecordService.markLegacyPaidRepeatsDoneIfNeeded(context: container.mainContext)
         } catch {

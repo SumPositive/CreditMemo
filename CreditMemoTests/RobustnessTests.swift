@@ -910,40 +910,27 @@ struct RecordLockTests {
     }
 }
 
-/// 請求合計を記録する前の版からのアップデート
+/// 照合済みの判定（請求合計の記録が必要）
 @MainActor
-struct LegacyReconciledMigrationTests {
-    @Test("旧版で全明細ロック済みだった請求は、請求合計を記録して照合済みのままにする")
-    func legacyLockedInvoicesStayReconciled() throws {
-        let suite = "LegacyReconciledMigrationTests.\(UUID().uuidString)"
-        let defaults = try #require(UserDefaults(suiteName: suite))
-        defer { defaults.removePersistentDomain(forName: suite) }
+struct ReconciledStateTests {
+    @Test("全明細をロックしただけの請求は、請求合計を入れて確定するまで照合済みにしない")
+    func lockedOnlyInvoicesAreNotReconciled() throws {
         let context = try TestStore.makeContext()
         let bank = TestFixtures.makeBank(name: "口座", in: context)
-        let lockedCard = TestFixtures.makeCard(name: "ロック済み", bank: bank, in: context)
-        let mixedCard = TestFixtures.makeCard(name: "未ロックあり", bank: bank, in: context)
-        let locked1 = try TestFixtures.saveRecord(amount: 1_000, label: "A", dateUse: TestStore.date(2026, 5, 15), card: lockedCard, in: context)
-        let locked2 = try TestFixtures.saveRecord(amount: 500, label: "B", dateUse: TestStore.date(2026, 5, 15), card: lockedCard, in: context)
-        let mixed1 = try TestFixtures.saveRecord(amount: 700, label: "C", dateUse: TestStore.date(2026, 5, 15), card: mixedCard, in: context)
-        _ = try TestFixtures.saveRecord(amount: 300, label: "D", dateUse: TestStore.date(2026, 5, 15), card: mixedCard, in: context)
-        // 旧版の照合確定と同じく、片方は済みにしてロックする
-        for record in [locked1, locked2, mixed1] {
+        let card = TestFixtures.makeCard(name: "ロック済み", bank: bank, in: context)
+        let record1 = try TestFixtures.saveRecord(amount: 1_000, label: "A", dateUse: TestStore.date(2026, 5, 15), card: card, in: context)
+        let record2 = try TestFixtures.saveRecord(amount: 500, label: "B", dateUse: TestStore.date(2026, 5, 15), card: card, in: context)
+        // 旧版の照合確定と同じく、片方は済みにして全明細をロックする
+        for record in [record1, record2] {
             for part in record.e6parts { part.isChecked = true }
         }
-        try RecordService.setPartPaid(try #require(locked1.e6parts.first), isPaid: true, context: context)
+        try RecordService.setPartPaid(try #require(record1.e6parts.first), isPaid: true, context: context)
         try context.save()
 
-        try RecordService.markLegacyReconciledInvoicesIfNeeded(defaults: defaults, context: context)
-
-        let lockedInvoice = try #require(locked1.e6parts.first?.e2invoice)
-        let lockedDay = RecordService.reconciliationInvoices(cardID: lockedCard.id, date: lockedInvoice.date, context: context)
-        #expect(lockedDay.allSatisfy { $0.reconciledAmount == 1_500 })
-        #expect(RecordService.isReconciled(lockedDay))
-
-        let mixedInvoice = try #require(mixed1.e6parts.first?.e2invoice)
-        let mixedDay = RecordService.reconciliationInvoices(cardID: mixedCard.id, date: mixedInvoice.date, context: context)
-        #expect(mixedDay.allSatisfy { $0.reconciledAmount == nil })
-        #expect(defaults.bool(forKey: AppStorageKey.didMigrateReconciledAmount))
+        let invoice = try #require(record1.e6parts.first?.e2invoice)
+        let dayInvoices = RecordService.reconciliationInvoices(cardID: card.id, date: invoice.date, context: context)
+        #expect(dayInvoices.allSatisfy { $0.reconciledAmount == nil })
+        #expect(RecordService.isReconciled(dayInvoices) == false)
     }
 
     @Test("照合中の請求を引き落とし済みにしても、照合中の請求合計は残る")
