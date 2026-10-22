@@ -32,6 +32,11 @@ languages(["ja","en-US","de-DE","ko","zh-Hant"])
 # 撮影対象スキーム
 scheme("CreditMemo")
 
+# 撮影専用テストプラン。通常の CreditMemo.xctestplan は ⌘U を速くするため
+# CreditMemoUITests を無効にしており、そのままだと
+# 「CreditMemoUITests isn't a member of the specified test plan」で失敗する。
+testplan("CreditMemoScreenshots")
+
 # 撮影用 UITest を明示指定する。
 # TestPlan 経由だと UITest が実行されず snapshot() が呼ばれない（結果0枚）ことがあるため、
 # 撮影対象を UITest のメソッドに固定する。

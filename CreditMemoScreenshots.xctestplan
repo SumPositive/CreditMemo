@@ -1,0 +1,28 @@
+{
+  "configurations" : [
+    {
+      "id" : "6F2C1E8A-3B7D-4C59-9A1E-2D8B5F4C7E31",
+      "name" : "Screenshots",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:CreditMemo.xcodeproj",
+      "identifier" : "476BF29E563FFF97615D6381",
+      "name" : "CreditMemo"
+    }
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:CreditMemo.xcodeproj",
+        "identifier" : "A0820EB30EACC0FB3D5FF45F",
+        "name" : "CreditMemoUITests"
+      }
+    }
+  ],
+  "version" : 1
+}

@@ -972,6 +972,11 @@ private var isValid: Bool {
                 // 初期表示時に候補キャッシュを構築する
                 refreshDerivedCaches()
                 loadFields()
+                // fastlane snapshot 撮影時は、タグ欄にタグが並んだ状態を見せる
+                // （初期値に含めて、未保存の変更として扱われないようにする）
+                if SnapshotSeed.isActive && isNew && selectedCategories.isEmpty {
+                    selectedCategories = SnapshotSeed.previewTags(from: categories)
+                }
                 initialDraft = currentDraft()
                 hasInitialized = true
                 // 「決済一覧からコピー」は前回の手動開閉を引き継いで開く
