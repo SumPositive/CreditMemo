@@ -2108,7 +2108,7 @@ fastlane upload_metadata
 fastlane screenshots            # スクショ 生成確認
 fastlane upload_screenshots     # スクショ Upload
 -----
-/ Deferin 2.9.0 公開中、公開アプリパネル、取扱説明を更新して
+10/20 Deferin 2.9.0 公開中、公開アプリパネル、取扱説明を更新して
 履歴に　Xcode27.1　iOS27 を加えて
 ------------------------------------------------
 Codex: AppStore レビューを取得して集計分析する
@@ -2118,3 +2118,33 @@ $app-store-review-summary
 
 
 ******************以下未実装
+
+
+
+
+
+
+
+
+
+------------------------------------------------
+Deferin 2.10.0 新機能と更新内容
+- 
+-----
+順番や区切りなどもブラッシュアップして
+-----
+fastlane メタデータを更新して
+Deferin 2.10.0 準備中、README.mdの開発メモ、公開アプリパネル、取扱説明を更新して
+-----
+cd /Users/sumpositive/GitLocal/CreditMemo
+fastlane upload_metadata 
+---
+cd /Users/sumpositive/GitLocal/CreditMemo
+fastlane screenshots 
+fastlane upload_screenshots 
+-----
+/ Deferin 2.10.0 公開中、公開アプリパネル、取扱説明を更新して
+------------------------------------------------
+Codex: AppStore レビューを取得して集計分析する
+$app-store-review-summary
+-----
