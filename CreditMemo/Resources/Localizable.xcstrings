@@ -19718,6 +19718,216 @@
           }
         }
       }
+    },
+    "card.cancelled.confirm.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "解約済みにしますか？"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mark as Closed?"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Als gekündigt markieren?"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "해지됨으로 표시할까요?"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "標記為已解約？"
+          }
+        }
+      }
+    },
+    "card.cancelled.confirm.message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この決済手段を使っている明細があるので、削除せずに解約済みとして残します\n\n履歴はそのまま残り、新しい決済では選べなくなります"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Some payments use this method, so it will be kept as closed instead of deleted\n\nIts history stays as is, and it can no longer be chosen for new payments"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Es gibt Zahlungen mit dieser Methode, daher wird sie nicht gelöscht, sondern als gekündigt behalten\n\nDer Verlauf bleibt erhalten, für neue Zahlungen ist sie nicht mehr wählbar"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 결제 수단을 사용하는 결제가 있어 삭제하지 않고 해지됨으로 남깁니다\n\n내역은 그대로 남고, 새 결제에서는 선택할 수 없게 됩니다"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有付款使用此付款方式，因此不刪除，改為保留為已解約\n\n紀錄維持原樣，新增付款時將無法選擇"
+          }
+        }
+      }
+    },
+    "card.cancelled.confirm.action" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "解約済みにする"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mark as Closed"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Als gekündigt markieren"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "해지됨으로 표시"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "標記為已解約"
+          }
+        }
+      }
+    },
+    "card.cancelled.reopen" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "解約を取り消す"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Undo Closed"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kündigung aufheben"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "해지 취소"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取消解約"
+          }
+        }
+      }
+    },
+    "card.cancelled.badge" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "解約済み"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Closed"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gekündigt"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "해지됨"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已解約"
+          }
+        }
+      }
+    },
+    "card.cancelled.delete.message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この決済手段の明細%lld件もすべて削除します\n\n残したい場合は、先に設定からJSONファイルにエクスポートしてください\n\nこの操作は取り消せません"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All %lld payments that use this method will also be deleted\n\nTo keep them, export to a JSON file from Settings first\n\nThis action can't be undone"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auch alle %lld Zahlungen mit dieser Methode werden gelöscht\n\nUm sie zu behalten, exportiere sie vorher in den Einstellungen als JSON-Datei\n\nDiese Aktion kann nicht rückgängig gemacht werden"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 결제 수단의 결제 %lld건도 모두 삭제됩니다\n\n남기려면 먼저 설정에서 JSON 파일로 내보내세요\n\n이 작업은 되돌릴 수 없습니다"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用此付款方式的 %lld 筆付款也會全部刪除\n\n若要保留，請先在設定中匯出為 JSON 檔案\n\n此操作無法撤銷"
+          }
+        }
+      }
     }
   },
   "version" : "1.1"

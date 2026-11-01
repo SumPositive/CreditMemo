@@ -265,7 +265,8 @@ struct TopMenuView: View {
         }
         .sheet(isPresented: $showVoiceRecordSheet, onDismiss: { handleVoiceAfterSave() }) {
             VoiceInputSheet(
-                cards: cards,
+                // 解約済みの手段は音声入力の候補にしない
+                cards: cards.filter { !$0.isCancelled },
                 frequentPayments: voiceFrequentPayments,
                 knownLabels: recentLabels,
                 currentAmount: 0,
@@ -477,7 +478,7 @@ struct TopMenuView: View {
                     label: usePoint,
                     explicitCard: card,
                     candidates: candidates,
-                    cards: cards
+                    cards: cards.filter { !$0.isCancelled }
                 )
                 // タグ：候補のタグを全タグ(@Query tags)からIDで引いて採用（音声はタグを持たない）
                 selectedTags = fp.tagIDs.compactMap { id in tags.first { $0.id == id } }

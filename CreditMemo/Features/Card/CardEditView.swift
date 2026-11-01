@@ -51,6 +51,12 @@ struct CardEditView: View {
     @State private var newPaymentCard: E1card?
     /// 削除確認ダイアログの表示制御
     @State private var showDeleteAlert = false
+    /// 済みの履歴がある決済手段を、削除の代わりに解約済みにする確認の表示制御
+    @State private var showCancelAlert = false
+    /// 解約済みを削除する確認の表示制御（明細ごと削除する）
+    @State private var showDeleteWithRecordsAlert = false
+    /// 解約済みの削除で一緒に消える明細の件数（確認の文面に使う）
+    @State private var deletingRecordCount = 0
     @FocusState private var focusName: Bool
     @FocusState private var focusNote: Bool
     @AppStorage(AppStorageKey.userLevel) private var userLevel: UserLevel = .beginner
@@ -157,22 +163,24 @@ struct CardEditView: View {
             if let card, !isNew {
                 Section {
                     HStack(spacing: 8) {
-                        // 左：新しい決済（モーダルシートで開く）
-                        EditShortcutCapsuleButton(
-                            title: "record.edit.title.add",
-                            showsTitle: userLevel == .beginner,
-                            showsChevron: false,
-                            fillsAvailableWidth: userLevel == .beginner,
-                            action: { newPaymentCard = card }
-                        ) {
-                            Image(systemName: "plus.circle.fill")
-                                .resizable()
-                                .scaledToFit()
-                                .foregroundStyle(Color.blue)
-                                .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                        // 左：新しい決済（モーダルシートで開く）。解約済みには追加しないので出さない
+                        if !card.isCancelled {
+                            EditShortcutCapsuleButton(
+                                title: "record.edit.title.add",
+                                showsTitle: userLevel == .beginner,
+                                showsChevron: false,
+                                fillsAvailableWidth: userLevel == .beginner,
+                                action: { newPaymentCard = card }
+                            ) {
+                                Image(systemName: "plus.circle.fill")
+                                    .resizable()
+                                    .scaledToFit()
+                                    .foregroundStyle(Color.blue)
+                                    .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                            }
+                            .frame(maxWidth: userLevel == .beginner ? .infinity : nil, alignment: .leading)
                         }
-                        .frame(maxWidth: userLevel == .beginner ? .infinity : nil, alignment: .leading)
-                        if userLevel != .beginner {
+                        if userLevel != .beginner || card.isCancelled {
                             Spacer(minLength: 8)
                         }
                         // 右：引き落とし状況（NavigationStack push）
@@ -308,11 +316,39 @@ struct CardEditView: View {
                     .id(noteAnchorID)
             }
 
-            // 削除（既存決済手段のみ。スワイプ削除はやめてここに集約する）
-            if !isNew {
+            // 解約済みの決済手段だけ、解約を取り消して選択肢へ戻せるようにする
+            if let card, card.isCancelled {
                 Section {
                     Button {
-                        showDeleteAlert = true
+                        setCancelled(false)
+                    } label: {
+                        HStack {
+                            Spacer()
+                            Text("card.cancelled.reopen")
+                            Spacer()
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Color.accentColor)
+                    .disabled(isRebuildingBilling)
+                }
+            }
+
+            // 削除（既存決済手段のみ。スワイプ削除はやめてここに集約する）
+            if let card {
+                Section {
+                    Button {
+                        // 使っている明細があれば（済み・未払とも）、消さずに解約済みとして残す。
+                        // 解約済みからの削除は、使っている明細ごと消す
+                        if card.isCancelled {
+                            deletingRecordCount = CardService.recordCount(for: card, context: context)
+                            showDeleteWithRecordsAlert = true
+                        } else if 0 < CardService.recordCount(for: card, context: context) {
+                            showCancelAlert = true
+                        } else {
+                            showDeleteAlert = true
+                        }
                     } label: {
                         HStack {
                             Spacer()
@@ -421,6 +457,25 @@ struct CardEditView: View {
             message: "alert.deleteConfirm.message"
         ) {
             deleteCurrentCard()
+        }
+        .deleteConfirmation(
+            isPresented: $showDeleteWithRecordsAlert,
+            title: "alert.deleteConfirm.title",
+            message: LocalizedStringKey(String.localizedStringWithFormat(
+                String(localized: "card.cancelled.delete.message"),
+                deletingRecordCount
+            ))
+        ) {
+            deleteCurrentCardWithRecords()
+        }
+        .deleteConfirmation(
+            isPresented: $showCancelAlert,
+            title: "card.cancelled.confirm.title",
+            message: "card.cancelled.confirm.message",
+            confirmLabel: "card.cancelled.confirm.action",
+            confirmColor: .accentColor
+        ) {
+            setCancelled(true)
         }
         .confirmationDialog("card.preset.quote", isPresented: $showPresetDialog) {
             // 候補を選ぶと日付設定と名称を反映する
@@ -580,6 +635,31 @@ struct CardEditView: View {
             dismiss()
         } catch {
             appLog(.error, "決済手段の削除に失敗しました: \(error)")
+        }
+    }
+
+    /// 解約済みの決済手段を、使っている明細ごと削除する
+    private func deleteCurrentCardWithRecords() {
+        guard let card else { return }
+        do {
+            try CardService.deleteWithRecords(card, context: context)
+            dismiss()
+        } catch {
+            appLog(.error, "解約済み決済手段の削除に失敗しました: \(error)")
+        }
+    }
+
+    /// 解約済みにする（取り消す）。請求・履歴はそのまま残す
+    private func setCancelled(_ cancelled: Bool) {
+        guard let card else { return }
+        do {
+            try CardService.setCancelled(card, cancelled, context: context)
+            // 解約したら一覧へ戻る。取り消しは編集を続けられるよう留まる
+            if cancelled {
+                dismiss()
+            }
+        } catch {
+            appLog(.error, "決済手段の解約状態の変更に失敗しました: \(error)")
         }
     }
 

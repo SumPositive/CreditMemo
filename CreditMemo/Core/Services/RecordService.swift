@@ -446,6 +446,25 @@ enum RecordService {
         try commit(context)
     }
 
+    /// 複数の明細をまとめて削除する（保存はしない）。
+    /// 年数指定の一括削除と同じく、掃除・再集計は最後に1回だけ行う
+    static func deleteBatchWithoutCommit(_ records: [E3record], context: ModelContext) {
+        var touchedCardIDs: Set<String> = []
+        var touchedPaymentKeys: Set<String> = []
+        for record in records {
+            let snapshot = snapshot(for: record)
+            touchedCardIDs.formUnion(snapshot.touchedCardIDs)
+            touchedPaymentKeys.formUnion(snapshot.touchedPaymentKeys)
+            removeExistingParts(of: record, context: context)
+            context.delete(record)
+        }
+        recalculateTouchedBilling(
+            cardIDs: touchedCardIDs,
+            paymentKeys: touchedPaymentKeys,
+            context: context
+        )
+    }
+
     /// 指定年数より古い履歴（利用日基準）の件数を返す。自動提案の発動判定に使う。
     static func recordsCount(olderThanYears years: Int, context: ModelContext) -> Int {
         guard let cutoff = yearsAgoCutoff(years) else { return 0 }

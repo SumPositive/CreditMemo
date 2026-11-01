@@ -534,10 +534,16 @@ struct RecordEditView: View {
     /// 分割金額の入力欄へスクロールするための識別子
     private func partRowAnchorID(_ partNo: Int16) -> String { "record-part-\(partNo)" }
 
-    /// 選択できる決済手段。口座の指定があればその口座の手段だけにする
+    /// 選択できる決済手段。口座の指定があればその口座の手段だけにする。
+    /// 解約済みは外すが、編集中の明細がもともと使っている手段は残す
     private var selectableCards: [E1card] {
-        guard let presetBank else { return cards }
-        return cards.filter { $0.e8bank?.id == presetBank.id }
+        let keptCardID: String? = {
+            if case .edit(let r) = mode { return r.e1card?.id }
+            return nil
+        }()
+        let usable = cards.filter { !$0.isCancelled || $0.id == keptCardID }
+        guard let presetBank else { return usable }
+        return usable.filter { $0.e8bank?.id == presetBank.id }
     }
 
     private var isNew: Bool {
@@ -2833,8 +2839,10 @@ private var isValid: Bool {
             // コピー新規は設定ONの時だけ分割回数も引き継ぐ
             payCount     = enableTwoPayments ? source.payCount : 1
             nRepeat      = source.nRepeat
-            selectedCard = source.e1card
-            selectedBankForCard = source.e1card?.e8bank
+            // 解約済みの手段はコピーせず、未選択にする
+            let sourceCard = source.e1card?.isCancelled == true ? nil : source.e1card
+            selectedCard = sourceCard
+            selectedBankForCard = sourceCard?.e8bank
             keepBankPickerRowVisible = selectedCard != nil && selectedBankForCard == nil
             selectedCategories = source.e5tags
             // 引き落とし明細からのコピー新規は、指定された引き落とし日でロック状態で開始する
@@ -3473,7 +3481,7 @@ private var isValid: Bool {
         if zNote.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             zNote = record.zNote
         }
-        if selectedCard == nil {
+        if selectedCard == nil, record.e1card?.isCancelled != true {
             selectedCard = record.e1card
         }
         if nRepeat == 0 {

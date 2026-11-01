@@ -75,6 +75,39 @@ enum CardService {
         }
     }
 
+
+    /// 解約済みにする（または取り消す）。請求・履歴には手を付けず、選択肢から外すだけ
+    static func setCancelled(_ card: E1card, _ cancelled: Bool, context: ModelContext) throws {
+        card.isCancelled = cancelled
+        card.dateUpdate = Date()
+        if context.hasChanges {
+            try context.save()
+        }
+    }
+
+    /// この決済手段を使っている明細の件数
+    static func recordCount(for card: E1card, context: ModelContext) -> Int {
+        fetchRecords(for: card, context: context).count
+    }
+
+    /// 解約済みの決済手段を、使っている明細ごとすべて削除する。
+    /// 未払に戻しても付け直す使い道が無く、済んだ過去分が確認待ちに溢れるだけなので明細も消す
+    static func deleteWithRecords(_ card: E1card, context: ModelContext) throws {
+        let records = fetchRecords(for: card, context: context)
+        RecordService.deleteBatchWithoutCommit(records, context: context)
+        context.delete(card)
+        // 参照先が消えたあとの孤児データを整理する
+        RecordService.cleanupOrphanBilling(context: context)
+        do {
+            if context.hasChanges {
+                try context.save()
+            }
+        } catch {
+            context.rollback()
+            throw error
+        }
+    }
+
     /// 配下の請求を全削除し、未選択決済のままにする
     /// - Note: 履歴 (E3record) は残し、決済手段だけ nil に戻す
     static func delete(_ card: E1card, context: ModelContext) throws {

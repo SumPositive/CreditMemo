@@ -63,9 +63,10 @@ enum JSONImport {
         var bonus1: Int
         var bonus2: Int
         var bankID: String?
+        var cancelled: Bool
 
         enum CodingKeys: String, CodingKey {
-            case id, name, note, row, closingDay, payDay, payMonth, bonus1, bonus2, bankID
+            case id, name, note, row, closingDay, payDay, payMonth, bonus1, bonus2, bankID, cancelled
         }
 
         init(from decoder: Decoder) throws {
@@ -80,6 +81,7 @@ enum JSONImport {
             bonus1 = try c.decodeIfPresent(Int.self, forKey: .bonus1) ?? 0
             bonus2 = try c.decodeIfPresent(Int.self, forKey: .bonus2) ?? 0
             bankID = try c.decodeIfPresent(String.self, forKey: .bankID)
+            cancelled = try c.decodeIfPresent(Bool.self, forKey: .cancelled) ?? false
         }
     }
 
@@ -486,6 +488,7 @@ enum JSONImport {
                 try int16Value(item.bonus2, field: "bonus2"), in: 0...12, field: "bonus2"
             )
             card.e8bank = item.bankID.flatMap { bankByID[$0] }
+            card.nCancelled = item.cancelled ? true : nil
         }
         return items.count
     }

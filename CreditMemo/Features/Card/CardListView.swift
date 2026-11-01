@@ -13,6 +13,11 @@ struct CardListView: View {
     @AppStorage(AppStorageKey.fontScale) private var fontScale: FontScale = .system
     @AppStorage(AppStorageKey.badgePreset) private var badgePresetRaw: String = BadgePreset.japaneseEarth.rawValue
 
+    /// 使用中の決済手段（並び替えの対象）
+    private var activeCards: [E1card] { cards.filter { !$0.isCancelled } }
+    /// 解約済みの決済手段。済みの履歴を見られるよう、一覧の末尾に分けて残す
+    private var cancelledCards: [E1card] { cards.filter(\.isCancelled) }
+
     private var currentBadgePreset: BadgePreset {
         BadgePreset(rawValue: badgePresetRaw) ?? .japaneseEarth
     }
@@ -78,7 +83,7 @@ struct CardListView: View {
                     )
                 }
             }
-            ForEach(cards) { card in
+            ForEach(activeCards) { card in
                 NavigationLink {
                     // 決済手段マスタは、選択時に状況ではなく編集画面を開く。
                     CardEditView(card: card)
@@ -109,6 +114,32 @@ struct CardListView: View {
                 }
             }
             .onMove(perform: move)
+
+            if !cancelledCards.isEmpty {
+                Section {
+                    ForEach(cancelledCards) { card in
+                        NavigationLink {
+                            CardEditView(card: card)
+                        } label: {
+                            CardRow(card: card)
+                                .opacity(0.6)
+                        }
+                        // 解約済みには新しい決済を追加しないので、状況だけを出す
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            Button {
+                                statusCard = card
+                            } label: {
+                                Image(currentBadgePreset.assetImageName)
+                                    .renderingMode(.original)
+                            }
+                            .accessibilityLabel(Text("card.action.status"))
+                            .tint(Color(uiColor: .systemGray5))
+                        }
+                    }
+                } header: {
+                    Text("card.cancelled.badge")
+                }
+            }
         }
         .scalableNavigationTitle("card.list.title") {
             Image(systemName: "creditcard")
@@ -144,7 +175,7 @@ struct CardListView: View {
     }
 
     private func move(from source: IndexSet, to destination: Int) {
-        var list = cards
+        var list = activeCards
         list.move(fromOffsets: source, toOffset: destination)
         for (i, c) in list.enumerated() { c.nRow = Int32(i) }
     }

@@ -55,6 +55,7 @@ enum JSONExport {
         var id, name, note: String
         var row, closingDay, payDay, payMonth, bonus1, bonus2: Int
         var bankID: String?
+        var cancelled: Bool?  // 解約済みか（旧JSONには無い）
     }
 
     struct TagData: Codable {
@@ -161,7 +162,8 @@ enum JSONExport {
                 payMonth: Int(c.nPayMonth),
                 bonus1: Int(c.nBonus1),
                 bonus2: Int(c.nBonus2),
-                bankID: c.e8bank?.id
+                bankID: c.e8bank?.id,
+                cancelled: c.isCancelled ? true : nil
             )
         }
         let tagData      = tags.map       { TagData(id: $0.id, name: $0.zName, note: $0.zNote) }

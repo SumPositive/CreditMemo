@@ -23,6 +23,8 @@ final class E1card {
     var nBonus1: Int16
     var nBonus2: Int16
     var dateUpdate: Date?
+    /// 解約済みか。済みの履歴を残したまま、新しい決済の選択肢から外す（旧データは nil）
+    var nCancelled: Bool?
     // 集計値（子レコード変更時に更新）
     var sumPaid: Decimal
     var sumUnpaid: Decimal
@@ -34,6 +36,10 @@ final class E1card {
     // 履歴は残し、決済手段だけ未選択化できるよう nullify にする
     @Relationship(deleteRule: .nullify) var e3records: [E3record]
 
+    var isCancelled: Bool {
+        get { nCancelled ?? false }
+        set { nCancelled = newValue }
+    }
     // 互換参照用に請求全体を返す
     var e2invoices: [E2invoice] { e2paids + e2unpaids }
 
