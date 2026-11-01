@@ -93,6 +93,14 @@ private struct ReconciliationTopMarginModifier: ViewModifier {
 
 struct InvoiceListView: View {
     private let payment: E7payment?
+    /// 開いた時点の支払の口座。支払は未払を全部済みにすると（逆も）消えて別の支払へ移るので、
+    /// 見出しや絞り込みは消えた支払ではなくこの口座で決める。
+    /// 親画面の再描画で init が呼び直されると消えた支払から読み直してしまうため、State で最初の値を保つ
+    @State private var openedBank: E8bank?
+    /// 開いた時点の口座。取れなければ表示中の請求の支払から引く
+    private var paymentBank: E8bank? {
+        openedBank ?? invoices.lazy.compactMap { $0.e7payment?.e8bank }.first
+    }
     /// `init(displayItem:)` 経由で渡される請求書スナップショット。
     /// `init(payment:)` の場合は nil で、ライブの `payment.e2invoices` を参照する。
     private let staticInvoices: [E2invoice]?
@@ -120,21 +128,32 @@ struct InvoiceListView: View {
         let rowScopedFetched: [E2invoice]
         if let scope = invoiceFilter?.scope, case .tag = scope {
             // タグ絞り込みでも遷移元の支払・集計行の範囲を越えないようにする
-            if let payment {
-                rowScopedFetched = fetched.filter { $0.e7payment?.id == payment.id }
+            if payment != nil {
+                // 未払と済みで支払が分かれるので、支払そのものではなく口座で範囲を決める
+                let bankID = openedBank?.id
+                rowScopedFetched = fetched.filter { $0.e7payment?.e8bank?.id == bankID }
             } else if let staticInvoices {
-                let invoiceIDs = Set(staticInvoices.map(\.id))
-                rowScopedFetched = fetched.filter { invoiceIDs.contains($0.id) }
+                // 済みにすると明細は同じ手段の済みの請求へ移るので、請求ではなく手段で範囲を決める
+                let cardIDs = Set(staticInvoices.map { $0.e1card?.id })
+                rowScopedFetched = fetched.filter { cardIDs.contains($0.e1card?.id) }
             } else {
                 rowScopedFetched = fetched
             }
         } else {
             rowScopedFetched = fetched
         }
-        let sameStateInvoices = applyFilter(rowScopedFetched.filter { $0.isPaid == displayIsPaid })
-        return sameStateInvoices.isEmpty
+        // 未払・済みの両方を表示する。明細を済みにしても一覧から消えず、その場で状態だけが変わる
+        let dayInvoices = applyFilter(rowScopedFetched)
+        return dayInvoices.isEmpty
             ? applyFilter(staticInvoices ?? payment?.e2invoices ?? [])
-            : sameStateInvoices
+            : dayInvoices
+    }
+
+    /// 表示中の明細がすべて済みか。合計金額の色に使う（未払が1件でもあれば未払の色）
+    private var isAllPaid: Bool {
+        let parts = invoices.flatMap { filteredParts(in: $0) }
+        guard !parts.isEmpty else { return displayIsPaid }
+        return parts.allSatisfy { $0.e2invoice?.isPaid == true }
     }
 
     /// 状況画面のフィルタに合わせて、明細一覧の対象も同じ条件で絞り込む
@@ -336,6 +355,7 @@ struct InvoiceListView: View {
 
     init(payment: E7payment, filter: InvoiceListFilter? = nil) {
         self.payment = payment
+        self._openedBank = State(initialValue: payment.e8bank)
         // payment 経由ではライブな e2invoices を参照するため、スナップショットは保持しない
         self.staticInvoices = nil
         self.displayDate = payment.date
@@ -347,6 +367,7 @@ struct InvoiceListView: View {
 
     init(displayItem: PaymentDisplayItem, filter: InvoiceListFilter? = nil) {
         self.payment = displayItem.detailPayment
+        self._openedBank = State(initialValue: displayItem.detailPayment?.e8bank)
         self.staticInvoices = displayItem.invoices
         self.displayDate = displayItem.date
         self.displayAmount = displayItem.amount
@@ -1032,11 +1053,12 @@ struct InvoiceListView: View {
     }
 
     private var bankNameText: String {
-        guard let payment else { return "" }
-        if !payment.hasAnySelectedCard && includesUnselectedCard {
+        guard payment != nil else { return "" }
+        // 開いた支払は消えていることがあるので、表示中の請求から判定する
+        if !invoices.hasAnySelectedCard && includesUnselectedCard {
             return NSLocalizedString("payment.card.noSelection", comment: "")
         }
-        if let bankName = payment.e8bank?.zName, !bankName.isEmpty {
+        if let bankName = paymentBank?.zName, !bankName.isEmpty {
             return bankName
         }
         return NSLocalizedString("payment.bank.noSelection", comment: "")
@@ -1149,7 +1171,7 @@ struct InvoiceListView: View {
                 Spacer()
                 Text((isReconciliationMode ? reconciliationCurrentAmount : currentDisplayAmount).currencyString())
                     .font(.headline.monospacedDigit())
-                    .foregroundStyle(displayIsPaid ? badgeTheme.paidText : badgeTheme.unpaidText)
+                    .foregroundStyle(isAllPaid ? badgeTheme.paidText : badgeTheme.unpaidText)
                 // 請求合計の矢印幅を空け、3つの金額右端を揃える
                 summaryAccessoryChevron(isVisible: false)
             }
@@ -1565,7 +1587,7 @@ struct InvoiceListView: View {
                                     Spacer()
                                     Text(section.sumAmount.currencyString())
                                         .font(.subheadline.monospacedDigit().bold())
-                                        .foregroundStyle(displayIsPaid ? badgeTheme.paidText : badgeTheme.unpaidText)
+                                        .foregroundStyle(isAllPaid ? badgeTheme.paidText : badgeTheme.unpaidText)
                                 }
                             }
                         } header: {
@@ -1761,7 +1783,7 @@ struct InvoiceListView: View {
                     presetCard: draft.card,
                     presetDueDate: draft.dueDate,
                     // 引き落とし日と口座は決まっているので、手段はこの口座のものから選ばせる
-                    presetBank: payment?.e8bank,
+                    presetBank: paymentBank,
                     presetIsPaid: draft.isPaid
                 )
             }
@@ -1989,14 +2011,13 @@ struct PartLockIcon: View {
     }
 }
 
-private extension E7payment {
+private extension Array where Element == E2invoice {
     var hasAnySelectedCard: Bool {
         // 明細レコード側に決済手段が残っていれば、口座未選択として扱う
-        if e2invoices.contains(where: { $0.e1card != nil }) {
+        if contains(where: { $0.e1card != nil }) {
             return true
         }
-        return e2invoices
-            .flatMap(\.e6parts)
+        return flatMap(\.e6parts)
             .contains { $0.e3record?.e1card != nil }
     }
 }
