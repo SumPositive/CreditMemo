@@ -558,7 +558,10 @@ struct PaymentListView: View {
     private func rebuildDisplayItems() {
         let nextUpcomingItems = buildDisplayItems(from: upcomingUnpaidPayments, isPaid: false)
         let nextOverdueItems = buildDisplayItems(from: overdueUnpaidPayments, isPaid: false)
-        let nextPaidItems = buildDisplayItems(from: paidPayments, isPaid: true)
+        // 手段・日付の集計では請求ごとに未払/済みを振り分ける。口座単位の支払に未払と済みの請求が
+        // 混ざっていると支払は未払側に入るので、その中の済みの請求も済み側へ拾う
+        let partlyPaidPayments = groupMode == .bank ? [] : upcomingUnpaidPayments + overdueUnpaidPayments
+        let nextPaidItems = buildDisplayItems(from: paidPayments + partlyPaidPayments, isPaid: true)
 
         upcomingItems = nextUpcomingItems
         overdueItems = nextOverdueItems
@@ -734,7 +737,8 @@ struct PaymentListView: View {
             }
             .sorted(by: PaymentDisplayItem.displayOrder)
         case .date:
-            let invoices = payments.flatMap { filteredInvoices(in: $0.e2invoices) }
+            // 支払単位ではなく請求自身の未払/済みで振り分ける
+            let invoices = payments.flatMap { filteredInvoices(in: $0.e2invoices) }.filter { $0.isPaid == isPaid }
             return groupedItems(
                 invoices: invoices,
                 isPaid: isPaid,
@@ -743,7 +747,8 @@ struct PaymentListView: View {
                 filter: { _ in nil }
             )
         case .card:
-            let invoices = payments.flatMap { filteredInvoices(in: $0.e2invoices) }
+            // 支払単位ではなく請求自身の未払/済みで振り分ける
+            let invoices = payments.flatMap { filteredInvoices(in: $0.e2invoices) }.filter { $0.isPaid == isPaid }
             return groupedItems(
                 invoices: invoices,
                 isPaid: isPaid,
