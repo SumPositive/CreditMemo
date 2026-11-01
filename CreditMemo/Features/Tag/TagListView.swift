@@ -292,6 +292,36 @@ struct TagSortModeDropdown: View {
     }
 }
 
+/// 決済のタグ選択シートで、複数決定とワンタップを切り替えるプルダウン
+struct TagPickModeDropdown: View {
+    @Binding var pickModeRaw: String
+    @Binding var isExpanded: Bool
+
+    private var selection: Binding<TagPickMode> {
+        Binding(
+            get: { TagPickMode(rawValue: pickModeRaw) ?? .multiple },
+            set: { pickModeRaw = $0.rawValue }
+        )
+    }
+
+    var body: some View {
+        AZDropdownPicker(
+            options: TagPickMode.allCases,
+            selection: selection,
+            isExpanded: $isExpanded,
+            minWidth: 0
+        ) { mode in
+            // 並び順より控えめに、アイコンなしの小さめの文字で示す
+            Text(LocalizedStringKey(mode.localizedKey))
+                .font(.subheadline)
+                .lineLimit(1)
+                .allowsTightening(true)
+        }
+        // 並び順を優先して広く取り、こちらは内容幅に収める
+        .fixedSize(horizontal: true, vertical: false)
+    }
+}
+
 /// タグ一覧と選択シートで共用する検索兼追加欄
 struct TagFindOrAddSection: View {
     @Binding var name: String
@@ -406,6 +436,9 @@ struct TagSelectionList: View {
     @Binding private var isSortExpanded: Bool
     /// 複数タグの一致条件（OR／AND）。単一選択のシートでは nil にして行ごと隠す
     private var matchModeRaw: Binding<Int>?
+    /// 決め方（複数決定／ワンタップ）。決済のタグ選択シートだけ並び順の右に出す
+    private var pickModeRaw: Binding<String>?
+    private var isPickModeExpanded: Binding<Bool>?
     /// 編集シートの上に重ねて開く時は true。背面より少し明るい背景にしてシートの境をはっきりさせる
     private let isRaised: Bool
 
@@ -426,6 +459,8 @@ struct TagSelectionList: View {
         sortModeRaw: Binding<Int>,
         isSortExpanded: Binding<Bool>,
         matchModeRaw: Binding<Int>? = nil,
+        pickModeRaw: Binding<String>? = nil,
+        isPickModeExpanded: Binding<Bool>? = nil,
         showsAllOption: Bool = false,
         isAllSelected: Bool = false,
         onSelectAll: @escaping () -> Void = {},
@@ -437,6 +472,8 @@ struct TagSelectionList: View {
         self.tags = tags
         self.selectedIDs = selectedIDs
         self.matchModeRaw = matchModeRaw
+        self.pickModeRaw = pickModeRaw
+        self.isPickModeExpanded = isPickModeExpanded
         self.showsAllOption = showsAllOption
         self.isAllSelected = isAllSelected
         self.onSelectAll = onSelectAll
@@ -469,10 +506,18 @@ struct TagSelectionList: View {
                 if let matchModeRaw {
                     TagMatchModePicker(matchModeRaw: matchModeRaw)
                 }
-                TagSortModeDropdown(
-                    sortModeRaw: $sortModeRaw,
-                    isExpanded: $isSortExpanded
-                )
+                HStack(spacing: 8) {
+                    TagSortModeDropdown(
+                        sortModeRaw: $sortModeRaw,
+                        isExpanded: $isSortExpanded
+                    )
+                    if let pickModeRaw, let isPickModeExpanded {
+                        TagPickModeDropdown(
+                            pickModeRaw: pickModeRaw,
+                            isExpanded: isPickModeExpanded
+                        )
+                    }
+                }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 8)

@@ -9,6 +9,8 @@ enum AppStorageKey {
     /// ラベルとタグの余白（ふつう／狭め／最小）
     static let capsuleSize       = "setting.display.capsuleSize"
     static let tagSortMode       = "setting.tagSortMode"
+    /// 決済のタグ選択シートの決め方（複数決定／ワンタップ）。既定は複数決定
+    static let tagPickMode       = "setting.tagPickMode"
     static let afterSaveAction   = "setting.afterSaveAction"
     /// テンキーの丸め方法。既定は四捨五入
     static let calculatorRounding = "setting.calculatorRounding"
@@ -589,6 +591,23 @@ enum SortMode: Int, CaseIterable, Identifiable {
         case .count:  "sort.count"
         case .amount: "sort.amount"
         case .name:   "sort.name"
+        }
+    }
+}
+
+/// 決済のタグ選択シートの決め方
+enum TagPickMode: String, CaseIterable, Identifiable {
+    /// 複数選んでから決定ボタンで反映する
+    case multiple = "multiple"
+    /// タグをタップした時点で反映してシートを閉じる
+    case oneTap   = "oneTap"
+
+    var id: Self { self }
+
+    var localizedKey: String {
+        switch self {
+        case .multiple: "tag.pickMode.multiple"
+        case .oneTap:   "tag.pickMode.oneTap"
         }
     }
 }

@@ -3734,7 +3734,9 @@ struct CategoryMultiPickerSheet: View {
     @Environment(\.modelContext) private var context
     @Query private var allCategories: [E5tag]
     @AppStorage(AppStorageKey.tagSortMode) private var sortModeRaw: Int = SortMode.defaultForTags.rawValue
+    @AppStorage(AppStorageKey.tagPickMode) private var pickModeRaw: String = TagPickMode.multiple.rawValue
     @State private var showSortDropdown = false
+    @State private var showPickModeDropdown = false
     @State private var newTagName = ""
     @State private var displayOrder: [E5tag] = []
     /// キャンセルで元へ戻せるよう、選択操作はシート内の作業用コピーに対して行う
@@ -3742,6 +3744,8 @@ struct CategoryMultiPickerSheet: View {
     private let maxSelection = 10
 
     private var sortMode: SortMode { SortMode(rawValue: sortModeRaw) ?? .defaultForTags }
+    /// ワンタップではタグをタップした時点で反映して閉じる（キャンセル・決定は出さない）
+    private var isOneTap: Bool { TagPickMode(rawValue: pickModeRaw) == .oneTap }
     private var selectedIDs: Set<String> { Set(draftSelection.map(\.id)) }
     /// 決定前の選択変更があるか（呼び出し元の選択と比べる）
     private var hasDraftChanges: Bool { selectedIDs != Set(selectedCategories.map(\.id)) }
@@ -3761,6 +3765,8 @@ struct CategoryMultiPickerSheet: View {
                 selectedIDs: selectedIDs,
                 sortModeRaw: $sortModeRaw,
                 isSortExpanded: $showSortDropdown,
+                pickModeRaw: $pickModeRaw,
+                isPickModeExpanded: $showPickModeDropdown,
                 findOrAddName: $newTagName,
                 onFindOrAdd: findOrAddTag,
                 isRaised: true,
@@ -3771,20 +3777,22 @@ struct CategoryMultiPickerSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     // 選択を変えていればキャンセル、変えていなければシート共通の下矢印で閉じる
-                    if hasDraftChanges {
+                    if hasDraftChanges && !isOneTap {
                         Button("button.cancel") { dismiss() }
                     } else {
                         SheetCloseButton { dismiss() }
                     }
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    // 決定を押したときだけ選択結果を呼び出し元へ反映する
-                    Button("button.decide") {
-                        selectedCategories = draftSelection
-                        dismiss()
+                if !isOneTap {
+                    ToolbarItem(placement: .confirmationAction) {
+                        // 決定を押したときだけ選択結果を呼び出し元へ反映する
+                        Button("button.decide") {
+                            selectedCategories = draftSelection
+                            dismiss()
+                        }
+                        // 選択を変えた時だけアクセント色にする
+                        .prominentButton(hasDraftChanges)
                     }
-                    // 選択を変えた時だけアクセント色にする
-                    .prominentButton(hasDraftChanges)
                 }
             }
         }
@@ -3822,6 +3830,14 @@ struct CategoryMultiPickerSheet: View {
             draftSelection.append(item)
         }
         // 表示順はそのまま。タップしたタグが動くと次のタグを選びにくい
+        commitIfOneTap()
+    }
+
+    /// ワンタップでは選んだ時点で呼び出し元へ反映して閉じる
+    private func commitIfOneTap() {
+        guard isOneTap else { return }
+        selectedCategories = draftSelection
+        dismiss()
     }
 
     /// 同名タグは再利用し、無い名前だけを追加してそのまま選択する
@@ -3837,6 +3853,7 @@ struct CategoryMultiPickerSheet: View {
                 draftSelection.append(existing)
             }
             newTagName = ""
+            commitIfOneTap()
             return
         }
 
@@ -3849,6 +3866,7 @@ struct CategoryMultiPickerSheet: View {
         }
         displayOrder.insert(tag, at: 0)
         newTagName = ""
+        commitIfOneTap()
     }
 
     /// 表示順を組み直す。
