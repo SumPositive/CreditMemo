@@ -1960,9 +1960,23 @@ struct RecordSummaryRow: View {
         // 次を作成済みの繰り返しはアイコンを出さない
         0 < record.nRepeat && !record.isRepeatDone
     }
+    /// ラベル未入力時に代わりに見せるメモ（空行を除いた最初の1行だけ）
+    private var fallbackNoteText: String? {
+        guard record.zName.isEmpty else { return nil }
+        return record.zNote
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .first { !$0.isEmpty }
+    }
     private var recordLabelText: String {
-        // 現行仕様ではラベル未入力時だけダッシュを表示する
-        record.zName.isEmpty ? "—" : record.zName
+        // ラベル未入力ならメモを、メモも無ければダッシュを表示する
+        if !record.zName.isEmpty { return record.zName }
+        return fallbackNoteText ?? "—"
+    }
+    private var recordLabelColor: Color {
+        // ラベル入力済みは通常色、メモ代用は控えめ、両方未入力（"—"）はオレンジで強調する
+        if !record.zName.isEmpty { return Color(.label) }
+        return fallbackNoteText == nil ? Color.orange : Color.secondary
     }
     private var cardNameText: String {
         record.e1card?.zName ?? NSLocalizedString("payment.card.noSelection", comment: "")
@@ -1981,8 +1995,7 @@ struct RecordSummaryRow: View {
                     HStack(alignment: .top, spacing: 8) {
                         Text(recordLabelText)
                             .font(.body)
-                            // ラベル未入力（"—"）はオレンジで強調する
-                            .foregroundStyle(record.zName.isEmpty ? Color.orange : Color(.label))
+                            .foregroundStyle(recordLabelColor)
                             .lineLimit(1)
                             .truncationMode(.tail)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -1995,8 +2008,7 @@ struct RecordSummaryRow: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(recordLabelText)
                             .font(.body)
-                            // ラベル未入力（"—"）はオレンジで強調する
-                            .foregroundStyle(record.zName.isEmpty ? Color.orange : Color(.label))
+                            .foregroundStyle(recordLabelColor)
                             .lineLimit(1)
                             .truncationMode(.tail)
                             .frame(maxWidth: .infinity, alignment: .leading)
