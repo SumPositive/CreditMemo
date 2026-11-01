@@ -60,7 +60,7 @@ enum NumericCalculatorRounding: String, CaseIterable, Hashable, Identifiable {
 // MARK: - テンキーオーバーレイ
 
 /// システムシートを使わず画面下部へ固定する00キー付きテンキー。
-/// 金額はテンキー内に表示せず、操作のたびに呼び出し元の入力欄へ直接反映する（完了は不要で、閉じるだけ）
+/// 金額はテンキー内に表示せず、操作のたびに呼び出し元の入力欄へ直接反映する（右下の確定キーも閉じるだけ）
 struct NumericKeypadOverlay: View {
     let title: LocalizedStringKey
     /// 開いた時点の金額。未入力の間はこの値のまま
@@ -192,7 +192,9 @@ struct NumericKeypadOverlay: View {
                         compact: isCompact,
                         scale: uiScale,
                         selectedOperator: pendingOperator,
-                        onSelect: selectOperator
+                        onSelect: selectOperator,
+                        // 入力欄には常に計算後・丸め後の金額が入っているので、確定は閉じるだけでよい
+                        onConfirm: onClose
                     )
                 }
                 .padding(.horizontal, (isCompact ? 16 : 20) * uiScale)
@@ -571,14 +573,18 @@ struct NumericKeypad: View {
     }
 }
 
-/// 数字キー右端へ固定する四則演算子列
+/// 数字キー右端へ固定する四則演算子列。最下段（右下）に確定キーを置く
 private struct CalculatorOperatorKeypad: View {
     let compact: Bool
     let scale: CGFloat
     let selectedOperator: NumericCalculatorOperator?
     let onSelect: (NumericCalculatorOperator) -> Void
+    let onConfirm: () -> Void
 
     private var spacing: CGFloat { (compact ? 8 : 10) * scale }
+    private var width: CGFloat { (compact ? 52 : 56) * scale }
+    /// 数字キー4段と同じ高さに、演算子4つと確定の5段を収める
+    private var keyHeight: CGFloat { (width * 4 - spacing) / 5 }
 
     var body: some View {
         VStack(spacing: spacing) {
@@ -586,37 +592,59 @@ private struct CalculatorOperatorKeypad: View {
                 CalculatorOperatorButton(
                     operation: operation,
                     compact: compact,
-                    scale: scale,
+                    width: width,
+                    height: keyHeight,
                     isSelected: selectedOperator == operation
                 ) {
                     onSelect(operation)
                 }
             }
+            CalculatorConfirmButton(compact: compact, width: width, height: keyHeight, action: onConfirm)
         }
     }
 }
 
-/// 数字キーと同じ高さで表示する演算子ボタン
+/// 数字キーの右に5段で並べる演算子ボタン
 private struct CalculatorOperatorButton: View {
     let operation: NumericCalculatorOperator
     let compact: Bool
-    let scale: CGFloat
+    let width: CGFloat
+    let height: CGFloat
     let isSelected: Bool
     let action: () -> Void
-
-    private var size: CGFloat { (compact ? 52 : 56) * scale }
 
     var body: some View {
         Button(action: action) {
             Text(operation.symbol)
                 .font(compact ? .title2.weight(.semibold) : .title.weight(.semibold))
                 .foregroundStyle(isSelected ? Color.white : Color.accentColor)
-                .frame(width: size, height: size)
+                .frame(width: width, height: height)
                 .background(isSelected ? Color.accentColor : Color(.tertiarySystemGroupedBackground))
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(operation.symbol))
+    }
+}
+
+/// 演算子列の最下段に置く確定ボタン。計算後の金額のままテンキーを閉じる
+private struct CalculatorConfirmButton: View {
+    let compact: Bool
+    let width: CGFloat
+    let height: CGFloat
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "checkmark").dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                .font(compact ? .title3.weight(.bold) : .title2.weight(.bold))
+                .foregroundStyle(Color.white)
+                .frame(width: width, height: height)
+                .background(Color.accentColor)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text("button.done"))
     }
 }
 
