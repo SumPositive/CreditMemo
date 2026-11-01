@@ -461,6 +461,9 @@ struct RecordEditView: View {
     @State private var showBankPicker     = false
     @State private var showCategoryPicker = false
     @State private var showDeleteAlert    = false
+    @State private var showDuplicateAlert = false
+    /// 新規保存時、利用日と金額が同じ既存の決済の件数（重複確認の文面に使う）
+    @State private var duplicateCount     = 0
     /// 変更破棄の2回目のタップを待っているか
     @State private var isDiscardArmed     = false
     /// 変更破棄の確認状態を一定時間後に戻す
@@ -959,7 +962,7 @@ private var isValid: Bool {
                         if case .addCopy = mode { return true }
                         return hasChanges
                     }()
-                    Button("button.save") { save() }
+                    Button("button.save") { saveCheckingDuplicate() }
                         // 独自テンキー表示中は背面の保存を押せないようにする
                         .disabled(!isValid || isKeypadShown)
                         .fontWeight(emphasizeSave ? .semibold : .regular)
@@ -1227,6 +1230,19 @@ private var isValid: Bool {
             // 削除確認から実処理へ進んだことをログへ残す
             appLog(.debug, "削除確認が確定されました")
             deleteCurrentRecord()
+        }
+        // 新規保存で利用日と金額が同じ決済があれば、キャンセルか重複のまま保存かを選ばせる
+        .deleteConfirmation(
+            isPresented: $showDuplicateAlert,
+            title: "record.duplicate.title",
+            message: LocalizedStringKey(String.localizedStringWithFormat(
+                String(localized: "record.duplicate.message"),
+                duplicateCount
+            )),
+            confirmLabel: "record.duplicate.confirm",
+            confirmColor: .accentColor
+        ) {
+            save()
         }
         .animation(.spring(duration: 0.3), value: savedBanner)
         // 自動時はシステム設定をそのまま使い、手動時のみ固定サイズを適用する
@@ -2839,6 +2855,26 @@ private var isValid: Bool {
             selectedBankForCard = r.e1card?.e8bank
             keepBankPickerRowVisible = selectedCard != nil && selectedBankForCard == nil
             selectedCategories = r.e5tags
+        }
+    }
+
+    /// 新規保存の前に、利用日（同じ日）と金額が同じ既存の決済を探す。
+    /// 見つかれば確認を出し、無ければそのまま保存する
+    private func saveCheckingDuplicate() {
+        // 編集と、金額0の下書き保存は重複確認の対象外
+        guard isNew, nAmount != 0 else {
+            save()
+            return
+        }
+        let calendar = Calendar.current
+        let count = pastRecords.filter {
+            $0.nAmount == nAmount && calendar.isDate($0.dateUse, inSameDayAs: dateUse)
+        }.count
+        if count > 0 {
+            duplicateCount = count
+            showDuplicateAlert = true
+        } else {
+            save()
         }
     }
 

@@ -12,6 +12,7 @@ extension View {
         message: LocalizedStringKey,
         confirmLabel: LocalizedStringKey = "button.delete",
         cancelLabel:  LocalizedStringKey = "button.cancel",
+        confirmColor: Color = .red,
         onConfirm: @escaping () -> Void
     ) -> some View {
         modifier(DeleteConfirmationModifier(
@@ -20,6 +21,7 @@ extension View {
             message: message,
             confirmLabel: confirmLabel,
             cancelLabel:  cancelLabel,
+            confirmColor: confirmColor,
             onConfirm: onConfirm
         ))
     }
@@ -33,6 +35,7 @@ private struct DeleteConfirmationModifier: ViewModifier {
     let message: LocalizedStringKey
     let confirmLabel: LocalizedStringKey
     let cancelLabel:  LocalizedStringKey
+    let confirmColor: Color
     let onConfirm: () -> Void
 
     func body(content: Content) -> some View {
@@ -46,6 +49,7 @@ private struct DeleteConfirmationModifier: ViewModifier {
                     message: message,
                     confirmLabel: confirmLabel,
                     cancelLabel:  cancelLabel,
+                    confirmColor: confirmColor,
                     onConfirm: {
                         onConfirm()
                         isPresented = false
@@ -64,6 +68,8 @@ private struct DeleteConfirmationOverlay: View {
     let message: LocalizedStringKey
     let confirmLabel: LocalizedStringKey
     let cancelLabel:  LocalizedStringKey
+    /// 確定ボタンの色。削除以外の確認（重複保存など）では赤以外を渡す
+    let confirmColor: Color
     let onConfirm: () -> Void
     let onCancel:  () -> Void
     // fullScreenCover は親の環境を継承しないため、アプリ内文字サイズ設定をここで再適用する
@@ -103,7 +109,7 @@ private struct DeleteConfirmationOverlay: View {
                             .foregroundStyle(Color.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
-                            .background(Color.red)
+                            .background(confirmColor)
                             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
                     .buttonStyle(.plain)
