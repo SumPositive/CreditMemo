@@ -34,10 +34,31 @@
 
 ![Platform](https://img.shields.io/badge/platform-iOS%2018%2B-blue)
 ![Swift](https://img.shields.io/badge/Swift-6-orange)
-![Version](https://img.shields.io/badge/version-2.8.0-brightgreen)
+![Version](https://img.shields.io/badge/version-2.9.0-brightgreen)
 [![App Store](https://img.shields.io/badge/App%20Store-Download-blue)](https://apps.apple.com/us/app/id432458298)
 
-## バージョン 2.9.0（準備中）の主な変更
+## バージョン 2.9.1（準備中）の主な変更
+
+- **新しい決済：保存時に重複を確認**（`RecordEditView.saveCheckingDuplicate`）
+  - 新規（コピー新規含む）で、利用日（同じ日・時刻は見ない）と金額が同じ明細が既にあれば、独自ダイアログで「キャンセル／保存する」を選ばせる。決済手段・ラベルは比べない。編集と金額0の下書き保存は対象外
+  - ダイアログは削除確認（`deleteConfirmation`）を流用し、確定ボタンの色を指定できるようにした（`confirmColor`、既定は赤）
+- **金額テンキーの右下に決定ボタン**（`NumericKeypadOverlay` / `CalculatorConfirmButton`）
+  - 演算子列を ÷ × − + ✓ の5段にし、列全体の高さは数字キー4段と同じに保つ。入力欄へは常に計算後・丸め後の金額を反映済みなので、決定は閉じるだけ
+- **決済手段の「解約済み」**（`E1card.nCancelled` / `CardService`）
+  - 使っている明細（済み・未払とも）がある決済手段は、削除の代わりに解約済みにする。請求・明細には触らず、新しい決済の選択肢（選択欄・コピー・よくある決済・音声入力）から外すだけ。編集中の明細が既に使っている手段は選択欄に残す。決済手段一覧の末尾「解約済み」欄に薄く表示し、編集画面から「解約を取り消す」
+  - 解約済みを削除すると、その手段の明細ごと削除する（`CardService.deleteWithRecords` → `RecordService.deleteBatchWithoutCommit`。再集計は最後に1回）。以前は削除で請求ごと消え、済みの過去分まで「決済手段なし・未払」の確認待ちに溢れていた
+  - `nCancelled` は Optional なので旧ストアはそのまま移行（nil＝使用中）。JSON は `CardData.cancelled`（旧JSONは無し）
+- **引き落とし明細：未払と済みをまとめて表示**（`InvoiceListView.invoices`）
+  - 開いた行と同じ状態の請求だけを集めていたため、済みにすると明細が済みの請求へ移って一覧から消えていた。同じ日の請求を状態を問わず集める。合計の色は未払が1件でもあれば未払色
+  - 支払（`E7payment`）は「日付＋口座」ごとに未払用と済み用が別で、片方が空になると削除される。開いた支払を参照し続けると口座が取れず「口座 未選択」になったため、開いた時点の口座を `@State openedBank` に保持する（親の再描画で init が呼び直されても最初の値を保つ）
+- **引き落とし状況：手段・日付の集計は請求ごとに未払/済みを振り分け**（`PaymentListView.buildDisplayItems`）
+  - 未払と済みが混ざった支払は支払単位では未払側に入るため、その中の済みの請求まで未払として表示されていた。口座の集計は従来どおり支払単位
+- **タグの選び方「選んで決定／ワンタップ」**（`TagPickMode`、`AppStorageKey.tagPickMode`）
+  - 決済のタグ選択シート（`CategoryMultiPickerSheet`）の並び順の右にプルダウン。ワンタップはタップで今の選択に足す/外すして即反映・閉じる（キャンセル・決定は出さず、左上の閉じるは残す）。既定は選んで決定
+- **決済明細のセル：ラベルが空ならメモの1行目を表示**（`RecordSummaryRow`）
+  - 空行を除いた最初の行。メモ代用は控えめな色、ラベルもメモも空なら従来どおりオレンジの「—」
+
+## バージョン 2.9.0 の主な変更
 
 - **繰り返しを「利用日を過ぎたら次を作成」に変更**（`RecordService.generateDueRepeatRecords`）
   - 済みにするまで次回の予定が見えなかったため。起動・復帰時に、利用日を過ぎた（日付が変わった）未作成の繰り返しから次の明細を作り、`E3record.isRepeatDone` で二度作らない。1件から続けて作るのは最大3回（`repeatMaxPasses`）

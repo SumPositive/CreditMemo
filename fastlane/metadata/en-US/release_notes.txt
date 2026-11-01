@@ -1,15 +1,8 @@
-What's New in 2.9.0
-- Repeat is easier to use. Once the use date has passed, the next record appears
-- Copying records is easier
-- Frequent payments and labels are easier to see and use, and are now available on every screen where you enter a label
-- Payment list: You can now filter by label
-- Payment list: For unpaid records, you can now see and toggle the lock
-- Payment list: You can now filter (search) by amount
-- Payment list: Full-text search (fuzzy search) is now available
-- Reconcile mode: The lock state of each item is now shown
-- Reconcile mode: Unpaid and paid items with the same debit date can now be reconciled together
-- Reconcile mode: Marking as reconciled no longer marks items as paid
-- Tags: When a tag with the same name already exists, you can merge them from the edit screen
-- Settings: Added "Label & Tag Spacing". Tighter spacing shows more at once
-- New icons for unpaid and paid
-- Fixed items being marked as reconciled while a difference remained. "Matched" now appears only after you confirm with a difference of zero in Reconcile mode
+What's New in 2.9.1
+- New Payment: If a payment with the same date and amount already exists, you're asked to confirm before saving
+- Amount keypad: Added a confirm button at the bottom right. As before, simply closing the keypad also applies your input
+- Pay Methods: A method that has payments is now kept as "Closed" instead of being deleted, so you can still see its history. Deleting a closed method also deletes all of its payments
+- Debit Statement: Unpaid and paid items are now shown together. Marking an item as paid no longer removes it from the list
+- Tags: You can now choose how to pick tags: "Select & Done" or "One Tap"
+- Payment List: When a payment has no label, the first line of its notes is shown instead
+- Debit Status: Fixed paid items sometimes appearing as unpaid
