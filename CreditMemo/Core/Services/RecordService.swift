@@ -1282,6 +1282,10 @@ enum RecordService {
     /// 利用日を過ぎた繰り返し明細から次の明細を作り、同じ保存単位で確定する
     @discardableResult
     static func generateDueRepeatRecords(now: Date = Date(), context: ModelContext) throws -> Int {
+        // 一括削除・インポートの途中は、保存で途中状態まで確定しないよう見送る（次の前面復帰・日付変更で作る）
+        if BulkWriteGuard.isActive {
+            return 0
+        }
         let result = generateDueRepeatRecordsWithoutCommit(now: now, context: context)
         // 対象が無ければ保存しない（編集中の未保存変更を巻き込まない）
         if 0 < result.processed {
