@@ -57,13 +57,29 @@ enum ExportFile {
     static func removeTemporaryFiles() {
         let fileManager = FileManager.default
         try? fileManager.removeItem(at: temporaryDirectory)
-        // 旧版は一時フォルダ直下に書いていたので、残っている JSON も消す
+        // 旧版は一時フォルダ直下に書いていたので、旧ファイル名の規則に一致する JSON だけ消す
         let legacyFiles = (try? fileManager.contentsOfDirectory(
             at: fileManager.temporaryDirectory,
             includingPropertiesForKeys: nil
         )) ?? []
-        for url in legacyFiles where url.pathExtension == "json" {
+        for url in legacyFiles where isLegacyExportName(url.lastPathComponent) {
             try? fileManager.removeItem(at: url)
+        }
+    }
+
+    /// 旧版のエクスポート名「(アプリ表示名)_yyyyMMdd_HHmmss.json」か
+    private static func isLegacyExportName(_ name: String) -> Bool {
+        // 過去の表示名（ja=クレメモ / en=Deferin、改名前の CreditMemo）と現在の表示名
+        let appNames = Set(["クレメモ", "Deferin", "CreditMemo", appDisplayName])
+        return appNames.contains { appName in
+            let prefix = appName + "_"
+            guard name.hasPrefix(prefix), name.hasSuffix(".json") else { return false }
+            // 表示名と拡張子の間が「8桁_6桁」の日時であることを確かめる
+            let stamp = name.dropFirst(prefix.count).dropLast(".json".count)
+            let pieces = stamp.split(separator: "_", omittingEmptySubsequences: false)
+            return pieces.count == 2
+                && pieces[0].count == 8 && pieces[1].count == 6
+                && pieces.allSatisfy { $0.allSatisfy(\.isASCII) && $0.allSatisfy(\.isNumber) }
         }
     }
 
