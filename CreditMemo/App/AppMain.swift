@@ -198,6 +198,8 @@ struct AppMain: App {
     // MARK: - 移行後の初期化
 
     private func runPostMigrationInit(container: ModelContainer) {
+        // 共有中の強制終了などで残った、決済情報を含む一時JSONを起動時に消す
+        ExportFile.removeTemporaryFiles()
         SeedData.seedIfNeeded(context: container.mainContext)
         do {
             // 和暦環境で遠未来に保存された引き落とし日を起動時に修復する

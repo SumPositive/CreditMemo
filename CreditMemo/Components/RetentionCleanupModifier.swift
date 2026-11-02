@@ -105,9 +105,7 @@ struct RetentionCleanupModifier: ViewModifier {
             await Task.yield()
             do {
                 let data = try await JSONExport.exportData(context: context, style: .compact)
-                let name = ExportFile.jsonName()
-                let url = FileManager.default.temporaryDirectory.appendingPathComponent(name)
-                try data.write(to: url)
+                let url = try ExportFile.writeTemporaryJSON(data)
                 exportedURL = url
                 showShareSheet = true
                 isWorking = false
@@ -121,6 +119,8 @@ struct RetentionCleanupModifier: ViewModifier {
     /// 共有シートが閉じたときの合図。完了ハンドラと順序が前後してもよいよう、両方揃った時点で処理する。
     private func onShareDismiss() {
         exportedURL = nil
+        // 共有・キャンセルのどちらでも、閉じたら決済情報を含む一時JSONを消す
+        ExportFile.removeTemporaryFiles()
         shareDismissed = true
         finishShareIfReady()
         // 完了ハンドラが呼ばれないケース（一部の共有先/iOS）への保険。

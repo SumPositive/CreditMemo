@@ -467,7 +467,11 @@ struct SettingsView: View {
                 // ヘルプシートの背面を透かさない
                 .presentationBackground(Color(uiColor: .systemBackground))
         }
-        .sheet(isPresented: $showShareSheet) {
+        .sheet(isPresented: $showShareSheet, onDismiss: {
+            // 共有・キャンセルのどちらでも、閉じたら決済情報を含む一時JSONを消す
+            exportedURL = nil
+            ExportFile.removeTemporaryFiles()
+        }) {
             if let url = exportedURL {
                 ExportShareSheet(url: url)
                     .ignoresSafeArea()
@@ -642,11 +646,9 @@ struct SettingsView: View {
                     // 工程の説明文を逐次切り替える
                     progressMessage = phase.message(locale: Locale.current)
                 }
-                let name = ExportFile.jsonName()
-                let url  = FileManager.default.temporaryDirectory.appendingPathComponent(name)
                 progressMessage = exportWritingText
                 await Task.yield()
-                try data.write(to: url)
+                let url = try ExportFile.writeTemporaryJSON(data)
                 exportedURL    = url
                 showShareSheet = true
             } catch {
