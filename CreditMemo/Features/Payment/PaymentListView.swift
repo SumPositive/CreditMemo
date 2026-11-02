@@ -173,10 +173,21 @@ struct PaymentListView: View {
     /// 済みの全件（日付降順）。90日窓のフィルタ元にする。
     /// 済みは件数が限られるため一括保持し、窓を広げるだけで遡れるようにする。
     @State private var allPaidPaymentsCache: [E7payment] = []
+    /// 未払が残る支払のうち済みの請求を含むものの全件（日付降順）。
+    /// 手段・日付の集計では、この中の済みの請求も済み側に出す
+    @State private var allPartlyPaidPaymentsCache: [E7payment] = []
+    /// 90日窓で切り出した、済みの請求を含む未払の支払
+    @State private var partlyPaidPayments: [E7payment] = []
+
+    /// 済み側の元データ。口座単位では支払ごと、手段・日付では請求ごとに振り分けるので混在支払も含める
+    private var paidSourceCache: [E7payment] {
+        groupMode == .bank ? allPaidPaymentsCache : allPaidPaymentsCache + allPartlyPaidPaymentsCache
+    }
 
     /// 現在の90日窓より古い済みがまだあるか（区切りを出すか＝つづけて見る可否）
     private var hasMorePaid: Bool {
-        paidPayments.count < allPaidPaymentsCache.count
+        let cutoff = paidWindowCutoff
+        return paidSourceCache.contains { $0.date < cutoff }
     }
 
     /// 現在の窓の下限（この日時より前は「これより古い」）
@@ -186,7 +197,9 @@ struct PaymentListView: View {
     }
 
     private var hasAnyPayments: Bool {
+        // 1年より古い混在支払だけが窓に入る場合も空表示にしない
         !upcomingUnpaidPayments.isEmpty || !overdueUnpaidPayments.isEmpty || !paidPayments.isEmpty
+            || (groupMode != .bank && !partlyPaidPayments.isEmpty)
     }
 
     private var shouldCenterBoundaryOnScroll: Bool {
@@ -473,16 +486,25 @@ struct PaymentListView: View {
         if resetWindow {
             paidWindowDays = 90
         }
-        allPaidPaymentsCache = fetchAllPaidPaymentsSorted()
+        loadPaidCaches()
         applyPaidWindow()
         rebuildDisplayItems()
         isInitialLoading = false
+    }
+
+    /// 済みの支払と、済みの請求を含む未払の支払を全件読んでキャッシュする
+    private func loadPaidCaches() {
+        let all = fetchAllPaymentsSorted()
+        allPaidPaymentsCache = all.filter(\.isPaid)
+        // 未払側の取得範囲（1年・件数制限）に依存せず、遡って見られるよう全期間から拾う
+        allPartlyPaidPaymentsCache = all.filter { !$0.isPaid && $0.e2invoices.contains(\.isPaid) }
     }
 
     /// 90日窓（今日〜paidWindowDays日前）の済みを切り出して paidPayments に反映する
     private func applyPaidWindow() {
         let cutoff = paidWindowCutoff
         paidPayments = allPaidPaymentsCache.filter { cutoff <= $0.date }
+        partlyPaidPayments = allPartlyPaidPaymentsCache.filter { cutoff <= $0.date }
     }
 
     private func scrollToInitialPosition(proxy: ScrollViewProxy) async {
@@ -559,9 +581,9 @@ struct PaymentListView: View {
         let nextUpcomingItems = buildDisplayItems(from: upcomingUnpaidPayments, isPaid: false)
         let nextOverdueItems = buildDisplayItems(from: overdueUnpaidPayments, isPaid: false)
         // 手段・日付の集計では請求ごとに未払/済みを振り分ける。口座単位の支払に未払と済みの請求が
-        // 混ざっていると支払は未払側に入るので、その中の済みの請求も済み側へ拾う
-        let partlyPaidPayments = groupMode == .bank ? [] : upcomingUnpaidPayments + overdueUnpaidPayments
-        let nextPaidItems = buildDisplayItems(from: paidPayments + partlyPaidPayments, isPaid: true)
+        // 混ざっていると支払は未払側に入るので、その中の済みの請求も済みと同じ90日窓で拾う
+        let mixedPayments = groupMode == .bank ? [] : partlyPaidPayments
+        let nextPaidItems = buildDisplayItems(from: paidPayments + mixedPayments, isPaid: true)
 
         upcomingItems = nextUpcomingItems
         overdueItems = nextOverdueItems
@@ -618,7 +640,7 @@ struct PaymentListView: View {
     private func reloadPaymentsKeepingPaidPage() {
         upcomingUnpaidPayments = fetchUpcomingUnpaidPayments()
         overdueUnpaidPayments = fetchOverdueUnpaidPayments(limit: overduePageSize)
-        allPaidPaymentsCache = fetchAllPaidPaymentsSorted()
+        loadPaidCaches()
         applyPaidWindow()
         rebuildDisplayItems()
     }
@@ -642,7 +664,7 @@ struct PaymentListView: View {
         let today = AppCalendar.gregorian.startOfDay(for: Date())
         // 現在の窓より古い最も新しい済みの日付（＝次に見せたいデータ）
         let cutoff = paidWindowCutoff
-        guard let nextDate = allPaidPaymentsCache
+        guard let nextDate = paidSourceCache
             .map(\.date)
             .filter({ $0 < cutoff })
             .max()
@@ -704,13 +726,13 @@ struct PaymentListView: View {
         return context.fetchReporting(descriptor, entity: "E7payment").contains { !$0.isPaid }
     }
 
-    /// 済みを全件・日付降順で読む。90日窓で切り出す元データにする。
-    /// 過去へ遡って削除できるよう1年フィルタは掛けない（済みは件数が限られ軽い）。
-    private func fetchAllPaidPaymentsSorted() -> [E7payment] {
+    /// 支払を全件・日付降順で読む。済みと混在支払を90日窓で切り出す元データにする。
+    /// 過去へ遡って削除できるよう1年フィルタは掛けない（E7payment は日付+口座単位で件数が限られ軽い）。
+    private func fetchAllPaymentsSorted() -> [E7payment] {
         let descriptor = FetchDescriptor<E7payment>(
             sortBy: [SortDescriptor(\E7payment.date, order: .reverse)]
         )
-        return context.fetchReporting(descriptor, entity: "E7payment").filter(\.isPaid)
+        return context.fetchReporting(descriptor, entity: "E7payment")
     }
 
     private func buildDisplayItems(from payments: [E7payment], isPaid: Bool) -> [PaymentDisplayItem] {
