@@ -186,7 +186,7 @@ struct AppMain: App {
             case .background:
                 let ctx = container.mainContext
                 // 一括処理の途中状態は保存しない（処理の最後にまとめて保存する）
-                if ctx.hasChanges && !BulkWriteGuard.isActive {
+                if ctx.hasChanges && !BulkWriteGuard.isActive(ctx) {
                     ctx.saveReporting(operation: "AppMain.backgroundSave")
                 }
             default:

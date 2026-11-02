@@ -28,11 +28,13 @@ struct ReconciliationNewRecordDraft: Identifiable {
 /// 処理中は自動保存とバックグラウンド保存を止め、失敗時は処理前の状態へ巻き戻す
 @MainActor
 enum BulkWriteGuard {
-    /// 実行中の一括処理の数
-    private static var activeCount = 0
+    /// ModelContext ごとの実行中の一括処理の数。別の context（テストの並列実行など）には影響させない
+    private static var activeCounts: [ObjectIdentifier: Int] = [:]
 
-    /// 一括処理中か。true の間はバックグラウンド保存を見送る
-    static var isActive: Bool { 0 < activeCount }
+    /// その context で一括処理中か。true の間は保存を伴う処理を見送る
+    static func isActive(_ context: ModelContext) -> Bool {
+        0 < activeCounts[ObjectIdentifier(context), default: 0]
+    }
 
     /// 自動保存を止めて body を実行する。保存は body の中で最後に1回だけ行う
     static func run<T>(
@@ -45,9 +47,11 @@ enum BulkWriteGuard {
         }
         let wasAutosaveEnabled = context.autosaveEnabled
         context.autosaveEnabled = false
-        activeCount += 1
+        let key = ObjectIdentifier(context)
+        activeCounts[key, default: 0] += 1
         defer {
-            activeCount -= 1
+            let remaining = activeCounts[key, default: 1] - 1
+            activeCounts[key] = remaining <= 0 ? nil : remaining
             context.autosaveEnabled = wasAutosaveEnabled
         }
         do {
@@ -1283,7 +1287,7 @@ enum RecordService {
     @discardableResult
     static func generateDueRepeatRecords(now: Date = Date(), context: ModelContext) throws -> Int {
         // 一括削除・インポートの途中は、保存で途中状態まで確定しないよう見送る（次の前面復帰・日付変更で作る）
-        if BulkWriteGuard.isActive {
+        if BulkWriteGuard.isActive(context) {
             return 0
         }
         let result = generateDueRepeatRecordsWithoutCommit(now: now, context: context)
