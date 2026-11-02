@@ -223,10 +223,18 @@ enum JSONImport {
         context: ModelContext,
         onProgress: ((Progress) -> Void)? = nil
     ) async throws -> Result {
-        // 中断時に取込途中のデータが自動保存されないよう明示保存まで止める
-        let wasAutosaveEnabled = context.autosaveEnabled
-        context.autosaveEnabled = false
-        defer { context.autosaveEnabled = wasAutosaveEnabled }
+        // 取込途中に自動保存・バックグラウンド保存が走らないよう、1つの保存単位で進める
+        try await BulkWriteGuard.run(context: context) {
+            try await importDataBody(from: url, context: context, onProgress: onProgress)
+        }
+    }
+
+    /// インポートの本体。保存は最後の1回だけ行い、失敗時は呼び出し元で巻き戻す
+    private static func importDataBody(
+        from url: URL,
+        context: ModelContext,
+        onProgress: ((Progress) -> Void)?
+    ) async throws -> Result {
 
         func report(_ phase: Phase, completed: Int? = nil, total: Int? = nil) {
             let progress = Progress(phase: phase, completed: completed, total: total)

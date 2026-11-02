@@ -24,6 +24,42 @@ struct ReconciliationNewRecordDraft: Identifiable {
     var tags: [E5tag] = []
 }
 
+/// 途中で await Task.yield() を挟む一括処理を、1つの保存単位として扱う。
+/// 処理中は自動保存とバックグラウンド保存を止め、失敗時は処理前の状態へ巻き戻す
+@MainActor
+enum BulkWriteGuard {
+    /// 実行中の一括処理の数
+    private static var activeCount = 0
+
+    /// 一括処理中か。true の間はバックグラウンド保存を見送る
+    static var isActive: Bool { 0 < activeCount }
+
+    /// 自動保存を止めて body を実行する。保存は body の中で最後に1回だけ行う
+    static func run<T>(
+        context: ModelContext,
+        _ body: () async throws -> T
+    ) async throws -> T {
+        // 巻き戻しで処理前の未保存変更まで消さないよう、先に確定しておく
+        if context.hasChanges {
+            try context.save()
+        }
+        let wasAutosaveEnabled = context.autosaveEnabled
+        context.autosaveEnabled = false
+        activeCount += 1
+        defer {
+            activeCount -= 1
+            context.autosaveEnabled = wasAutosaveEnabled
+        }
+        do {
+            return try await body()
+        } catch {
+            // 再集計前の途中状態を残さない
+            context.rollback()
+            throw error
+        }
+    }
+}
+
 /// E3record 保存・削除・繰り返し処理と集計再計算
 @MainActor
 enum RecordService {
@@ -416,6 +452,18 @@ enum RecordService {
         if oldRecords.isEmpty {
             return
         }
+        // 削除途中に自動保存・バックグラウンド保存が走らないよう、1つの保存単位で進める
+        try await BulkWriteGuard.run(context: context) {
+            try await deleteRecords(oldRecords, context: context, onProgress: onProgress)
+        }
+    }
+
+    /// 年数指定の一括削除の本体。保存は最後の1回だけ行う
+    private static func deleteRecords(
+        _ oldRecords: [E3record],
+        context: ModelContext,
+        onProgress: ((Int, Int) -> Void)?
+    ) async throws {
         // 一括削除は影響範囲だけ蓄積し、掃除・再集計は最後に1回だけ行う。
         // 1件ずつ recalculate すると、請求/支払を共有する明細で既に削除済みの
         // オブジェクトへ触れてクラッシュし、かつ件数分の全件フェッチで固まるため。

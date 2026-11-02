@@ -185,7 +185,10 @@ struct AppMain: App {
                 generateDueRepeatRecords(container: container)
             case .background:
                 let ctx = container.mainContext
-                if ctx.hasChanges { ctx.saveReporting(operation: "AppMain.backgroundSave") }
+                // 一括処理の途中状態は保存しない（処理の最後にまとめて保存する）
+                if ctx.hasChanges && !BulkWriteGuard.isActive {
+                    ctx.saveReporting(operation: "AppMain.backgroundSave")
+                }
             default:
                 break
             }
