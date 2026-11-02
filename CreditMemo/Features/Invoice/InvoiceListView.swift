@@ -110,6 +110,8 @@ struct InvoiceListView: View {
     private let showsBankHeader: Bool
     /// 引き落とし状況からのフィルタ。nil の時は絞り込まない
     private let invoiceFilter: InvoiceListFilter?
+    /// 遷移元が手段別の行のときの手段ID。タグ絞り込みで同じ口座の別の手段を混ぜないために使う
+    private let rowCardIDs: Set<String?>?
 
     /// 表示対象の請求書。`reloadKey` で `.id()` リセットされたタイミングで、
     /// context から再フェッチして最新を取り直す。
@@ -131,7 +133,12 @@ struct InvoiceListView: View {
             if payment != nil {
                 // 未払と済みで支払が分かれるので、支払そのものではなく口座で範囲を決める
                 let bankID = openedBank?.id
-                rowScopedFetched = fetched.filter { $0.e7payment?.e8bank?.id == bankID }
+                let cardIDs = rowCardIDs
+                rowScopedFetched = fetched.filter { invoice in
+                    // 手段別の行から開いたときは、口座に加えて手段でも範囲を決める
+                    invoice.e7payment?.e8bank?.id == bankID
+                        && (cardIDs?.contains(invoice.e1card?.id) ?? true)
+                }
             } else if let staticInvoices {
                 // 済みにすると明細は同じ手段の済みの請求へ移るので、請求ではなく手段で範囲を決める
                 let cardIDs = Set(staticInvoices.map { $0.e1card?.id })
@@ -353,8 +360,9 @@ struct InvoiceListView: View {
     /// 照合の保存に失敗したことを知らせる
     @State private var showReconciliationSaveFailed = false
 
-    init(payment: E7payment, filter: InvoiceListFilter? = nil) {
+    init(payment: E7payment, filter: InvoiceListFilter? = nil, rowCardIDs: Set<String?>? = nil) {
         self.payment = payment
+        self.rowCardIDs = rowCardIDs
         self._openedBank = State(initialValue: payment.e8bank)
         // payment 経由ではライブな e2invoices を参照するため、スナップショットは保持しない
         self.staticInvoices = nil
@@ -367,6 +375,7 @@ struct InvoiceListView: View {
 
     init(displayItem: PaymentDisplayItem, filter: InvoiceListFilter? = nil) {
         self.payment = displayItem.detailPayment
+        self.rowCardIDs = displayItem.rowCardIDs
         self._openedBank = State(initialValue: displayItem.detailPayment?.e8bank)
         self.staticInvoices = displayItem.invoices
         self.displayDate = displayItem.date
