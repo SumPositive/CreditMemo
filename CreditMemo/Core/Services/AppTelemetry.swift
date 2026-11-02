@@ -336,6 +336,22 @@ extension ModelContext {
         }
     }
 
+    /// 取得失敗を診断送信したうえで呼び出し元へ返す。
+    /// 空配列で続けると欠けたデータを正常として扱ってしまう処理（バックアップ等）で使う
+    func fetchThrowingReporting<T: PersistentModel>(
+        _ descriptor: FetchDescriptor<T>,
+        entity: String,
+        operation: String = #function,
+        detail: String? = nil
+    ) throws -> [T] {
+        do {
+            return try fetch(descriptor)
+        } catch {
+            AppTelemetry.reportSwiftDataError(error, operation: operation, entity: entity, detail: detail)
+            throw error
+        }
+    }
+
     func fetchCountReporting<T: PersistentModel>(
         _ descriptor: FetchDescriptor<T>,
         entity: String,

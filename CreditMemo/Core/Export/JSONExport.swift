@@ -134,21 +134,22 @@ enum JSONExport {
         onPhase: ((Phase) -> Void)? = nil
     ) async throws -> Data {
         // 画面へ進行表示を出せるように、工程ごとに通知する
+        // 取得に失敗したら欠けたJSONを作らず、呼び出し元へエラーを返す（共有後に元データを削除する処理があるため）
         onPhase?(.readingBanks)
         await Task.yield()
-        let banks      = context.fetchReporting(FetchDescriptor<E8bank>(), entity: "E8bank")
+        let banks      = try context.fetchThrowingReporting(FetchDescriptor<E8bank>(), entity: "E8bank")
         onPhase?(.readingCards)
         await Task.yield()
-        let cards      = context.fetchReporting(FetchDescriptor<E1card>(sortBy: [SortDescriptor(\E1card.nRow)]), entity: "E1card")
+        let cards      = try context.fetchThrowingReporting(FetchDescriptor<E1card>(sortBy: [SortDescriptor(\E1card.nRow)]), entity: "E1card")
         onPhase?(.readingCategories)
         await Task.yield()
-        let tags       = context.fetchReporting(FetchDescriptor<E5tag>(), entity: "E5tag")
+        let tags       = try context.fetchThrowingReporting(FetchDescriptor<E5tag>(), entity: "E5tag")
         onPhase?(.readingRecords)
         await Task.yield()
-        let records    = context.fetchReporting(FetchDescriptor<E3record>(sortBy: [SortDescriptor(\E3record.dateUse)]), entity: "E3record")
-        let parts      = context.fetchReporting(FetchDescriptor<E6part>(sortBy: [SortDescriptor(\E6part.nPartNo)]), entity: "E6part")
-        let invoices   = context.fetchReporting(FetchDescriptor<E2invoice>(sortBy: [SortDescriptor(\E2invoice.date)]), entity: "E2invoice")
-        let payments   = context.fetchReporting(FetchDescriptor<E7payment>(sortBy: [SortDescriptor(\E7payment.date)]), entity: "E7payment")
+        let records    = try context.fetchThrowingReporting(FetchDescriptor<E3record>(sortBy: [SortDescriptor(\E3record.dateUse)]), entity: "E3record")
+        let parts      = try context.fetchThrowingReporting(FetchDescriptor<E6part>(sortBy: [SortDescriptor(\E6part.nPartNo)]), entity: "E6part")
+        let invoices   = try context.fetchThrowingReporting(FetchDescriptor<E2invoice>(sortBy: [SortDescriptor(\E2invoice.date)]), entity: "E2invoice")
+        let payments   = try context.fetchThrowingReporting(FetchDescriptor<E7payment>(sortBy: [SortDescriptor(\E7payment.date)]), entity: "E7payment")
 
         let bankData     = banks.map      { BankData(id: $0.id, name: $0.zName, note: $0.zNote, row: Int($0.nRow)) }
         let cardData     = cards.map      { c in
